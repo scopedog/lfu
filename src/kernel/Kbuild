@@ -1,0 +1,10 @@
+# External-module build for the LFU kernel harnesses against a built lustre
+# tree:
+#   make -C /lib/modules/$(uname -r)/build M=$PWD LUS=/root/lustre-release \
+#        KBUILD_EXTRA_SYMBOLS=$(LUS)/Module.symvers modules
+obj-m := lfu_it.o lfu_fanout.o lfu_ring.o lfu_par.o
+LUS ?= /root/lustre-release
+ccflags-y := -include $(LUS)/config.h \
+	-I$(LUS)/include -I$(LUS)/include/uapi \
+	-I$(LUS)/lnet/include -I$(LUS)/lustre/include \
+	-Wno-format-truncation

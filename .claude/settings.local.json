@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:claude.ai)",
+      "Bash(gcloud config *)",
+      "Bash(timeout 60 gcloud compute instances list)"
+    ]
+  }
+}

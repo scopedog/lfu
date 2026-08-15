@@ -1,0 +1,115 @@
+LFU step-5 ZFS lab, 2026-08-15.  Verbatim harness output (dmesg lines from
+lfu_par) plus the userspace device scanner comparison.
+
+Instance: GCP lfu-zfs-lab, c3-standard-8 (Intel Xeon Platinum 8481C @ 2.70GHz),
+          100 GB pd-balanced, us-central1-a
+OS: Rocky Linux 9.8, kernel 5.14.0-687.36.1.el9_8.x86_64
+OpenZFS: zfs-2.2.10-1 / zfs-kmod-2.2.10-1 (DKMS) -- same version as the
+         2026-08-10 lab
+Lustre: v2_17_55 (21e12010b3), --enable-server --with-zfs --disable-ldiskfs,
+        + rec-attr + rec-attr-zfs + parallel-it + bench-noverify-zfs
+        modinfo osd_zfs: version 2.17.55_dirty, srcversion 8618D60C01C62171255F7BE
+Pools: lustre-mdt (24 GiB file vdev /tmp/zfs-mdt-vdev, ashift=12),
+       lustre-ost (8 GiB).  MGS+MDT0 = lustre-mdt/mdt0, OST0 = lustre-ost/ost0,
+       local client at /mnt/lustre.  Built by hand (llmount.sh is broken on
+       this image).  recordsize=1M.
+Namespace: createmany -m, 4 x 500,000 -> 2,000,333 client-visible inodes,
+           2,000,096 objects seen by the scan (~7,989 creates/s per stream)
+Knob: osd_zfs_lfu_noverify=1 for all rate rows (patches/bench-noverify-zfs-*),
+      so the singleton baseline runs in the same no-verification configuration
+      as the private path.  Section 4 uses =0 deliberately.
+debug=0 throughout.
+
+=== 1. WARM MATRIX, full filesystem mounted, chunk=65536 ===
+warmup                 objects=2000096 attr_ok=2000096 fidsum=39d945cad6c1b98d chunks=62 time=4.302s rate=464922/s per-thread min=458752 max=524288 err=0
+singleton.p1           objects=2000096 attr_ok=2000096 fidsum=39d945cad6c1b98d chunks=1 time=12.949s rate=154459/s per-thread min=2000096 max=2000096 err=0
+private-j1.p1          objects=2000096 attr_ok=2000096 fidsum=39d945cad6c1b98d chunks=62 time=10.429s rate=191782/s per-thread min=2000096 max=2000096 err=0
+private-j2.p1          objects=2000096 attr_ok=2000096 fidsum=39d945cad6c1b98d chunks=62 time=6.362s rate=314381/s per-thread min=984480 max=1015616 err=0
+private-j4.p1          objects=2000096 attr_ok=2000096 fidsum=39d945cad6c1b98d chunks=62 time=4.329s rate=462022/s per-thread min=458560 max=524288 err=0
+private-j8.p1          objects=2000096 attr_ok=2000096 fidsum=39d945cad6c1b98d chunks=62 time=3.616s rate=553123/s per-thread min=229184 max=262144 err=0
+private-j16.p1         objects=2000096 attr_ok=2000096 fidsum=39d945cad6c1b98d chunks=62 time=3.562s rate=561509/s per-thread min=98304 max=131072 err=0
+singleton.p2           objects=2000096 ... time=12.863s rate=155492/s
+private-j1.p2          objects=2000096 ... time=10.325s rate=193713/s
+private-j2.p2          objects=2000096 ... time=6.310s  rate=316972/s
+private-j4.p2          objects=2000096 ... time=4.317s  rate=463306/s
+private-j8.p2          objects=2000096 ... time=3.610s  rate=554043/s
+private-j16.p2         objects=2000096 ... time=3.572s  rate=559937/s
+singleton.p3           objects=2000096 ... time=13.343s rate=149898/s
+private-j1.p3          objects=2000096 ... time=10.307s rate=194052/s
+private-j2.p3          objects=2000096 ... time=6.331s  rate=315921/s
+private-j4.p3          objects=2000096 ... time=4.314s  rate=463629/s
+private-j8.p3          objects=2000096 ... time=3.605s  rate=554811/s
+private-j16.p3         objects=2000096 ... time=3.552s  rate=563090/s
+(every row: attr_ok=2000096 fidsum=39d945cad6c1b98d err=0)
+
+--- FID only (recattr=0) ---
+noattr-j1.p1           objects=2000096 attr_ok=0 fidsum=39d945cad6c1b98d time=9.886s  rate=202316/s
+noattr-j4.p1           objects=2000096 attr_ok=0 fidsum=39d945cad6c1b98d time=4.243s  rate=471387/s
+noattr-j1.p2           objects=2000096 attr_ok=0 fidsum=39d945cad6c1b98d time=10.048s rate=199054/s
+noattr-j4.p2           objects=2000096 attr_ok=0 fidsum=39d945cad6c1b98d time=4.246s  rate=471054/s
+
+--- shard size sweep at j4 ---
+chunk16384-j4          chunks=245 time=4.319s rate=463092/s per-thread min=452000 max=524288
+chunk32768-j4          chunks=123 time=4.318s rate=463199/s per-thread min=458752 max=524288
+chunk65536-j4          chunks=62  time=4.317s rate=463306/s per-thread min=458560 max=524288
+chunk131072-j4         chunks=31  time=4.295s rate=465680/s per-thread min=427424 max=524288
+chunk524288-j4         chunks=8   time=4.476s rate=446848/s per-thread min=427424 max=524288
+(all: objects=2000096 attr_ok=2000096 fidsum=39d945cad6c1b98d)
+
+=== 2. PERF, warm, aggregated over lfu_par* threads (flat, --sort symbol) ===
+j1:                                  j8:                          j16:
+ 14.42% mutex_lock                    11.27% zrl_add_impl          11.76% zrl_add_impl
+ 13.71% _raw_spin_lock                10.46% mutex_lock            10.61% mutex_lock
+  9.55% pv_queued_spin_unlock         10.30% _raw_spin_lock          7.44% pv_queued_spin_unlock
+  8.79% mutex_unlock                   7.07% mutex_unlock            7.43% mutex_unlock
+  3.22% zrl_add_impl                   7.04% zrl_remove              7.22% zrl_remove
+  2.81% nvt_remove_nvpair              4.46% down_read               4.54% down_read
+  2.44% LZ4_uncompress_unknownOut..    3.72% dnode_hold_impl         3.73% dnode_hold_impl
+  2.33% dbuf_rele_and_unlock           3.02% dbuf_rele_and_unlock    3.27% dbuf_rele_and_unlock
+  2.24% zrl_remove                     2.31% up_read                 2.27% up_read
+  2.01% kfree                          2.02% dbuf_hold_impl          2.18% __cv_signal
+  1.83% dnode_hold_impl                1.90% __cv_signal             2.16% dbuf_hold_impl
+No single symbol above ~12% at any thread count -- contrast ldiskfs, where
+__pv_queued_spin_lock_slowpath is 83.31% at j8.
+
+=== 3. COLD (umount -> zpool export -> drop_caches -> import -d /tmp -> mount) ===
+cold-singleton objects=2000096 attr_ok=2000096 fidsum=e78187edf05768f8 chunks=1  time=20.455s rate=97780/s
+cold-j1        objects=2000097 attr_ok=2000097 fidsum=afe8a631eb08cdf5 chunks=62 time=17.298s rate=115625/s
+cold-j4        objects=2000098 attr_ok=2000098 fidsum=c2dbad988493ed2c chunks=62 time=6.482s  rate=308561/s
+cold-j8        objects=2000099 attr_ok=2000099 fidsum=205a9e21bcf8c69d chunks=62 time=4.712s  rate=424469/s
+warm ref (same mount, MDT only, j8)                                       time=3.995s  rate=500650/s
+(+1 object per mount cycle, as on ldiskfs.)
+
+=== 4. LFSCK / OI-SCRUB COEXISTENCE (osd_zfs_lfu_noverify=0: real verifying scrub) ===
+1. no scrub running, singleton:
+   objects=2000096 attr_ok=2000096 fidsum=39d945cad6c1b98d chunks=1 time=17.142s rate=116678/s err=0
+2. lctl lfsck_start -M lustre-MDT0000 -t scrub -r   (status: scanning)
+   -- singleton (private=0) while scrub runs:
+      objects=0 ... rate=0/s err=-114        <- -EALREADY
+   -- private (private=1 nthreads=4) while scrub runs:
+      objects=2000096 attr_ok=2000096 fidsum=39d945cad6c1b98d chunks=62 time=5.095s rate=392560/s err=0
+3. scrub afterwards: status: completed, updated: 0, failed: 0, run_time: 24 seconds.  Undisturbed.
+
+=== 5. USERSPACE ZFS DEVICE SCANNER, same lab / namespace / hardware ===
+Built on the lab: make zfs ZFS_SRC=/usr/src/zfs-2.2.10 (the DKMS source tree).
+Pool exported, Lustre unmounted.  `-q -e -p /tmp lustre-mdt/mdt0`.
+Emits 2,000,009 objects (87 fewer than the in-kernel harness counts -- the
+userspace classifier drops internal objects the raw iterator still returns).
+
+cold (drop_caches before each):
+  -j 1   24.50s ->  81,633 obj/s
+  -j 4   11.62s -> 172,118 obj/s
+  -j 8    9.15s -> 218,580 obj/s
+  -j 16   9.09s -> 220,023 obj/s
+  -j 24   9.24s -> 216,451 obj/s
+warm repeat (no drop_caches):
+  -j 1   24.33s   (vs 24.50 cold -- no benefit)
+  -j 8    9.30s   (vs 9.15 cold)
+  -j 24   9.14s   (vs 9.24 cold)
+libzpool's ARC is process-local and dies with the process, so "warm" does not
+exist for it -- reproducing the 2026-08-10 finding exactly.
+
+Head to head on this lab:
+  in-kernel private j8 warm  554,043 obj/s   = 2.52x the userspace best
+  in-kernel private j8 cold  424,469 obj/s   = 1.93x the userspace best
+  userspace best (-j 16)     220,023 obj/s

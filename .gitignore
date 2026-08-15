@@ -1,0 +1,13 @@
+# build artifacts
+build/
+*.o
+*.ko
+*.mod
+*.mod.c
+*.cmd
+.tmp_versions/
+Module.symvers
+modules.order
+
+# internal upstream analysis — kept local, not published
+docs/upstream-collision-68019.md

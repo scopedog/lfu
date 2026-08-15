@@ -1,0 +1,34 @@
+Bench-only knob: `osd_zfs_lfu_noverify=1` skips OI verification in the osd-zfs
+scrub, mirroring the `lfu_noverify` parm the ldiskfs rec-attr patch carries.
+
+It exists so the DOIF_PARALLEL private iterator (which never runs the scrub and
+therefore never verifies) can be compared against the singleton otable iterator
+in the *same* configuration.  Without it the ZFS A/B compares "no verification"
+against "verification", which flatters the private path.
+
+NOT part of the upstream-facing stack -- measurement scaffolding only.
+
+--- a/lustre/osd-zfs/osd_scrub.c
++++ b/lustre/osd-zfs/osd_scrub.c
+@@ -35,6 +35,11 @@
+ #include "osd_internal.h"
+
+ #define OSD_OTABLE_MAX_HASH		((1ULL << 48) - 1)
++
++static bool osd_zfs_lfu_noverify;
++module_param(osd_zfs_lfu_noverify, bool, 0644);
++MODULE_PARM_DESC(osd_zfs_lfu_noverify,
++		 "LFU benchmark: skip OI verification during scrub");
+ #define OTABLE_PREFETCH			256
+
+ #define SCRUB_NEXT_OSTOBJ	1 /* exist OST-object */
+@@ -157,6 +162,9 @@
+ 	scrub->os_new_checked++;
+ 	if (val < 0)
+ 		GOTO(out, rc = val);
++
++	if (osd_zfs_lfu_noverify)
++		GOTO(out, rc = 0);
+
+ 	if (scrub->os_in_prior)
+ 		oii = list_first_entry(&scrub->os_inconsistent_items,

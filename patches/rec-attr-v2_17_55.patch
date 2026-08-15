@@ -1,0 +1,153 @@
+diff --git a/lustre/include/dt_object.h b/lustre/include/dt_object.h
+index 89d455d19e..d656ccc472 100644
+--- a/lustre/include/dt_object.h
++++ b/lustre/include/dt_object.h
+@@ -1859,6 +1859,19 @@ enum dt_otable_it_flags {
+ 
+ 	/* Check only without repairing. */
+ 	DOIF_DRYRUN	= 0x0008,
++
++	/* Capture object attributes at iteration time; rec() can then return
++	 * them via struct dt_otable_rec (LFU).  Additive: OSDs without support
++	 * ignore the bit and rec() keeps the bare-FID contract. */
++	DOIF_ATTR	= 0x0010,
++};
++
++/* rec() attr bit requesting struct dt_otable_rec instead of a bare FID */
++#define DORA_ATTR 0x01
++
++struct dt_otable_rec {
++	struct lu_fid	dor_fid;
++	struct lu_attr	dor_attr;
+ };
+ 
+ /*
+diff --git a/lustre/osd-ldiskfs/osd_internal.h b/lustre/osd-ldiskfs/osd_internal.h
+index 40498c783e..5949b91e67 100644
+--- a/lustre/osd-ldiskfs/osd_internal.h
++++ b/lustre/osd-ldiskfs/osd_internal.h
+@@ -220,6 +220,9 @@ struct osd_inconsistent_item {
+ struct osd_otable_cache {
+ 	struct osd_idmap_cache ooc_cache[OSD_OTABLE_IT_CACHE_SIZE];
+ 
++	/* DOIF_ATTR: attributes captured at preload, same indices as above */
++	struct lu_attr	       ooc_attr[OSD_OTABLE_IT_CACHE_SIZE];
++
+ 	/* Index for next cache slot to be filled. */
+ 	int		       ooc_producer_idx;
+ 
+@@ -243,6 +246,7 @@ struct osd_otable_it {
+ 	 * protect, please add comment. */
+ 	unsigned long		 ooi_used_outside:1, /* Some user out of OSD
+ 						      * uses the iteration. */
++				 ooi_want_attr:1, /* DOIF_ATTR requested (LFU) */
+ 				 ooi_all_cached:1, /* No more entries can be
+ 						    * filled into cache. */
+ 				 ooi_user_ready:1, /* The user out of OSD is
+diff --git a/lustre/osd-ldiskfs/osd_scrub.c b/lustre/osd-ldiskfs/osd_scrub.c
+index e0bd203de8..02b103841a 100644
+--- a/lustre/osd-ldiskfs/osd_scrub.c
++++ b/lustre/osd-ldiskfs/osd_scrub.c
+@@ -29,6 +29,11 @@
+ #include <lustre_nodemap.h>
+ 
+ #include "osd_internal.h"
++
++static bool lfu_noverify;
++module_param(lfu_noverify, bool, 0644);
++MODULE_PARM_DESC(lfu_noverify,
++		 "LFU experiment: skip OI verification during scrub");
+ #include "osd_oi.h"
+ #include "osd_scrub.h"
+ 
+@@ -314,6 +319,9 @@ osd_scrub_check_update(struct osd_thread_info *info, struct osd_device *dev,
+ 	if (val < 0)
+ 		GOTO(out, rc = val);
+ 
++	if (lfu_noverify)
++		GOTO(skip, rc = 0);
++
+ 	if (scrub->os_in_prior) {
+ 		oii = list_entry(oic, struct osd_inconsistent_item,
+ 				 oii_cache);
+@@ -655,7 +663,8 @@ static int osd_scrub_get_fid(struct osd_thread_info *info,
+ 
+ static int osd_iit_iget(struct osd_thread_info *info, struct osd_device *dev,
+ 			struct lu_fid *fid, struct osd_inode_id *lid, __u32 pos,
+-			struct super_block *sb, bool is_scrub)
++			struct super_block *sb, bool is_scrub,
++			struct lu_attr *la)
+ {
+ 	struct lustre_scrub *scrub = &dev->od_scrub.os_scrub;
+ 	struct inode *inode;
+@@ -716,6 +725,23 @@ static int osd_iit_iget(struct osd_thread_info *info, struct osd_device *dev,
+ 		    scrub->os_ls_fids[index].f_oid < fid->f_oid)
+ 			scrub->os_ls_fids[index].f_oid = fid->f_oid;
+ 	}
++
++	/* DOIF_ATTR: the inode is in hand; capturing here is what spares the
++	 * consumer a dt_locate() re-read per object (LFU). */
++	if (la != NULL && rc >= 0) {
++		la->la_valid = LA_MODE | LA_NLINK | LA_UID | LA_GID |
++			       LA_SIZE | LA_BLOCKS | LA_ATIME | LA_MTIME |
++			       LA_CTIME;
++		la->la_mode = inode->i_mode;
++		la->la_nlink = inode->i_nlink;
++		la->la_uid = i_uid_read(inode);
++		la->la_gid = i_gid_read(inode);
++		la->la_size = i_size_read(inode);
++		la->la_blocks = inode->i_blocks;
++		la->la_atime = inode->i_atime.tv_sec;
++		la->la_mtime = inode->i_mtime.tv_sec;
++		la->la_ctime = inode->i_ctime.tv_sec;
++	}
+ 	GOTO(put, rc);
+ 
+ put:
+@@ -781,7 +807,7 @@ static int osd_scrub_next(struct osd_thread_info *info, struct osd_device *dev,
+ 	fid = &(*oic)->oic_fid;
+ 	lid = &(*oic)->oic_lid;
+ 	rc = osd_iit_iget(info, dev, fid, lid,
+-			  scrub->os_pos_current, param->sb, true);
++			  scrub->os_pos_current, param->sb, true, NULL);
+ 	return rc;
+ }
+ 
+@@ -804,7 +830,9 @@ static int osd_preload_next(struct osd_thread_info *info,
+ 	rc = osd_iit_iget(info, dev,
+ 			  &ooc->ooc_cache[ooc->ooc_producer_idx].oic_fid,
+ 			  &ooc->ooc_cache[ooc->ooc_producer_idx].oic_lid,
+-			  ooc->ooc_pos_preload, param->sb, false);
++			  ooc->ooc_pos_preload, param->sb, false,
++			  dev->od_otable_it->ooi_want_attr ?
++			  &ooc->ooc_attr[ooc->ooc_producer_idx] : NULL);
+ 	return rc;
+ }
+ 
+@@ -2787,6 +2815,9 @@ static struct dt_it *osd_otable_it_init(const struct lu_env *env,
+ 	if (flags & DOIF_RESET)
+ 		start |= SS_RESET;
+ 
++	if (flags & DOIF_ATTR)
++		it->ooi_want_attr = 1;
++
+ 	if (valid & DOIV_ERROR_HANDLE) {
+ 		if (flags & DOIF_FAILOUT)
+ 			start |= SS_SET_FAILOUT;
+@@ -2925,7 +2956,15 @@ static int osd_otable_it_rec(const struct lu_env *env, const struct dt_it *di,
+ 	struct osd_otable_it    *it  = (struct osd_otable_it *)di;
+ 	struct osd_otable_cache *ooc = &it->ooi_cache;
+ 
+-	*(struct lu_fid *)rec = ooc->ooc_cache[ooc->ooc_consumer_idx].oic_fid;
++	if ((attr & DORA_ATTR) && it->ooi_want_attr) {
++		struct dt_otable_rec *dor = (struct dt_otable_rec *)rec;
++
++		dor->dor_fid = ooc->ooc_cache[ooc->ooc_consumer_idx].oic_fid;
++		dor->dor_attr = ooc->ooc_attr[ooc->ooc_consumer_idx];
++	} else {
++		*(struct lu_fid *)rec =
++			ooc->ooc_cache[ooc->ooc_consumer_idx].oic_fid;
++	}
+ 
+ 	/* Filter out Invald FID already. */
+ 	LASSERTF(fid_is_sane((struct lu_fid *)rec),
