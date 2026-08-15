@@ -1,0 +1,91 @@
+LU-20591 (Xiong) vs LU-20462 (ours) — both scanners on one box, 2026-08-15
+Lab "lfu-xiong-lab", deleted after the runs.
+
+Instance: GCP c3-standard-8 (Intel Xeon Platinum 8481C @ 2.70GHz), 120 GB
+          pd-balanced, us-central1-a, Rocky 9.8, kernel 5.14.0-687.36.1.el9_8
+Two source trees, two full builds, --enable-server --enable-ldiskfs:
+  THEIRS  github lustre-release + Gerrit refs/changes/20/68020/1
+          (a7268a7a2a "LU-20591 target: select iterated objects by size and
+          time"); 68018 and 68019 confirmed ancestors of 68020, so the tag is
+          the whole series at patch set 1 — the current patch set as of
+          2026-08-15, and the one Gerrit currently marks Verified: REJECT.
+  OURS    v2_17_55 + rec-attr + rec-attr-zfs + parallel-it
+One MDT image (/dev/loop0, 20 GiB, 8,388,608 inodes) formatted and populated
+ONCE under their build, then reused by both rounds; modules swapped between
+rounds via `make install` + depmod + remount.  debug=0 throughout.
+Namespace: createmany -m 4 x 500,000.
+
+WHAT EACH SIDE COUNTS — not the same set, by design:
+  theirs 2,000,001 objects   MDT callback filters fid_is_norm() && S_ISREG(),
+                             so regular files only: no directories, no IGIF,
+                             no internal objects
+  ours   2,000,097 objects   full classification ladder
+  The 96-object difference is the scope gap, measured.
+
+=== THEIRS, warm, MDT mounted and serving ===
+lctl iterate_objects (their shipped CLI, stdout piped to wc -l):
+  bare   pass1 2000001 4.78s 418,168/s
+  bare   pass2 2000001 4.80s 416,706/s
+  bare   pass3 2000001 4.69s 426,342/s
+  attrs  pass1 2000001 5.71s 350,357/s   (--print-size --print-time --print-owner)
+  attrs  pass2 2000001 5.70s 351,074/s
+llapi_obj_iterate() with a do-nothing callback (no text formatting — the fair
+comparison against our ring, since an API consumer never pays the printf):
+  bare   pass1 objects=2000001 3.308s 604,517/s res_flags=0x1 rc=0
+  bare   pass2 objects=2000001 3.309s 604,374/s
+  bare   pass3 objects=2000001 3.329s 600,793/s
+  attrs  pass1 objects=2000001 attr_ok=2000001 3.309s 604,487/s
+  attrs  pass2/3 identical to pass1
+  res_flags=0x1 = LU_SCRUB_ITER_RES_EOF (clean end of device).
+  RES_SKIPPED (0x2) never set — their walk dropped nothing.
+
+  NOTE: bare and attrs are the SAME rate (604k either way).  That is their
+  design showing through, exactly as read from the source: mdt_scrub_iter_rec()
+  calls dt_locate() + dt_attr_get() unconditionally because it needs la_mode
+  for the S_ISREG() filter, so attributes are already paid for whether the
+  caller asked or not.  Asking for them is free; not asking saves nothing.
+
+=== OURS, warm, same MDT image, same box ===
+  singleton.p1/2/3   842,146 / 842,146 / 835,462     median   842,146
+  private j1         1,272,326 / 1,265,083 / 1,276,386  median 1,272,326
+  private j2         2,059,832 / 2,094,342 / 2,074,789  median 2,074,789
+  private j4         1,895,826 / 1,886,883 / 1,906,670  median 1,895,826
+  private j8         1,892,239 / 1,901,232 / 1,899,427  median 1,899,427
+  (objects=2000097 attr_ok=2000097 fidsum=c3038643552bb7e5 in every row;
+   the fidsum differs from the other 08-15 labs because this MDT was formatted
+   and populated under THEIR build, so internal-object FIDs differ.  Internally
+   consistent across every row of this lab.)
+
+=== HEAD TO HEAD, warm ===
+  theirs, lctl CLI with attrs       351,074   0.58x their own API
+  theirs, llapi API with attrs      604,487   1.00x  (baseline)
+  ours, singleton                   842,146   1.39x
+  ours, private 1 thread          1,272,326   2.10x
+  ours, private 2 threads         2,074,789   3.43x
+
+=== COLD (umount -> drop_caches -> remount MDT -> first pass) ===
+  theirs llapi attrs   171,310/s
+  ours   private j2    179,493/s   (1.05x — both device-bound, effectively a tie)
+
+=== LFSCK / OI-SCRUB COEXISTENCE (real verifying scrub, same box) ===
+  scrub running (status: scanning), then:
+    THEIRS llapi attrs        objects=0  rate=0  rc=-114 (-EALREADY)
+    OURS   private j4         objects=2000097  1,476,086/s  err=0
+    OURS   singleton          objects=0  err=-114            <- same failure as theirs
+  scrub afterwards, both cases: status: completed, updated: 0, failed: 0
+  Their DOIF_NOSCRUB stops their scan from STARTING a scrub; it does not let
+  the two coexist.  DOIF_PARALLEL does, and the singleton row proves the
+  difference is the flag and not our build.
+
+=== FAIRNESS NOTES ===
+- Their series is patch set 1, self-described on the ticket as AI-generated and
+  untested by the author, and currently Verified: REJECT in Gerrit.  These are
+  measurements of a design at an early stage, not a verdict on finished code.
+- They report fewer objects (regular files only), which is *less* work per
+  scan; their rate is if anything flattered by the narrower scope.
+- Their pull transport yields the device between batches by design; some of the
+  gap is that deliberate politeness, not inefficiency.
+- Our rate is an in-kernel discard loop; step 4 measured our ring +
+  copy_to_user + userspace core at ~0 marginal cost (796k vs 793k), so it is a
+  fair proxy for our end-to-end.  Their llapi number already includes their
+  full transport to userspace.
