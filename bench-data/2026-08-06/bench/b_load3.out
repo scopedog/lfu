@@ -1,0 +1,45 @@
+device      : /dev/vdd
+inode size  : 1024 bytes
+inodes      : 26843520 (32736 per group, 820 groups)
+block size  : 4096 bytes
+features    : uninit_bg ea_inode dirdata project
+warning     : metadata_csum is OFF — torn reads can only be detected heuristically (design M8)
+note        : journal not clean — target is mounted, or was not unmounted cleanly; scan sees un-replayed on-disk state
+
+--- scan summary ---
+inodes seen     : 12021274
+  free (bitmap) : 16311
+  deleted       : 0
+inodes in use   : 12004953
+  visible       : 12004697
+  internal      : 254
+  ost-obj       : 1
+  no-lma        : 1
+filtered (t0)   : 0
+emitted         : 12004697
+tier-2 (ext EA) : 0 (0.0% of in-use)
+skipped: csum=0 validate=0
+elapsed         : 17.76s (676785 inodes/sec)
+	Command being timed: "/tmp/lfu/build/lfu-scan-ldiskfs -q /dev/vdd"
+	User time (seconds): 3.55
+	System time (seconds): 4.45
+	Percent of CPU this job got: 45%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 0:17.76
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 5272
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 11
+	Minor (reclaiming a frame) page faults: 425
+	Voluntary context switches: 62859
+	Involuntary context switches: 53198
+	Swaps: 0
+	File system inputs: 24016392
+	File system outputs: 16
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 0

@@ -1,0 +1,27 @@
+LFU step-5 lab: parallel OSD enumeration (DOIF_PARALLEL)
+Date: 2026-08-15
+Instance: GCP lfu-par-lab, c3-standard-8 (8 vCPU Intel Xeon Platinum 8481C @ 2.70GHz),
+          100 GB pd-balanced (presents as nvme0n1), us-central1-a
+OS: Rocky Linux 9.8 (Blue Onyx), kernel 5.14.0-687.36.1.el9_8.x86_64
+Lustre: v2_17_55 (21e12010b3), source build,
+        ./configure --enable-server --enable-ldiskfs
+        + patches/rec-attr-v2_17_55.patch
+        + patches/rec-attr-zfs-v2_17_55.patch   (source consistency only; osd-zfs not built)
+        + patches/parallel-it-v2_17_55.patch
+        modinfo osd_ldiskfs: version 2.17.55_dirty, srcversion 7B356AD4BCFA6953D6A72A0
+e2fsprogs: whamcloud el9 (downloads.lustre.software/repository/* now 404s; used
+           https://downloads.whamcloud.com/public/e2fsprogs/latest/el9/)
+Filesystem: single node, combined MGS+MDT0 on /dev/loop0 (20 GiB file), OST0 on
+            /dev/loop1 (8 GiB), local client at /mnt/lustre.  Built by hand:
+            llmount.sh fails on this image (test-framework.sh stack_trap /
+            "trap -p" quoting, bash 5.2: "unexpected EOF while looking for
+            matching `'" at line 7427).
+MDT geometry: Inode count 8388608, Inodes per group 32768, Inode size 1024,
+              Block count 5242880, uninit_bg + dirdata + large_dir
+Namespace: createmany -m, 4 x 500,000 -> 2,000,097 objects visible to the scan
+           (~6,060 creates/s per stream, ~24k/s aggregate)
+Harness: src/kernel/lfu_par.c, built out-of-tree against the patched tree.
+Notes: lctl set_param debug=0 for all runs.  lfu_noverify=1 for every rate row
+       (the private path never verifies OI; the flag puts the singleton
+       baseline in the same configuration).  The coexistence test used
+       lfu_noverify=0 so the scrub was a real verifying scrub.

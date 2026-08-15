@@ -1,0 +1,76 @@
+LFU head-to-head, ALL FOUR QUADRANTS ON ONE BOX — 2026-08-15, lab "lfu-both-lab"
+Closes the cross-lab caveat on the ldiskfs Option 1 column.
+
+Instance: GCP c3-standard-8 (Intel Xeon Platinum 8481C @ 2.70GHz), 150 GB
+          pd-balanced, us-central1-a.  Deleted after the runs.
+OS: Rocky Linux 9.8, kernel 5.14.0-687.36.1.el9_8.x86_64
+OpenZFS: zfs-2.2.10-1 / zfs-kmod-2.2.10-1 (DKMS)
+e2fsprogs: 1.47.3-wc2.el9 (whamcloud)
+Lustre: v2_17_55, ONE build with BOTH OSDs:
+        ./configure --enable-server --enable-ldiskfs --with-zfs
+        + rec-attr + rec-attr-zfs + parallel-it + bench-noverify-zfs
+        modinfo osd_ldiskfs / osd_zfs: version 2.17.55_dirty
+Sequence: ldiskfs phase (build fs -> populate -> Option 2 -> unmount ->
+          Option 1 on the same device), then ZFS phase on the same box.
+Namespaces: ldiskfs 2,000,097 objects (fidsum a589666c4d4f7123 — identical to
+            the 08-15 ldiskfs lab); ZFS 2,000,096 (fidsum 39d945cad6c1b98d —
+            identical to the 08-15 ZFS lab).  Both checksums reproduced
+            across labs.
+Knobs: lfu_noverify=1 / osd_zfs_lfu_noverify=1 for every rate row; debug=0.
+Option 1 = userspace device scanner (libext2fs / libzpool), target unmounted
+           (ZFS pool exported).  Option 2 = in-kernel sharded OSD iterator.
+Note: Option 1 emits 2,000,097 on ldiskfs and 2,000,009 on ZFS; the ZFS gap of
+      87 is classification (internal objects), as on the previous lab.
+
+=== ldiskfs ===
+OPTION 2 (in-kernel, sharded), warm, full filesystem mounted, 3 passes:
+  singleton   881,876 / 771,940 / 780,069   median   780,069
+  j1        1,093,546 / 1,085,239 / 1,087,009  median 1,087,009
+  j2        1,692,129 / 1,673,721 / 1,680,753  median 1,680,753
+  j4        1,634,066 / 1,628,743 / 1,634,066  median 1,634,066
+  j8        1,639,423 / 1,636,740 / 1,631,400  median 1,636,740
+OPTION 2, warm, MDT-only ("server-only"):
+  singleton 874,169 | j1 1,249,281 | j2 2,066,219 | j4 1,986,196 | j8 2,002,102
+OPTION 2, cold (umount all -> drop_caches -> remount MDT):
+  singleton 186,645 | j1 188,244 | j2 188,262 | j8 186,698      <- flat
+OPTION 1 (userspace libext2fs, device unmounted):
+  cold  -j1 186,402 | -j2 186,576 | -j4 186,402 | -j8 186,229 | -j16 186,402   <- flat
+  warm  -j1 1,818,270 | -j2 3,077,072 | -j4 4,545,675 | -j8 4,081,831 | -j16 4,081,831
+  (wall: cold 10.83/10.84/10.84/10.86/10.84 s; warm 1.21/0.75/0.54/0.59/0.60 s)
+
+=== ZFS (same box) ===
+OPTION 2, warm, full filesystem mounted, 3 passes:
+  singleton 144,714 / 146,925 / 145,208   median   145,208
+  j1        184,136 / 185,744 / 186,038   median   185,744
+  j2        296,618 / 299,999 / 298,878   median   298,878
+  j4        431,706 / 433,766 / 433,202   median   433,202
+  j8        525,097 / 525,649 / 524,134   median   525,097
+  j16       535,357 / 531,940 / 531,940   median   531,940
+OPTION 2, warm, MDT-only:
+  singleton 133,759 | j1 175,848 | j2 281,387 | j4 395,042 | j8 488,663 | j16 493,851
+OPTION 2, cold (umount -> export -> drop_caches -> import -> mount):
+  singleton 97,304 | j1 116,406 | j4 309,229 | j8 410,529       <- scales
+OPTION 1 (userspace libzpool, pool exported):
+  cold  -j1 83,752 | -j2 119,261 | -j4 169,062 | -j8 210,971 | -j16 225,480
+  warm  -j1 84,282 | -j4 168,209 | -j8 218,580 | -j16 230,151
+  (wall: cold 23.88/16.77/11.83/9.48/8.87 s; warm 23.73/11.89/9.15/8.69 s)
+  Warm ~= cold again: libzpool's ARC is process-local.
+
+=== HEAD TO HEAD — every cell from this one box ===
+row                  Option 1      Option 2      ratio    winner
+ldiskfs COLD          186,402       188,262      1.01x    tie
+ldiskfs warm 1 thread 1,818,270   1,249,281      1.46x    Option 1
+ldiskfs warm parallel 4,545,675   2,066,219      2.20x    Option 1
+ZFS COLD (best par)     225,480     410,529      1.82x    Option 2
+ZFS warm 1 thread        84,282     186,038      2.21x    Option 2
+ZFS warm parallel       230,151     531,940      2.31x    Option 2
+
+Cross-lab agreement with the 2026-08-15 single-backend labs:
+  ldiskfs OPT2 srv-only j2  2,066,219  vs  2,028,498   (+1.9%)
+  ldiskfs OPT2 cold          188,262   vs    173,755   (+8.3%)
+  ldiskfs OPT1 warm -j1    1,818,270   vs  1,770,000 (prior labs, +2.7%)
+  ZFS OPT2 warm j16          531,940   vs    561,509   (-5.3%)
+  ZFS OPT2 cold j8           410,529   vs    424,469   (-3.3%)
+  ZFS OPT1 best              230,151   vs    220,023   (+4.6%)
+All within ~8%; the in-kernel warm figures reproduced this time, unlike the
+832k-vs-390k gap recorded in August.

@@ -1,0 +1,123 @@
+Verbatim harness output (dmesg lines from lfu_par), 2026-08-15.
+Every row is one insmod of lfu_par.ko on lustre-MDT0000-osd.
+lfu_noverify=1 and debug=0 throughout except section 6.
+
+=== 1. SMOKE (client mounted, warm) ===
+warmup             private=1 nthreads=4 chunk=32768 recattr=1 objects=2000097 attr_ok=2000097 fidsum=a589666c4d4f7123 chunks=67 time=1.319s rate=1516373/s per-thread min=491518 max=524288 err=0
+baseline singleton private=0 nthreads=1 chunk=65536 recattr=1 objects=2000097 attr_ok=2000097 fidsum=a589666c4d4f7123 chunks=1 time=2.287s rate=874550/s per-thread min=2000097 max=2000097 err=0
+private j1         private=1 nthreads=1 chunk=32768 recattr=1 objects=2000097 attr_ok=2000097 fidsum=a589666c4d4f7123 chunks=67 time=1.847s rate=1082889/s per-thread min=2000097 max=2000097 err=0
+private j4         private=1 nthreads=4 chunk=32768 recattr=1 objects=2000097 attr_ok=2000097 fidsum=a589666c4d4f7123 chunks=67 time=1.318s rate=1517524/s per-thread min=491520 max=524288 err=0
+
+=== 2. WARM MATRIX, full filesystem mounted (MGS+MDT+OST+client), chunk=32768 ===
+warmup                 objects=2000097 attr_ok=2000097 fidsum=a589666c4d4f7123 chunks=67 time=1.312s rate=1524464/s per-thread min=229377 max=262225 err=0
+singleton.p1           objects=2000097 attr_ok=2000097 fidsum=a589666c4d4f7123 chunks=1 time=2.617s rate=764270/s per-thread min=2000097 max=2000097 err=0
+private-j1.p1          objects=2000097 attr_ok=2000097 fidsum=a589666c4d4f7123 chunks=67 time=1.844s rate=1084651/s per-thread min=2000097 max=2000097 err=0
+private-j2.p1          objects=2000097 attr_ok=2000097 fidsum=a589666c4d4f7123 chunks=67 time=1.223s rate=1635402/s per-thread min=984208 max=1015889 err=0
+private-j4.p1          objects=2000097 attr_ok=2000097 fidsum=a589666c4d4f7123 chunks=67 time=1.311s rate=1525627/s per-thread min=491518 max=524287 err=0
+private-j8.p1          objects=2000097 attr_ok=2000097 fidsum=a589666c4d4f7123 chunks=67 time=1.308s rate=1529126/s per-thread min=229376 max=262225 err=0
+private-j16.p1         objects=2000097 attr_ok=2000097 fidsum=a589666c4d4f7123 chunks=67 time=1.314s rate=1522143/s per-thread min=98304 max=131153 err=0
+singleton.p2           objects=2000097 attr_ok=2000097 fidsum=a589666c4d4f7123 chunks=1 time=2.643s rate=756752/s per-thread min=2000097 max=2000097 err=0
+private-j1.p2          objects=2000097 attr_ok=2000097 fidsum=a589666c4d4f7123 chunks=67 time=1.852s rate=1079965/s per-thread min=2000097 max=2000097 err=0
+private-j2.p2          objects=2000097 attr_ok=2000097 fidsum=a589666c4d4f7123 chunks=67 time=1.232s rate=1623455/s per-thread min=984292 max=1015805 err=0
+private-j4.p2          objects=2000097 attr_ok=2000097 fidsum=a589666c4d4f7123 chunks=67 time=1.317s rate=1518676/s per-thread min=491520 max=524288 err=0
+private-j8.p2          objects=2000097 attr_ok=2000097 fidsum=a589666c4d4f7123 chunks=67 time=1.317s rate=1518676/s per-thread min=229376 max=262223 err=0
+private-j16.p2         objects=2000097 attr_ok=2000097 fidsum=a589666c4d4f7123 chunks=67 time=1.321s rate=1514077/s per-thread min=98304 max=131153 err=0
+singleton.p3           objects=2000097 attr_ok=2000097 fidsum=a589666c4d4f7123 chunks=1 time=2.639s rate=757899/s per-thread min=2000097 max=2000097 err=0
+private-j1.p3          objects=2000097 attr_ok=2000097 fidsum=a589666c4d4f7123 chunks=67 time=1.856s rate=1077638/s per-thread min=2000097 max=2000097 err=0
+private-j2.p3          objects=2000097 attr_ok=2000097 fidsum=a589666c4d4f7123 chunks=67 time=1.242s rate=1610384/s per-thread min=984290 max=1015807 err=0
+private-j4.p3          objects=2000097 attr_ok=2000097 fidsum=a589666c4d4f7123 chunks=67 time=1.323s rate=1511789/s per-thread min=491520 max=524285 err=0
+private-j8.p3          objects=2000097 attr_ok=2000097 fidsum=a589666c4d4f7123 chunks=67 time=1.322s rate=1512932/s per-thread min=229376 max=262225 err=0
+private-j16.p3         objects=2000097 attr_ok=2000097 fidsum=a589666c4d4f7123 chunks=67 time=1.331s rate=1502702/s per-thread min=98304 max=131151 err=0
+
+--- FID only (recattr=0) ---
+noattr-j1.p1           objects=2000097 attr_ok=0 fidsum=a589666c4d4f7123 chunks=67 time=1.832s rate=1091756/s per-thread min=2000097 max=2000097 err=0
+noattr-j4.p1           objects=2000097 attr_ok=0 fidsum=a589666c4d4f7123 chunks=67 time=1.320s rate=1515225/s per-thread min=491520 max=524287 err=0
+noattr-j8.p1           objects=2000097 attr_ok=0 fidsum=a589666c4d4f7123 chunks=67 time=1.322s rate=1512932/s per-thread min=229376 max=262225 err=0
+noattr-j1.p2           objects=2000097 attr_ok=0 fidsum=a589666c4d4f7123 chunks=67 time=1.836s rate=1089377/s per-thread min=2000097 max=2000097 err=0
+noattr-j4.p2           objects=2000097 attr_ok=0 fidsum=a589666c4d4f7123 chunks=67 time=1.315s rate=1520986/s per-thread min=491520 max=524287 err=0
+noattr-j8.p2           objects=2000097 attr_ok=0 fidsum=a589666c4d4f7123 chunks=67 time=1.314s rate=1522143/s per-thread min=229376 max=262225 err=0
+
+--- shard size sweep at j8 ---
+chunk32768-j8          objects=2000097 ... chunks=67 time=1.314s rate=1522143/s per-thread min=229376 max=262144 err=0
+chunk65536-j8          objects=2000097 ... chunks=36 time=1.312s rate=1524464/s per-thread min=196614 max=262225 err=0
+chunk131072-j8         objects=2000097 ... chunks=21 time=1.307s rate=1530296/s per-thread min=165011 max=262225 err=0
+chunk262144-j8         objects=2000097 ... chunks=13 time=1.328s rate=1506097/s per-thread min=165011 max=262225 err=0
+chunk1048576-j8        objects=2000097 ... chunks=5  time=1.265s rate=1581104/s per-thread min=0      max=1048573 err=0
+(all five rows: attr_ok=2000097 fidsum=a589666c4d4f7123)
+
+=== 3. COLD (umount all -> drop_caches -> remount MDT -> first pass) ===
+cold-singleton   objects=2000097 attr_ok=2000097 fidsum=5331a88f66e5208e chunks=1 time=11.520s rate=173619/s per-thread min=2000097 max=2000097 err=0
+cold-j1          objects=2000098 attr_ok=2000098 fidsum=1b98c6d36196858b chunks=67 time=11.596s rate=172481/s per-thread min=2000098 max=2000098 err=0
+cold-j2          objects=2000099 attr_ok=2000099 fidsum=2e8bce39fb21a4c2 chunks=67 time=11.511s rate=173755/s per-thread min=984211 max=1015888 err=0
+cold-j8          objects=2000100 attr_ok=2000100 fidsum=8c0abec333867e33 chunks=67 time=11.593s rate=172526/s per-thread min=229376 max=262228 err=0
+(object count rises by exactly 1 per mount cycle -- one internal object created
+ at mount; the count and fidsum are then stable again across all later runs.)
+
+=== 4. WARM MATRIX, MDT only mounted ("server-only mode"), chunk=32768 ===
+warmup               objects=2000100 attr_ok=2000100 fidsum=8c0abec333867e33 chunks=67 time=1.000s rate=2000100/s
+singleton.p1         objects=2000100 ... chunks=1  time=2.345s rate=852921/s
+private-j1.p1        objects=2000100 ... chunks=67 time=1.603s rate=1247723/s
+private-j2.p1        objects=2000100 ... chunks=67 time=0.970s rate=2061958/s
+private-j3.p1        objects=2000100 ... chunks=67 time=1.064s rate=1879793/s
+private-j4.p1        objects=2000100 ... chunks=67 time=1.114s rate=1795421/s
+private-j6.p1        objects=2000100 ... chunks=67 time=1.103s rate=1813327/s
+private-j8.p1        objects=2000100 ... chunks=67 time=1.113s rate=1797035/s
+private-j16.p1       objects=2000100 ... chunks=67 time=1.113s rate=1797035/s
+singleton.p2         objects=2000100 ... chunks=1  time=2.357s rate=848578/s
+private-j1.p2        objects=2000100 ... chunks=67 time=1.614s rate=1239219/s
+private-j2.p2        objects=2000100 ... chunks=67 time=0.995s rate=2010150/s
+private-j3.p2        objects=2000100 ... chunks=67 time=1.098s rate=1821584/s
+private-j4.p2        objects=2000100 ... chunks=67 time=1.116s rate=1792204/s
+private-j6.p2        objects=2000100 ... chunks=67 time=1.091s rate=1833272/s
+private-j8.p2        objects=2000100 ... chunks=67 time=1.105s rate=1810045/s
+private-j16.p2       objects=2000100 ... chunks=67 time=1.113s rate=1797035/s
+singleton.p3         objects=2000100 ... chunks=1  time=2.301s rate=869230/s
+private-j1.p3        objects=2000100 ... chunks=67 time=1.601s rate=1249281/s
+private-j2.p3        objects=2000100 ... chunks=67 time=0.986s rate=2028498/s
+private-j3.p3        objects=2000100 ... chunks=67 time=1.089s rate=1836639/s
+private-j4.p3        objects=2000100 ... chunks=67 time=1.098s rate=1821584/s
+private-j6.p3        objects=2000100 ... chunks=67 time=1.068s rate=1872752/s
+private-j8.p3        objects=2000100 ... chunks=67 time=1.117s rate=1790599/s
+private-j16.p3       objects=2000100 ... chunks=67 time=1.113s rate=1797035/s
+(every row: attr_ok=2000100 fidsum=8c0abec333867e33)
+
+=== 5. PERF, warm, MDT-only, aggregated over the lfu_par* threads ===
+perf record -q -a -g; perf report --no-children -g none --percentage relative
+  --comms lfu_par0..lfu_par15 --sort symbol
+
+j8:
+   83.31%  [k] __pv_queued_spin_lock_slowpath
+    6.48%  [k] find_inode_fast
+    2.25%  [k] ldiskfs_xattr_ibody_get
+    2.22%  [k] __raw_callee_save___pv_queued_spin_unlock
+    1.27%  [k] __find_get_block
+    0.72%  [k] down_read
+    0.36%  [k] xattr_find_entry
+    0.28%  [k] __ldiskfs_get_inode_loc
+    0.26%  [k] osd_iit_iget
+    0.23%  [k] osd_iget2.constprop.0
+
+j2:
+   36.56%  [k] find_inode_fast
+   16.79%  [k] _raw_spin_lock
+   10.73%  [k] ldiskfs_xattr_ibody_get
+    7.63%  [k] __raw_callee_save___pv_queued_spin_unlock
+    5.86%  [k] __find_get_block
+    2.24%  [k] down_read
+    1.97%  [k] filemap_get_entry
+    1.96%  [k] xattr_find_entry
+    1.66%  [k] __ldiskfs_get_inode_loc
+    1.65%  [k] osd_iget2.constprop.0
+
+=== 6. LFSCK / OI-SCRUB COEXISTENCE (lfu_noverify=0: a real verifying scrub) ===
+1. no scrub running, singleton iterator:
+   objects=2000100 attr_ok=2000100 fidsum=8c0abec333867e33 chunks=1 time=5.966s rate=335249/s err=0
+
+2. lctl lfsck_start -M lustre-MDT0000 -t scrub -r   (status: scanning, current_position: 4440636)
+   -- singleton (private=0) while scrub runs:
+      objects=0 attr_ok=0 fidsum=0000000000000000 chunks=0 time=0.000s rate=0/s err=-114   <- -EALREADY
+   -- private (private=1 nthreads=4) while scrub runs:
+      objects=2000100 attr_ok=2000100 fidsum=8c0abec333867e33 chunks=67 time=1.418s rate=1410507/s err=0
+
+3. scrub afterwards: status: scanning, updated: 0, failed: 0, success_count: 12,
+   and it ran to completion (run_time: 9 seconds).  Undisturbed.

@@ -1,0 +1,273 @@
+--- a/lustre/osd-zfs/osd_internal.h
++++ b/lustre/osd-zfs/osd_internal.h
+@@ -202,11 +202,17 @@
+ 	__u64			 ooi_prefetched_dnode;
+ 	int			 ooi_prefetched;
+ 
++	/* DOIF_ATTR: attributes of ooi_fid, captured by it::next while the
++	 * SA handle it already opened to read the LMA is still in hand.
++	 */
++	struct lu_attr		 ooi_attr;
++
+ 	/* The following bits can be updated/checked w/o lock protection.
+ 	 * If more bits will be introduced in the future and need lock to
+ 	 * protect, please add comment.
+ 	 */
+ 	unsigned int		 ooi_used_outside:1, /* Some user out of OSD  uses the iteration. */
++				 ooi_want_attr:1, /* DOIF_ATTR requested (LFU) */
+ 				 ooi_all_cached:1, /* No more entries can be filled into cache. */
+ 				 ooi_user_ready:1, /* The user out of OSD is ready to iterate. */
+ 				 ooi_waiting:1; /* it::next is waiting. */
+@@ -705,6 +711,8 @@
+ 				  struct osd_thandle *oh, bool destroy);
+ int __osd_xattr_load_by_oid(struct osd_device *osd, uint64_t oid,
+ 			    nvlist_t **sa);
++int __osd_xattr_load_by_oid_keep(struct osd_device *osd, uint64_t oid,
++				 nvlist_t **sa, sa_handle_t **hdlp);
+ 
+ /* osd_scrub.c */
+ int osd_scrub_setup(const struct lu_env *env, struct osd_device *dev,
+--- a/lustre/osd-zfs/osd_index.c
++++ b/lustre/osd-zfs/osd_index.c
+@@ -192,7 +192,23 @@
+ 	ent->lde_attrs = cpu_to_le32(ent->lde_attrs);
+ }
+ 
+-int __osd_xattr_load_by_oid(struct osd_device *osd, uint64_t oid, nvlist_t **sa)
++/**
++ * __osd_xattr_load_by_oid_keep() - load the SA xattr nvlist, keeping the handle
++ * @osd: the OSD device
++ * @oid: the object's dnode number
++ * @sa: the unpacked SA xattr nvlist [out]
++ * @hdlp: the SA handle used to read it [out]
++ *
++ * Same as __osd_xattr_load_by_oid(), except that on success the SA handle is
++ * returned to the caller instead of being destroyed, so a caller that also
++ * wants the object's attributes can sa_bulk_lookup() them without a second
++ * dnode/bonus hold.  The caller must sa_handle_destroy() it; that also drops
++ * the bonus buffer reference taken here.
++ *
++ * Return: 0 on success, negative error number on failure (nothing held).
++ */
++int __osd_xattr_load_by_oid_keep(struct osd_device *osd, uint64_t oid,
++				 nvlist_t **sa, sa_handle_t **hdlp)
+ {
+ 	sa_handle_t *hdl;
+ 	dmu_buf_t *db;
+@@ -211,8 +227,24 @@
+ 	}
+ 
+ 	rc = __osd_xattr_load(osd, hdl, sa);
++	if (rc) {
++		sa_handle_destroy(hdl);
++		return rc;
++	}
++
++	*hdlp = hdl;
++
++	return 0;
++}
++
++int __osd_xattr_load_by_oid(struct osd_device *osd, uint64_t oid, nvlist_t **sa)
++{
++	sa_handle_t *hdl;
++	int rc;
+ 
+-	sa_handle_destroy(hdl);
++	rc = __osd_xattr_load_by_oid_keep(osd, oid, sa, &hdl);
++	if (!rc)
++		sa_handle_destroy(hdl);
+ 
+ 	return rc;
+ }
+--- a/lustre/osd-zfs/osd_scrub.c
++++ b/lustre/osd-zfs/osd_scrub.c
+@@ -1528,6 +1528,9 @@
+ 	if (flags & DOIF_RESET)
+ 		start |= SS_RESET;
+ 
++	if (flags & DOIF_ATTR)
++		it->ooi_want_attr = 1;
++
+ 	if (valid & DOIV_ERROR_HANDLE) {
+ 		if (flags & DOIF_FAILOUT)
+ 			start |= SS_SET_FAILOUT;
+@@ -1637,6 +1640,99 @@
+ 	return !it->ooi_waiting;
+ }
+ 
++/**
++ * osd_otable_it_attr() - fill @la from an SA handle the caller already holds
++ * @env: pointer to the thread context
++ * @o: pointer to the OSD device
++ * @hdl: SA handle opened by it::next to read the object's LMA
++ * @lma: the object's LMA, already swabbed by the caller
++ * @la: the attributes [out]
++ *
++ * DOIF_ATTR support.  On osd-zfs the FID lives in the LMA, so it::next has
++ * already taken the dnode, the bonus buffer and an SA handle for every object
++ * it returns.  One sa_bulk_lookup() on that open handle then yields the
++ * attributes, sparing the consumer a dt_locate() + dt_attr_get() per object --
++ * which on this OSD costs an OI ZAP lookup and a second dnode hold (LFU).
++ *
++ * Deliberately cheaper than osd_attr_get(): no zap_count() for directory
++ * la_size, which is a full ZAP walk per directory, and the LMA flags come from
++ * the @lma in hand rather than a second xattr read.  Consumers that need an
++ * exact directory size must still fall back to dt_attr_get() for directories.
++ *
++ * Return: 0 on success, negative error number on failure.
++ */
++static int osd_otable_it_attr(const struct lu_env *env, struct osd_device *o,
++			      sa_handle_t *hdl,
++			      const struct lustre_mdt_attrs *lma,
++			      struct lu_attr *la)
++{
++	struct osa_attr *osa = &osd_oti_get(env)->oti_osa;
++	sa_bulk_attr_t *bulk = osd_oti_get(env)->oti_attr_bulk;
++	uint64_t blocks;
++	uint32_t blksize;
++	int cnt = 0;
++	int rc;
++
++	ENTRY;
++
++	SA_ADD_BULK_ATTR(bulk, cnt, SA_ZPL_ATIME(o), NULL, osa->atime, 16);
++	SA_ADD_BULK_ATTR(bulk, cnt, SA_ZPL_MTIME(o), NULL, osa->mtime, 16);
++	SA_ADD_BULK_ATTR(bulk, cnt, SA_ZPL_CTIME(o), NULL, osa->ctime, 16);
++	SA_ADD_BULK_ATTR(bulk, cnt, SA_ZPL_CRTIME(o), NULL, osa->btime, 16);
++	SA_ADD_BULK_ATTR(bulk, cnt, SA_ZPL_MODE(o), NULL, &osa->mode, 8);
++	SA_ADD_BULK_ATTR(bulk, cnt, SA_ZPL_SIZE(o), NULL, &osa->size, 8);
++	SA_ADD_BULK_ATTR(bulk, cnt, SA_ZPL_LINKS(o), NULL, &osa->nlink, 8);
++	SA_ADD_BULK_ATTR(bulk, cnt, SA_ZPL_UID(o), NULL, &osa->uid, 8);
++	SA_ADD_BULK_ATTR(bulk, cnt, SA_ZPL_GID(o), NULL, &osa->gid, 8);
++	SA_ADD_BULK_ATTR(bulk, cnt, SA_ZPL_FLAGS(o), NULL, &osa->flags, 8);
++	LASSERT(cnt <= ARRAY_SIZE(osd_oti_get(env)->oti_attr_bulk));
++
++	rc = -sa_bulk_lookup(hdl, bulk, cnt);
++	if (rc)
++		RETURN(rc);
++
++	la->la_valid = LA_ATIME | LA_MTIME | LA_CTIME | LA_BTIME | LA_MODE |
++		       LA_TYPE | LA_SIZE | LA_UID | LA_GID | LA_FLAGS |
++		       LA_NLINK;
++	la->la_atime = osa->atime[0];
++	la->la_mtime = osa->mtime[0];
++	la->la_ctime = osa->ctime[0];
++	la->la_btime = osa->btime[0];
++	la->la_mode = osa->mode;
++	la->la_size = osa->size;
++	la->la_nlink = osa->nlink;
++	la->la_uid = osa->uid;
++	la->la_gid = osa->gid;
++	la->la_flags = attrs_zfs2fs(osa->flags);
++
++	/* extra flags (orphan, encrypted) without re-reading the LMA */
++	la->la_flags |= lma_to_lustre_flags(lma->lma_incompat);
++
++#ifdef ZFS_PROJINHERIT
++	if (o->od_projectused_dn && osa->flags & ZFS_PROJID) {
++		rc = -sa_lookup(hdl, SA_ZPL_PROJID(o), &osa->projid, 8);
++		if (rc)
++			RETURN(rc);
++
++		la->la_projid = osa->projid;
++		la->la_valid |= LA_PROJID;
++	} else {
++		la->la_projid = ZFS_DEFAULT_PROJID;
++	}
++#else
++	la->la_projid = 0;
++#endif
++
++	sa_object_size(hdl, &blksize, &blocks);
++	if (blksize == 0)
++		blksize = o->od_max_blksz;
++	la->la_blksize = blksize;
++	la->la_blocks = blocks;
++	la->la_valid |= LA_BLOCKS | LA_BLKSIZE;
++
++	RETURN(0);
++}
++
+ static int osd_otable_it_next(const struct lu_env *env, struct dt_it *di)
+ {
+ 	struct osd_otable_it *it = (struct osd_otable_it *)di;
+@@ -1644,17 +1740,24 @@
+ 	struct lustre_scrub *scrub = &dev->od_scrub;
+ 	struct lustre_mdt_attrs *lma = NULL;
+ 	nvlist_t *nvbuf = NULL;
++	sa_handle_t *hdl = NULL;
+ 	int rc, size = 0;
+ 	bool locked;
+ 
+ 	ENTRY;
+ 	LASSERT(it->ooi_user_ready);
+ 	fid_zero(&it->ooi_fid);
++	it->ooi_attr.la_valid = 0;
+ 
+ 	if (unlikely(it->ooi_all_cached))
+ 		RETURN(1);
+ 
+ again:
++	if (hdl) {
++		sa_handle_destroy(hdl);
++		hdl = NULL;
++	}
++
+ 	if (nvbuf) {
+ 		nvlist_free(nvbuf);
+ 		nvbuf = NULL;
+@@ -1679,7 +1782,14 @@
+ 		GOTO(out, rc);
+ 	}
+ 
+-	rc = __osd_xattr_load_by_oid(dev, it->ooi_pos, &nvbuf);
++	/* DOIF_ATTR: keep the SA handle so the attributes can be read from it
++	 * below without a second dnode/bonus hold (LFU).
++	 */
++	if (it->ooi_want_attr)
++		rc = __osd_xattr_load_by_oid_keep(dev, it->ooi_pos, &nvbuf,
++						  &hdl);
++	else
++		rc = __osd_xattr_load_by_oid(dev, it->ooi_pos, &nvbuf);
+ 
+ 	locked = false;
+ 	if (!scrub->os_full_speed) {
+@@ -1719,9 +1829,18 @@
+ 
+ 	it->ooi_fid = lma->lma_self_fid;
+ 
++	if (it->ooi_want_attr) {
++		rc = osd_otable_it_attr(env, dev, hdl, lma, &it->ooi_attr);
++		if (rc)
++			GOTO(out, rc);
++	}
++
+ 	GOTO(out, rc = 0);
+ 
+ out:
++	if (hdl)
++		sa_handle_destroy(hdl);
++
+ 	if (nvbuf)
+ 		nvlist_free(nvbuf);
+ 
+@@ -1747,9 +1866,16 @@
+ 			     struct dt_rec *rec, __u32 attr)
+ {
+ 	struct osd_otable_it *it  = (struct osd_otable_it *)di;
+-	struct lu_fid *fid = (struct lu_fid *)rec;
+ 
+-	*fid = it->ooi_fid;
++	if ((attr & DORA_ATTR) && it->ooi_want_attr) {
++		struct dt_otable_rec *dor = (struct dt_otable_rec *)rec;
++
++		dor->dor_fid = it->ooi_fid;
++		dor->dor_attr = it->ooi_attr;
++	} else {
++		*(struct lu_fid *)rec = it->ooi_fid;
++	}
++
+ 	return 0;
+ }
+ 

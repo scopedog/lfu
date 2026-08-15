@@ -1,0 +1,201 @@
+LFU — ZFS thread sweep + ldiskfs cold in-kernel pass, raw capture
+=================================================================
+Date : 2026-08-10 (second session, both labs rebuilt from scratch)
+
+Lab A — ZFS      : GCP c3-standard-8, us-central1-c, Rocky 9.8,
+                   kernel 5.14.0-687.36.1.el9_8, OpenZFS 2.2.10 DKMS,
+                   Lustre v2_17_55-22 + both rec-attr patches,
+                   --enable-server --with-zfs --disable-ldiskfs
+                   FSTYPE=zfs llmount.sh, createmany -m 4x500000
+                   -> 2,000,336 objects (2,000,334 dnodes seen)
+
+Lab B — ldiskfs  : GCP c3-standard-8, us-central1-b, Rocky 9.8 userland,
+                   vault 9.7 kernel 5.14.0-611.55.1.el9_7,
+                   kernel-debuginfo-common (ext4 sources),
+                   e2fsprogs-1.47.3-wc2, Lustre v2_17_55-22 +
+                   rec-attr-v2_17_55.patch,
+                   --enable-server --enable-ldiskfs --without-zfs
+                   FSTYPE=ldiskfs MDSSIZE=16777216 llmount.sh,
+                   createmany -m 4x500000 -> 2,000,279 inodes in use
+                   MDT: /dev/mapper/mds1_flakey (linear) -> loop0 -> /tmp/lustre-mdt1
+                   inode table: 6,710,880 inodes, 32736 per group, 205 groups
+
+
+[A1] in-kernel anchor on the rebuilt ZFS lab (mounted, warm)
+------------------------------------------------------------
+lfu_it: recattr=1 objects=2000099 attr_ok=2000099 time=18.721s rate=106837/s
+lfu_it: recattr=1 objects=2000099 attr_ok=2000099 time=18.787s rate=106461/s
+lfu_it: recattr=0 objects=2000099 attr_ok=0       time=18.940s rate=105601/s
+(previous rebuild the same day: 110,463 with attrs / 109,270 bare)
+
+
+[A2] userspace device scanner, thread sweep, pool exported
+-----------------------------------------------------------
+2,000,334 dnodes; two reps per point; visible = 2,000,009 in every run.
+
+  -j    time (rep1 / rep2)     obj/s (rep1 / rep2)      mean
+   1    22.82 / 22.68          87,658 / 88,199          87.9k
+   2    14.82 / 14.73         134,976 / 135,801        135.4k
+   4     9.81 /  9.87         203,908 / 202,668        203.3k   <- requested point
+   8     7.48 /  7.71         267,424 / 259,447        263.4k
+  12     7.96 /  7.88         251,298 / 253,849        252.6k
+  16     7.60 /  7.55         263,202 / 264,945        264.1k
+  24     7.16 /  7.52         279,376 / 266,001        272.7k
+
+Plateau is reached by -j 8 on 8 vCPUs; -j 12..24 is flat within noise.
+-j 4 = 2.31x over -j 1 on half the vCPUs.
+
+
+[B1] ldiskfs in-kernel cold pass  (umount -> drop_caches -> mount -> first pass)
+--------------------------------------------------------------------------------
+lfu_it: recattr=1 objects=2000100 attr_ok=2000100 time=12.066s rate=165763/s
+lfu_it: recattr=1 objects=2000100 attr_ok=2000100 time=12.063s rate=165804/s
+lfu_it: recattr=0 objects=2000100 attr_ok=0       time=12.061s rate=165832/s
+
+Three independent cold passes within 0.04%. Attribute capture is free cold as
+well as warm: 165,763 with attrs vs 165,832 bare.
+
+The cell this replaces read "not measured cold / scrub's cold pass ~167k" —
+the proxy was accurate to 0.7%.
+
+[B2] ldiskfs in-kernel warm passes, same mount, immediately after
+-----------------------------------------------------------------
+lfu_it: recattr=1 objects=2000100 attr_ok=2000100 time=5.119s rate=390720/s
+lfu_it: recattr=0 objects=2000100 attr_ok=0       time=5.112s rate=391255/s
+lfu_it: recattr=1 objects=2000100 attr_ok=2000100 time=5.510s rate=362994/s
+
+NOTE: the first ldiskfs lab measured 832k warm at the same object count and
+kernel. Unexplained; see [B4].
+
+[B3] ldiskfs userspace device scanner, same MDT, for reference
+---------------------------------------------------------------
+COLD j=1: 11.52s -> 173,671/s    WARM j=1: 1.20s -> 1,669,216/s
+COLD j=1: 11.52s -> 173,700/s    WARM j=1: 1.19s -> 1,675,937/s
+COLD j=4: 11.53s -> 173,556/s    WARM j=4: 0.47s -> 4,229,601/s
+COLD j=4: 11.52s -> 173,669/s    WARM j=4: 0.48s -> 4,143,599/s
+
+Cold is flat at every -j (173.6k), as on the first lab (~184k there).
+inodes seen 2,000,279; inodes in use 2,000,267; visible 2,000,010.
+
+[B4] cross-lab reproducibility
+-------------------------------
+                          first lab      rebuild      agrees?
+Option 1 ZFS  -j 1          87.6k         87.9k         yes
+Option 1 ZFS  -j 24         274k          273k          yes
+Option 1 ldiskfs warm -j1   1.77M         1.67M         within 6%
+Option 1 ldiskfs warm -j4   ~4M           4.19M         yes
+Option 1 ldiskfs cold       ~184k         174k          within 6%
+Option 2 ZFS warm           132k          106-110k      NO  (-20%)
+Option 2 ldiskfs warm       832k          390k          NO  (-53%)
+Option 2 ldiskfs cold       167k (proxy)  166k          yes
+
+Option 1 reproduces on both backends; Option 2's *warm* rate does not, while
+its *cold* rate does (with the caveat in [B7] that lab A's cold was an
+estimate, not a measurement). Hypotheses tested in [B5] and [B6]; both
+rejected. Best remaining candidate in [B7].
+
+
+[B5] inode-density test — HYPOTHESIS REJECTED
+----------------------------------------------
+Same lab B, reformatted at MDSSIZE=6291456 (6 GiB), 2M objects recreated.
+
+                              sparse arm        dense arm
+  MDSSIZE                     16 GiB            6 GiB
+  inode count                 6,710,880         2,516,360
+  inodes used                 2,000,277         2,000,277
+  occupancy                   29.8%             79.5%
+  block groups                205               77
+  INODE_UNINIT groups         138               15
+  groups holding inodes       67                62          <-- barely differs
+
+  in-kernel WARM, attrs       390,720 obj/s     388,293 / 386,418
+  in-kernel WARM, bare FID    391,255 obj/s     387,691 / 384,265
+  in-kernel COLD, attrs       165,763 obj/s     165,174
+  userspace COLD             173,671 obj/s     173,283
+  userspace WARM -j 1        1,669,216 obj/s   1,681,095
+
+Warm moved by -0.8%. Density is not the cause.
+
+Why it could not have been, from the source: osd_iit_next() (osd_scrub.c:518)
+advances with ldiskfs_find_next_bit() over the group's inode bitmap, and
+osd_scrub.c:1120 skips any group flagged LDISKFS_BG_INODE_UNINIT outright.
+Unused slots are never visited.  ldiskfs also packs allocations, so both arms
+held their 2M inodes in ~the same number of groups (67 vs 62) — occupancy
+percentage was never the operative variable.
+
+[B6] libcfs debug mask — ALSO REJECTED
+---------------------------------------
+Default mask (super ioctl neterror warning dlmtrace error emerg ha rpctrace
+vfstrace config console lfsck) vs `lctl set_param debug=0`:
+
+  default   390,720 / 391,255 obj/s
+  debug=0   382,574 / 380,608 / 379,094 / 374,620 obj/s
+
+No improvement (slightly lower, i.e. noise).  Not the cause.
+
+[B7] best remaining candidate — MDT inode size (UNTESTED)
+----------------------------------------------------------
+A 512-byte inode halves the inode-table bytes the iterator reads per object
+and would explain a clean ~2x (832k vs 390k).  This lab formats 1024-byte
+inodes (dumpe2fs "Inode size: 1024").
+
+Note the apparent cold agreement is weak evidence against this: lab A's cold
+figure (167k) was a scrub-derived estimate, never a direct measurement, so
+"cold agrees" does not actually constrain the hypothesis.
+
+Test: reformat with --mkfsoptions="-I 512", recreate 2M, re-run warm.
+
+
+[B8] inode-size test — HYPOTHESIS REJECTED (but see [B9])
+----------------------------------------------------------
+First attempt used MDT_FS_MKFS_OPTS="-I 512"; it never reached mkfs.lustre
+(dumpe2fs still reported Inode size: 1024) so that run is only a third
+replicate of the 1024 B filesystem: warm 375,887 / 381,625 / 378,162 / 378,591.
+
+Working lever: LDISKFS_MKFS_OPTS="-I 512"  ($(upper $fstype)_MKFS_OPTS in
+mkfs_opts(), test-framework.sh:5619).  mkfs.lustre honours a caller-supplied
+-I -- libmount_utils_ldiskfs.c:882 only sets its own default when
+strstr(mo_mkfsopts, "-I") == NULL.
+
+                              control (-I 1024)   test (-I 512)
+  inode size                  1024                512
+  inode count                 2,516,360           4,194,304
+  objects                     2,000,100           2,000,100
+  xattr spill (sample inode)  none                none ("Extended attributes:"
+                                                   empty, extra fields 32 B)
+
+  in-kernel WARM, attrs       388,293 / 386,418   399,780 / 400,260
+  in-kernel WARM, bare FID    387,691 / 384,265   389,731 / 400,100
+  in-kernel COLD (1st pass)   165,174             232,732
+  userspace COLD              173,283             350,664
+  userspace WARM -j 1         1,681,095           2,072,659
+
+Warm moved +2.6%.  Inode size does NOT explain the 832k-vs-390k warm gap.
+
+
+[B9] ...but it confirms the cold bandwidth model
+-------------------------------------------------
+Halving bytes-per-object doubled the COLD rate at constant device bandwidth:
+
+  -I 1024 : 173,283 obj/s x 1024 B = 177.5 MB/s
+  -I  512 : 350,664 obj/s x  512 B = 179.5 MB/s
+
+Same disk, within 1%.  This is the direct confirmation of
+
+        cold obj/s  ~=  metadata read bandwidth / bytes per object
+
+which until now was arithmetic on a single point.  Warm, by contrast, is
+insensitive to bytes (+2.6%) -- cold is bytes, warm is CPU.
+
+Practical consequence: MDT inode size is a real lever on full-scan time.
+Caveat: these are createmany -m (mknod) objects with no layout; a striped
+file's LOV + linkea at 512 B would likely spill to an external EA block and
+give the gain back.
+
+
+[B10] status of the 832k vs 390k warm gap
+-------------------------------------------
+Rejected: inode density [B5], libcfs debug mask [B6], inode size [B8].
+Untested: Lustre version/build difference (first lab may have been packaged
+2.17.0 rather than this source v2_17_55-22 build), the dm-flakey layer this
+lab's MDT sits on, host CPU variation between c3 instances.

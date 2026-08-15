@@ -1,0 +1,364 @@
+diff --git a/lustre/include/dt_object.h b/lustre/include/dt_object.h
+--- a/lustre/include/dt_object.h
++++ b/lustre/include/dt_object.h
+@@ -1864,6 +1864,13 @@
+ 	 * them via struct dt_otable_rec (LFU).  Additive: OSDs without support
+ 	 * ignore the bit and rec() keeps the bare-FID contract. */
+ 	DOIF_ATTR	= 0x0010,
++
++	/* A private iteration: not registered as the device's otable
++	 * iterator, no OI scrub started or stopped, no preload window.  Any
++	 * number may run concurrently on one device, alongside OI scrub and
++	 * LFSCK.  Consumers that shard the object table start each instance
++	 * with load() and stop it when store() leaves the shard (LFU). */
++	DOIF_PARALLEL	= 0x0020,
+ };
+ 
+ /* rec() attr bit requesting struct dt_otable_rec instead of a bare FID */
+diff --git a/lustre/osd-ldiskfs/osd_internal.h b/lustre/osd-ldiskfs/osd_internal.h
+--- a/lustre/osd-ldiskfs/osd_internal.h
++++ b/lustre/osd-ldiskfs/osd_internal.h
+@@ -247,6 +247,9 @@
+ 	unsigned long		 ooi_used_outside:1, /* Some user out of OSD
+ 						      * uses the iteration. */
+ 				 ooi_want_attr:1, /* DOIF_ATTR requested (LFU) */
++				 ooi_private:1, /* DOIF_PARALLEL: not the
++						 * device's otable iterator,
++						 * no scrub coupling (LFU) */
+ 				 ooi_all_cached:1, /* No more entries can be
+ 						    * filled into cache. */
+ 				 ooi_user_ready:1, /* The user out of OSD is
+@@ -335,6 +338,8 @@
+ 
+ 	struct mutex		 od_otable_mutex;
+ 	struct osd_otable_it	*od_otable_it;
++	/* live DOIF_PARALLEL iterators; must be 0 at cleanup */
++	atomic_t		 od_otable_users;
+ 	struct osd_scrub	 od_scrub;
+ 	struct list_head	 od_ios_list;
+ 
+diff --git a/lustre/osd-ldiskfs/osd_scrub.c b/lustre/osd-ldiskfs/osd_scrub.c
+--- a/lustre/osd-ldiskfs/osd_scrub.c
++++ b/lustre/osd-ldiskfs/osd_scrub.c
+@@ -2775,6 +2775,7 @@
+ 	struct lustre_scrub *scrub = &dev->od_scrub.os_scrub;
+ 
+ 	LASSERT(dev->od_otable_it == NULL);
++	LASSERT(atomic_read(&dev->od_otable_users) == 0);
+ 
+ 	if (scrub->os_obj != NULL) {
+ 		osd_scrub_stop(dev);
+@@ -2797,6 +2798,28 @@
+ 	int			rc;
+ 	ENTRY;
+ 
++	/* DOIF_PARALLEL: a private instance.  It neither becomes
++	 * dev->od_otable_it nor touches the scrub thread, so it is not
++	 * bound by the singleton and any number can run at once (LFU). */
++	if (flags & DOIF_PARALLEL) {
++		OBD_ALLOC_PTR(it);
++		if (it == NULL)
++			RETURN(ERR_PTR(-ENOMEM));
++
++		it->ooi_dev = dev;
++		it->ooi_private = 1;
++		it->ooi_used_outside = 1;
++		if (flags & DOIF_ATTR)
++			it->ooi_want_attr = 1;
++		/* slot 0 of the cache holds the current record */
++		it->ooi_cache.ooc_consumer_idx = 0;
++		it->ooi_cache.ooc_pos_preload =
++			LDISKFS_FIRST_INO(osd_sb(dev)) + 1;
++		atomic_inc(&dev->od_otable_users);
++
++		RETURN((struct dt_it *)it);
++	}
++
+ 	/* od_otable_mutex: prevent curcurrent init/fini */
+ 	mutex_lock(&dev->od_otable_mutex);
+ 	if (dev->od_otable_it != NULL)
+@@ -2857,6 +2880,14 @@
+ 	struct osd_otable_it *it  = (struct osd_otable_it *)di;
+ 	struct osd_device    *dev = it->ooi_dev;
+ 
++	if (it->ooi_private) {
++		if (it->ooi_iit_param.bitmap != NULL)
++			brelse(it->ooi_iit_param.bitmap);
++		atomic_dec(&dev->od_otable_users);
++		OBD_FREE_PTR(it);
++		return;
++	}
++
+ 	/* od_otable_mutex: prevent curcurrent init/fini */
+ 	mutex_lock(&dev->od_otable_mutex);
+ 	scrub_stop(&dev->od_scrub.os_scrub);
+@@ -2891,6 +2922,103 @@
+ 	return !it->ooi_waiting;
+ }
+ 
++/**
++ * osd_otable_it_next_private() - advance a DOIF_PARALLEL iterator
++ * @env: pointer to the thread context
++ * @it: the private iterator
++ *
++ * The inode-table walk of osd_inode_iteration() without its two couplings:
++ * no 64-entry preload cache handed to a separate consumer, and no scrub
++ * thread pacing.  The same osd_iit_next()/osd_iit_iget() primitives run
++ * inline, so the objects returned -- and their attributes under DOIF_ATTR --
++ * are exactly those the otable iterator would return.  Every piece of walk
++ * state lives in it->ooi_iit_param, which is what lets N instances walk N
++ * inode ranges concurrently; the group bitmap is kept across calls and
++ * released on group change and in fini().
++ *
++ * Return:
++ * * %0 positioned on the next object (rec() and store() describe it)
++ * * %1 end of the inode table
++ * * %negative on error
++ */
++static int osd_otable_it_next_private(const struct lu_env *env,
++				      struct osd_otable_it *it)
++{
++	struct osd_device *dev = it->ooi_dev;
++	struct osd_thread_info *info = osd_oti_get(env);
++	struct osd_otable_cache *ooc = &it->ooi_cache;
++	struct osd_iit_param *param = &it->ooi_iit_param;
++	__u64 *pos = &ooc->ooc_pos_preload;
++	__u32 limit;
++	int rc;
++	ENTRY;
++
++	limit = le32_to_cpu(LDISKFS_SB(param->sb)->s_es->s_inodes_count);
++	while (*pos <= limit) {
++		struct ldiskfs_group_desc *desc;
++
++		desc = ldiskfs_get_group_desc(param->sb, param->bg, NULL);
++		if (!desc)
++			GOTO(out, rc = -EIO);
++
++		if (desc->bg_flags & cpu_to_le16(LDISKFS_BG_INODE_UNINIT) ||
++		    param->offset +
++		    ldiskfs_itable_unused_count(param->sb, desc) >=
++		    LDISKFS_INODES_PER_GROUP(param->sb))
++			goto next_group;
++
++		if (param->bitmap == NULL) {
++			param->bitmap = ldiskfs_read_inode_bitmap(param->sb,
++								  param->bg);
++			if (IS_ERR_OR_NULL(param->bitmap)) {
++				rc = param->bitmap ? PTR_ERR(param->bitmap) :
++						     -EIO;
++				param->bitmap = NULL;
++				CERROR("%s: fail to read bitmap for %u, private iteration will stop: rc = %d\n",
++				       osd_dev2name(dev), (__u32)param->bg, rc);
++				GOTO(out, rc);
++			}
++		}
++
++		rc = osd_iit_next(param, pos);
++		if (rc == SCRUB_NEXT_BREAK)
++			goto next_group;
++
++		rc = osd_iit_iget(info, dev, &ooc->ooc_cache[0].oic_fid,
++				  &ooc->ooc_cache[0].oic_lid, *pos, param->sb,
++				  false,
++				  it->ooi_want_attr ? &ooc->ooc_attr[0] : NULL);
++		if (rc == 0)
++			RETURN(0);
++		if (rc < 0)
++			GOTO(out, rc);
++		/* SCRUB_NEXT_CONTINUE: not a visible Lustre object */
++		continue;
++
++next_group:
++		if (param->bitmap != NULL) {
++			brelse(param->bitmap);
++			param->bitmap = NULL;
++		}
++		param->bg++;
++		param->offset = 0;
++		param->gbase = 1 +
++			param->bg * LDISKFS_INODES_PER_GROUP(param->sb);
++		*pos = param->gbase;
++		param->start = *pos;
++	}
++
++	rc = 1;
++
++out:
++	if (param->bitmap != NULL) {
++		brelse(param->bitmap);
++		param->bitmap = NULL;
++	}
++
++	RETURN(rc);
++}
++
+ static int osd_otable_it_next(const struct lu_env *env, struct dt_it *di)
+ {
+ 	struct osd_otable_it *it = (struct osd_otable_it *)di;
+@@ -2902,6 +3030,9 @@
+ 
+ 	LASSERT(it->ooi_user_ready);
+ 
++	if (it->ooi_private)
++		RETURN(osd_otable_it_next_private(env, it));
++
+ again:
+ 	if (!scrub->os_running && !it->ooi_used_outside)
+ 		RETURN(1);
+@@ -3015,7 +3146,7 @@
+ 	if (it->ooi_user_ready)
+ 		RETURN(-EPERM);
+ 
+-	LASSERT(!scrub->os_partial_scan);
++	LASSERT(it->ooi_private || !scrub->os_partial_scan);
+ 
+ 	if (hash > OSD_OTABLE_MAX_HASH)
+ 		hash = OSD_OTABLE_MAX_HASH;
+@@ -3027,7 +3158,7 @@
+ 		ooc->ooc_pos_preload = LDISKFS_FIRST_INO(osd_sb(dev)) + 1;
+ 
+ 	it->ooi_user_ready = 1;
+-	if (!scrub->os_full_speed)
++	if (!it->ooi_private && !scrub->os_full_speed)
+ 		wake_up_var(scrub);
+ 
+ 	memset(param, 0, sizeof(*param));
+diff --git a/lustre/osd-zfs/osd_internal.h b/lustre/osd-zfs/osd_internal.h
+--- a/lustre/osd-zfs/osd_internal.h
++++ b/lustre/osd-zfs/osd_internal.h
+@@ -213,6 +213,7 @@
+ 	 */
+ 	unsigned int		 ooi_used_outside:1, /* Some user out of OSD  uses the iteration. */
+ 				 ooi_want_attr:1, /* DOIF_ATTR requested (LFU) */
++				 ooi_private:1, /* DOIF_PARALLEL: not the device's otable iterator, no scrub coupling (LFU) */
+ 				 ooi_all_cached:1, /* No more entries can be filled into cache. */
+ 				 ooi_user_ready:1, /* The user out of OSD is ready to iterate. */
+ 				 ooi_waiting:1; /* it::next is waiting. */
+@@ -404,6 +405,8 @@
+ 
+ 	struct semaphore	 od_otable_sem;
+ 	struct osd_otable_it	*od_otable_it;
++	/* live DOIF_PARALLEL iterators; must be 0 at cleanup */
++	atomic_t		 od_otable_users;
+ 	struct lustre_scrub	 od_scrub;
+ 	struct list_head	 od_ios_list;
+ 	struct list_head	 od_index_backup_list;
+diff --git a/lustre/osd-zfs/osd_scrub.c b/lustre/osd-zfs/osd_scrub.c
+--- a/lustre/osd-zfs/osd_scrub.c
++++ b/lustre/osd-zfs/osd_scrub.c
+@@ -1485,6 +1485,7 @@
+ 	struct lustre_scrub *scrub = &dev->od_scrub;
+ 
+ 	LASSERT(!dev->od_otable_it);
++	LASSERT(atomic_read(&dev->od_otable_users) == 0);
+ 
+ 	if (scrub->os_obj) {
+ 		osd_scrub_stop(dev);
+@@ -1513,6 +1514,28 @@
+ 	if (dev->od_dt_dev.dd_rdonly)
+ 		RETURN(ERR_PTR(-EROFS));
+ 
++	/* DOIF_PARALLEL: a private instance.  It neither becomes
++	 * dev->od_otable_it nor touches the scrub thread, so it is not
++	 * bound by the singleton and any number can run at once (LFU).
++	 * No txg_wait_synced() either: a scan of a live target is stale by
++	 * design, and N shards would otherwise force N pool syncs.
++	 */
++	if (flags & DOIF_PARALLEL) {
++		OBD_ALLOC_PTR(it);
++		if (!it)
++			RETURN(ERR_PTR(-ENOMEM));
++
++		it->ooi_dev = dev;
++		it->ooi_private = 1;
++		it->ooi_used_outside = 1;
++		if (flags & DOIF_ATTR)
++			it->ooi_want_attr = 1;
++		it->ooi_pos = 1;
++		atomic_inc(&dev->od_otable_users);
++
++		RETURN((struct dt_it *)it);
++	}
++
+ 	/* od_otable_sem: prevent concurrent init/fini */
+ 	down(&dev->od_otable_sem);
+ 	if (dev->od_otable_it)
+@@ -1576,6 +1599,12 @@
+ 	struct osd_otable_it *it = (struct osd_otable_it *)di;
+ 	struct osd_device *dev = it->ooi_dev;
+ 
++	if (it->ooi_private) {
++		atomic_dec(&dev->od_otable_users);
++		OBD_FREE_PTR(it);
++		return;
++	}
++
+ 	/* od_otable_sem: prevent concurrent init/fini */
+ 	down(&dev->od_otable_sem);
+ 	scrub_stop(&dev->od_scrub);
+@@ -1743,6 +1772,7 @@
+ 	sa_handle_t *hdl = NULL;
+ 	int rc, size = 0;
+ 	bool locked;
++	bool throttled;
+ 
+ 	ENTRY;
+ 	LASSERT(it->ooi_user_ready);
+@@ -1765,7 +1795,7 @@
+ 		size = 0;
+ 	}
+ 
+-	if (it->ooi_pos >= scrub->os_pos_current)
++	if (!it->ooi_private && it->ooi_pos >= scrub->os_pos_current)
+ 		wait_var_event(scrub,
+ 			       osd_otable_it_wakeup(scrub, it));
+ 
+@@ -1791,13 +1821,15 @@
+ 	else
+ 		rc = __osd_xattr_load_by_oid(dev, it->ooi_pos, &nvbuf);
+ 
++	/* a private iterator paces nobody; it keeps only the prefetch count */
++	throttled = !it->ooi_private && !scrub->os_full_speed;
+ 	locked = false;
+-	if (!scrub->os_full_speed) {
++	if (throttled) {
+ 		spin_lock(&scrub->os_lock);
+ 		locked = true;
+ 	}
+ 	it->ooi_prefetched--;
+-	if (!scrub->os_full_speed) {
++	if (throttled) {
+ 		if (scrub->os_waiting) {
+ 			scrub->os_waiting = 0;
+ 			wake_up_var(scrub);
+@@ -1844,7 +1876,8 @@
+ 	if (nvbuf)
+ 		nvlist_free(nvbuf);
+ 
+-	if (!rc && scrub->os_full_speed)
++	/* the prefetch window is per iterator; a private one always keeps it */
++	if (!rc && (scrub->os_full_speed || it->ooi_private))
+ 		osd_otable_it_preload(env, it);
+ 
+ 	return rc;
+@@ -1916,10 +1949,18 @@
+ 
+ 	/* The hash is the last checkpoint position, start from the next one. */
+ 	it->ooi_pos = hash + 1;
++	/* dmu_object_next() returns objects strictly after ooi_pos, so the
++	 * line above makes next() skip object hash + 1.  A private iterator
++	 * is positioned by its consumer at shard boundaries and must return
++	 * everything from hash + 1 on -- as osd-ldiskfs does -- so start the
++	 * search at hash itself.  (The default path is left as it was.)
++	 */
++	if (it->ooi_private)
++		it->ooi_pos = hash;
+ 	it->ooi_prefetched = 0;
+ 	it->ooi_prefetched_dnode = 0;
+ 	it->ooi_user_ready = 1;
+-	if (!scrub->os_full_speed)
++	if (!it->ooi_private && !scrub->os_full_speed)
+ 		wake_up_var(scrub);
+ 
+ 	/* Unplug OSD layer iteration by the first next() call. */
