@@ -167,6 +167,17 @@ and a validation run against a live write-heavy filesystem.
 
 **Blocks:** confidence in the primary initial deliverable.
 
+**Widened 2026-08-16 — this is no longer only an Option 1 question.** The OSD
+scanner's exemption rested on reading in-memory inodes. Block parsing does not:
+on the `DOIF_PARALLEL` ldiskfs path it reads inode-table blocks through the
+buffer cache. Those blocks are updated at `ldiskfs_mark_inode_dirty()`, not at
+writeback, so the exposure is far narrower than a raw device read — but it is
+not nil, and it has not been measured. The raw parse also skips the inode
+metadata checksum that `ldiskfs_iget()` verifies, so a corrupt inode is reported
+rather than refused (defensible for a scanner whose consumer re-reads before
+acting; it belongs in the API contract). The validation run wanted above should
+now cover both scanners.
+
 ### Does the 1M obj/s/MDT target survive real filters? **[new]**
 
 1M objects/sec at ≥1 GiB/s implies roughly a 1 KiB read per object — about one
@@ -183,6 +194,16 @@ advertised filter dimension, and an xattr regexp match is the furthest thing fro
 a 1 KiB inline read.
 
 **Blocks:** whether the headline performance claim holds for headline use cases.
+
+**Confirmed arithmetically 2026-08-16, and it makes the concern sharper.** Both
+scanners now measure almost exactly the predicted budget: 1,420,664 obj/s at
+1,387 MB/s is 977 B per object, reading nothing but the inode table, at 99% of
+the device. There is no headroom left to absorb a seek per object — the cold
+rate *is* `metadata read bandwidth ÷ bytes per object`, demonstrated across a
+7× range of rates and two independent implementations. So an xattr-regexp filter
+does not cost the target some percentage; it changes the divisor. Any filter
+needing a non-inline xattr has to be priced as a separate scan mode, not as a
+predicate.
 
 ### Filter predicate classification
 
@@ -270,10 +291,19 @@ admin").
 
 ### LFSCK and OI Scrub coordination
 
-Partly answered: the OSD API scanner reuses the OI Scrub scanner, and LFSCK may
-become an Object Stream consumer. Unanswered operationally — can an LFU scan and
-an LFSCK run share the iterator or must they serialise? Whose checkpoint state?
-Who arbitrates disk bandwidth?
+**Largely answered 2026-08-15/16 by measurement.** They do not have to serialise:
+a `DOIF_PARALLEL` private iterator ran the full namespace *while* a verifying OI
+scrub was scanning — 1,476,086 obj/s on ldiskfs, 392,560 on ZFS — and the scrub
+finished `updated: 0, failed: 0`. The control that makes it evidence is that the
+singleton path returns `-114` on the same build. Block parsing does not change
+this: the scrub path still goes through `ldiskfs_iget()` and still repairs OI
+mappings; only the private path parses raw
+(`parallel-osd-measured-2026-08-15.md` §5, `blockparse-2026-08-16.md` §1).
+
+Still unanswered operationally — whose checkpoint state, and who arbitrates disk
+bandwidth. The second is sharper than it was: the private path now saturates the
+device cold, so "LFU and LFSCK coexist" means they compete for the same NVMe
+queue rather than for the same iterator.
 
 Sharper given the "one scan, N consumers" requirement: if LFU multiplexes one
 scan across consumers, it needs a fan-out layer, and LFSCK is just another

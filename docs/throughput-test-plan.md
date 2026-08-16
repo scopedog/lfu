@@ -5,6 +5,21 @@
 > impact equal (~−5%); torn-read skips 0.05% worst case (Andreas's <1%
 > prediction confirmed). Verdict per §3 gate: Option 2 prototype not justified
 > on current evidence.
+>
+> **Overtaken 2026-08-15/16 — the gate measured the wrong thing.** The plan's
+> premise (§1) was that OI Scrub's rate "is an upper bound for Option 2", since
+> Option 2 reuses `osd_iit_next()` → `osd_iit_iget()`. That held only while
+> Option 2 was obliged to reuse *both* calls. `DOIF_PARALLEL` removed the
+> singleton and block parsing removed `osd_iit_iget()` itself, and the same path
+> now measures **17.4M obj/s warm** and **1,420,664 cold at 99% of an NVMe
+> stripe** — 1.01× the device scanner, where this plan recorded 6.7× against.
+> See [`parallel-osd-measured-2026-08-15.md`](parallel-osd-measured-2026-08-15.md)
+> and [`blockparse-2026-08-16.md`](blockparse-2026-08-16.md).
+>
+> The methodology is still good and §4's foreground procedure is still the one to
+> use — that measurement remains the open item. What to carry forward: an
+> existing consumer's rate bounds *that consumer*, not the path, and a gate built
+> on one is a gate on the incumbent implementation.
 
 Goal: answer the two throughput unknowns **before** deciding whether the
 Option 2 kernel prototype is worth building.

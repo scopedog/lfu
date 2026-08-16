@@ -28,9 +28,20 @@ on the decision, and each one is a con of Option 1 that Option 2 removes:
 
 | Measured on Option 1 | Consequence | Option 2 |
 |---|---|---|
-| Under create-heavy load, **up to ~50% of allocated inodes** read back inconsistent (`mode` valid, `nlink=0`, `dtime=0`) — mid-creation on-disk state | Artem's "stale by tens of seconds" con is real and much larger than the HLD's "tiny fraction" | Reads **in-memory** inodes; the state never exists |
+| Under create-heavy load, **up to ~50% of allocated inodes** read back inconsistent (`mode` valid, `nlink=0`, `dtime=0`) — mid-creation on-disk state | Artem's "stale by tens of seconds" con is real and much larger than the HLD's "tiny fraction" | Reads **in-memory** inodes; the state never exists — but see the qualification below |
 | **`metadata_csum` is OFF** on Lustre MDTs (only `uninit_bg`) — no inode checksums exist | Torn reads can only be detected heuristically, and an inode caught mid-update with plausible `nlink` is emitted with wrong attributes, undetectably | No torn reads to detect |
 | **LMA cannot identify all internal objects** — `/CONFIGS/mountdata` and `/update_log_dir/*` carry `compat=0 incompat=0` and leak into "visible" | Needs a hand-maintained inode denylist (*Internal-object exclusion*) | `osd_iit_iget()` **already** skips the backend root, remote-parent and project-quota inodes (`osd_scrub.c:667-677`) — the OSD knows its own local objects |
+
+> **Qualified 2026-08-16 — the first row is weaker than it reads.** Block
+> parsing (`blockparse-2026-08-16.md`) removed `ldiskfs_iget()` from the
+> `DOIF_PARALLEL` path, so that path no longer reads a live `struct inode`: it
+> reads inode-table blocks through the buffer cache. Those blocks are updated at
+> `ldiskfs_mark_inode_dirty()` time, not at writeback, so what the scan sees is
+> much fresher than "on disk" — but it is **not** the in-memory `struct inode`,
+> and the mid-creation window is therefore not provably closed the way it was on
+> the iget path. The scrub path is unaffected. Measuring where this bites under
+> create-heavy load is an open item (§12); until then, "the state never exists"
+> should be read as "the state is far narrower, and unquantified".
 
 The Option 1 work is not wasted. Everything above the device layer transfers
 unchanged: the object classification ladder, the attribute cost tiers, the
@@ -144,6 +155,22 @@ Two things make this unacceptable:
 Artem's stated con, "small overhead per inode from kernel object layer vs raw
 block read", is the right concern but understates it if the object layer is
 entered per object. **The fix is not to enter it at all.**
+
+> **Extended 2026-08-16.** Point 1 turned out to understate its own case. Not
+> entering the *LU object* layer was necessary but not sufficient: the
+> `struct inode` that `osd_iit_iget()` instantiates is itself the wall, because
+> `iget_locked()` hashes it under the kernel-wide `inode_hash_lock` — 83% of
+> eight threads spinning, warm, and a dependent 4 KiB read per inode-table block,
+> cold. An enumerator wants a FID and some attributes, and both are already in
+> the inode-table block: the FID in `trusted.lma` in the in-inode xattr area, the
+> attributes in the raw inode fields. `osd_iit_iget_raw()` maps the block with
+> `sb_bread()`, keeps the buffer across `next()` calls, and never builds an
+> inode; anything it cannot decode returns `-EAGAIN` and repeats through
+> `osd_iit_iget()`, so the object set is identical by construction. Measured at
+> **17.4M obj/s warm (10.4×)** and, with an explicit readahead window,
+> **1,420,664 obj/s cold at 99% of an NVMe stripe** — see
+> `blockparse-2026-08-16.md`. So the sentence above generalises: the fix is not
+> to enter the object layer *or the inode cache* at all.
 
 ### 3.1 Proposal: extend `rec()` via its existing `attr` argument
 
@@ -408,6 +435,13 @@ the current holder, or queue behind it — not retry blindly.
 > coexist) is therefore **resolved**; consequence 3's fan-out layer is still
 > wanted for one-scan-N-consumers, but no longer because parallelism is
 > impossible.
+>
+> **Updated 2026-08-16.** The ldiskfs half of those numbers was itself bounded by
+> `ldiskfs_iget()`, not by the sharding. With block parsing on the private path
+> (`blockparse-2026-08-16.md`) ldiskfs reaches **17.4M obj/s warm at 4 threads**
+> and **1,420,664 cold at 99% of an NVMe stripe** — parity with the userspace
+> device scanner. The private path now peaks at four threads rather than two,
+> because the box goes idle before the lock does.
 
 The clean long-term resolution is the HLD's own suggestion, that LFSCK become an
 Object Stream consumer too, so there is one iterator with LFSCK and LFU both
@@ -431,7 +465,7 @@ just another one. That is out of scope here but the API should not preclude it.
 
 | Backend | otable | Notes |
 |---|---|---|
-| **ldiskfs** | `osd_scrub.c:2760-2960` | Inode bitmap walk; the reference implementation. The §3.1 attribute capture goes in `osd_iit_iget()` |
+| **ldiskfs** | `osd_scrub.c:2760-2960` | Inode bitmap walk; the reference implementation. The §3.1 attribute capture goes in `osd_iit_iget()` — and, since 2026-08-16, in `osd_iit_iget_raw()`, which reads both FID and attributes straight out of the inode-table block on the `DOIF_PARALLEL` path |
 | **ZFS** | `osd-zfs/osd_scrub.c:1746-1817` | `rec()` identical (FID only, ignores `attr`). Attribute capture must be implemented separately — dnode traversal, no inode bitmap |
 | **WBCFS** | `osd-wbcfs/osd_object.c:32-78` | Already provides `do_attr_get` on the otable object. Artem's pro-list omits WBCFS; confirm whether it is in scope |
 
@@ -450,10 +484,16 @@ and Option 2's are not:
 - **Scans still see a fuzzy snapshot.** In-memory metadata is current, but the
   scan is not atomic with respect to concurrent modification. Objects created
   during the scan may or may not appear. Consumers must still tolerate this.
-- **Cost moves rather than disappearing.** Option 1 read the inode table
-  sequentially at device bandwidth. Option 2 goes through `osd_iget()`, i.e. the
-  VFS inode cache, per object. Whether that reaches 1M objects/sec/MDT is
-  **unmeasured** and is the single biggest open technical risk.
+- ~~**Cost moves rather than disappearing.**~~ **Answered 2026-08-16.** The
+  concern was that Option 1 reads the inode table sequentially at device
+  bandwidth while Option 2 goes through `osd_iget()`, i.e. the VFS inode cache,
+  per object — and that this was the single biggest open technical risk. It was
+  the right risk: `iget` bounded both the warm and the cold path. It is no longer
+  taken. On the `DOIF_PARALLEL` path the scanner reads the inode table
+  sequentially too, and measures **1,420,664 obj/s cold at 99% of an NVMe
+  stripe** against the device scanner's 1,439,300 on the same stripe — 0.99×.
+  Against the HLD's 1-hour, 4-billion-object target: **0.78 h**. What remains of
+  this bullet is the CPU and cache cost on the MDS, which is the next bullet.
 - **The MDS pays.** The scan now runs inside the server, consuming its CPU,
   memory and inode cache. §3's whole purpose is to keep that cost bounded, but it
   cannot be zero, and it must be measured under concurrent client load.
@@ -491,22 +531,34 @@ except throughput at realistic scale.
 | ~~**LFSCK coexistence**~~ | **Resolved 2026-08-15 by measurement** — a `DOIF_PARALLEL` scan ran to completion at 1.41M obj/s *while* a verifying OI scrub was scanning, and the scrub finished with `updated: 0, failed: 0`. The question was "is blocking acceptable"; the answer is that it no longer blocks | — |
 | **Upstream API change** | Is the §3.1 `rec()`/`attr` extension acceptable to upstream, or is a new index feature preferred? | The core API change |
 | **Cost to existing users** | Can `osd_iit_iget()` capture attributes without materially slowing OI Scrub and LFSCK, which share the path? | Whether §3.1 is free or a tax on existing users |
-| **Scan throughput** | Does the OSD path reach 1M objects/sec/MDT, and what does it cost the MDS under client load? (§10) | **Measured 2026-08-06** (`throughput-results-2026-08-06.md`): OI Scrub — the exact iterator path — sustains **105k objects/sec** on hardware where the Option 1 device scanner does **705k/s** (6.7×, identical hardware, cold cache, 12M-inode MDT). Foreground impact equal (~−5%) for both. Per the `throughput-test-plan.md` §3 gate this lands in the "blocker" band: the per-object kernel path, not storage, is the limit, and the iterator singleton precludes the parallelism that could close it |
+| ~~**Scan throughput**~~ | **Resolved 2026-08-16.** The question was whether the OSD path reaches 1M objects/sec/MDT. History: 2026-08-06 measured the unmodified iterator at **105k obj/s** against the device scanner's 705k (6.7×, a "blocker" under the `throughput-test-plan.md` §3 gate); 2026-08-15 `DOIF_PARALLEL` took ldiskfs to **2.03M warm**; 2026-08-16 block parsing took it to **17.4M warm and 1,420,664 cold at 99% of an NVMe stripe**, against the device scanner's 1,439,300 on the same stripe — **ratio 1.01**, and 0.78 h against the HLD's 4-billion-object hour. The 6.7× gap is closed. *What it costs the MDS under client load is still open* — see the next row | — |
+| **Foreground impact** | What does a scan at these rates cost the MDS under concurrent client load? (§10) | The top remaining risk. A mounted client already costs ldiskfs warm ~20%; enumerators now run fast enough that the question is no longer academic. Nothing ships on throughput numbers alone |
+| **Freshness after block parsing** | Block parsing reads inode-table blocks through the buffer cache, not the live `struct inode` (§1.1). How stale is that under create-heavy load, and does it re-open the torn/mid-creation exposure Option 2 was chosen to avoid? | Whether the §1.1 row 1 advantage over Option 1 survives as stated |
+| **Inode checksum** | The raw parse does not verify the inode metadata checksum, so it *reports* a corrupt inode where `ldiskfs_iget()` refuses it. Defensible for a scanner whose consumer re-reads before acting — but it belongs in the API contract, not a code comment | The Object Stream contract |
 | **Module layout** | `lfu.ko` or code in `mdt.ko`? (§7) | Packaging and dependencies |
 | **Backend coverage** | Is WBCFS in scope? (§9) | Which backends v1 serves |
 | **Transport scope** | `read()` ring first, or `mmap` zero-copy from the start? (§5.1) | How much of the export lands in v1 |
 | **Filter cost tiers** | Can the filter API expose per-predicate cost tiers? (§4) | Pushdown ordering — carried over, still unanswered |
 
-**"Cost to existing users" is answerable by reading code now** and should be settled before anything is
-written. **Scan throughput was the biggest technical risk, and is now measured**
-(2026-08-06, `throughput-results-2026-08-06.md`): the iterator path sustains
-105k objects/sec where the Option 1 device scanner reaches 705k/s on identical
-hardware. It is no longer an unknown — it is a **6.7× gap this module has to
-close before it ships**, and the cause is the per-object kernel path rather than
-storage. **"LFSCK coexistence" is the biggest non-technical risk**, and it is a
-conversation to have early rather than a surprise to discover in production —
-sharpened by the throughput result, since the iterator singleton is precisely
-what precludes the parallelism that would close the gap.
+**"Cost to existing users" is answerable by reading code now** and should be
+settled before anything is written.
+
+**Scan throughput was the biggest technical risk. It is now closed** — and the
+sequence is worth keeping, because the first answer was wrong about the cause.
+2026-08-06 measured 105k obj/s against Option 1's 705k and called the per-object
+kernel path the limit, with the iterator singleton blocking the parallelism that
+would close it. The singleton turned out not to be the limit either
+(`DOIF_PARALLEL`, 2.03M warm), and neither was "the kernel": it was one call,
+`ldiskfs_iget()`, on both the warm and the cold path. Removing it left the
+in-kernel scanner at **1.01× the userspace device scanner cold**. Two lessons
+generalise past this module: a ceiling attributed to an architecture was twice
+attributable to a single call, and each time the evidence that settled it was a
+control row on the same build.
+
+**Attention now belongs on foreground impact under client load**, which no
+throughput number addresses, and on the two correctness items the block parse
+introduced (freshness, inode checksum). "LFSCK coexistence" is resolved as a
+technical matter but remains a conversation to have early with upstream.
 
 ---
 
