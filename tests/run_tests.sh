@@ -89,6 +89,15 @@ echo "==> torn-read defences report cleanly on a quiescent image"
 check_eq "no checksum failures"      0 "$(kv_of "$WORK/sum.txt" csum)"
 check_eq "no validation failures"    0 "$(kv_of "$WORK/sum.txt" validate)"
 
+echo "==> the in-kernel block parser, against images mke2fs/debugfs wrote"
+if "$(dirname "$0")/blockparse_test.sh" > "$WORK/bp.txt" 2>&1; then
+	check_eq "block parser matches debugfs on every field" PASS \
+		"$(tail -1 "$WORK/bp.txt")"
+else
+	check_eq "block parser matches debugfs on every field" PASS FAILED
+	sed -n '/FAIL/p' "$WORK/bp.txt"
+fi
+
 echo
 echo "passed: $pass   failed: $fail"
 [ "$fail" -eq 0 ]

@@ -93,6 +93,7 @@ struct lfu_par_state {
 	atomic64_t objects;
 	atomic64_t attr_ok;
 	atomic64_t fidsum;	/* order-independent checksum of all FIDs */
+	atomic64_t attrsum;	/* likewise over the attributes (LFU) */
 	atomic64_t chunks;	/* chunks that returned ≥1 object */
 	atomic_t   running;	/* worker threads not yet finished */
 	int	   done;	/* end of table seen by someone */
@@ -116,6 +117,21 @@ static inline u64 lfu_fid_hash(const struct lu_fid *fid)
 	       fid->f_ver;
 }
 
+static inline u64 lfu_attr_hash(const struct lu_attr *la)
+{
+	/* commutative over the set, sensitive to every field DOIF_ATTR fills,
+	 * so that two scans of one device agree only if every attribute of
+	 * every object agrees */
+	return la->la_mode * 0x100000001B3ULL +
+	       la->la_nlink * 0x85EBCA77C2B2AE63ULL +
+	       la->la_uid * 0x9E3779B97F4A7C15ULL +
+	       la->la_gid * 0xC2B2AE3D27D4EB4FULL +
+	       la->la_size * 0x165667B19E3779F9ULL +
+	       la->la_blocks * 0x27D4EB2F165667C5ULL +
+	       (u64)la->la_atime + (u64)la->la_mtime * 3 +
+	       (u64)la->la_ctime * 7;
+}
+
 /*
  * One consumer of one iterator, bounded by [start, end).  Returns 0 when the
  * chunk is exhausted, 1 when the table is (nothing at or after start), <0 on
@@ -130,7 +146,7 @@ static int lfu_par_scan_range(struct lu_env *env, u64 start, u64 end,
 	struct dt_otable_rec dor;
 	__u32 flags = DOIF_OUTUSED | (recattr ? DOIF_ATTR : 0) |
 		      (priv_mode ? DOIF_PARALLEL : DOIF_RESET);
-	u64 n = 0, aok = 0, sum = 0;
+	u64 n = 0, aok = 0, sum = 0, asum = 0;
 	int rc;
 
 	di = iops->init(env, st.obj, flags << DT_OTABLE_IT_FLAGS_SHIFT);
@@ -153,8 +169,10 @@ static int lfu_par_scan_range(struct lu_env *env, u64 start, u64 end,
 		n++;
 		sum += lfu_fid_hash(&dor.dor_fid);
 		if (recattr && (dor.dor_attr.la_valid & LA_MODE) &&
-		    dor.dor_attr.la_mode != 0)
+		    dor.dor_attr.la_mode != 0) {
 			aok++;
+			asum += lfu_attr_hash(&dor.dor_attr);
+		}
 
 		if (limit && atomic64_read(&st.objects) + n >= limit) {
 			rc = 1;
@@ -173,6 +191,7 @@ static int lfu_par_scan_range(struct lu_env *env, u64 start, u64 end,
 	atomic64_add(n, &st.objects);
 	atomic64_add(aok, &st.attr_ok);
 	atomic64_add(sum, &st.fidsum);
+	atomic64_add(asum, &st.attrsum);
 	if (n)
 		atomic64_inc(&st.chunks);
 	return rc;
@@ -277,6 +296,7 @@ static int __init lfu_par_init(void)
 	atomic64_set(&st.objects, 0);
 	atomic64_set(&st.attr_ok, 0);
 	atomic64_set(&st.fidsum, 0);
+	atomic64_set(&st.attrsum, 0);
 	atomic64_set(&st.chunks, 0);
 	st.done = 0;
 	st.err = 0;
@@ -316,10 +336,11 @@ static int __init lfu_par_init(void)
 			i, workers[i].objects, workers[i].ms / 1000,
 			(u64)(workers[i].ms % 1000), workers[i].rc);
 	}
-	pr_info("lfu_par: dev=%s private=%u nthreads=%u chunk=%u recattr=%u objects=%llu attr_ok=%lld fidsum=%016llx chunks=%lld time=%lld.%03llds rate=%llu/s per-thread min=%llu max=%llu err=%d\n",
+	pr_info("lfu_par: dev=%s private=%u nthreads=%u chunk=%u recattr=%u objects=%llu attr_ok=%lld fidsum=%016llx attrsum=%016llx chunks=%lld time=%lld.%03llds rate=%llu/s per-thread min=%llu max=%llu err=%d\n",
 		dev, priv_mode, n, chunk, recattr, count,
 		(long long)atomic64_read(&st.attr_ok),
 		(unsigned long long)atomic64_read(&st.fidsum),
+		(unsigned long long)atomic64_read(&st.attrsum),
 		(long long)atomic64_read(&st.chunks),
 		ms / 1000, (u64)(ms % 1000),
 		ms ? count * 1000 / (u64)ms : 0,
