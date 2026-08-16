@@ -1,0 +1,449 @@
+diff --git a/lustre/osd-ldiskfs/osd_internal.h b/lustre/osd-ldiskfs/osd_internal.h
+index b854f69175..7277b164be 100644
+--- a/lustre/osd-ldiskfs/osd_internal.h
++++ b/lustre/osd-ldiskfs/osd_internal.h
+@@ -248,6 +248,14 @@ struct osd_otable_it {
+ 	__u32			 ooi_ra_next;
+ 	__u32			 ooi_ra_bg;
+ 
++	/* Block-parse state (DOIF_PARALLEL): the inode-table block that
++	 * ooi_bp_bh holds, or 0 for none.  Consecutive inodes in a group share
++	 * an inode-table block -- 4 of them at a 1 KiB inode size -- so the
++	 * buffer is kept across next() calls and dropped on group change and
++	 * in fini() (LFU). */
++	struct buffer_head	*ooi_bp_bh;
++	ldiskfs_fsblk_t		 ooi_bp_blk;
++
+ 	/* The following bits can be updated/checked w/o lock protection.
+ 	 * If more bits will be introduced in the future and need lock to
+ 	 * protect, please add comment. */
+diff --git a/lustre/osd-ldiskfs/osd_scrub.c b/lustre/osd-ldiskfs/osd_scrub.c
+index 572a382396..beb6aefbb9 100644
+--- a/lustre/osd-ldiskfs/osd_scrub.c
++++ b/lustre/osd-ldiskfs/osd_scrub.c
+@@ -39,6 +39,11 @@ static unsigned int lfu_ra_blocks = 32;
+ module_param(lfu_ra_blocks, uint, 0644);
+ MODULE_PARM_DESC(lfu_ra_blocks,
+ 		 "DOIF_PARALLEL: inode-table blocks to read ahead (0 disables)");
++
++static bool lfu_blockparse = true;
++module_param(lfu_blockparse, bool, 0644);
++MODULE_PARM_DESC(lfu_blockparse,
++		 "DOIF_PARALLEL: parse raw inode-table blocks instead of iget");
+ #include "osd_oi.h"
+ #include "osd_scrub.h"
+ 
+@@ -2888,6 +2893,8 @@ static void osd_otable_it_fini(const struct lu_env *env, struct dt_it *di)
+ 	if (it->ooi_private) {
+ 		if (it->ooi_iit_param.bitmap != NULL)
+ 			brelse(it->ooi_iit_param.bitmap);
++		if (it->ooi_bp_bh != NULL)
++			brelse(it->ooi_bp_bh);
+ 		atomic_dec(&dev->od_otable_users);
+ 		OBD_FREE_PTR(it);
+ 		return;
+@@ -2963,6 +2970,20 @@ osd_otable_it_wakeup(struct lustre_scrub *scrub, struct osd_otable_it *it)
+  * and let the elevator overlap them.  Each block is submitted once per group;
+  * a block already in the buffer cache costs a lookup and no I/O (LFU).
+  */
++/* ldiskfs_inode_table() is not exported by the ldiskfs module, so read the
++ * group descriptor directly -- this is that function's body (LFU). */
++static inline ldiskfs_fsblk_t osd_group_itable(struct super_block *sb,
++					       struct ldiskfs_group_desc *desc)
++{
++	ldiskfs_fsblk_t itable = le32_to_cpu(desc->bg_inode_table_lo);
++
++	if (LDISKFS_DESC_SIZE(sb) >= LDISKFS_MIN_DESC_SIZE_64BIT)
++		itable |= (ldiskfs_fsblk_t)
++			  le32_to_cpu(desc->bg_inode_table_hi) << 32;
++
++	return itable;
++}
++
+ static void osd_itable_readahead(struct osd_otable_it *it,
+ 				 struct ldiskfs_group_desc *desc, __u32 pos)
+ {
+@@ -2989,12 +3010,7 @@ static void osd_itable_readahead(struct osd_otable_it *it,
+ 		it->ooi_ra_next = cur;
+ 	}
+ 
+-	/* ldiskfs_inode_table() is not exported by the ldiskfs module, so read
+-	 * the group descriptor directly -- this is that function's body. */
+-	itable = le32_to_cpu(desc->bg_inode_table_lo);
+-	if (LDISKFS_DESC_SIZE(sb) >= LDISKFS_MIN_DESC_SIZE_64BIT)
+-		itable |= (ldiskfs_fsblk_t)
+-			  le32_to_cpu(desc->bg_inode_table_hi) << 32;
++	itable = osd_group_itable(sb, desc);
+ 	while (it->ooi_ra_next < cur + lfu_ra_blocks &&
+ 	       it->ooi_ra_next < last) {
+ 		sb_breadahead(sb, itable + it->ooi_ra_next);
+@@ -3002,6 +3018,327 @@ static void osd_itable_readahead(struct osd_otable_it *it,
+ 	}
+ }
+ 
++/* The in-inode extended attribute area, from fs/ext4/xattr.h.  That header is
++ * not part of the OSD's include set, and these are on-disk definitions that
++ * cannot change, so the three things needed to walk the area are repeated here
++ * rather than reaching into the ldiskfs build tree (LFU). */
++#define LFU_XATTR_MAGIC		0xEA020000
++#define LFU_XATTR_PAD		4
++#define LFU_XATTR_INDEX_TRUSTED	4
++
++struct lfu_xattr_entry {
++	__u8	e_name_len;
++	__u8	e_name_index;
++	__le16	e_value_offs;
++	__le32	e_value_inum;
++	__le32	e_value_size;
++	__le32	e_hash;
++	char	e_name[];
++};
++
++#define LFU_XATTR_LEN(nlen) \
++	(((nlen) + LFU_XATTR_PAD - 1 + sizeof(struct lfu_xattr_entry)) & \
++	 ~(LFU_XATTR_PAD - 1))
++
++/**
++ * osd_raw_lma() - find trusted.lma in a raw inode's in-inode xattr area
++ * @sb: the ldiskfs super block
++ * @raw: the on-disk inode, inside a mapped inode-table block
++ * @loa: filled with the swabbed LMA on success
++ *
++ * ldiskfs stores small extended attributes in the space between the end of the
++ * 128-byte "good old" inode and the end of the inode record.  trusted.lma is
++ * 24-48 bytes and is written when the object is created, so on an MDT it is
++ * essentially always here -- which means the FID can be read out of the same
++ * inode-table block the attributes come from, with no second I/O and no inode
++ * allocation.  When it is not here (attribute moved to an external xattr
++ * block, or absent entirely) the caller falls back to the iget path, which
++ * also knows how to synthesise IGIF and IDIF FIDs.
++ *
++ * Return:
++ * * %0 found, @loa is valid
++ * * %-ENODATA not present in the in-inode area
++ * * %-EOPNOTSUPP present but not usable (bad magic, truncated, unsupported)
++ */
++static int osd_raw_lma(struct super_block *sb, struct ldiskfs_inode *raw,
++		       struct lustre_ost_attrs *loa)
++{
++	struct lfu_xattr_entry *entry;
++	char *ibody, *first, *end;
++	__u32 isize = LDISKFS_INODE_SIZE(sb);
++	__u16 extra;
++
++	if (isize <= LDISKFS_GOOD_OLD_INODE_SIZE)
++		return -ENODATA;
++
++	extra = le16_to_cpu(raw->i_extra_isize);
++	/* i_extra_isize is the size of the extension the kernel wrote; the
++	 * xattr area starts after it.  Reject anything that would put the
++	 * header outside the inode record. */
++	if (extra & 3 || LDISKFS_GOOD_OLD_INODE_SIZE + extra + sizeof(__le32) >
++			 isize)
++		return -EOPNOTSUPP;
++
++	ibody = (char *)raw + LDISKFS_GOOD_OLD_INODE_SIZE + extra;
++	if (le32_to_cpu(*(__le32 *)ibody) != LFU_XATTR_MAGIC)
++		return -ENODATA;
++
++	first = ibody + sizeof(__le32);
++	end = (char *)raw + isize;
++
++	for (entry = (struct lfu_xattr_entry *)first;
++	     (char *)entry + sizeof(*entry) <= end;
++	     entry = (struct lfu_xattr_entry *)
++		     ((char *)entry + LFU_XATTR_LEN(entry->e_name_len))) {
++		__u32 vsize, voffs;
++
++		/* a zeroed name_len/name_index/value_offs is the terminator */
++		if (*(__le32 *)entry == 0)
++			return -ENODATA;
++
++		if (entry->e_name_index != LFU_XATTR_INDEX_TRUSTED ||
++		    entry->e_name_len != 3 ||
++		    (char *)entry + LFU_XATTR_LEN(3) > end ||
++		    memcmp(entry->e_name, "lma", 3) != 0)
++			continue;
++
++		/* e_value_inum != 0 means the value lives in a separate inode
++		 * (ea_inode feature); not worth handling on this path. */
++		if (entry->e_value_inum != 0)
++			return -EOPNOTSUPP;
++
++		vsize = le32_to_cpu(entry->e_value_size);
++		voffs = le16_to_cpu(entry->e_value_offs);
++		if (vsize < sizeof(struct lustre_mdt_attrs) ||
++		    first + voffs + vsize > end)
++			return -EOPNOTSUPP;
++
++		memset(loa, 0, sizeof(*loa));
++		memcpy(loa, first + voffs, min_t(__u32, vsize, sizeof(*loa)));
++		lustre_loa_swab(loa, true);
++		if (loa->loa_lma.lma_incompat & ~LMA_INCOMPAT_SUPP)
++			return -EOPNOTSUPP;
++
++		return 0;
++	}
++
++	return -ENODATA;
++}
++
++/**
++ * osd_raw_attr() - fill a lu_attr from a raw on-disk inode
++ * @sb: the ldiskfs super block
++ * @raw: the on-disk inode
++ * @la: filled with exactly the fields the iget path reports
++ *
++ * The same conversions ldiskfs_iget() performs when it populates struct inode,
++ * for the fields DOIF_ATTR reports.  Kept field-for-field identical to the
++ * iget path so that a checksum over the attributes of a whole device matches
++ * between the two (LFU).
++ */
++static void osd_raw_attr(struct super_block *sb, struct ldiskfs_inode *raw,
++			 struct lu_attr *la)
++{
++	__u64 blocks;
++	__u32 extra = le16_to_cpu(raw->i_extra_isize);
++
++	la->la_valid = LA_MODE | LA_NLINK | LA_UID | LA_GID | LA_SIZE |
++		       LA_BLOCKS | LA_ATIME | LA_MTIME | LA_CTIME;
++	la->la_mode = le16_to_cpu(raw->i_mode);
++	la->la_nlink = le16_to_cpu(raw->i_links_count);
++	la->la_uid = le16_to_cpu(raw->i_uid) |
++		     ((__u32)le16_to_cpu(raw->osd2.linux2.l_i_uid_high) << 16);
++	la->la_gid = le16_to_cpu(raw->i_gid) |
++		     ((__u32)le16_to_cpu(raw->osd2.linux2.l_i_gid_high) << 16);
++	la->la_size = le32_to_cpu(raw->i_size_lo) |
++		      ((__u64)le32_to_cpu(raw->i_size_high) << 32);
++
++	/* i_blocks is in 512-byte units unless HUGE_FILE_FL says the on-disk
++	 * value counts file system blocks -- ldiskfs_inode_blocks(). */
++	blocks = le32_to_cpu(raw->i_blocks_lo);
++	if (ldiskfs_has_feature_huge_file(sb)) {
++		blocks |= ((__u64)le16_to_cpu(
++				raw->osd2.linux2.l_i_blocks_high)) << 32;
++		if (le32_to_cpu(raw->i_flags) & LDISKFS_HUGE_FILE_FL)
++			blocks <<= (sb->s_blocksize_bits - 9);
++	}
++	la->la_blocks = blocks;
++
++	la->la_atime = (__s64)le32_to_cpu(raw->i_atime);
++	la->la_mtime = (__s64)le32_to_cpu(raw->i_mtime);
++	la->la_ctime = (__s64)le32_to_cpu(raw->i_ctime);
++
++	/* post-2038 timestamps carry two epoch bits in the *_extra fields --
++	 * ldiskfs_decode_extra_time().  Only present in a large inode whose
++	 * extension actually reaches that far. */
++#define LFU_HAS_EXTRA(field) \
++	(LDISKFS_GOOD_OLD_INODE_SIZE + extra >= \
++	 offsetof(struct ldiskfs_inode, field) + sizeof(__le32))
++	if (LFU_HAS_EXTRA(i_atime_extra))
++		la->la_atime |= (__s64)(le32_to_cpu(raw->i_atime_extra) & 3)
++				<< 32;
++	if (LFU_HAS_EXTRA(i_mtime_extra))
++		la->la_mtime |= (__s64)(le32_to_cpu(raw->i_mtime_extra) & 3)
++				<< 32;
++	if (LFU_HAS_EXTRA(i_ctime_extra))
++		la->la_ctime |= (__s64)(le32_to_cpu(raw->i_ctime_extra) & 3)
++				<< 32;
++#undef LFU_HAS_EXTRA
++}
++
++/**
++ * osd_iit_iget_raw() - return one object by parsing the inode-table block
++ * @info: thread environment
++ * @dev: the OSD device
++ * @it: the private iterator, which caches the mapped block
++ * @desc: group descriptor of the group being walked
++ * @fid: filled with the object's FID
++ * @lid: filled with the object's inode id
++ * @pos: inode number to return
++ * @la: filled with the object's attributes, or NULL if not wanted
++ *
++ * The alternative to osd_iit_iget(), which reaches each inode through
++ * osd_iget() -> ldiskfs_iget() and therefore pays iget_locked() -- an
++ * allocation and a walk of the kernel-wide inode hash under inode_hash_lock --
++ * plus one dependent 4 KiB read per inode-table block.  Here the block is
++ * mapped once and every inode in it is read out of that mapping: at a 1 KiB
++ * inode size that is one buffer for four objects, and no struct inode at all.
++ *
++ * This is what the userspace device scanner does, and it is the reason it
++ * saturates a device with a single thread.  Anything this path cannot decode
++ * -- no in-inode LMA, an external xattr block, an unsupported LMA -- returns
++ * -EAGAIN and the caller repeats the object through osd_iit_iget(), so the
++ * object set is identical either way (LFU).
++ *
++ * One thing is deliberately not done here: ldiskfs_iget() verifies the inode's
++ * metadata checksum and this does not, so a corrupt inode is reported rather
++ * than refused.  That is the right trade for a scanner whose consumer treats
++ * the result as a hint and re-reads the object before acting on it, and the
++ * wrong one for anything that trusts the attributes; a caller that needs the
++ * check should use the iget path.
++ *
++ * Return:
++ * * %0 @fid, @lid and @la describe the object at @pos
++ * * %SCRUB_NEXT_CONTINUE not a visible Lustre object, skip it
++ * * %-EAGAIN cannot be decoded from the raw inode, use the iget path
++ * * %negative on error
++ */
++static int osd_iit_iget_raw(struct osd_thread_info *info,
++			    struct osd_device *dev, struct osd_otable_it *it,
++			    struct ldiskfs_group_desc *desc,
++			    struct lu_fid *fid, struct osd_inode_id *lid,
++			    __u32 pos, struct lu_attr *la)
++{
++	struct lustre_ost_attrs *loa = &info->oti_ost_attrs;
++	struct lustre_mdt_attrs *lma = &loa->loa_lma;
++	struct osd_iit_param *param = &it->ooi_iit_param;
++	struct super_block *sb = param->sb;
++	struct ldiskfs_inode *raw;
++	ldiskfs_fsblk_t blk;
++	__u32 isize = LDISKFS_INODE_SIZE(sb);
++	__u32 ipb = sb->s_blocksize / isize;
++	__u32 index, off;
++	int rc;
++
++	ENTRY;
++
++	if (unlikely(ipb == 0))
++		RETURN(-EAGAIN);
++
++	/* Same two objects osd_iit_iget() declines to handle: they are neither
++	 * visible to the namespace nor have OI mappings. */
++	if (unlikely(pos == osd_sb(dev)->s_root->d_inode->i_ino ||
++		     is_remote_parent_ino(dev, pos)))
++		RETURN(SCRUB_NEXT_CONTINUE);
++
++	if (ldiskfs_has_feature_project(sb) &&
++	    pos == le32_to_cpu(LDISKFS_SB(sb)->s_es->s_prj_quota_inum))
++		RETURN(SCRUB_NEXT_CONTINUE);
++
++	if (unlikely(pos < param->gbase))
++		RETURN(-EAGAIN);
++	index = pos - param->gbase;
++	if (unlikely(index >= LDISKFS_INODES_PER_GROUP(sb)))
++		RETURN(-EAGAIN);
++
++	blk = osd_group_itable(sb, desc) + index / ipb;
++	off = (index % ipb) * isize;
++
++	if (it->ooi_bp_blk != blk) {
++		struct buffer_head *bh;
++
++		bh = sb_bread(sb, blk);
++		if (bh == NULL) {
++			CDEBUG(D_LFSCK,
++			       "%s: fail to read inode table block %llu for ino %u\n",
++			       osd_dev2name(dev), (unsigned long long)blk, pos);
++			RETURN(-EIO);
++		}
++		if (it->ooi_bp_bh != NULL)
++			brelse(it->ooi_bp_bh);
++		it->ooi_bp_bh = bh;
++		it->ooi_bp_blk = blk;
++	}
++
++	raw = (struct ldiskfs_inode *)(it->ooi_bp_bh->b_data + off);
++
++	/* The bitmap said this inode is allocated, but it may have been freed
++	 * since, or not yet initialised.  This is ldiskfs_iget()'s own rule for
++	 * -ESTALE, which osd_iit_iget() turns into a skip: an unlinked inode is
++	 * only real if it still has a mode and a deletion time, which is the
++	 * orphan-recovery case.  Note that unlike ldiskfs_iget() this path does
++	 * not verify the inode checksum. */
++	if (le16_to_cpu(raw->i_links_count) == 0 &&
++	    (raw->i_mode == 0 || raw->i_dtime == 0))
++		RETURN(SCRUB_NEXT_CONTINUE);
++
++	/* An attribute is never in both places, so an in-inode hit is
++	 * authoritative even when the inode also has an external xattr block:
++	 * that is the common shape on an MDT, where a wide-striped file pushes
++	 * trusted.lov out of the inode and leaves trusted.lma in it.  Only when
++	 * the in-inode area does not have it does the external block matter,
++	 * and then this path gives up. */
++	rc = osd_raw_lma(sb, raw, loa);
++	if (rc != 0)
++		/* -ENODATA and no external block: no LMA at all, so the FID
++		 * would have to be synthesised from IGIF/IDIF -- the iget
++		 * path's job either way. */
++		RETURN(-EAGAIN);
++
++	if (lma->lma_compat & LMAC_NOT_IN_OI ||
++	    lma->lma_incompat & LMAI_AGENT)
++		RETURN(SCRUB_NEXT_CONTINUE);
++
++	*fid = lma->lma_self_fid;
++	/* Matches the iget path, which leaves the generation unchecked; the
++	 * raw inode has it (raw->i_generation) if a consumer ever wants it. */
++	osd_id_gen(lid, pos, OSD_OII_NOGEN);
++
++	/* the same local-storage high-water bookkeeping osd_iit_iget() does */
++	if (dev->od_scrub.os_scrub.os_ls_count > 0 &&
++	    fid_is_local_storage(fid)) {
++		struct lustre_scrub *scrub = &dev->od_scrub.os_scrub;
++		int i;
++
++		for (i = 0; i < scrub->os_ls_count; i++)
++			if (scrub->os_ls_fids[i].f_seq == fid->f_seq)
++				break;
++
++		if (i < scrub->os_ls_count &&
++		    scrub->os_ls_fids[i].f_oid < fid->f_oid)
++			scrub->os_ls_fids[i].f_oid = fid->f_oid;
++	}
++
++	if (dev->od_is_ost && S_ISREG(le16_to_cpu(raw->i_mode)) &&
++	    le16_to_cpu(raw->i_links_count) > 1)
++		dev->od_scrub.os_scrub.os_has_ml_file = 1;
++
++	if (la != NULL)
++		osd_raw_attr(sb, raw, la);
++
++	RETURN(0);
++}
++
+ static int osd_otable_it_next_private(const struct lu_env *env,
+ 				      struct osd_otable_it *it)
+ {
+@@ -3047,7 +3384,16 @@ static int osd_otable_it_next_private(const struct lu_env *env,
+ 
+ 		osd_itable_readahead(it, desc, *pos);
+ 
+-		rc = osd_iit_iget(info, dev, &ooc->ooc_cache[0].oic_fid,
++		rc = -EAGAIN;
++		if (lfu_blockparse)
++			rc = osd_iit_iget_raw(info, dev, it, desc,
++					      &ooc->ooc_cache[0].oic_fid,
++					      &ooc->ooc_cache[0].oic_lid, *pos,
++					      it->ooi_want_attr ?
++					      &ooc->ooc_attr[0] : NULL);
++		if (rc == -EAGAIN)
++			rc = osd_iit_iget(info, dev,
++				  &ooc->ooc_cache[0].oic_fid,
+ 				  &ooc->ooc_cache[0].oic_lid, *pos, param->sb,
+ 				  false,
+ 				  it->ooi_want_attr ? &ooc->ooc_attr[0] : NULL);
+@@ -3063,6 +3409,11 @@ next_group:
+ 			brelse(param->bitmap);
+ 			param->bitmap = NULL;
+ 		}
++		if (it->ooi_bp_bh != NULL) {
++			brelse(it->ooi_bp_bh);
++			it->ooi_bp_bh = NULL;
++			it->ooi_bp_blk = 0;
++		}
+ 		param->bg++;
+ 		param->offset = 0;
+ 		param->gbase = 1 +
+@@ -3078,6 +3429,11 @@ out:
+ 		brelse(param->bitmap);
+ 		param->bitmap = NULL;
+ 	}
++	if (it->ooi_bp_bh != NULL) {
++		brelse(it->ooi_bp_bh);
++		it->ooi_bp_bh = NULL;
++		it->ooi_bp_blk = 0;
++	}
+ 
+ 	RETURN(rc);
+ }
