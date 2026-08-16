@@ -1,0 +1,40 @@
+md0 : active raid0 nvme2n1[1] nvme1n1[0]
+RAWBW md0 1 reader 1397 MB/s
+Inode count:              50331648
+Inodes per group:         32768
+Inode size:               1024
+### the published cold curve: iget path, no readahead
+COLD bp=0 ra=0    j1             objects=20000101 attr_ok=20000101 fidsum=8194d55315326ee8 attrsum=04c11a340a256c00 chunks=614 time=81.375s rate=245776/s  read=19534MB bw=240MB/s
+COLD bp=0 ra=0    j4             objects=20000102 attr_ok=20000102 fidsum=49fbf3970fe3d3e5 attrsum=3f4ea1b084582286 chunks=614 time=33.290s rate=600784/s  read=19531MB bw=587MB/s
+COLD bp=0 ra=0    j16            objects=20000103 attr_ok=20000103 fidsum=5ceefafda96ef31c attrsum=79dc292cfe8adab6 chunks=614 time=27.531s rate=726457/s  read=19532MB bw=709MB/s
+### block parsing, no readahead
+COLD bp=1 ra=0    j1             objects=20000104 attr_ok=20000104 fidsum=ba6deb86e1d3cc8d attrsum=b469b0a978bd9517 chunks=614 time=631.123s rate=31689/s  read=19531MB bw=31MB/s
+COLD bp=1 ra=0    j2             objects=20000105 attr_ok=20000105 fidsum=6278c532b9126038 attrsum=eef73825f2f071c3 chunks=614 time=326.295s rate=61294/s  read=19531MB bw=60MB/s
+COLD bp=1 ra=0    j4             objects=20000106 attr_ok=20000106 fidsum=550f88012f2aae1d attrsum=2984bfa26d23592b chunks=614 time=182.557s rate=109555/s  read=19531MB bw=107MB/s
+COLD bp=1 ra=0    j8             objects=20000107 attr_ok=20000107 fidsum=923233f2441cb63c attrsum=6412471ee7564702 chunks=614 time=97.720s rate=204667/s  read=19534MB bw=200MB/s
+COLD bp=1 ra=0    j16            objects=20000108 attr_ok=20000108 fidsum=19e0c905f7e87895 attrsum=9e9fce9b61893860 chunks=614 time=49.499s rate=404050/s  read=19531MB bw=395MB/s
+### block parsing + the readahead knob, which should now have a bigger block to fetch
+COLD bp=1 ra=16   j1             objects=20000109 attr_ok=20000109 fidsum=ec1b473c4a8df528 attrsum=d92d5617dbbc2ba1 chunks=614 time=87.894s rate=227548/s  read=19534MB bw=222MB/s
+COLD bp=1 ra=16   j4             objects=20000110 attr_ok=20000110 fidsum=08e1ae953c0d2bf5 attrsum=13badd9455ef235b chunks=614 time=24.230s rate=825427/s  read=19532MB bw=806MB/s
+COLD bp=1 ra=16   j16            objects=20000111 attr_ok=20000111 fidsum=7033ff10cc661cfc attrsum=4e486510d0221bad chunks=614 time=13.960s rate=1432672/s  read=19532MB bw=1399MB/s
+COLD bp=1 ra=64   j1             objects=20000112 attr_ok=20000112 fidsum=221238aefb98c83d attrsum=88d5ec8d4a5514d6 chunks=614 time=30.029s rate=666026/s  read=19535MB bw=651MB/s
+COLD bp=1 ra=64   j4             objects=20000113 attr_ok=20000113 fidsum=1e7c5b6fc9a52db8 attrsum=c3637409c4880fb5 chunks=614 time=14.078s rate=1420664/s  read=19532MB bw=1387MB/s
+COLD bp=1 ra=64   j16            objects=20000114 attr_ok=20000114 fidsum=65726753368b4d6d attrsum=fdf0fb863ebb0b4e chunks=614 time=13.917s rate=1437099/s  read=19535MB bw=1404MB/s
+### repeats
+COLD bp=1 ra=0    j1             objects=20000115 attr_ok=20000115 fidsum=f6f45c59424b275c attrsum=387e8302b8ee07ce chunks=614 time=636.266s rate=31433/s  read=19531MB bw=31MB/s
+COLD bp=1 ra=0    j16            objects=20000116 attr_ok=20000116 fidsum=d3023a81ece4bb85 attrsum=730c0a7f33212739 chunks=614 time=51.595s rate=387636/s  read=19531MB bw=379MB/s
+### Option 1 on the same device, the ceiling
+OPT1COLD -j1   wall=15.03s bw=1300MB/s skipped: csum=0 validate=0 elapsed         : 14.12s (1416559 inodes/sec) 
+OPT1COLD -j4   wall=14.82s bw=1318MB/s skipped: csum=0 validate=0 elapsed         : 13.90s (1439300 inodes/sec) 
+### one thread: the case phase 2 left on the table
+PLUG bp=1 ra=32   j1     objects=20000117 attr_ok=20000117 fidsum=f99c01cd365809e8 attrsum=ad9991fbad544b23 chunks=614 time=52.384s rate=381798/s  read=19532MB bw=373MB/s
+PLUG bp=1 ra=64   j1     objects=20000118 attr_ok=20000118 fidsum=6ac1b23b1ea51285 attrsum=e827197827876fb3 chunks=614 time=33.660s rate=594180/s  read=19532MB bw=580MB/s
+PLUG bp=1 ra=128  j1     objects=20000119 attr_ok=20000119 fidsum=26734bcba5cbd55c attrsum=22b4a0f4a1ba95c2 chunks=614 time=22.336s rate=895420/s  read=19535MB bw=875MB/s
+PLUG bp=1 ra=256  j1     objects=20000120 attr_ok=20000120 fidsum=2cb0ce7ecbcc526d attrsum=5d4228711bedbcfd chunks=614 time=17.873s rate=1119013/s  read=19534MB bw=1093MB/s
+### and with threads, to confirm nothing regressed
+PLUG bp=1 ra=64   j4     objects=20000121 attr_ok=20000121 fidsum=7d7a3a5490a689b8 attrsum=97cfafed9620e52e chunks=614 time=14.097s rate=1418750/s  read=19535MB bw=1386MB/s
+PLUG bp=1 ra=64   j16    objects=20000122 attr_ok=20000122 fidsum=18cf8f4cf45a7b3d attrsum=d25d376a10540e3d chunks=614 time=13.935s rate=1435243/s  read=19532MB bw=1402MB/s
+### the iget path on this same build, unchanged control
+PLUG bp=0 ra=0    j1     objects=20000123 attr_ok=20000123 fidsum=feb0cd67f6e826fc attrsum=0ceabee68a873833 chunks=614 time=82.659s rate=241959/s  read=19531MB bw=236MB/s
+### repeat of the best single-thread point
+PLUG bp=1 ra=128  j1     objects=20000124 attr_ok=20000124 fidsum=2f1df4a5984f8cf5 attrsum=4778466304ba6738 chunks=614 time=21.283s rate=939722/s  read=19535MB bw=918MB/s

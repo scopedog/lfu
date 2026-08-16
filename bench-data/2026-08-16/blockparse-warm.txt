@@ -1,0 +1,72 @@
+### the published curve: iget path (bp=0)
+WARM bp=0 singleton      objects=2000097 attr_ok=2000097 fidsum=a589666c4d4f7123 attrsum=fca15e310ea825d8 chunks=1 time=3.261s rate=613338/s per-thread min=2000097 max=2000097 err=0
+WARM bp=0 singleton      objects=2000097 attr_ok=2000097 fidsum=a589666c4d4f7123 attrsum=fca15e310ea825d8 chunks=1 time=2.666s rate=750223/s per-thread min=2000097 max=2000097 err=0
+WARM bp=0 singleton      objects=2000097 attr_ok=2000097 fidsum=a589666c4d4f7123 attrsum=fca15e310ea825d8 chunks=1 time=2.681s rate=746026/s per-thread min=2000097 max=2000097 err=0
+WARM bp=0 j1             objects=2000097 attr_ok=2000097 fidsum=a589666c4d4f7123 attrsum=fca15e310ea825d8 chunks=67 time=1.880s rate=1063881/s per-thread min=2000097 max=2000097 err=0
+WARM bp=0 j1             objects=2000097 attr_ok=2000097 fidsum=a589666c4d4f7123 attrsum=fca15e310ea825d8 chunks=67 time=1.877s rate=1065581/s per-thread min=2000097 max=2000097 err=0
+WARM bp=0 j1             objects=2000097 attr_ok=2000097 fidsum=a589666c4d4f7123 attrsum=fca15e310ea825d8 chunks=67 time=1.875s rate=1066718/s per-thread min=2000097 max=2000097 err=0
+WARM bp=0 j2             objects=2000097 attr_ok=2000097 fidsum=a589666c4d4f7123 attrsum=fca15e310ea825d8 chunks=67 time=1.211s rate=1651607/s per-thread min=988289 max=1011808 err=0
+WARM bp=0 j2             objects=2000097 attr_ok=2000097 fidsum=a589666c4d4f7123 attrsum=fca15e310ea825d8 chunks=67 time=1.196s rate=1672321/s per-thread min=988289 max=1011808 err=0
+WARM bp=0 j2             objects=2000097 attr_ok=2000097 fidsum=a589666c4d4f7123 attrsum=fca15e310ea825d8 chunks=67 time=1.198s rate=1669530/s per-thread min=988289 max=1011808 err=0
+WARM bp=0 j4             objects=2000097 attr_ok=2000097 fidsum=a589666c4d4f7123 attrsum=fca15e310ea825d8 chunks=67 time=1.243s rate=1609088/s per-thread min=491520 max=518288 err=0
+WARM bp=0 j4             objects=2000097 attr_ok=2000097 fidsum=a589666c4d4f7123 attrsum=fca15e310ea825d8 chunks=67 time=1.247s rate=1603927/s per-thread min=491520 max=517810 err=0
+WARM bp=0 j4             objects=2000097 attr_ok=2000097 fidsum=a589666c4d4f7123 attrsum=fca15e310ea825d8 chunks=67 time=1.244s rate=1607795/s per-thread min=491520 max=517812 err=0
+WARM bp=0 j8             objects=2000097 attr_ok=2000097 fidsum=a589666c4d4f7123 attrsum=fca15e310ea825d8 chunks=67 time=1.244s rate=1607795/s per-thread min=229376 max=262701 err=0
+WARM bp=0 j8             objects=2000097 attr_ok=2000097 fidsum=a589666c4d4f7123 attrsum=fca15e310ea825d8 chunks=67 time=1.242s rate=1610384/s per-thread min=229376 max=262227 err=0
+WARM bp=0 j8             objects=2000097 attr_ok=2000097 fidsum=a589666c4d4f7123 attrsum=fca15e310ea825d8 chunks=67 time=1.236s rate=1618201/s per-thread min=229376 max=262701 err=0
+WARM bp=0 j16            objects=2000097 attr_ok=2000097 fidsum=a589666c4d4f7123 attrsum=fca15e310ea825d8 chunks=67 time=1.239s rate=1614283/s per-thread min=98304 max=157281 err=0
+WARM bp=0 j16            objects=2000097 attr_ok=2000097 fidsum=a589666c4d4f7123 attrsum=fca15e310ea825d8 chunks=67 time=1.242s rate=1610384/s per-thread min=98304 max=163842 err=0
+WARM bp=0 j16            objects=2000097 attr_ok=2000097 fidsum=a589666c4d4f7123 attrsum=fca15e310ea825d8 chunks=67 time=1.250s rate=1600077/s per-thread min=98304 max=135679 err=0
+### block parsing (bp=1)
+WARM bp=1 singleton      objects=2000097 attr_ok=2000097 fidsum=a589666c4d4f7123 attrsum=fca15e310ea825d8 chunks=1 time=2.723s rate=734519/s per-thread min=2000097 max=2000097 err=0
+WARM bp=1 singleton      objects=2000097 attr_ok=2000097 fidsum=a589666c4d4f7123 attrsum=fca15e310ea825d8 chunks=1 time=2.733s rate=731832/s per-thread min=2000097 max=2000097 err=0
+WARM bp=1 singleton      objects=2000097 attr_ok=2000097 fidsum=a589666c4d4f7123 attrsum=fca15e310ea825d8 chunks=1 time=2.730s rate=732636/s per-thread min=2000097 max=2000097 err=0
+WARM bp=1 j1             objects=2000097 attr_ok=2000097 fidsum=a589666c4d4f7123 attrsum=fca15e310ea825d8 chunks=67 time=0.292s rate=6849647/s per-thread min=2000097 max=2000097 err=0
+WARM bp=1 j1             objects=2000097 attr_ok=2000097 fidsum=a589666c4d4f7123 attrsum=fca15e310ea825d8 chunks=67 time=0.288s rate=6944781/s per-thread min=2000097 max=2000097 err=0
+WARM bp=1 j1             objects=2000097 attr_ok=2000097 fidsum=a589666c4d4f7123 attrsum=fca15e310ea825d8 chunks=67 time=0.291s rate=6873185/s per-thread min=2000097 max=2000097 err=0
+WARM bp=1 j2             objects=2000097 attr_ok=2000097 fidsum=a589666c4d4f7123 attrsum=fca15e310ea825d8 chunks=67 time=0.165s rate=12121800/s per-thread min=985599 max=1014498 err=0
+WARM bp=1 j2             objects=2000097 attr_ok=2000097 fidsum=a589666c4d4f7123 attrsum=fca15e310ea825d8 chunks=67 time=0.166s rate=12048777/s per-thread min=988289 max=1011808 err=0
+WARM bp=1 j2             objects=2000097 attr_ok=2000097 fidsum=a589666c4d4f7123 attrsum=fca15e310ea825d8 chunks=67 time=0.168s rate=11905339/s per-thread min=981649 max=1018448 err=0
+WARM bp=1 j4             objects=2000097 attr_ok=2000097 fidsum=a589666c4d4f7123 attrsum=fca15e310ea825d8 chunks=67 time=0.115s rate=17392147/s per-thread min=491520 max=520288 err=0
+WARM bp=1 j4             objects=2000097 attr_ok=2000097 fidsum=a589666c4d4f7123 attrsum=fca15e310ea825d8 chunks=67 time=0.118s rate=16949974/s per-thread min=463361 max=524847 err=0
+WARM bp=1 j4             objects=2000097 attr_ok=2000097 fidsum=a589666c4d4f7123 attrsum=fca15e310ea825d8 chunks=67 time=0.115s rate=17392147/s per-thread min=491524 max=517729 err=0
+WARM bp=1 j8             objects=2000097 attr_ok=2000097 fidsum=a589666c4d4f7123 attrsum=fca15e310ea825d8 chunks=67 time=0.142s rate=14085190/s per-thread min=229376 max=262782 err=0
+WARM bp=1 j8             objects=2000097 attr_ok=2000097 fidsum=a589666c4d4f7123 attrsum=fca15e310ea825d8 chunks=67 time=0.142s rate=14085190/s per-thread min=229378 max=262701 err=0
+WARM bp=1 j8             objects=2000097 attr_ok=2000097 fidsum=a589666c4d4f7123 attrsum=fca15e310ea825d8 chunks=67 time=0.141s rate=14185085/s per-thread min=229376 max=264703 err=0
+WARM bp=1 j16            objects=2000097 attr_ok=2000097 fidsum=a589666c4d4f7123 attrsum=fca15e310ea825d8 chunks=67 time=0.143s rate=13986692/s per-thread min=32768 max=229376 err=0
+WARM bp=1 j16            objects=2000097 attr_ok=2000097 fidsum=a589666c4d4f7123 attrsum=fca15e310ea825d8 chunks=67 time=0.141s rate=14185085/s per-thread min=32768 max=233983 err=0
+WARM bp=1 j16            objects=2000097 attr_ok=2000097 fidsum=a589666c4d4f7123 attrsum=fca15e310ea825d8 chunks=67 time=0.141s rate=14185085/s per-thread min=32768 max=233983 err=0
+### without attributes, to separate the two costs
+WARM bp=0 j1-noattr      objects=2000097 attr_ok=0 fidsum=a589666c4d4f7123 attrsum=0000000000000000 chunks=67 time=1.849s rate=1081718/s per-thread min=2000097 max=2000097 err=0
+WARM bp=0 j1-noattr      objects=2000097 attr_ok=0 fidsum=a589666c4d4f7123 attrsum=0000000000000000 chunks=67 time=1.844s rate=1084651/s per-thread min=2000097 max=2000097 err=0
+WARM bp=0 j1-noattr      objects=2000097 attr_ok=0 fidsum=a589666c4d4f7123 attrsum=0000000000000000 chunks=67 time=1.851s rate=1080549/s per-thread min=2000097 max=2000097 err=0
+WARM bp=1 j1-noattr      objects=2000097 attr_ok=0 fidsum=a589666c4d4f7123 attrsum=0000000000000000 chunks=67 time=0.349s rate=5730936/s per-thread min=2000097 max=2000097 err=0
+WARM bp=1 j1-noattr      objects=2000097 attr_ok=0 fidsum=a589666c4d4f7123 attrsum=0000000000000000 chunks=67 time=0.350s rate=5714562/s per-thread min=2000097 max=2000097 err=0
+WARM bp=1 j1-noattr      objects=2000097 attr_ok=0 fidsum=a589666c4d4f7123 attrsum=0000000000000000 chunks=67 time=0.349s rate=5730936/s per-thread min=2000097 max=2000097 err=0
+WARM bp=0 j8-noattr      objects=2000097 attr_ok=0 fidsum=a589666c4d4f7123 attrsum=0000000000000000 chunks=67 time=1.240s rate=1612981/s per-thread min=229376 max=262701 err=0
+WARM bp=0 j8-noattr      objects=2000097 attr_ok=0 fidsum=a589666c4d4f7123 attrsum=0000000000000000 chunks=67 time=1.243s rate=1609088/s per-thread min=229376 max=262701 err=0
+WARM bp=0 j8-noattr      objects=2000097 attr_ok=0 fidsum=a589666c4d4f7123 attrsum=0000000000000000 chunks=67 time=1.240s rate=1612981/s per-thread min=229378 max=262701 err=0
+WARM bp=1 j8-noattr      objects=2000097 attr_ok=0 fidsum=a589666c4d4f7123 attrsum=0000000000000000 chunks=67 time=0.142s rate=14085190/s per-thread min=229376 max=262146 err=0
+WARM bp=1 j8-noattr      objects=2000097 attr_ok=0 fidsum=a589666c4d4f7123 attrsum=0000000000000000 chunks=67 time=0.141s rate=14185085/s per-thread min=190049 max=264784 err=0
+WARM bp=1 j8-noattr      objects=2000097 attr_ok=0 fidsum=a589666c4d4f7123 attrsum=0000000000000000 chunks=67 time=0.142s rate=14085190/s per-thread min=196608 max=266751 err=0
+### where the time goes now
+--- profile bp=0, 8 threads
+--- profile bp=1, 8 threads
+--- aggregated profile bp=0, 8 threads (short run: indicative only)
+    70.98%  [k] __pv_queued_spin_lock_slowpath             -      -            
+     6.67%  [k] default_idle                               -      -            
+     6.52%  [k] find_inode_fast                            -      -            
+     3.08%  [k] memcpy_erms                                -      -            
+     2.64%  [k] _raw_spin_lock                             -      -            
+     1.86%  [k] ldiskfs_xattr_ibody_get                    -      -            
+     1.56%  [k] __raw_callee_save___pv_queued_spin_unlock  -      -            
+     1.41%  [k] __find_get_block                           -      -            
+--- aggregated profile bp=1, 8 threads (short run: indicative only)
+    36.62%  [k] __pv_queued_spin_lock_slowpath             -      -            
+    31.39%  [k] default_idle                               -      -            
+    10.22%  [k] osd_raw_lma.isra.0                         -      -            
+     3.89%  [k] __find_get_block                           -      -            
+     3.41%  [k] _raw_spin_lock                             -      -            
+     2.43%  [k] osd_iit_iget_raw                           -      -            
+     2.19%  [k] __raw_callee_save___pv_queued_spin_unlock  -      -            
+     1.22%  [k] osd_otable_it_next_private                 -      -            

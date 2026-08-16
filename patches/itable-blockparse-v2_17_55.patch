@@ -18,7 +18,7 @@ index b854f69175..7277b164be 100644
  	 * If more bits will be introduced in the future and need lock to
  	 * protect, please add comment. */
 diff --git a/lustre/osd-ldiskfs/osd_scrub.c b/lustre/osd-ldiskfs/osd_scrub.c
-index 572a382396..beb6aefbb9 100644
+index 572a382396..e2d7e10506 100644
 --- a/lustre/osd-ldiskfs/osd_scrub.c
 +++ b/lustre/osd-ldiskfs/osd_scrub.c
 @@ -39,6 +39,11 @@ static unsigned int lfu_ra_blocks = 32;
@@ -42,7 +42,7 @@ index 572a382396..beb6aefbb9 100644
  		atomic_dec(&dev->od_otable_users);
  		OBD_FREE_PTR(it);
  		return;
-@@ -2963,6 +2970,20 @@ osd_otable_it_wakeup(struct lustre_scrub *scrub, struct osd_otable_it *it)
+@@ -2963,12 +2970,27 @@ osd_otable_it_wakeup(struct lustre_scrub *scrub, struct osd_otable_it *it)
   * and let the elevator overlap them.  Each block is submitted once per group;
   * a block already in the buffer cache costs a lookup and no I/O (LFU).
   */
@@ -63,7 +63,14 @@ index 572a382396..beb6aefbb9 100644
  static void osd_itable_readahead(struct osd_otable_it *it,
  				 struct ldiskfs_group_desc *desc, __u32 pos)
  {
-@@ -2989,12 +3010,7 @@ static void osd_itable_readahead(struct osd_otable_it *it,
+ 	struct osd_iit_param *param = &it->ooi_iit_param;
+ 	struct super_block *sb = param->sb;
+ 	ldiskfs_fsblk_t itable;
++	struct blk_plug plug;
+ 	__u32 ipb, cur, last;
+ 
+ 	if (lfu_ra_blocks == 0)
+@@ -2989,17 +3011,342 @@ static void osd_itable_readahead(struct osd_otable_it *it,
  		it->ooi_ra_next = cur;
  	}
  
@@ -74,13 +81,22 @@ index 572a382396..beb6aefbb9 100644
 -		itable |= (ldiskfs_fsblk_t)
 -			  le32_to_cpu(desc->bg_inode_table_hi) << 32;
 +	itable = osd_group_itable(sb, desc);
++	if (it->ooi_ra_next >= cur + lfu_ra_blocks || it->ooi_ra_next >= last)
++		return;
++
++	/* Plugged, so the window leaves as merged requests rather than as N
++	 * separate 4 KiB reads -- this is what __ldiskfs_get_inode_loc() does
++	 * around its own 32-block window, and without it the block-parse path
++	 * runs at queue depth ~1 and reads an order of magnitude slower. */
++	blk_start_plug(&plug);
  	while (it->ooi_ra_next < cur + lfu_ra_blocks &&
  	       it->ooi_ra_next < last) {
  		sb_breadahead(sb, itable + it->ooi_ra_next);
-@@ -3002,6 +3018,327 @@ static void osd_itable_readahead(struct osd_otable_it *it,
+ 		it->ooi_ra_next++;
  	}
- }
- 
++	blk_finish_plug(&plug);
++}
++
 +/* The in-inode extended attribute area, from fs/ext4/xattr.h.  That header is
 + * not part of the OSD's include set, and these are on-disk definitions that
 + * cannot change, so the three things needed to walk the area are repeated here
@@ -400,12 +416,10 @@ index 572a382396..beb6aefbb9 100644
 +		osd_raw_attr(sb, raw, la);
 +
 +	RETURN(0);
-+}
-+
+ }
+ 
  static int osd_otable_it_next_private(const struct lu_env *env,
- 				      struct osd_otable_it *it)
- {
-@@ -3047,7 +3384,16 @@ static int osd_otable_it_next_private(const struct lu_env *env,
+@@ -3047,7 +3394,16 @@ static int osd_otable_it_next_private(const struct lu_env *env,
  
  		osd_itable_readahead(it, desc, *pos);
  
@@ -423,7 +437,7 @@ index 572a382396..beb6aefbb9 100644
  				  &ooc->ooc_cache[0].oic_lid, *pos, param->sb,
  				  false,
  				  it->ooi_want_attr ? &ooc->ooc_attr[0] : NULL);
-@@ -3063,6 +3409,11 @@ next_group:
+@@ -3063,6 +3419,11 @@ next_group:
  			brelse(param->bitmap);
  			param->bitmap = NULL;
  		}
@@ -435,7 +449,7 @@ index 572a382396..beb6aefbb9 100644
  		param->bg++;
  		param->offset = 0;
  		param->gbase = 1 +
-@@ -3078,6 +3429,11 @@ out:
+@@ -3078,6 +3439,11 @@ out:
  		brelse(param->bitmap);
  		param->bitmap = NULL;
  	}

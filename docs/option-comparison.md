@@ -86,7 +86,10 @@ a scan.
   bandwidth-limited — it reaches 93% of a 1.4 GB/s NVMe stripe with one thread.
   It does NOT hold for Option 2, which reads the same bytes and gets 14–51% of
   that device: it is latency-bound on a dependent 4 KiB read per itable block,
-  not bandwidth-bound. See `cold-on-fast-storage-2026-08-16.md`.]**
+  not bandwidth-bound. See `cold-on-fast-storage-2026-08-16.md`. **Superseded
+  later the same day**: that latency bound was ldiskfs's, not the kernel's —
+  with the inode table read directly, Option 2 is bandwidth-limited too and the
+  formula holds for both. See `blockparse-2026-08-16.md`.]**
 - ~~**On ldiskfs, the userland and OSD scanners show little difference under
   cold cache. Both are limited by device bandwidth.**~~ **Retracted
   2026-08-16.** Only Option 1 is device-limited. Measured on a 1,406 MB/s NVMe
@@ -96,6 +99,19 @@ a scan.
   |---|---|---|
   | 1 thread | **1,426,450 obj/s** (1,309 MB/s, 93% of the device) | 247,762 (242 MB/s, 17%) |
   | best | 1,435,080 (flat at every `-j`) | 731,452 at 16 threads (714 MB/s, 51%) |
+
+  **Superseded 2026-08-16 (later) by
+  [`blockparse-2026-08-16.md`](blockparse-2026-08-16.md).** Option 2's cold
+  ceiling was `ldiskfs_iget()`, not the kernel. Reading the inode-table block
+  directly and supplying an explicit readahead window in place of the one
+  `__ldiskfs_get_inode_loc()` was providing:
+
+  | ldiskfs, cold, same NVMe stripe | Option 1 | Option 2 |
+  |---|---|---|
+  | 1 thread | 1,416,559 (93%) | 1,119,013 (78%) |
+  | best | 1,439,300 (94%) | **1,420,664 at 4 threads (99%)** |
+
+  Cold, the two are now **1.01× apart**. Warm, Option 2 is 17,392,147 obj/s.
 
   The convergence measured on the loop-file labs was an artifact of a 190 MB/s
   disk that *both* scanners could saturate. The bandwidth-regime table that
