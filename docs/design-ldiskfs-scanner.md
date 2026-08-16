@@ -329,11 +329,31 @@ The organising principle for both the emission and the filter ordering (§7).
 
 | Tier | Cost | Contents |
 |---|---|---|
-| **0** | free — already in the inode buffer | mode, nlink, uid, gid, projid, size, blocks, atime/mtime/ctime/crtime, flags, generation |
-| **1** | free — inline xattr in the same inode | LMA (FID), and usually LOV, LMV, linkea on a default 1 KiB MDT inode |
-| **2** | **one extra random read** — external EA block via `i_file_acl` | large layouts (wide striping, many components/mirrors), long linkea (many hardlinks), HSM, SOM |
+| **0** | free — already in the inode buffer | mode, nlink, uid, gid, projid, ~~size, blocks~~, atime/mtime/ctime/crtime, flags, generation |
+| **1** | free — inline xattr in the same inode | LMA (FID), and usually LOV, LMV, linkea, **SOM** on a default 1 KiB MDT inode |
+| **2** | **one extra random read** — external EA block via `i_file_acl` | large layouts (wide striping, many components/mirrors), long linkea (many hardlinks), HSM, ~~SOM~~ |
 | **2b** | **an entire extra inode read** — `ea_inode` | xattrs exceeding one block. Enabled on MDTs by `mkfs.lustre` (§4.2b) |
 | **3** | out of scope here | pathname — needs linkea plus a parent-chain walk; Output Format module |
+
+> **Corrected 2026-08-16 — [`filter-levels.md`](filter-levels.md) §4.** Two
+> entries above were wrong and are struck through.
+>
+> **`size` and `blocks` are not tier 0.** An MDT inode's `i_size` is stale or
+> zero for a regular file with OST objects, and its `i_blocks` counts the *MDT
+> inode's own* blocks — EA blocks and dirdata, single digits — not the file's
+> data. `lfs find` handles this explicitly
+> (`liblustreapi_pfind.c:2862-2875`): without `OBD_MD_FLSIZE` it falls through
+> to a stat that glimpses the OSTs. The MDT can supply the size only from
+> `trusted.som`, as `OBD_MD_FLLAZYSIZE` (`mdt_handler.c:874-904`).
+>
+> **SOM is therefore tier 1, not tier 2.** `lustre_som_attrs` is 24 bytes and
+> `mkfs.lustre` counts it in the inline budget alongside LOV, LMA and linkea
+> (`libmount_utils_ldiskfs.c:860-890`).
+>
+> Consequence: an MDT-only scan implements `lfs find --lazy` semantics exactly —
+> a supported mode, worth stating rather than apologising for — and a size
+> filter gains a third outcome besides match and no-match, **unknown**, for
+> objects with no `trusted.som`.
 
 Tier 0 and 1 fit the performance budget; tier 2 and 2b do not. The scanner
 therefore tracks and reports a **tier-2 hit rate**, because it is the single
@@ -376,10 +396,20 @@ objects never enter the stream. Within this module, the rule is:
 > perform a tier-2 read for an object already rejected by a tier-0 predicate.
 
 For the LUG slide 21 example —
-`lfs find /lfs02 -atime +30d -blocks +1G -projid 1999` — all three predicates are
-tier 0. Every object is decided from the inode buffer alone, and only survivors
-cost a tier-1 LMA parse. That is the intended fast path, and it is why the
-example was chosen.
+`lfs find /lfs02 -atime +30d -blocks +1G -projid 1999` — ~~all three predicates
+are tier 0~~. Every object is decided from the inode buffer alone, and only
+survivors cost a tier-1 LMA parse. That is the intended fast path, and it is why
+the example was chosen.
+
+> **Corrected 2026-08-16.** Two of the three are tier 0; `-blocks +1G` is tier 1
+> via `trusted.som`, per the §6 correction above. The example is still the right
+> fast-path illustration — the two tier-0 predicates reject nearly everything
+> before any xattr work — but as implemented today `blocks_gt` compares
+> `i_blocks`, so against a real MDT with striped files it would match nothing.
+> `tests/run_tests.sh:78` exercises `--blocks` only against a synthetic image
+> with no striped files, and the §17 `lfs find` oracle compared FID *sets*, not
+> attribute predicates, so this is unexercised rather than known-good. One run
+> against the benchfs MDT settles it.
 
 Consequences for the filter compiler:
 
