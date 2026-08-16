@@ -1,0 +1,104 @@
+diff --git a/lustre/osd-ldiskfs/osd_internal.h b/lustre/osd-ldiskfs/osd_internal.h
+--- a/lustre/osd-ldiskfs/osd_internal.h
++++ b/lustre/osd-ldiskfs/osd_internal.h
+@@ -241,6 +241,13 @@
+ 	struct osd_otable_cache  ooi_cache;
+ 	struct osd_iit_param	 ooi_iit_param;
+ 
++	/* itable readahead cursor (DOIF_PARALLEL): the next inode-table block
++	 * index within ooi_ra_bg for which readahead has been issued.  The
++	 * private walk reads one 4 KiB itable block per few inodes and waits
++	 * on each, so without this it runs at queue depth ~1 (LFU). */
++	__u32			 ooi_ra_next;
++	__u32			 ooi_ra_bg;
++
+ 	/* The following bits can be updated/checked w/o lock protection.
+ 	 * If more bits will be introduced in the future and need lock to
+ 	 * protect, please add comment. */
+diff --git a/lustre/osd-ldiskfs/osd_scrub.c b/lustre/osd-ldiskfs/osd_scrub.c
+--- a/lustre/osd-ldiskfs/osd_scrub.c
++++ b/lustre/osd-ldiskfs/osd_scrub.c
+@@ -34,6 +34,11 @@
+ module_param(lfu_noverify, bool, 0644);
+ MODULE_PARM_DESC(lfu_noverify,
+ 		 "LFU experiment: skip OI verification during scrub");
++
++static unsigned int lfu_ra_blocks = 32;
++module_param(lfu_ra_blocks, uint, 0644);
++MODULE_PARM_DESC(lfu_ra_blocks,
++		 "DOIF_PARALLEL: inode-table blocks to read ahead (0 disables)");
+ #include "osd_oi.h"
+ #include "osd_scrub.h"
+ 
+@@ -2941,6 +2946,62 @@
+  * * %1 end of the inode table
+  * * %negative on error
+  */
++/**
++ * osd_itable_readahead() - keep N inode-table blocks in flight ahead of the walk
++ * @it: the private iterator
++ * @desc: group descriptor for the group being walked
++ * @pos: the inode about to be read
++ *
++ * The private walk reaches each inode through osd_iget() -> ldiskfs_iget() ->
++ * __ldiskfs_get_inode_loc() -> sb_bread(), one 4 KiB inode-table block at a
++ * time, and waits on each.  Cold, that is queue depth ~1 and the device sits
++ * mostly idle -- measured at 14-17% utilisation of an NVMe stripe while the
++ * userspace device scanner, which streams whole block groups, reached 93%.
++ *
++ * Inodes are walked in ascending order within a group, so the blocks this
++ * walk is about to want are exactly the next ones.  Issue them as readahead
++ * and let the elevator overlap them.  Each block is submitted once per group;
++ * a block already in the buffer cache costs a lookup and no I/O (LFU).
++ */
++static void osd_itable_readahead(struct osd_otable_it *it,
++				 struct ldiskfs_group_desc *desc, __u32 pos)
++{
++	struct osd_iit_param *param = &it->ooi_iit_param;
++	struct super_block *sb = param->sb;
++	ldiskfs_fsblk_t itable;
++	__u32 ipb, cur, last;
++
++	if (lfu_ra_blocks == 0)
++		return;
++
++	ipb = sb->s_blocksize / LDISKFS_INODE_SIZE(sb);
++	if (unlikely(ipb == 0))
++		return;
++
++	/* block index of @pos within this group's inode table */
++	cur = (pos - param->gbase) / ipb;
++	last = LDISKFS_INODES_PER_GROUP(sb) / ipb;
++
++	if (it->ooi_ra_bg != param->bg + 1) {
++		/* new group: restart the cursor here.  +1 so that a zeroed
++		 * iterator does not look like "already done group 0". */
++		it->ooi_ra_bg = param->bg + 1;
++		it->ooi_ra_next = cur;
++	}
++
++	/* ldiskfs_inode_table() is not exported by the ldiskfs module, so read
++	 * the group descriptor directly -- this is that function's body. */
++	itable = le32_to_cpu(desc->bg_inode_table_lo);
++	if (LDISKFS_DESC_SIZE(sb) >= LDISKFS_MIN_DESC_SIZE_64BIT)
++		itable |= (ldiskfs_fsblk_t)
++			  le32_to_cpu(desc->bg_inode_table_hi) << 32;
++	while (it->ooi_ra_next < cur + lfu_ra_blocks &&
++	       it->ooi_ra_next < last) {
++		sb_breadahead(sb, itable + it->ooi_ra_next);
++		it->ooi_ra_next++;
++	}
++}
++
+ static int osd_otable_it_next_private(const struct lu_env *env,
+ 				      struct osd_otable_it *it)
+ {
+@@ -2984,6 +3045,8 @@
+ 		if (rc == SCRUB_NEXT_BREAK)
+ 			goto next_group;
+ 
++		osd_itable_readahead(it, desc, *pos);
++
+ 		rc = osd_iit_iget(info, dev, &ooc->ooc_cache[0].oic_fid,
+ 				  &ooc->ooc_cache[0].oic_lid, *pos, param->sb,
+ 				  false,

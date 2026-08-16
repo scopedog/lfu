@@ -1,0 +1,51 @@
+ITABLE READAHEAD — 2026-08-16, lab "lfu-ra-lab", deleted after the runs.
+Tests §8 of cold-on-fast-storage-2026-08-16.md: does sb_breadahead() on the
+inode table close the cold gap?
+
+Same shape as the 08-16 cold lab: c3-standard-8-lssd, Rocky 9.8,
+kernel 5.14.0-687.36.1.el9_8, Lustre v2_17_55 + rec-attr + rec-attr-zfs +
+parallel-it + itable-readahead, MDT on RAID0 of both local NVMe SSDs
+(1,402 MB/s, one reader saturates), 20,000,101 objects, 50,331,648 inodes,
+32,768/group, 1 KiB inodes, 614 populated groups.
+lfu_ra_blocks is a module parm: 0 disables, N = itable blocks kept in flight.
+Every run reads the same 19,532 MB, so all differences are latency.
+
+=== DEPTH SWEEP, cold, ONE thread ===
+  ra=0      248,266 obj/s   242 MB/s   1.00x   (baseline; 08-16 lab: 247,762)
+  ra=4       85,132          83        0.34x
+  ra=8      126,905         124        0.51x
+  ra=16     202,750         198        0.82x
+  ra=32     295,479         289        1.19x
+  ra=64     339,704         332        1.37x   <- best
+  ra=128    305,933         299        1.23x
+repeat: ra=0 248,183 (0.03% off), ra=128 326,676
+
+A clean U.  Below ~32 blocks readahead is a large PESSIMISATION: sb_breadahead()
+submits REQ_RAHEAD immediately before the blocking sb_bread() of the current
+block, so the critical read queues behind its own prefetches.  Above the
+latency x rate product it pays.
+
+=== READAHEAD x THREADS, cold ===
+  ra=0   j1 248,266   j2 421,569*  j4 614,820   j8 718,549*
+  ra=32  j1 295,479   j2 479,768   j4 623,211   j8 682,132
+  ra=128 j1 305,933   j2 501,947   j4 633,998   j8 676,799
+  (* j2/j8 ra=0 from the 08-16 lab, same geometry and namespace)
+
+  ratio vs ra=0:  j1 1.19-1.23x   j2 1.14-1.19x   j4 1.01-1.03x   j8 0.94-0.95x
+
+Readahead and threads buy the same thing -- queue depth -- so they do not add,
+and past 4 threads the bookkeeping makes it marginally worse.
+
+=== CEILING, same device ===
+  Option 1 (userspace) -j1  1,438,615 obj/s  1,320 MB/s  = 94% of the stripe
+  Option 1 (userspace) -j4  1,439,458        1,317 MB/s
+  best in-kernel cold        682,132 (ra=32 j8) = 0.47x Option 1
+  singleton, ra=128          201,858 (readahead does not touch that path)
+
+=== VERDICT ===
+Readahead confirms the diagnosis (the path is latency-bound; more outstanding
+I/O helps) but cannot fix it: it overlaps the per-inode round trip instead of
+removing it.  +19% at one thread, nothing at four, -5% at eight, and a wrong
+depth costs 3x.  Not worth a tuning knob.  The remaining 2x needs the other
+half of §8: parse whole itable blocks instead of one iget per inode, which is
+what Option 1 does to reach 1.4 GB/s with a single thread.
