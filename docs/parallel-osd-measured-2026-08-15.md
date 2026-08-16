@@ -29,7 +29,7 @@ Sections §1–§6 are ldiskfs. §6a is ZFS, and it is where the headline change
 | **best** | **2,028,498 at j2 (2.38×)** | **561,509 at j16 (3.64×)** |
 | shape | peaks at 2, plateaus ~1.80M | climbs to 4, saturates the box at 8–16 |
 | the wall | one global lock (`inode_hash_lock`, 83% of j8) | nothing dominates — distributed DMU hold traffic; the plateau is core count |
-| cold | flat ~173k at every thread count (device-bound) | **scales**: 97.8k → 424k at j8 (CPU-bound) |
+| cold | ~173k, flat at every thread count **on a 190 MB/s disk** — see the 08-16 retraction: on NVMe it scales 3.6× (202k → 731k) and is latency-bound, not device-bound | **scales**: 97.8k → 424k at j8 (CPU-bound) |
 | attributes under parallelism | free (≤1%) | near-free (2–4%) |
 | vs the userspace device scanner | userspace still faster warm (~4M at `-j 4`) | **in-kernel now 2.52× faster** |
 | LFSCK coexistence | proven | proven |
@@ -130,7 +130,17 @@ for. That has three consequences worth stating plainly:
   scales with how many inodes the box is instantiating, including from client
   traffic — which is the mechanism behind the 20% client-mounted penalty.
 
-## 4. Cold on ldiskfs: flat, device-bound, threads buy nothing
+## 4. Cold on ldiskfs: flat here — but only because this lab's disk was slow
+
+> **Retracted 2026-08-16.** Everything in this section is correct *for a
+> 190 MB/s device* and wrong as a general claim. On a 1.4 GB/s NVMe stripe the
+> in-kernel cold path scales **3.6× with threads** (202,376 → 731,452 obj/s)
+> and never exceeds 51% of the device, while the userspace scanner saturates
+> 93% of it with one thread. Cold is **latency-bound** for Option 2, not
+> device-bound, and cold is **not** a tie between the options — it is 5.8×
+> apart at one thread. See
+> [`cold-on-fast-storage-2026-08-16.md`](cold-on-fast-storage-2026-08-16.md).
+> The section is kept as measured; read it as a statement about slow storage.
 
 Unmount everything → `drop_caches` → remount the MDT → first pass:
 
@@ -306,7 +316,7 @@ OpenZFS, `createmany` recipe and hour throughout. Raw data:
 
 | | Option 1 · device scanner | Option 2 · OSD scanner, sharded | faster by |
 |---|---|---|---|
-| **ldiskfs · COLD** | 186,402 (flat at every `-j`) | 188,262 (flat at every thread count) | 1.01× — tie |
+| **ldiskfs · COLD** *(on this lab's 190 MB/s disk; see the 08-16 retraction)* | 186,402 (flat at every `-j`) | 188,262 (flat at every thread count) | 1.01× — tie *here only*; on NVMe it is 5.8× Option 1 at one thread |
 | **ZFS · COLD** | 83,752 (`-j 1`) → 225,480 (`-j 16`) | 97,304 (singleton) → **410,529** (j8) | **1.82× Option 2** |
 | ldiskfs · warm, 1 thread | 1,818,270 | 1,249,281 | 1.46× Option 1 |
 | ldiskfs · warm, parallel | 4,545,675 (`-j 4`) | 2,066,219 (j2) | 2.20× Option 1 |

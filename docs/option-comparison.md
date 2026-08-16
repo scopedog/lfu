@@ -82,18 +82,26 @@ a scan.
   `cold obj/s ≈ metadata read bandwidth ÷ bytes per object`, and MDT inode size
   is a real lever on scan time — with the caveat that a striped file's LOV and
   linkea may spill to an external block at 512 B. **[measured]**
-- **On ldiskfs, the userland and OSD scanners show little difference under cold
-  cache. Both are limited by device bandwidth.** That convergence is
-  conditional, not a property of the scanners:
+  **[Qualified 2026-08-16: the formula holds for Option 1, which really is
+  bandwidth-limited — it reaches 93% of a 1.4 GB/s NVMe stripe with one thread.
+  It does NOT hold for Option 2, which reads the same bytes and gets 14–51% of
+  that device: it is latency-bound on a dependent 4 KiB read per itable block,
+  not bandwidth-bound. See `cold-on-fast-storage-2026-08-16.md`.]**
+- ~~**On ldiskfs, the userland and OSD scanners show little difference under
+  cold cache. Both are limited by device bandwidth.**~~ **Retracted
+  2026-08-16.** Only Option 1 is device-limited. Measured on a 1,406 MB/s NVMe
+  stripe with 20M objects:
 
-  | MDT metadata bandwidth | What limits the scan |
-  |---|---|
-  | up to ~390 MB/s | the device — both converge (the regime measured here) |
-  | ~390 MB/s – 1.7 GB/s | Option 2's CPU ceiling binds first; Option 1 tracks the device |
-  | above ~1.7 GB/s | Option 1 needs threads too (`-j 4` → ~4M obj/s) |
+  | ldiskfs, cold | Option 1 | Option 2 |
+  |---|---|---|
+  | 1 thread | **1,426,450 obj/s** (1,309 MB/s, 93% of the device) | 247,762 (242 MB/s, 17%) |
+  | best | 1,435,080 (flat at every `-j`) | 731,452 at 16 threads (714 MB/s, 51%) |
 
-  A production NVMe MDT clears the first threshold, so on real hardware the two
-  should separate again.
+  The convergence measured on the loop-file labs was an artifact of a 190 MB/s
+  disk that *both* scanners could saturate. The bandwidth-regime table that
+  used to sit here predicted Option 1 would separate above ~390 MB/s and
+  Option 2 would track the device below it; the second half is wrong at every
+  bandwidth tested. Cold, the two are **5.8× apart at one thread**.
 - **On ZFS neither is device-bound** — libzpool is CPU-bound in the DMU, so
   cold ≈ warm for Option 1. Faster storage buys ldiskfs almost everything and
   ZFS almost nothing; on ZFS you buy throughput with threads instead, and
