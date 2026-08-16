@@ -148,3 +148,28 @@ kernel:
 
 Both are larger than `DOIF_PARALLEL` and neither is needed to ship it, but
 they are where the remaining 2× lives.
+
+## 9. Readahead: tried, measured, not the fix
+
+`patches/itable-readahead-v2_17_55.patch` adds `sb_breadahead()` on the next N
+itable blocks, N as a module parm. Raw data:
+[`bench-data/2026-08-16/itable-readahead.txt`](../bench-data/2026-08-16/itable-readahead.txt).
+
+Cold, one thread, against the 248,266 baseline: **ra=4 85,132 · ra=8 126,905 ·
+ra=16 202,750 · ra=32 295,479 · ra=64 339,704 · ra=128 305,933.** A clean U with
+its optimum at 64 (**+37%**). Below ~32 it is a 3× *pessimisation*:
+`sb_breadahead()` submits `REQ_RAHEAD` immediately before the blocking
+`sb_bread()` of the current block, so the critical read queues behind its own
+prefetches.
+
+It does not compose with threads — 1.2× at j1, 1.15× at j2, 1.02× at j4,
+**0.95× at j8** — because readahead and threads buy the same thing, queue
+depth. Best in-kernel cold is still 682,132 against Option 1's 1,438,615 at
+94% of the device: **0.47×, unchanged.**
+
+So §8's first suggestion confirms the diagnosis and cannot fix it — it overlaps
+the per-inode round trip rather than removing it. **The second suggestion is
+the one that matters**: parse whole itable blocks instead of one `iget` per
+inode, which is exactly what Option 1 does to saturate a device single-threaded.
+The patch is kept as evidence, not proposed for merge: +19%/−5% either side of
+a knob whose wrong value costs 3× is not worth shipping.
