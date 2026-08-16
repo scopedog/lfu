@@ -126,6 +126,7 @@ only one of the two that meets the HLD's stated goal**.
 | "cold is flat at every thread count" | **true for Option 1, false for Option 2** (3.6×) |
 | "ldiskfs cold is a 1% tie between the options" | **retracted** — an artifact of 190 MB/s storage |
 | the bandwidth-regime table in the design record | **wrong**: it assumed Option 2 tracks the device cold. It does not, at any bandwidth measured here |
+| "Option 1 takes the device and Option 2 cannot reach it" (§4) | **superseded 2026-08-16** by [block parsing](blockparse-2026-08-16.md): with `iget` removed and an explicit readahead window, Option 2 reaches 99% of the same device. The gap was `ldiskfs_iget()`, not the kernel |
 | "parallel enumeration is a warm-path lever only" | **retracted** — it is worth 3.6× cold |
 | ZFS cold scales with threads | unchanged, and now the same mechanism is understood on both backends |
 
@@ -157,19 +158,32 @@ itable blocks, N as a module parm. Raw data:
 
 Cold, one thread, against the 248,266 baseline: **ra=4 85,132 · ra=8 126,905 ·
 ra=16 202,750 · ra=32 295,479 · ra=64 339,704 · ra=128 305,933.** A clean U with
-its optimum at 64 (**+37%**). Below ~32 it is a 3× *pessimisation*:
-`sb_breadahead()` submits `REQ_RAHEAD` immediately before the blocking
-`sb_bread()` of the current block, so the critical read queues behind its own
-prefetches.
+its optimum at 64 (**+37%**). Below ~32 it is a 3× *pessimisation*.
+
+> **Corrected 2026-08-16 (later).** This was first explained as "the critical
+> read queues behind its own prefetches". The real cause, found while measuring
+> [block parsing](blockparse-2026-08-16.md#4-cold-and-the-trap-in-it), is that
+> `__ldiskfs_get_inode_loc()` **already** issues a plugged 32-block readahead
+> window around every inode-table block it fetches
+> (`EXT4_DEF_INODE_READAHEAD_BLKS = 32`). Every number in this section was
+> therefore measured on top of a 32-block window that was already there: values
+> below 32 only added unplugged interleaved requests to it, and 64 was the first
+> value that extended it. The whole of §2's 202,376-731,452 range is that
+> built-in window's doing, not a bare read.
 
 It does not compose with threads — 1.2× at j1, 1.15× at j2, 1.02× at j4,
 **0.95× at j8** — because readahead and threads buy the same thing, queue
 depth. Best in-kernel cold is still 682,132 against Option 1's 1,438,615 at
 94% of the device: **0.47×, unchanged.**
 
-So §8's first suggestion confirms the diagnosis and cannot fix it — it overlaps
-the per-inode round trip rather than removing it. **The second suggestion is
-the one that matters**: parse whole itable blocks instead of one `iget` per
-inode, which is exactly what Option 1 does to saturate a device single-threaded.
-The patch is kept as evidence, not proposed for merge: +19%/−5% either side of
-a knob whose wrong value costs 3× is not worth shipping.
+So §8's first suggestion confirms the diagnosis and cannot fix it *on its own*.
+**The second suggestion is the one that matters**: parse whole itable blocks
+instead of one `iget` per inode.
+
+> **Followed up 2026-08-16 (later).** Done, and measured, in
+> [blockparse-2026-08-16.md](blockparse-2026-08-16.md). Block parsing is worth
+> **10.4×** warm. Cold it is worth nothing by itself — it is 8× *slower*,
+> because dropping `iget` also drops ldiskfs's built-in readahead window — but
+> parsing **plus** an explicit window of 64+ blocks reaches **1,420,664 obj/s at
+> 99% of the device**, against the userspace scanner's 1,439,300 on the same
+> stripe. The two together are what §4's comparison was missing.

@@ -54,6 +54,7 @@ Rollout is incremental with **no flag day**: server-only mode (already improves
 | [`docs/design-osd-scanner.md`](docs/design-osd-scanner.md) | **OSD API scanner — second wave.** In-kernel, all backends; gated on the throughput gap |
 | [`docs/parallel-osd-scanner-2026-08-15.md`](docs/parallel-osd-scanner-2026-08-15.md) | **Parallel enumeration (step 5) — design.** `DOIF_PARALLEL` private iterators + the `lfu_par` harness |
 | [`docs/parallel-osd-measured-2026-08-15.md`](docs/parallel-osd-measured-2026-08-15.md) | **Parallel enumeration — measured, both backends.** ldiskfs 2.03M obj/s (2.4×, wall = `inode_hash_lock`); ZFS 561k (3.64×) and now **2.5× the userspace scanner**; LFSCK coexistence proven |
+| [`docs/blockparse-2026-08-16.md`](docs/blockparse-2026-08-16.md) | **Block parsing — the `inode_hash_lock` wall removed.** Read the inode table directly instead of one `iget` per inode: **17.4M obj/s warm (10.4×)**, and with an explicit readahead window **1,420,664 cold at 99% of an NVMe stripe — parity with the userspace device scanner** |
 | [`docs/cold-on-fast-storage-2026-08-16.md`](docs/cold-on-fast-storage-2026-08-16.md) | **Cold, on NVMe — a retraction.** Cold is latency-bound for Option 2 and scales 3.6× with threads; Option 1 saturates 93% of the device with one thread. "Cold is a tie" was an artifact of 190 MB/s storage |
 | [`docs/option-comparison.md`](docs/option-comparison.md) | The two MDT approaches side by side, with measurements |
 | [`docs/throughput-test-plan.md`](docs/throughput-test-plan.md) / [`docs/throughput-results-2026-08-06.md`](docs/throughput-results-2026-08-06.md) | The benchmark that set the build order: 705k vs 105k objects/sec |
@@ -74,7 +75,7 @@ by measurement:
 |---|---|---|
 | 1 | **ldiskfs device scanner** — userspace, libext2fs | **Prototype in `src/`, 17/17 tests**, measured **705k inodes/s** cold-cache on a 12M-inode MDT |
 | 1 | **ZFS device scanner** — userspace, libzpool, snapshot-first | **Prototype in `src/`, 16/16 tests** against a synthetic MDT-like dataset (`make zfs`) |
-| 2 | **OSD API scanner** — in-kernel, `dt_it_ops`, all backends | Prototype scanner end-to-end (enumerate → attrs → ring → userspace) at ~796k obj/s on a live MDT; **2026-08-15: parallel enumeration measured — ldiskfs 2.03M obj/s, ZFS 561k (now faster than the ZFS device scanner), concurrent with LFSCK** |
+| 2 | **OSD API scanner** — in-kernel, `dt_it_ops`, all backends | Prototype scanner end-to-end (enumerate → attrs → ring → userspace) at ~796k obj/s on a live MDT; **2026-08-15: parallel enumeration measured — ldiskfs 2.03M obj/s, ZFS 561k (now faster than the ZFS device scanner), concurrent with LFSCK**; **2026-08-16: block parsing — 17.4M obj/s warm and cold parity with the device scanner (99% of an NVMe stripe)** |
 
 ## Status
 
