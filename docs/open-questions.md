@@ -205,6 +205,24 @@ does not cost the target some percentage; it changes the divisor. Any filter
 needing a non-inline xattr has to be priced as a separate scan mode, not as a
 predicate.
 
+**Sharpened 2026-08-16 — [`filter-levels.md`](filter-levels.md) §§3, 6, 7.**
+"Needs a non-inline xattr" is not a property of the predicate. `mkfs.lustre`
+sizes MDT inodes precisely so LMA, LOV, SOM and linkea fit *inside* them
+(`libmount_utils_ldiskfs.c:860-890`), so `--pool`, `--stripe-count`, `--name`
+and `--size` are all inline on a normally-provisioned MDT and all external on a
+wide-striped one (>59 stripes → 512 B inodes, layouts always external, bz
+7241). What needs measuring is the **spill rate per filesystem shape**, not a
+per-predicate verdict.
+
+Two things follow. **It is already instrumented** — the device scanner reports a
+tier-2 rate, and the OSD scanner gets it free by counting `osd_iit_iget_raw()`'s
+`-EAGAIN` fallback. What exists is 0.0% of 12M inodes on the lab ldiskfs MDT and
+1 spill in 1351 objects on the real ZFS MDT: both default-striped, so a lower
+bound only. **And it is backend-shaped** — on ZFS every Lustre xattr arrives in
+one `SA_ZPL_DXATTR` unpack that profiled at 0.0%, so there is essentially no
+cliff there. Any claim that a filter misses the target needs a backend attached
+to it.
+
 ### Filter predicate classification
 
 The operator set is now given across both documents — `find`/`lfs find`-equivalent
@@ -217,6 +235,31 @@ protocol even where not initially implemented for all attributes.
 Still needed: walk every `find_param` field through `cb_find_init()`
 (`liblustreapi_pfind.c:2413`) and classify each as inline-attribute (cheap),
 xattr-requiring (see *Does the target survive real filters*), or userspace-only.
+
+**Done 2026-08-16 — [`filter-levels.md`](filter-levels.md).** All 34 `lfs find`
+predicates enumerated and assigned a tier, for the OSD scanner and both
+device-scanner backends, using the existing §6 tier model
+(`design-ldiskfs-scanner.md`) rather than a second vocabulary. Five findings
+change the design rather than just recording it:
+
+- **`--size`/`--blocks` are tier 1, not tier 0.** An MDT inode's `i_size` is not
+  the file's size for a striped regular file, and its `i_blocks` counts the MDT
+  inode's own blocks; the number to read is `trusted.som`. An MDT-only scan
+  therefore implements `lfs find --lazy` semantics exactly — and SOM is written
+  on close, so a size filter has a third outcome, *unknown*.
+- **The §6 tier table has two errors**: `size, blocks` at tier 0, and SOM at
+  tier 2 when `mkfs.lustre` budgets it inline.
+- **The LUG slide-21 example is not all-tier-0**, because of `-blocks +1G`.
+  Predicted from `mdt_handler.c`, not yet reproduced on a real MDT.
+- **No predicate is inherently tier 2.** Every tier-1 predicate *becomes* tier 2
+  when its xattr spills — data-dependent, not query-dependent. See the sharpened
+  note under *Does the target survive real filters* above.
+- **Free predicates unimplemented on every scanner**: `--btime`/`--projid`/
+  `--attrs` need `la_btime`/`la_projid`/`la_flags`, absent from the ldiskfs
+  `DOIF_ATTR` and block-parse paths though the **ZFS OSD path already has all
+  three**; and both device backends parse only `trusted.lma`, so no layout,
+  pool, name or size predicate is implementable there at all — 3 of 34
+  predicates exist today.
 
 **Blocks:** filter module design, attribute mask definition.
 
