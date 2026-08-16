@@ -7,6 +7,24 @@
 **Supersedes:** `design-osd-scanner.md` §8.1 (the singleton as a hard ceiling)
 and the open item left by `scrub-decomposition-2026-08-07.md` step 2.
 
+> **Superseded in part, 2026-08-16 — read this first.** Every ldiskfs rate in
+> this document was bounded by `ldiskfs_iget()`, which §3 correctly identifies as
+> the wall and §3's third bullet correctly names the fix for. That fix was built
+> the next day: [`blockparse-2026-08-16.md`](blockparse-2026-08-16.md) parses
+> inodes straight out of the inode-table blocks on the `DOIF_PARALLEL` path.
+> ldiskfs warm goes **1,669,530 → 17,392,147 obj/s (10.4×)** and the curve peaks
+> at *four* threads instead of two, because the box goes idle before the lock
+> does. Cold goes to **1,420,664 obj/s at 99% of an NVMe stripe** — parity with
+> the userspace device scanner, which retires the "userspace still faster warm"
+> row in §0 as well.
+>
+> **The ZFS half of this document stands unchanged** — it does not go through
+> `iget`, and the posture reversal in §6a is still the current result.
+>
+> What is worth keeping here is the reasoning, not the ldiskfs numbers: §3
+> diagnosed a single call from a profile and predicted the right lever, and §5
+> proved LFSCK coexistence with a control row that still holds.
+
 **Two labs, both backends, both deleted after the runs.** Each a GCP
 c3-standard-8 (8 vCPU Xeon 8481C), Rocky 9.8, kernel `5.14.0-687.36.1.el9_8`,
 Lustre **v2_17_55 source build** with the patch stack, single node, ~2M objects
@@ -28,10 +46,10 @@ Sections §1–§6 are ldiskfs. §6a is ZFS, and it is where the headline change
 | private, 1 thread | 1,247,723 (1.46×) | 193,713 (1.25×) |
 | **best** | **2,028,498 at j2 (2.38×)** | **561,509 at j16 (3.64×)** |
 | shape | peaks at 2, plateaus ~1.80M | climbs to 4, saturates the box at 8–16 |
-| the wall | one global lock (`inode_hash_lock`, 83% of j8) | nothing dominates — distributed DMU hold traffic; the plateau is core count |
+| the wall | one global lock (`inode_hash_lock`, 83% of j8) — **removed 08-16 by block parsing; the new limit is the box going idle** | nothing dominates — distributed DMU hold traffic; the plateau is core count |
 | cold | ~173k, flat at every thread count **on a 190 MB/s disk** — see the 08-16 retraction: on NVMe it scales 3.6× (202k → 731k) and is latency-bound, not device-bound | **scales**: 97.8k → 424k at j8 (CPU-bound) |
 | attributes under parallelism | free (≤1%) | near-free (2–4%) |
-| vs the userspace device scanner | userspace still faster warm (~4M at `-j 4`) | **in-kernel now 2.52× faster** |
+| vs the userspace device scanner | userspace still faster warm (~4M at `-j 4`) — **reversed 08-16: 17.4M in-kernel, and cold parity at 1.01×** | **in-kernel now 2.52× faster** |
 | LFSCK coexistence | proven | proven |
 | correctness vs singleton | identical FID set + attrs | identical FID set + attrs |
 
@@ -126,6 +144,10 @@ for. That has three consequences worth stating plainly:
   stop calling `iget` at all — parse inodes straight out of the itable blocks
   the way the userspace device scanner does (which is precisely why *it*
   reaches 4M obj/s at `-j 4` with no kernel inode cache in the path).
+  **Done 2026-08-16** (`blockparse-2026-08-16.md`): 17.4M obj/s warm, and the
+  new peak is at four threads. The one thing this bullet did not anticipate is
+  that `iget` was also supplying a 32-block readahead window cold, so removing
+  it is a *regression* until the window is supplied explicitly.
 - **It is hardware- and workload-dependent.** `inode_hash_lock` contention
   scales with how many inodes the box is instantiating, including from client
   traffic — which is the mechanism behind the 20% client-mounted penalty.
@@ -345,7 +367,7 @@ warm rate across labs; the 832k-vs-390k gap recorded in August did not recur.
 | Record | Was | Now |
 |---|---|---|
 | `design-osd-scanner.md` §8.1 | singleton is a hard ceiling; fan-out mandatory *because of it* | binds the default iterator only; fan-out still wanted for one-scan-N-consumers, not for parallelism |
-| K4 (throughput) | 832k single-thread, "within 20% of 1M" | **2.03M at j2, 1.25M at j1** — target cleared with margin |
+| K4 (throughput) | 832k single-thread, "within 20% of 1M" | **2.03M at j2, 1.25M at j1** — target cleared with margin. *(08-16: 17.4M warm, 1.42M cold at 99% of an NVMe stripe)* |
 | K8 (LFSCK coexistence) | biggest operational risk; hours of blocked scanning | **resolved** — measured concurrent, scrub unharmed |
 | step-2 fan-out | the lever for per-object work | still valid for tier-2 work; no longer the parallelism story |
 | **ZFS posture** (step 2) | "the userspace device scanner is the faster path; Option 2's case there rests on liveness and WBCFS, not speed" | **reversed** — in-kernel sharded is **2.31× warm / 1.82× cold** the userspace scanner's best, on a box running both (§6b) |
@@ -362,6 +384,10 @@ Still open, and now the interesting ones:
   On ZFS, where the useful thread count is 8+ rather than 2, the question is
   sharper still. `throughput-test-plan.md`'s foreground methodology applies
   unchanged, and **this is now the most important open item.**
+  *(08-16: block parsing changes the shape of this question on ldiskfs rather
+  than removing it. The scan no longer contends for `inode_hash_lock` at all —
+  it contends for the buffer cache and the device instead, and it does so ~10×
+  faster. Still the most important open item.)*
 - **The osd-zfs `load()` off-by-one** from the design note (§5) is *consistent
   with* the ZFS lab but not isolated by it: the private path (patched to start
   at `hash`) returns the identical FID set the singleton does, which is what

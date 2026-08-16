@@ -184,6 +184,14 @@ integration is an Output Format module feeding them directly.
 > identical hardware. It is also the only option that works on **old servers
 > with no LFU kernel support** and for **offline analysis of an unmounted MDT
 > or snapshot**. See [`option-comparison.md`](option-comparison.md).
+>
+> **Updated 2026-08-16:** the 6.7× throughput gap no longer exists. `DOIF_PARALLEL`
+> and block parsing took the §6b path to **1,420,664 obj/s cold at 99% of an NVMe
+> stripe** against the device scanner's 1,439,300 on the same stripe — parity —
+> and past it on ZFS (1.9× cold, 2.5× warm). This section stays the PoC path on
+> its *other* merits, which are unchanged and were always the stronger argument:
+> unmodified servers, unmounted targets and snapshots, and cost that lands off
+> the MDS. See [`option-1-vs-2.md`](option-1-vs-2.md) for the current table.
 
 Scans the MDT/OST block device **directly in userspace via libext2fs**, following
 `e2scan` and Lester. Runs independently of the MDS/OSS service; needs only
