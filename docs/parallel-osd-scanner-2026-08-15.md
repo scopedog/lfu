@@ -192,6 +192,10 @@ What the numbers would mean:
   threads should not move it.  If they do, it means the singleton was
   leaving I/O parallelism on the table (no readahead across groups), which
   would be its own useful finding.
+  **[2026-08-16: they do.  Cold scales 3.6× with threads on NVMe — the
+  prediction's own escape clause turned out to be the right one, and the
+  reason is exactly "no readahead, dependent 4 KiB reads".  See
+  `cold-on-fast-storage-2026-08-16.md`.]**
 
 ## 5. Two things found on the way
 

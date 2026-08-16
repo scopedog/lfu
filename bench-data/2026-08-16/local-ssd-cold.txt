@@ -1,0 +1,113 @@
+COLD SCANNING ON FAST STORAGE — 2026-08-16, lab "lfu-ssd-lab", deleted after.
+
+Purpose: every previous cold figure in this project came from a loop file on a
+cloud boot disk at ~190 MB/s.  "Cold is device-bound and flat at every thread
+count" may therefore have been a statement about that disk rather than about
+the scanners.  This run puts the MDT on storage fast enough to tell.
+
+Instance: GCP c3-standard-8-lssd (8 vCPU Xeon Platinum 8481C, 31 GiB RAM),
+          2 x 375 GB local NVMe SSD, us-central1-a
+OS/kernel: Rocky 9.8, 5.14.0-687.36.1.el9_8 (same as every prior lab)
+Lustre: v2_17_55 + rec-attr + rec-attr-zfs + parallel-it, --enable-ldiskfs
+MDT: /dev/md0 = RAID0(nvme1n1, nvme2n1), 128k chunk, 750 GB
+     314,474,496 inodes, 32,768 per group, 1 KiB inodes
+     (~9,600 groups; 623 populated, which is what the scan touches)
+OST: 16 GiB loop file (irrelevant to MDT scanning)
+Namespace: createmany -m, 8 x 2,500,000 -> 20,000,101 objects
+           (~30-37k creates/s).  20M rather than 2M so a cold pass still
+           lasts >10 s at GB/s.
+ldiskfs only: the ZFS cold question was already settled (CPU-bound, scales
+           with threads); this experiment is about the ldiskfs claim.
+
+=== RAW DEVICE, BEFORE ANY LUSTRE ===
+single device nvme1n1, O_DIRECT sequential:  738 MB/s  (bs=1M and bs=4M alike)
+md0 stripe, O_DIRECT sequential:
+  1 reader  1399 MB/s
+  2 readers 1406 MB/s
+  4 readers 1406 MB/s
+  8 readers 1406 MB/s
+The stripe is saturated by one sequential stream.  1,406 MB/s is the ceiling
+everything below is measured against.
+
+=== OPTION 2 (in-kernel OSD scanner), COLD ===
+umount all -> drop_caches -> remount MDT -> first pass.  lfu_noverify=1, debug=0.
+"read" is sectors read from both stripe members during the scan; bw = read/time.
+
+  config        objects      time      rate obj/s   read     bandwidth
+  singleton     20,000,101   98.826s     202,376    19,533MB   198 MB/s
+  private j1    20,000,102   80.723s     247,762    19,535MB   242 MB/s
+  private j2    20,000,103   47.442s     421,569    19,535MB   412 MB/s
+  private j4    20,000,104   32.197s     621,179    19,533MB   607 MB/s
+  private j8    20,000,105   27.834s     718,549    19,533MB   702 MB/s
+  private j16   20,000,106   27.343s     731,452    19,534MB   714 MB/s
+repeats:
+  singleton-p2  20,000,107   98.056s     203,966    19,533MB   199 MB/s   (+0.8%)
+  private-j4-p2 20,000,108   32.192s     621,275    19,533MB   607 MB/s   (+0.02%)
+
+  Every run reads the same 19.5 GB — 1 KiB per object, as expected.  What
+  changes with threads is how fast those same bytes arrive.
+
+  COLD SCALES 3.6x WITH THREADS (202k -> 731k).  It plateaus at ~714 MB/s,
+  which is HALF the device's 1,406 MB/s — so even at 16 threads the in-kernel
+  path is not device-bound.
+
+=== OPTION 2, WARM (same mount, cache as hot as it can get) ===
+  warmup j4     43.131s   463,706/s
+  singleton     89.557s   223,322/s
+  private j1    67.007s   298,477/s
+  private j2    41.630s   480,425/s
+  private j4    36.971s   540,967/s
+  private j8    42.923s   465,953/s
+
+  NOTE: warm is barely faster than cold here (singleton 223k vs 202k).  At 20M
+  objects the working set — 19.5 GB of itable plus the kernel inode cache —
+  does not fit in 31 GiB of RAM.  This is the important negative result: at
+  realistic namespace sizes "warm" stops existing, and the 1.9M obj/s warm
+  figures from the 2M-object labs are a small-namespace artifact.
+
+=== OPTION 1 (userspace libext2fs device scanner), SAME DEVICE ===
+  cold -j1  wall=14.93s  1,426,450 inodes/s  bw=1309 MB/s
+  cold -j2  wall=14.90s  1,432,158 inodes/s  bw=1311 MB/s
+  cold -j4  wall=14.86s  1,435,080 inodes/s  bw=1314 MB/s
+  cold -j8  wall=14.88s  1,434,569 inodes/s  bw=1313 MB/s
+  warm -j1  wall=14.92s  1,426,347 inodes/s
+  warm -j4  wall=14.86s  1,435,029 inodes/s
+  warm -j8  wall=14.87s  1,434,886 inodes/s
+
+  Flat at every -j, warm == cold, and pinned at ~1,310 MB/s = 93% of the raw
+  stripe.  Option 1 IS device-bound, with ONE thread.
+
+=== THE HEADLINE ===
+  cold, 1 thread:   Option 1 1,426,450   vs  Option 2   247,762   = 5.76x
+  cold, best:       Option 1 1,435,080   vs  Option 2   731,452   = 1.96x
+  device utilisation: Option 1 93%,  Option 2 17% (j1) -> 51% (j16)
+
+  The "cold is a tie" result from the loop-file labs was an artifact of slow
+  storage: at ~190 MB/s both scanners saturated the disk and looked identical.
+  Given a device that can do 1.4 GB/s, Option 1 takes it and Option 2 cannot.
+
+  Mechanism: the userspace scanner reads the inode table in big sequential
+  runs (ext2fs_inode_scan over a whole block group).  The in-kernel path
+  reaches each inode through osd_iget -> ldiskfs_iget -> __ldiskfs_get_inode_loc
+  -> sb_bread, i.e. one 4 KiB buffer-cache read per inode-table block, issued
+  dependently.  At queue depth ~1 that is latency-bound, which is why threads
+  help it (more outstanding requests) and why it still cannot reach a device
+  that one sequential reader saturates.
+
+=== WHAT IT MEANS FOR THE 1-HOUR / 4-BILLION-OBJECT TARGET ===
+  Option 1   at 1.43M obj/s  ->  2,793 s  =  0.78 h   MEETS the target
+  Option 2   at  731k obj/s  ->  5,472 s  =  1.52 h   misses it
+  Option 2   at  202k obj/s  -> 19,764 s  =  5.49 h   (singleton, before this work)
+
+  On this hardware, sharding takes the in-kernel scanner from 5.5 h to 1.5 h
+  for a 4-billion-object MDT, which is a real gain, but the userspace device
+  scanner is the only one of the two that meets the HLD's stated goal.
+
+=== METHOD NOTES ===
+- mkfs.lustre on a 750 GB device used lazy_itable_init=0 and spent ~6 minutes
+  writing ~300 GB of inode table before anything could run.  Constrain the MDT
+  with --device-size when the namespace is small relative to the device.
+- 20M createmany objects took ~10 minutes at 30-37k creates/s.
+- The bandwidth column comes from /sys/block/nvme{1,2}n1/stat field 3 (sectors
+  read) sampled around each run; it is the whole-device figure, which during a
+  scan is the scan.
