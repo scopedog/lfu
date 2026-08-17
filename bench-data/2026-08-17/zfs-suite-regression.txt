@@ -1,0 +1,69 @@
+=== OSD-ZFS REGRESSION SUITES — 2026-08-17 — lfu-zfs-suite (c3-standard-8, us-east1-b) ===
+kernel: 5.14.0-687.36.1.el9_8.x86_64  zfs: 2.2.10-1
+patched = v2_17_55 + the six-patch LFU stack; baseline = clean v2_17_55
+
+########## PATCHED ##########
+=== suites ===
+--- sanity-scrub (full) ---
+sanity-scrub     rc=0   pass=16   fail=0   skip=26
+--- sanity (full) ---
+sanity           rc=1   pass=0    fail=0   skip=0
+--- conf-sanity (full) ---
+conf-sanity      rc=0   pass=22   fail=0   skip=2
+
+=== dmesg: anything alarming ===
+[ 2507.523131] Lustre: DEBUG MARKER: == conf-sanity test 32e: dom upgrade test ================ 22:39:44 (1787006384)
+[ 2507.579529] Lustre: DEBUG MARKER: == conf-sanity testing /home/nishida/lustre-release/lustre/tests/../tests/disk2_9-zfs.tar.bz2 upgrade with DoM ========================================================== 22:39:44 (1787006384)
+[ 2508.579540] Lustre: DEBUG MARKER: lfu-zfs-suite: executing /home/nishida/lustre-release/lustre/tests/../utils/lctl device_list
+[ 2508.705363] Lustre: DEBUG MARKER: lfu-zfs-suite: executing losetup -a
+[ 2552.211736] Lustre: DEBUG MARKER: == conf-sanity test 32f: pfl upgrade test ================ 22:40:29 (1787006429)
+[ 2552.350622] Lustre: DEBUG MARKER: == conf-sanity test 32g: flr/dom upgrade test ============ 22:40:29 (1787006429)
+[ 2552.499241] Lustre: DEBUG MARKER: == conf-sanity test 32h: pool quota upgrade test ========= 22:40:29 (1787006429)
+[ 2554.682249] Lustre: DEBUG MARKER: lfu-zfs-suite: executing /home/nishida/lustre-release/lustre/tests/../utils/lctl device_list
+[ 2554.810333] Lustre: DEBUG MARKER: lfu-zfs-suite: executing losetup -a
+[ 2622.926282] Lustre: DEBUG MARKER: == conf-sanity test 32i: fscrypt data encryption upgrade test ========================================================== 22:41:39 (1787006499)
+[ 2623.067521] Lustre: DEBUG MARKER: == conf-sanity test 32j: fscrypt filename encryption upgrade test ========================================================== 22:41:40 (1787006500)
+[ 2623.720819] Lustre: DEBUG MARKER: lfu-zfs-suite: executing set_hostid
+[ 2625.163639] Lustre: DEBUG MARKER: == conf-sanity test complete, duration 1133 sec ========== 22:41:42 (1787006502)
+[ 2625.203138] Lustre: DEBUG MARKER: === conf-sanity: start cleanup 22:41:42 (1787006502) ===
+[ 2625.264960] Lustre: DEBUG MARKER: === conf-sanity: finish cleanup 22:41:42 (1787006502) ===
+SUITE-patched DONE
+
+--- sanity subset, patched (after RUNAS_ID fix) ---
+=== suites ===
+--- sanity (full) ---
+sanity           rc=1   pass=128  fail=4   skip=50
+    failing tests:
+      FAIL 27Ke (1s)
+      FAIL 27W (0s)
+      FAIL 102c (1s)
+      FAIL 102j (1s)
+
+=== dmesg: anything alarming ===
+  (clean)
+SUITE-patched2 DONE
+
+########## BASELINE ##########
+=== suites ===
+--- sanity-scrub (full) ---
+sanity-scrub     rc=0   pass=16   fail=0   skip=26
+--- sanity (full) ---
+sanity           rc=1   pass=128  fail=4   skip=50
+    failing tests:
+      FAIL 27Ke (2s)
+      FAIL 27W (1s)
+      FAIL 102c (1s)
+      FAIL 102j (1s)
+--- conf-sanity (full) ---
+conf-sanity      rc=0   pass=22   fail=0   skip=2
+
+########## FOUR-TEST RECHECK (chmod o+x $HOME) ##########
+uid 500 can exec lfs: yes
+baseline   pass=2   fail=2    FAIL 27Ke (1s) FAIL 27W (0s) PASS 102c (0s) PASS 102j (3s) 
+uid 500 can exec lfs: yes
+patched    pass=2   fail=2    FAIL 27Ke (1s) FAIL 27W (0s) PASS 102c (0s) PASS 102j (3s) 
+
+########## per-suite PASS lists, patched sanity-scrub ##########
+PASS 0 (4s) PASS 1a (4s) PASS 1b (6s) PASS 4a (10s) PASS 5 (44s) PASS 6 (19s) PASS 7 (9s) PASS 8 (8s) PASS 10a (8s) PASS 12 (184s) PASS 13 (182s) PASS 15 (34s) PASS 16 (7s) PASS 18 (4s) PASS 19 (102s) PASS 22 (2s) 
+########## per-suite PASS lists, baseline sanity-scrub ##########
+PASS 0 (4s) PASS 1a (4s) PASS 1b (6s) PASS 4a (10s) PASS 5 (44s) PASS 6 (19s) PASS 7 (9s) PASS 8 (8s) PASS 10a (8s) PASS 12 (191s) PASS 13 (183s) PASS 15 (50s) PASS 16 (6s) PASS 18 (4s) PASS 19 (101s) PASS 22 (2s) 

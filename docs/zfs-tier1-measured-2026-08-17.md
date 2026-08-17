@@ -193,6 +193,16 @@ back-to-back under identical conditions and is comparable within the table;
 figures from different phases of this lab are not comparable to each other, in
 the same way rates from different labs are not.
 
+## 7b. And it does not break anything upstream expects
+
+This run tested the feature added. A companion run tested the code *touched* —
+`osd-zfs/osd_scrub.c` is the scrub's own file, and the patch refactors
+`__osd_xattr_load_by_oid()`, which the normal scrub path calls for every object:
+[`zfs-suite-regression-2026-08-17.md`](zfs-suite-regression-2026-08-17.md).
+`sanity-scrub` 16/0, a `sanity` subset 128/4, `conf-sanity` 22/0 — **identical on
+patched and clean v2_17_55**, kernel log clean on both, and the four `sanity`
+failures traced to a 0700 home directory rather than to Lustre.
+
 ## 8. What this does not measure
 
 - **Cold.** Every row is warm. `c3-standard-8` has no local SSD, so cold here
