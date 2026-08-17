@@ -50,6 +50,28 @@ macro style, so it can be submitted as it stands. Read it from the tree with
 option and filter, the three outcomes of a size filter, and the exit statuses;
 `lfind --help` is the short form of the same thing.
 
+## Building and installing
+
+Each backend needs its own device library, and no host has all of them — the MDS
+build hosts have no ZFS headers, a workstation may have no libext2fs — so the
+targets are separate and `all` is the front-end plus ldiskfs:
+
+```sh
+make                          # lfind + lfind-ldiskfs        (libext2fs)
+make zfs                      # lfind-zfs                    (libzpool)
+make kmdt                     # lfind-kmdt                    (no library)
+make test test-zfs            # 76 + 16 checks, plus tests/filter_eval_test.sh
+
+sudo make install             # what this host built, into /usr/sbin, + man8
+make install DESTDIR=$RPM_BUILD_ROOT prefix=/usr    # staged, for packaging
+```
+
+`install` installs the binaries that exist in `build/` rather than depending on
+`all`, because a hard dependency would fail on every real machine; it refuses if
+nothing has been built. Front-end and backends land in the same directory, which
+is how `lfind` finds a backend without a compiled-in path — `LFIND_LIBEXEC`
+overrides that, and a build tree works uninstalled for the same reason.
+
 ## Benchmark results
 
 GCP c3-standard-8 labs, Rocky 9.8, kernel 5.14.0-687.36.1, Lustre v2_17_55 built
