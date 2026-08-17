@@ -111,7 +111,8 @@ Rollout is incremental with **no flag day**: server-only mode (already improves
 | [`docs/option-comparison.md`](docs/option-comparison.md) | The two MDT approaches side by side, with measurements |
 | [`docs/throughput-test-plan.md`](docs/throughput-test-plan.md) / [`docs/throughput-results-2026-08-06.md`](docs/throughput-results-2026-08-06.md) | The benchmark that set the build order: 705k vs 105k objects/sec |
 | [`docs/upstream-survey.md`](docs/upstream-survey.md) | What already exists in `lustre-release` and what LFU must build |
-| [`docs/filter-levels.md`](docs/filter-levels.md) | **Filters — all 34 `lfs find` predicates, per scanner, with a cost tier each.** Why `--size`/`--blocks` are tier 1 and not tier 0, and what "unknown" means on an MDT-only scan. Implemented for both device backends 2026-08-17 |
+| [`docs/filter-levels.md`](docs/filter-levels.md) | **Filters — all 34 `lfs find` predicates, per scanner, with a cost tier each.** Why `--size`/`--blocks` are tier 1 and not tier 0, and what "unknown" means on an MDT-only scan. Implemented on all three scanners 2026-08-17 |
+| [`docs/filter-pushdown-measured-2026-08-17.md`](docs/filter-pushdown-measured-2026-08-17.md) | **Filter pushdown, measured.** The kernel side built and run: every predicate agrees with the userspace scanner, the `-blocks +1G` trap reproduced on a real MDT, and a rejecting tier-0 filter is **8% faster than no filter at all** |
 | [`docs/open-questions.md`](docs/open-questions.md) | Resolved and live design questions |
 | [`docs/reference/`](docs/reference/) | Source PDFs |
 
@@ -128,7 +129,7 @@ by measurement:
 |---|---|---|
 | 1 | **ldiskfs device scanner** — userspace, libext2fs | **Prototype in `src/`, 61/61 tests**, measured **705k inodes/s** cold-cache on a 12M-inode MDT; **2026-08-17: the `lfs find` filter vocabulary implemented** — 33 of 34 predicates, tier-ordered, with a demand mask |
 | 1 | **ZFS device scanner** — userspace, libzpool, snapshot-first | **Prototype in `src/`, 16/16 tests** against a synthetic MDT-like dataset (`make zfs`); shares the same filter compiler |
-| 2 | **OSD API scanner** — in-kernel, `dt_it_ops`, all backends | Prototype scanner end-to-end (enumerate → attrs → ring → userspace) at ~796k obj/s on a live MDT; **2026-08-15: parallel enumeration measured — ldiskfs 2.03M obj/s, ZFS 561k (now faster than the ZFS device scanner), concurrent with LFSCK**; **2026-08-16: block parsing — 17.4M obj/s warm and cold parity with the device scanner (99% of an NVMe stripe)**; **2026-08-17: filter pushdown — the same evaluator compiled into `lfu_ring.ko`, tier 1 served from the mapped inode-table block via `rec(DORA_XATTR)`; testable halves tested, kernel side not yet built in a lab** |
+| 2 | **OSD API scanner** — in-kernel, `dt_it_ops`, all backends | Prototype scanner end-to-end (enumerate → attrs → ring → userspace) at ~796k obj/s on a live MDT; **2026-08-15: parallel enumeration measured — ldiskfs 2.03M obj/s, ZFS 561k (now faster than the ZFS device scanner), concurrent with LFSCK**; **2026-08-16: block parsing — 17.4M obj/s warm and cold parity with the device scanner (99% of an NVMe stripe)**; **2026-08-17: filter pushdown — the same evaluator compiled into `lfu_ring.ko`, tier 1 served from the mapped inode-table block via `rec(DORA_XATTR)`; built and run on a lab MDT, 3.59M obj/s unfiltered and 3.88M with a rejecting tier-0 filter, every predicate agreeing with the userspace scanner** |
 
 ## Status
 

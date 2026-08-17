@@ -312,13 +312,18 @@ Two design points worth stating because they were forced rather than chosen:
 | the kernel branch of the evaluator uses no libc beyond `mem*` | `nm -u` on the object | passes |
 | every Lustre identifier the evaluator uses exists in the real `lustre_idl.h`/`lustre_user.h` | grep against v2_17_55 | all resolve |
 | the six-patch stack applies cleanly on v2_17_55 | `git apply` on a fresh worktree | clean |
-| `lfu_ring.c` and the two OSD patches **compile and run** | needs a lab with a built Lustre tree and a mounted MDT | **not done** |
+| `lfu_ring.c` and the two OSD patches **compile and run** | GCP lab, Rocky 9.8, Lustre v2_17_55 + the stack, single node, 302,122 objects | **done 2026-08-17** — [`filter-pushdown-measured-2026-08-17.md`](filter-pushdown-measured-2026-08-17.md) |
+| every predicate agrees with the userspace device scanner on the same device | 12 filters, FID sets compared | **all AGREE** |
+| `--dev-blocks +1G` matches nothing and `--blocks +1G` finds the 1.5 GiB file | the §4.3 prediction, on a real MDT | **reproduced** |
 
-The last row is the honest one. `lfu_ring.c` and `osd_otable_it_xattr()` were
-written against the applied v2_17_55 source and reviewed identifier by
-identifier, but a kernel build and a scan on a real MDT are what would prove
-them, and the lab that could do it is not up. The pieces that *can* be proven
-here have been.
+**Built and run 2026-08-17** —
+[`filter-pushdown-measured-2026-08-17.md`](filter-pushdown-measured-2026-08-17.md).
+The stack compiles, `lfu_ring.ko` carries the evaluator, every predicate agrees
+with the userspace scanner on the same device, tier 2 fired once and was counted,
+and a rejecting tier-0 filter turns out to be **8% faster than no filter at
+all** because a rejected object never enters the ring. Two reporting bugs
+surfaced and are fixed (`--limit` mid-batch, and a rate line that divided
+survivors by wall time). Still warm-only, single-threaded, ldiskfs-only.
 
 **Lab checklist, when one is next up** (same recipe as
 `parallel-osd-scanner-2026-08-15.md` §"Nothing here has been compiled"; the
@@ -487,10 +492,10 @@ scan.
 
 ## 10. What is not settled
 
-- **The OSD-side filter has not run.** §5.4 lists what is proven; a kernel
-  build and one filtered scan on a lab MDT are what remain, and they are the
-  first thing to do when a lab is next up. `bench_osd_sweep.sh`'s warm rows
-  should also be re-taken with a tier-1 filter set, which is now possible.
+- ~~**The OSD-side filter has not run.**~~ **Run 2026-08-17** (§5.4). What is
+  still unmeasured there: cold, parallel enumeration into one ring, and ZFS.
+  `bench_osd_sweep.sh`'s warm rows should also be re-taken with a tier-1 filter
+  set, which is now possible.
 - **The tier-2 rate on a realistic filesystem** (§7). The two numbers we have
   are both ~0 on lab targets with default striping. Note that M9's answer
   changes how this has to be measured on ldiskfs: since libext2fs fetches the
@@ -499,15 +504,11 @@ scan.
   (`tier-2 (read)`), and its *cost* has to come from timing a scan with and
   without a tier-1 predicate rather than from any counter.
 - ~~**Design question M9**~~ — **answered 2026-08-17: it follows.** See §5.3.
-- **Whether `-blocks +1G` really matches nothing on a real MDT today** (§4.3).
-  Still not reproduced on a real MDT — that needs a Lustre filesystem with
-  striped files, and the benchfs lab is gone. What now exists is the mechanism
-  reproduced synthetically: `tests/mkimage.sh` builds `striped1`, a 2-stripe
-  file with 2 GiB in `trusted.som` and 8 blocks in its own inode, and the suite
-  asserts that `--dev-blocks +1G` misses it while `--blocks +1G` finds it. That
-  is the predicted failure, demonstrated against bytes a real MDT would write —
-  but it is a fixture we wrote, so it confirms the reasoning, not the field.
-  A real-MDT run is still worth doing and is now a one-command check.
+- ~~**Whether `-blocks +1G` really matches nothing on a real MDT today**~~
+  (§4.3) — **reproduced 2026-08-17 on a real MDT**: `--dev-blocks +1G` found 0
+  of 302,122 objects, `--blocks +1G` found the 1.5 GiB 4-stripe file, FID and
+  size matching `lfs path2fid`/`stat` exactly. The synthetic fixture in
+  `tests/mkimage.sh` stays as the regression test.
 - ~~**Which `--blocks` LFU means**~~ — **decided** (§5.2): `--blocks` is the
   file's, `--dev-blocks` is the target's. OST-actual remains out of reach
   without an OST scan.
@@ -516,8 +517,13 @@ scan.
   is now implemented and tested against a linkea we wrote; what is untested is
   whether a real MDT's linkea holds every name for every object. (Its byte
   order, at least, is now right — see §5.2.)
-- **How "unknown" is represented.** Now has *an* answer, not necessarily the
-  right one: undecided objects are counted on their own summary line and
+- **How "unknown" is represented** — and how often it happens. Measured
+  2026-08-17: **zero** undecided objects on a v2_17_55 MDT, because SOM is on by
+  default (there is no `mdt.*.enable_som` any more) and every closed file has
+  `trusted.som`. The third outcome is still real for a file open for write, but
+  it is rare, which is better for the largest-files use case than §4 assumed.
+  As for the representation, it now has *an* answer, not necessarily the right
+  one: undecided objects are counted on their own summary line and
   suppressed from the output, and `-u/--emit-unknown` emits them tagged
   `+unknown`. What is unsettled is whether a consumer wants that as a third
   output stream, an exit status, or a per-record field — and what the aggregation

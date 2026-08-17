@@ -287,9 +287,13 @@ it runs between `rec()` and the ring (design-osd-scanner.md §4's pushdown); the
 three tier-0 fields are filled on both OSD read paths, and tier 1 is served by
 a `rec(DORA_XATTR)` iterator extension out of the mapped inode-table block. The
 "filter program is UAPI" requirement is met by `struct lfu_filter` as an ioctl
-payload, validated index by index before use. **Written and reviewed against
-the applied v2_17_55 tree, testable halves tested, kernel side not built or run
-— no lab.**
+payload, validated index by index before use. **Built and run 2026-08-17 on a GCP lab** —
+[`filter-pushdown-measured-2026-08-17.md`](filter-pushdown-measured-2026-08-17.md):
+every predicate agrees with the userspace device scanner on the same device, the
+`-blocks +1G` trap is reproduced on a real MDT, tier 2 fired once out of 302,122
+objects and was counted, and a rejecting tier-0 filter runs **8% faster than no
+filter at all** because a rejected object never enters the ring. Cold, parallel
+enumeration into one ring, and ZFS remain unmeasured.
 
 **Still blocks:** the protocol-level filter/aggregation encoding — the operators
 in the LUG list that are not selections (`largest`, `histogram`, `count`, `sum`)

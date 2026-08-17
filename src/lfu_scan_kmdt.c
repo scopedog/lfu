@@ -287,6 +287,12 @@ static int lfu_kmdt_scan_chunk(void *tgt, void *wctx, struct lfu_ctx *cx,
 			struct lfu_rec rec;
 			int have_lma;
 
+			/* --limit is reached mid-batch, and a batch is 8192
+			 * records: without this the whole batch is still
+			 * emitted (found on the lab, 2026-08-17). */
+			if (cx->stop)
+				break;
+
 			cx->st->seen++;
 			lfu_kmdt_rec(&wr[i], &rec);
 
@@ -368,9 +374,21 @@ static void lfu_kmdt_report(const struct lfu_stats *st, double secs, void *tgt)
 			       : 0.0,
 			looked);
 	}
-	if (secs > 0.0)
+	/*
+	 * The rate must be over the objects the KERNEL walked, not over the
+	 * records that reached us: with the filter pushed down those are the
+	 * survivors, and dividing 1 survivor by the wall clock reports 9
+	 * objects/sec for a scan that did 302,122 (found on the lab,
+	 * 2026-08-17).  st->seen is right only when no filter was set.
+	 */
+	if (secs > 0.0) {
+		uint64_t scanned = t->have_stats ? t->st.rs_seen : st->seen;
+
+		fprintf(stderr, "objects scanned : %" PRIu64 "%s\n", scanned,
+			t->have_stats ? " (in kernel)" : "");
 		fprintf(stderr, "rate            : %.0f objects/sec\n",
-			(double)st->seen / secs);
+			(double)scanned / secs);
+	}
 }
 
 static int lfu_kmdt_parse_opt(int c, const char *arg, struct lfu_opts *o)
