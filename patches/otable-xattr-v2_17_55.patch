@@ -1,8 +1,8 @@
 diff --git a/lustre/include/dt_object.h b/lustre/include/dt_object.h
-index 7502d99614..bf50d491d6 100644
+index 7502d99614..2e13edbdd5 100644
 --- a/lustre/include/dt_object.h
 +++ b/lustre/include/dt_object.h
-@@ -1881,6 +1881,61 @@ struct dt_otable_rec {
+@@ -1881,6 +1881,65 @@ struct dt_otable_rec {
  	struct lu_attr	dor_attr;
  };
  
@@ -31,9 +31,13 @@ index 7502d99614..bf50d491d6 100644
 +
 +enum dt_otable_xattr_where {
 +	DOX_NONE = 0,
-+	DOX_INLINE,	/* the in-inode area of the mapped block: tier 1 */
-+	DOX_EXTERNAL,	/* an external xattr block via iget: tier 2 */
-+	DOX_IGET,	/* through a live inode; the iterator held no block */
++	DOX_INLINE,	/* what the iterator already held: the in-inode area of
++			 * the mapped block on ldiskfs, the SA xattr nvlist on
++			 * ZFS.  Tier 1: no I/O. */
++	DOX_EXTERNAL,	/* one more read: an external xattr block on ldiskfs,
++			 * the xattr directory on ZFS.  Tier 2. */
++	DOX_IGET,	/* ldiskfs only: through a live inode, because the
++			 * iterator held no block */
 +};
 +
 +struct dt_otable_xattr {
@@ -269,20 +273,199 @@ index c594db9b8c..82c7c86179 100644
  	if ((attr & DORA_ATTR) && it->ooi_want_attr) {
  		struct dt_otable_rec *dor = (struct dt_otable_rec *)rec;
  
+diff --git a/lustre/osd-zfs/osd_internal.h b/lustre/osd-zfs/osd_internal.h
+index a2adbb66bf..01d8d3638f 100644
+--- a/lustre/osd-zfs/osd_internal.h
++++ b/lustre/osd-zfs/osd_internal.h
+@@ -207,6 +207,26 @@ struct osd_otable_it {
+ 	 */
+ 	struct lu_attr		 ooi_attr;
+ 
++	/* DORA_XATTR (LFU): the SA xattr nvlist it::next unpacked to find the
++	 * LMA -- every SA-resident xattr of the object, already in memory --
++	 * kept until the next it::next so that rec() can serve a tier-1 read
++	 * from it with no second dnode hold; and the object's xattr directory
++	 * (SA_ZPL_XATTR, or ZFS_NO_OBJECT), where a value too large for the SA
++	 * area went.  Only kept when DOIF_ATTR is set, since that is when the
++	 * SA handle is held long enough to read the directory number.
++	 */
++	nvlist_t		*ooi_nvbuf;
++	__u64			 ooi_xattr;
++
++	/* The iterator's own counters, read back through rec(DORA_STATS)
++	 * (LFU).  Per iterator, so no locking; a consumer with N private
++	 * iterators sums them.  osd-zfs has no raw/fallback distinction --
++	 * every object comes through its bonus buffer -- so ooi_st_raw is
++	 * simply the objects returned. */
++	__u64			 ooi_st_raw;
++	__u64			 ooi_st_xa_inline;
++	__u64			 ooi_st_xa_ext;
++
+ 	/* The following bits can be updated/checked w/o lock protection.
+ 	 * If more bits will be introduced in the future and need lock to
+ 	 * protect, please add comment.
 diff --git a/lustre/osd-zfs/osd_scrub.c b/lustre/osd-zfs/osd_scrub.c
-index 96416d9bea..723c47c773 100644
+index 96416d9bea..c10b064070 100644
 --- a/lustre/osd-zfs/osd_scrub.c
 +++ b/lustre/osd-zfs/osd_scrub.c
-@@ -1900,6 +1900,13 @@ static int osd_otable_it_rec(const struct lu_env *env, const struct dt_it *di,
+@@ -1599,6 +1599,12 @@ static void osd_otable_it_fini(const struct lu_env *env, struct dt_it *di)
+ 	struct osd_otable_it *it = (struct osd_otable_it *)di;
+ 	struct osd_device *dev = it->ooi_dev;
+ 
++	/* the nvlist kept for rec(DORA_XATTR), if the last next() left one */
++	if (it->ooi_nvbuf) {
++		nvlist_free(it->ooi_nvbuf);
++		it->ooi_nvbuf = NULL;
++	}
++
+ 	if (it->ooi_private) {
+ 		atomic_dec(&dev->od_otable_users);
+ 		OBD_FREE_PTR(it);
+@@ -1779,6 +1785,13 @@ static int osd_otable_it_next(const struct lu_env *env, struct dt_it *di)
+ 	fid_zero(&it->ooi_fid);
+ 	it->ooi_attr.la_valid = 0;
+ 
++	/* the previous object's SA xattrs, kept for rec(DORA_XATTR) (LFU) */
++	if (it->ooi_nvbuf) {
++		nvlist_free(it->ooi_nvbuf);
++		it->ooi_nvbuf = NULL;
++	}
++	it->ooi_xattr = ZFS_NO_OBJECT;
++
+ 	if (unlikely(it->ooi_all_cached))
+ 		RETURN(1);
+ 
+@@ -1865,8 +1878,23 @@ again:
+ 		rc = osd_otable_it_attr(env, dev, hdl, lma, &it->ooi_attr);
+ 		if (rc)
+ 			GOTO(out, rc);
++
++		/* DORA_XATTR (LFU): where a value that did not fit the SA
++		 * area went, read while the handle is still open, and the
++		 * SA xattrs themselves kept for rec().  ENOENT here is the
++		 * common case -- no xattr directory at all -- and is what
++		 * makes "not in the SA area" a definite, free -ENODATA.
++		 */
++		rc = -sa_lookup(hdl, SA_ZPL_XATTR(dev), &it->ooi_xattr, 8);
++		if (rc == -ENOENT)
++			it->ooi_xattr = ZFS_NO_OBJECT;
++		else if (rc)
++			GOTO(out, rc);
++		it->ooi_nvbuf = nvbuf;
++		nvbuf = NULL;
+ 	}
+ 
++	it->ooi_st_raw++;
+ 	GOTO(out, rc = 0);
+ 
+ out:
+@@ -1895,11 +1923,110 @@ static int osd_otable_it_key_size(const struct lu_env *env,
+ 	return sizeof(__u64);
+ }
+ 
++/**
++ * osd_otable_it_xattr() - DORA_XATTR: one xattr of the current object
++ * @env: the thread context
++ * @it: the iterator, positioned on the object rec() describes
++ * @dox: the request; see struct dt_otable_xattr
++ *
++ * Two places an xattr can be on osd-zfs, tried cheapest first:
++ *
++ *  1. The SA xattr nvlist (SA_ZPL_DXATTR).  it::next already unpacked it to
++ *     find the LMA, and with DOIF_ATTR it is kept until the next it::next; a
++ *     lookup in it costs no I/O and no dnode hold.  This is the tier-1 read
++ *     of the filter model, and it is where trusted.som, trusted.lov,
++ *     trusted.lmv and trusted.link normally are -- osd_xattr_set() prefers
++ *     the SA area for anything up to DXATTR_MAX_SA_SIZE.
++ *  2. The xattr directory ZAP (SA_ZPL_XATTR), for values that did not fit:
++ *     a ZAP lookup, a dnode hold and a dmu_read() per value, through the same
++ *     __osd_xattr_get_large() the object path uses.  This is tier 2, and it is
++ *     counted as such.
++ *
++ * "Not in the SA area and no xattr directory" is a definite -ENODATA and
++ * costs nothing beyond the walk, exactly as "not in the inode and no external
++ * block" is on osd-ldiskfs.
++ *
++ * Only served alongside DOIF_ATTR, because that is when it::next holds the SA
++ * handle long enough to read the directory number and keeps the nvlist;
++ * without it the answer is -EOPNOTSUPP, as before.
++ *
++ * Return: value length (>= 0), or negative errno per struct dt_otable_xattr.
++ */
++static int osd_otable_it_xattr(const struct lu_env *env,
++			       struct osd_otable_it *it,
++			       struct dt_otable_xattr *dox)
++{
++	struct lu_buf lb;
++	uchar_t *val;
++	uint_t vlen = 0;
++	int size = 0;
++	int rc;
++
++	ENTRY;
++
++	if (unlikely(dox->dox_name == NULL || dox->dox_buf == NULL))
++		RETURN(-EINVAL);
++	dox->dox_len = 0;
++	dox->dox_where = DOX_NONE;
++
++	if (!it->ooi_want_attr || it->ooi_nvbuf == NULL)
++		RETURN(-EOPNOTSUPP);
++
++	/* 1. the SA area, already in memory */
++	rc = -nvlist_lookup_byte_array(it->ooi_nvbuf, dox->dox_name, &val,
++				       &vlen);
++	if (rc == 0) {
++		it->ooi_st_xa_inline++;
++		dox->dox_len = vlen;
++		dox->dox_where = DOX_INLINE;
++		if (vlen > dox->dox_buflen)
++			RETURN(-ERANGE);
++		memcpy(dox->dox_buf, val, vlen);
++		RETURN(vlen);
++	}
++	if (rc != -ENOENT)
++		RETURN(rc);
++
++	/* Not in the SA area and nowhere else to look: a definite answer,
++	 * and a free one. */
++	if (it->ooi_xattr == ZFS_NO_OBJECT)
++		RETURN(-ENODATA);
++
++	/* 2. the xattr directory */
++	lb.lb_buf = dox->dox_buf;
++	lb.lb_len = dox->dox_buflen;
++	rc = __osd_xattr_get_large(env, it->ooi_dev, it->ooi_xattr, &lb,
++				   dox->dox_name, &size);
++	if (rc == -ENOENT)
++		RETURN(-ENODATA);
++	if (rc != 0 && rc != -ERANGE)
++		RETURN(rc);
++
++	it->ooi_st_xa_ext++;
++	dox->dox_len = size;
++	dox->dox_where = DOX_EXTERNAL;
++	RETURN(rc == -ERANGE ? -ERANGE : size);
++}
++
+ static int osd_otable_it_rec(const struct lu_env *env, const struct dt_it *di,
+ 			     struct dt_rec *rec, __u32 attr)
  {
  	struct osd_otable_it *it  = (struct osd_otable_it *)di;
  
-+	/* Not implemented on this OSD yet: the SA handle is released before
-+	 * rec() and re-holding it per object is the second dnode hold the
-+	 * design set out to avoid.  Say so, rather than write a FID over the
-+	 * caller's request struct (LFU). */
-+	if (attr & (DORA_XATTR | DORA_STATS))
-+		return -EOPNOTSUPP;
++	/* Two requests that are not the record at all (LFU) */
++	if (attr & DORA_XATTR)
++		return osd_otable_it_xattr(env, it, (struct dt_otable_xattr *)rec);
++	if (attr & DORA_STATS) {
++		struct dt_otable_stats *dos = (struct dt_otable_stats *)rec;
++
++		dos->dos_raw = it->ooi_st_raw;
++		dos->dos_fallback = 0;
++		dos->dos_xa_inline = it->ooi_st_xa_inline;
++		dos->dos_xa_ext = it->ooi_st_xa_ext;
++		dos->dos_xa_iget = 0;
++		return 0;
++	}
 +
  	if ((attr & DORA_ATTR) && it->ooi_want_attr) {
  		struct dt_otable_rec *dor = (struct dt_otable_rec *)rec;

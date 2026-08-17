@@ -417,21 +417,22 @@ describe a position in a directory tree. This is a flat scan of a target's
 objects and has no tree to be at a depth in; the two options are rejected rather
 than ignored.
 .TP
-.B Tier-1 filters are refused on a mounted ZFS target
+.B The kmdt backend needs a patched OSD
 The
 .B kmdt
-backend can only read an extended attribute through the OSD iterator, and
-.B osd-zfs
-does not serve that request. A filter needing
+backend reads extended attributes only through the OSD iterator. On an OSD
+built without that support a filter needing
 .BR trusted.som ,
 .BR trusted.lov ,
 .B trusted.lmv
 or
 .B trusted.link
-is therefore refused at start-up on a ZFS target rather than answered from
-nothing. Use
+is refused at start-up rather than answered from nothing; the message names the
+attribute. Use
+.B lfind-ldiskfs
+or
 .B lfind-zfs
-against a snapshot instead.
+against an unmounted target or a snapshot instead.
 .TP
 .B --attrs sees fewer flags on ZFS
 .B z_pflags
