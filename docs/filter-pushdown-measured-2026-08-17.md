@@ -206,11 +206,12 @@ Both in reporting/control, neither in the filter logic, and both fixed:
   private iterators into one ring is the next step and is untested.
 - **ZFS.** At the time of this run `rec(DORA_XATTR)` returned `-EOPNOTSUPP` on
   osd-zfs, so `INFO` advertised no tier 1 there and a tier-1 filter was refused.
-  Closed later the same day in `otable-xattr-v2_17_55.patch`: osd-zfs serves it
-  from the SA xattr nvlist its iterator already holds
-  ([`filter-levels.md`](filter-levels.md) §5.4, §6). That code applies clean but
-  has **not** been built or measured on a lab; the ZFS column of the agreement
-  table above is still to be produced.
+  Closed later the same day, and **built and run** on its own lab:
+  osd-zfs serves it from the SA xattr nvlist its iterator already holds —
+  [`zfs-tier1-measured-2026-08-17.md`](zfs-tier1-measured-2026-08-17.md). 14 of
+  14 filters agree with `lfind-zfs` on the same data, `--blocks +1G` finds the
+  1.5 GiB file where `--dev-blocks +1G` finds nothing, and a tier-1 predicate
+  reading an xattr for every object costs 1.6% against ldiskfs's 27%.
 - **The `-EAGAIN` fallback rate is 0 here** (`raw=302122 fallback=0`), on a
   filesystem where every object had an inline LMA. A filesystem with pre-2.0
   IGIF objects would exercise it.

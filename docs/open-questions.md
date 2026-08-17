@@ -294,10 +294,12 @@ every predicate agrees with the userspace device scanner on the same device, the
 objects and was counted, and a rejecting tier-0 filter runs **8% faster than no
 filter at all** because a rejected object never enters the ring. Cold, parallel
 enumeration into one ring, and ZFS remain unmeasured. **osd-zfs gained the same
-`rec(DORA_XATTR)` later that day** — served from the SA xattr nvlist its
-iterator already unpacks for the LMA, with the xattr directory as tier 2
-(`filter-levels.md` §5.4, §6) — so the refusal of tier-1 filters on a live ZFS
-target is gone in the code; it applies clean and is not yet built or run.
+`rec(DORA_XATTR)` later that day, and it too is now built and run** — served
+from the SA xattr nvlist its iterator already unpacks for the LMA
+([`zfs-tier1-measured-2026-08-17.md`](zfs-tier1-measured-2026-08-17.md)): the
+whole vocabulary works on a live ZFS MDT, 14 of 14 filters agree with the
+userspace scanner, and tier 1 costs 1.6% there against 27% on ldiskfs. Cold and
+parallel enumeration into one ring remain unmeasured on both backends.
 
 **Still blocks:** the protocol-level filter/aggregation encoding — the operators
 in the LUG list that are not selections (`largest`, `histogram`, `count`, `sum`)

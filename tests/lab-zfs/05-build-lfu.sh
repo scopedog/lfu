@@ -8,7 +8,8 @@ cd ~/lfu/src/kernel
 make -C /lib/modules/$(uname -r)/build M=$PWD LUS=$HOME/lustre-release \
 	KBUILD_EXTRA_SYMBOLS=$HOME/lustre-release/Module.symvers modules \
 	> /tmp/kmod.log 2>&1 || { echo "MODULE BUILD FAILED"; grep -nE 'error:|Error [0-9]' /tmp/kmod.log | head -40; exit 1; }
-grep -nE 'warning:' /tmp/kmod.log | head -10 || echo "(no warnings)"
+w=$(grep -nE 'warning:' /tmp/kmod.log | head -10)
+[ -n "$w" ] && echo "$w" || echo "  (no warnings)"
 ls -la lfu_ring.ko
 for s in lfu_filter_tier0 lfu_filter_tier1 lfu_ea_decode lfu_filter_validate; do
 	nm lfu_ring.ko | grep -qw "$s" && echo "  present  $s" || echo "  ABSENT   $s"

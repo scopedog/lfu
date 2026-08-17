@@ -11,7 +11,10 @@ run() {
 	local label="$1"; shift
 	local out rc
 	out=$(sudo timeout 300 build/lfind-kmdt "$@" /dev/lfu_scan 2>&1); rc=$?
-	local n=$(echo "$out" | grep -c '^\[0x')
+	# NOT a count of record lines: every run here passes -q, which prints
+	# statistics and no records, so counting '[0x...' would report 0 for
+	# everything.  The number wanted is the stats block's own emitted line.
+	local n=$(echo "$out" | grep -oE '^emitted +: *[0-9]+' | grep -oE '[0-9]+$')
 	local k=$(echo "$out" | grep -oE 'filtered \(t0\) *: *[0-9]+' | grep -oE '[0-9]+$')
 	local k1=$(echo "$out" | grep -oE 'filtered \(t1\) *: *[0-9]+' | grep -oE '[0-9]+$')
 	local u=$(echo "$out" | grep -oE 'undecided *: *[0-9]+' | grep -oE '[0-9]+$')
@@ -50,6 +53,7 @@ run "--ost 1"               -q --ost 1
 run "--name 'named*'"       -q --name 'named*'
 run "--name named2"         -q --name named2
 run "--comp-count +1"       -q --comp-count +1
+run "--mdt-count +1 (LMV)"   -q --mdt-count +1
 run "--type f --blocks +1G" -q --type f --blocks +1G
 run "-u --size +0"          -q -u --size +0
 echo

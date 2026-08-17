@@ -10,8 +10,11 @@ rate() {
 	for i in 1 2 3; do
 		sudo rmmod lfu_ring 2>/dev/null
 		sudo insmod src/kernel/lfu_ring.ko dev=$DEV 2>/dev/null
+		# the line is "rate            : 263890 objects/sec"; an earlier
+		# version grepped "objects scanned/sec" and silently got 0 for
+		# every row, which looks exactly like a scanner that did nothing
 		r=$(sudo timeout 600 build/lfind-kmdt -q "$@" /dev/lfu_scan 2>&1 |
-		    grep -oE '[0-9]+ objects scanned/sec' | grep -oE '^[0-9]+')
+		    grep -oE '^rate +: *[0-9]+' | grep -oE '[0-9]+$')
 		best+=("${r:-0}")
 	done
 	printf '%-32s %s\n' "$label" "$(printf '%s\n' "${best[@]}" | sort -n | sed -n 2p) (runs: ${best[*]})"
