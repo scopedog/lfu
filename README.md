@@ -28,6 +28,7 @@ right way to compare two implementations, the wrong way to size a scan.
 | | Option 1 · device scanner | Option 2 · OSD scanner | faster by |
 |---|---|---|---|
 | **Target state** | unmounted, or a snapshot | **mounted and serving** | — |
+| **Filter evaluation** | userspace, after the record is read | **in kernel, before the ring**<br>*same evaluator source, both builds* | — |
 | **ldiskfs · COLD**<br>*NVMe, ~1,400 MB/s stripe, 20M objects* | **1,439,300**<br>*1,318 MB/s = 94% of the device, flat at every `-j`* | 1,119,013 (1 thread)<br>**1,420,664 at 4 — 99% of the device** | 1.01× Option 1 |
 | **ZFS · COLD** | 83,752 (`-j 1`)<br>225,480 (`-j 16`) | **97,304** (singleton)<br>**410,529** (8 threads) | **1.82× Option 2** |
 | **ldiskfs · warm** | 1,818,270 (1 thread)<br>4,545,675 (`-j 4`) | **6,873,185** (1 thread)<br>**17,392,147** (4 threads) | **3.8× Option 2** |
@@ -39,7 +40,19 @@ built both OSDs and ran both scanners in one session**
 from boxes whose MDT was a RAID0 stripe of two local NVMe SSDs, each running both
 scanners against one 20M-object namespace. Every machine was the same instance
 type and kernel, and the namespaces reproduced identical FID checksums across
-every lab.
+every lab. **Rates from different labs are not comparable to each other** — one
+configuration measured 1.6× apart across two of them, a known and still
+unexplained gap; the sound comparisons are within a single table.
+
+**The warm rows are understated.** Every one of them ran at the default
+`lfu_ra_blocks=32`, and that axis was never swept until 2026-08-17: warm, readahead
+*costs* — turning it off is **+22% at one thread and +90% at four**, monotonically
+across the window range, while the `iget`-path control moves only ~7%
+([`docs/warm-readahead-and-cold-2026-08-17.md`](docs/warm-readahead-and-cold-2026-08-17.md)).
+Cold it is worth 8× when the device is latency-bound and irrelevant when it is
+bandwidth-saturated, so a single static window is wrong in two of three regimes.
+The figures above are not restated from the newer lab, whose rates sit 1.6× below
+these at identical settings.
 
 Objects per CPU-second, warm, **derived** as rate ÷ threads — no run has captured
 user/sys time, so this assumes saturation and is invalid cold. These are the
@@ -131,6 +144,53 @@ by measurement:
 | 1 | **ldiskfs device scanner** — userspace, libext2fs | **Prototype in `src/`, 61/61 tests**, measured **705k inodes/s** cold-cache on a 12M-inode MDT; **2026-08-17: the `lfs find` filter vocabulary implemented** — 33 of 34 predicates, tier-ordered, with a demand mask |
 | 1 | **ZFS device scanner** — userspace, libzpool, snapshot-first | **Prototype in `src/`, 16/16 tests** against a synthetic MDT-like dataset (`make zfs`); shares the same filter compiler |
 | 2 | **OSD API scanner** — in-kernel, `dt_it_ops`, all backends | Prototype scanner end-to-end (enumerate → attrs → ring → userspace) at ~796k obj/s on a live MDT; **2026-08-15: parallel enumeration measured — ldiskfs 2.03M obj/s, ZFS 561k (now faster than the ZFS device scanner), concurrent with LFSCK**; **2026-08-16: block parsing — 17.4M obj/s warm and cold parity with the device scanner (99% of an NVMe stripe)**; **2026-08-17: filter pushdown — the same evaluator compiled into `lfu_ring.ko`, tier 1 served from the mapped inode-table block via `rec(DORA_XATTR)`; built and run on a lab MDT, 3.59M obj/s unfiltered and 3.88M with a rejecting tier-0 filter, every predicate agreeing with the userspace scanner** |
+
+## Filters
+
+`lfs find`'s vocabulary is closed: **34 predicates**, of which 33 are answerable
+from an MDT — the `--maxdepth`/`--mindepth` pair is what a flat scan cannot answer
+at all. All 33 work on **every** scanner as of 2026-08-17, from one source
+([`docs/filter-levels.md`](docs/filter-levels.md)):
+
+| | where it lives |
+|---|---|
+| the parser — `lfs find` syntax → `struct lfu_filter` | `src/lfu_filter.c`, userspace only |
+| the evaluator — tier 0, tier 1, the xattr decoders | `src/lfu_filter_eval.c` — linked by the device scanners, `#include`d into `lfu_ring.ko` |
+| the compiled filter, and the kernel ioctl payload | `src/lfu_filter.h` — a fixed array of fixed-size predicates, bounded by construction |
+
+Because it is one evaluator, the scanners cannot disagree by design, and do not in
+practice: twelve filters run through the kernel and through the device scanner
+against the same device agree on all twelve, comparing FID *sets* rather than
+counts.
+
+**Cost, measured on a 302,122-object MDT** — the surprise is the sign on the
+second row ([`docs/filter-pushdown-measured-2026-08-17.md`](docs/filter-pushdown-measured-2026-08-17.md)):
+
+| filter | obj/s | vs no filter | xattr lookups |
+|---|---|---|---|
+| no filter | 3,587,401 | — | — |
+| `--type f` *(tier 0, matches ~all)* | 3,572,170 | −0.4% | `inline=0` |
+| `--uid 4242` *(tier 0, matches 0)* | **3,884,601** | **+8.3%** | `inline=0` |
+| `--blocks +1G` *(tier 1, via SOM)* | 2,775,551 | −22.6% | `inline=4,021` |
+| `--name 'zzz*'` *(tier 1, via linkea)* | 2,632,343 | −26.6% | `inline=302,018` |
+
+A tier-0 predicate that **rejects** is faster than no filter at all, because the
+object never enters the ring. A pure tier-0 query opens no xattr at all. And the
+cost of a tier-1 predicate scales with **how many objects carry the attribute**,
+not with the object count — most of this namespace has no SOM or LOV, and "not in
+the inode, no external block" is a free `-ENODATA`.
+
+Two corrections the filter work forced:
+
+- **`--size`/`--blocks` are tier 1, not tier 0.** An MDT inode's `i_blocks` counts
+  the inode's own blocks, not the file's; `trusted.som` is the only number the MDT
+  holds. Measured on a real MDT: the inode-based test matched **0 of 302,122
+  objects** where the SOM-based one found the 1.5 GiB file. An MDT-only scan is
+  `lfs find --lazy` semantics exactly, and a size filter has a third outcome —
+  *unknown* — which measured zero here because SOM is on by default in 2.17.
+- **Cold, a tier-1 predicate is free.** `--name` did 302,018 xattr lookups at the
+  no-filter rate, where warm it cost 27%: the attribute is in a block the scan is
+  already reading, so tier 1 is a CPU cost, visible only when CPU-bound.
 
 ## Status
 
