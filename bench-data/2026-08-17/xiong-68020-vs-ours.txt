@@ -1,0 +1,85 @@
+### LU-20591 68020 (filter) vs LFU filter pushdown -- 2026-08-17
+### One GCP c3-standard-8, Rocky 9.8, kernel 5.14.0-687.36.1.el9_8.x86_64, ONE MDT image,
+### module sets swapped between rounds (make install + depmod + remount).
+###   THEIRS  Gerrit refs/changes/20/68020/1 = a7268a7a2a, patch set 1,
+###           Verified:-1, status NEW, unchanged since 2026-08-14 21:02.
+###           68019 (7ad8529dda) and 68018 (dad4c95a8c) are ancestors; base tag 2.17.57.
+###   OURS    v2_17_55 + rec-attr, rec-attr-zfs, parallel-it, itable-readahead,
+###           itable-blockparse, otable-xattr
+### Namespace: 302,122 objects (theirs counts 302,012 -- its S_ISREG MDT filter
+###            drops directories and internal objects), 4 OSTs, one OST pool,
+###            and shapes/big1 = 1.5 GiB striped over 4 OSTs with trusted.som.
+
+=== ground truth: what the MDT inode holds for the 1.5 GiB striped file ===
+    the client:  size=1610612736 blocks=3145728  fid=[0x200000401:0x7:0x0]
+    debugfs on the MDT inode (11001992):
+      Inode: 11001992   Type: regular    Mode:  0644   Flags: 0x80000
+      Links: 1   Blockcount: 0
+    trusted.som on that inode (lsa_valid, then lsa_size at bytes 8..15 LE):
+       04 00 00 00 00 00 00 00 00 00 00 60 00 00 00 00
+       00 c0 2f 00 00 00 00 00 0a
+      lsa_size = 0x60000000 = 1610612736 == the client size
+
+=== THEIRS: 68020 filter on MDT and OST ===
+=== 1. what size does their MDT walk report for the 1.5 GiB striped file? ===
+    [0x200000401:0x7:0x0] size=0 blocks=0 atime=1786980058 btime=1786980058 ctime=1786980059 mtime=1786980059
+    (the client says 1610612736; trusted.som says 1610612736)
+
+=== 2. the shapes, as their walk sees them ===
+    [0x200000401:0x5:0x0] size=0 blocks=0
+    [0x200000401:0x7:0x0] size=0 blocks=0
+    [0x200000401:0x9:0x0] size=0 blocks=8
+    [0x200000401:0xb:0x0] size=0 blocks=0
+
+=== 3. their size filter on the MDT ===
+    --size +1G    ->        0 objects
+    --size +100M  ->        0 objects
+    --size +1M    ->        0 objects
+    --size -1M    ->   302011 objects
+    --size -1k    ->   302011 objects
+    --size 0      ->   302011 objects
+
+=== 4. their size filter on an OST, where the data actually is ===
+    --size +1G    ->        0 objects
+    --size +100M  ->        1 objects
+    --size +1M    ->        4 objects
+    largest few OST objects:
+      [0x240000400:0x3:0x0] size=2097152 blocks=4096
+      [0x240000400:0x2:0x0] size=3145728 blocks=6144
+      [0x240000400:0x5:0x0] size=402653184 blocks=786432
+
+=== 5. does filtering save them scan work? (MDT, medians of three) ===
+    no filter                          objects=302012   rate=498250    ( 498250 498007 508974)
+    --uid 4242 (rejects everything)    objects=0        rate=0         ( 0 0 0)
+    --size +1G (rejects everything)    objects=0        rate=0         ( 0 0 0)
+    --mtime +365d (rejects all)        objects=0        rate=0         ( 0 0 0)
+
+=== THEIRS: rates by wall time over objects visited ===
+=== THEIRS: objects VISITED per second, medians of three ===
+    configuration                          obj/s    
+    no filter, no --print-*                617084    ( 615121 618076 617084)
+    --print-size (their shipped default use) 580746    ( 575445 582391 580746)
+    --uid 4242            (rejects all)    779135    ( 779135 788339 776070)
+    --size +1G            (rejects all)    787421    ( 782679 787421 794576)
+    --mtime +365d         (rejects all)    788305    ( 792415 788305 786923)
+    --size -1M            (matches all)    619614    ( 615101 619614 621060)
+
+=== OURS: same questions, same filesystem, module set swapped back ===
+version:        2.17.55_dirty
+  LFU parms back: 1
+
+=== OURS: the same size questions on the same MDT ===
+    --size +1G      -> 1
+    --size +100M    -> 1
+    --size -1M      -> 302014
+    is the 1.5 GiB file wrongly in '--size -1M'?
+      matches: 0
+    and what does ours report for it under a size filter?
+      [0x200000401:0x7:0x0] ino=11001992 f mode=0644 nlink=1 uid=0 gid=0 projid=0 size=1610612736 blocks=3129344 atime=1786980058 mtime=1786980059 stripes=4 ssize=4194304
+
+=== OURS: rates on this boot, objects visited per second, medians of 3 ===
+    no filter                              4424733   ( 4445842 4424733 4423404)
+    --uid 4242            (rejects all)    4942172   ( 4942172 4950448 4889016)
+    --size +1G            (tier 1, SOM)    3184384   ( 3179206 3193224 3184384)
+    --mtime +365d         (rejects all)    4930718   ( 4937719 4930718 4906079)
+OURS DONE
