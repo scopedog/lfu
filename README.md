@@ -113,6 +113,7 @@ Rollout is incremental with **no flag day**: server-only mode (already improves
 | [`docs/upstream-survey.md`](docs/upstream-survey.md) | What already exists in `lustre-release` and what LFU must build |
 | [`docs/filter-levels.md`](docs/filter-levels.md) | **Filters — all 34 `lfs find` predicates, per scanner, with a cost tier each.** Why `--size`/`--blocks` are tier 1 and not tier 0, and what "unknown" means on an MDT-only scan. Implemented on all three scanners 2026-08-17 |
 | [`docs/filter-pushdown-measured-2026-08-17.md`](docs/filter-pushdown-measured-2026-08-17.md) | **Filter pushdown, measured.** The kernel side built and run: every predicate agrees with the userspace scanner, the `-blocks +1G` trap reproduced on a real MDT, and a rejecting tier-0 filter is **8% faster than no filter at all** |
+| [`docs/warm-readahead-and-cold-2026-08-17.md`](docs/warm-readahead-and-cold-2026-08-17.md) | **Warm readahead costs, and cold the filter is free.** `lfu_ra_blocks=32` is the wrong default warm — off is +22% at 1 thread, **+90% at 4** — while cold a tier-1 predicate doing 302k xattr lookups costs nothing |
 | [`docs/open-questions.md`](docs/open-questions.md) | Resolved and live design questions |
 | [`docs/reference/`](docs/reference/) | Source PDFs |
 

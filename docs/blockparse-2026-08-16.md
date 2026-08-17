@@ -129,10 +129,19 @@ caches the buffer head across the four objects in a block, so this is per block,
 not per object).
 
 So the warm figures here are a floor for the block-parse path, not its ceiling,
-and the 10.4× may be understated. [`tests/bench_osd_sweep.sh`](../tests/bench_osd_sweep.sh)
-sweeps `bp` × `ra` × threads warm and builds every label from a sysfs *readback*
-rather than from what it asked for, so no row can claim a configuration it did
-not run under. It needs the lab, and has not been run.
+and the 10.4× may be understated.
+
+**Swept 2026-08-17 — it is, by 22% at one thread and 90% at four**:
+[`warm-readahead-and-cold-2026-08-17.md`](warm-readahead-and-cold-2026-08-17.md).
+Turning readahead off warm gives 5.21M obj/s at j1 against 4.26M at the default
+`ra=32`, and 15.1M against 7.95M at j4, monotonically across the whole window
+range — while the `bp=0` control moves only ~7%, because
+`__ldiskfs_get_inode_loc()`'s own window is there regardless and
+`inode_hash_lock` dominates that path anyway. The reasoning above was right and
+the effect is larger than expected. Those rates are from a different box and 1.6×
+below this document's at the same settings (the known cross-lab warm gap), so the
+10.4× headline is not restated — but `ra=32` is now known to be the wrong warm
+default.
 
 None of this touches §4: cold, the window *is* the point, and at 99–100% device
 utilisation the extra lock traffic hides entirely behind a 126 µs read.
