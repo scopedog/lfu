@@ -94,8 +94,9 @@ static int lfu_kmdt_negotiate(struct lfu_kmdt *t, const struct lfu_opts *o)
 	fprintf(stderr,
 		"kernel side  : %s, wire v%u, %s iterator, tier 1%s%s%s%s%s\n",
 		t->info.ri_dev, t->info.ri_wire_version,
-		(t->info.ri_flags & LFU_RING_INFO_PRIVATE) ?
-			"private (block parse)" : "singleton",
+		!(t->info.ri_flags & LFU_RING_INFO_PRIVATE) ? "singleton" :
+		(t->info.ri_flags & LFU_RING_INFO_LDISKFS) ?
+			"private (block parse)" : "private",
 		t->info.ri_can_supply ? ":" : ": none",
 		(t->info.ri_can_supply & LFU_NEED_SOM) ? " som" : "",
 		(t->info.ri_can_supply & LFU_NEED_LOV) ? " lov" : "",

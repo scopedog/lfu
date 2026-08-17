@@ -113,7 +113,8 @@ struct lfu_ring_info {
 	char	ri_dev[64];		/* the OSD device name being scanned */
 };
 
-#define LFU_RING_INFO_PRIVATE	0x01	/* DOIF_PARALLEL iterator: block parse */
+#define LFU_RING_INFO_PRIVATE	0x01	/* DOIF_PARALLEL iterator (block parse on
+					 * ldiskfs; on ZFS just private) */
 #define LFU_RING_INFO_LDISKFS	0x02
 #define LFU_RING_INFO_ZFS	0x04
 
