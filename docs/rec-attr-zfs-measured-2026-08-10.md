@@ -142,7 +142,7 @@ labs suggests the difference is on the kernel side.
 
 ## 4. The ring works on osd-zfs unmodified
 
-`lfu_ring.ko` + `lfu-scan-kmdt`, MDT mounted and serving, no source change —
+`lfu_ring.ko` + `lfind-kmdt`, MDT mounted and serving, no source change —
 as the 08-08 note predicted, the module already passed `LFU_DOIF_ATTR`
 unconditionally and the flag simply stopped being a no-op:
 

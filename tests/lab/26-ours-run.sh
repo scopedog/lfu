@@ -26,13 +26,13 @@ ring() { sudo rmmod lfu_ring 2>/dev/null; sudo insmod src/kernel/lfu_ring.ko dev
 
 echo
 echo "=== OURS: the same size questions on the same MDT ==="
-ring; printf '    --size +1G      -> '; sudo timeout 600 build/lfu-scan-kmdt --size +1G /dev/lfu_scan 2>/dev/null | grep -c '^\['
-ring; printf '    --size +100M    -> '; sudo timeout 600 build/lfu-scan-kmdt --size +100M /dev/lfu_scan 2>/dev/null | grep -c '^\['
-ring; printf '    --size -1M      -> '; sudo timeout 600 build/lfu-scan-kmdt --size -1M /dev/lfu_scan 2>/dev/null | grep -c '^\['
+ring; printf '    --size +1G      -> '; sudo timeout 600 build/lfind-kmdt --size +1G /dev/lfu_scan 2>/dev/null | grep -c '^\['
+ring; printf '    --size +100M    -> '; sudo timeout 600 build/lfind-kmdt --size +100M /dev/lfu_scan 2>/dev/null | grep -c '^\['
+ring; printf '    --size -1M      -> '; sudo timeout 600 build/lfind-kmdt --size -1M /dev/lfu_scan 2>/dev/null | grep -c '^\['
 echo "    is the 1.5 GiB file wrongly in '--size -1M'?"
-ring; sudo timeout 600 build/lfu-scan-kmdt --size -1M /dev/lfu_scan 2>/dev/null | grep -cF "$BIG" | sed 's/^/      matches: /'
+ring; sudo timeout 600 build/lfind-kmdt --size -1M /dev/lfu_scan 2>/dev/null | grep -cF "$BIG" | sed 's/^/      matches: /'
 echo "    and what does ours report for it under a size filter?"
-ring; sudo timeout 600 build/lfu-scan-kmdt --size +1G /dev/lfu_scan 2>/dev/null | grep -F "$BIG" | sed 's/^/      /'
+ring; sudo timeout 600 build/lfind-kmdt --size +1G /dev/lfu_scan 2>/dev/null | grep -F "$BIG" | sed 's/^/      /'
 
 echo
 echo "=== OURS: rates on this boot, objects visited per second, medians of 3 ==="
@@ -41,7 +41,7 @@ rate() {   # rate <label> <args...>
 	local rs=""
 	for p in 1 2 3; do
 		ring
-		local r=$(sudo timeout 900 build/lfu-scan-kmdt -q "$@" /dev/lfu_scan 2>&1 |
+		local r=$(sudo timeout 900 build/lfind-kmdt -q "$@" /dev/lfu_scan 2>&1 |
 			  grep -oE 'rate *: *[0-9]+' | grep -oE '[0-9]+$')
 		rs="$rs ${r:-0}"
 	done

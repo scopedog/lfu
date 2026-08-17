@@ -9,7 +9,7 @@ set -uo pipefail
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$(dirname "$HERE")"
-SCAN="${1:-$ROOT/build/lfu-scan-ldiskfs}"
+SCAN="${1:-$ROOT/build/lfind-ldiskfs}"
 WORK="$(mktemp -d)"
 IMG="$WORK/mdt-test.img"
 trap 'rm -rf "$WORK"' EXIT
@@ -212,6 +212,45 @@ else
 	check_eq "block parser matches debugfs on every field" PASS FAILED
 	sed -n '/FAIL/p' "$WORK/bp.txt"
 fi
+
+echo "==> lfind, the front-end: does it pick the right backend?"
+# The dispatcher is the one place that guesses, so the guess is tested.  It
+# reports the backend it chose via the backend's own first line of output;
+# --list-backends is the cheap way to see all three resolve.
+FRONT="$ROOT/build/lfind"
+which_backend() {   # which_backend <args...> -> ldiskfs|zfs|kmdt|none
+	local out
+	out=$("$FRONT" "$@" 2>&1 | head -2)
+	case "$out" in
+	*"device      :"*)          echo ldiskfs ;;
+	*"cannot own objset"*)      echo zfs ;;
+	*LFU_RING_IOC_INFO*)        echo kmdt ;;
+	*"cannot tell what kind"*)  echo none ;;
+	*)                          echo "unknown:$out" ;;
+	esac
+}
+check_eq "--list-backends names all three" 3 \
+	"$("$FRONT" --list-backends | grep -cE '^(ldiskfs|zfs|kmdt) ')"
+check_eq "an image is ldiskfs"            ldiskfs "$(which_backend "$IMG")"
+check_eq "a dataset spec is zfs"          zfs     "$(which_backend pool/mdt0)"
+check_eq "a char device is kmdt"          kmdt    "$(which_backend /dev/null)"
+check_eq "a directory is not a target"    none    "$(which_backend /tmp)"
+check_eq "--backend overrides the guess"  zfs     "$(which_backend --backend zfs "$IMG")"
+# The ordering bug found while building this: a slashed --name pattern does not
+# exist as a path, so it looks exactly like a dataset spec.  A real target must
+# win over a lookalike regardless of argument order.
+check_eq "target before a slashed pattern" ldiskfs \
+	"$(which_backend "$IMG" --name 'a/b')"
+check_eq "target after a slashed pattern"  ldiskfs \
+	"$(which_backend --name 'a/b' "$IMG")"
+check_eq "a --pool value is not a target"  ldiskfs \
+	"$(which_backend --pool fast "$IMG")"
+# and the filters still work through the front-end
+check_eq "filters pass through unchanged" \
+	"$("$ROOT/build/lfind-ldiskfs" --type f "$IMG" 2>/dev/null | grep -c '^\[')" \
+	"$("$FRONT" --type f "$IMG" 2>/dev/null | grep -c '^\[')"
+check_eq "no args prints usage, exit 2" 2 \
+	"$("$FRONT" >/dev/null 2>&1; echo $?)"
 
 echo "==> the filter evaluator, along both build branches (kernel pushdown)"
 # One evaluator source is linked into the device scanners and #included into

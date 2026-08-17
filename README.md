@@ -15,6 +15,34 @@ third-party integration.
 - **Not yet obtained:** LU-17814 (source of the client namespace scanner), LU-16742 / LU-17820 (LMR), LU-16524
 - **Upstream reference tree:** `../lustre-release` at `v2_17_55-2-gd717692511`
 
+## The command
+
+`lfind` is the command; the three backends are separate binaries only because a
+host that has just one device library must still be able to build the backend it
+can. `lfind` picks one from the target and `exec`s it:
+
+```sh
+lfind [options] [filters] <target>
+
+lfind --type f --mtime +30d /dev/sdb          # unmounted ldiskfs, or an image
+lfind --blocks +1G pool/mdt0@snap            # unmounted ZFS, or a snapshot
+lfind --pool fast /dev/lfu_scan              # a MOUNTED, serving target
+lfind --backend zfs --help                   # options and the full filter list
+lfind --list-backends                        # which are built here
+```
+
+It is **not** `lfs find`: it reads a target directly on the server instead of
+walking the namespace from a client, so an MDT-only scan has `lfs find --lazy`
+semantics and a size filter can answer *unknown* as well as yes and no — see
+[Filters](#filters).
+
+| binary | target | reads |
+|---|---|---|
+| `lfind` | — | the front-end; chooses one of the three |
+| `lfind-ldiskfs` | `/dev/sdb`, `mdt.img` | an unmounted ldiskfs target, via libext2fs |
+| `lfind-zfs` | `pool/dataset[@snap]` | an unmounted ZFS target, via libzpool |
+| `lfind-kmdt` | `/dev/lfu_scan` | a mounted, serving target, via the `lfu_ring` module |
+
 ## Benchmark results
 
 GCP c3-standard-8 labs, Rocky 9.8, kernel 5.14.0-687.36.1, Lustre v2_17_55 built

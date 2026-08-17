@@ -241,7 +241,7 @@ Three decisions were forced along the way, none of them cosmetic:
 3. **A backend refuses what it cannot answer.** `lfu_target_ops` grew
    `can_supply`, `attr_mask` and `missing_fields`; a filter needing an xattr or
    field the backend has no access to is rejected at parse time. The kernel-ring
-   backend (`lfu-scan-kmdt`) therefore refuses every tier-1 predicate and also
+   backend (`lfind-kmdt`) therefore refuses every tier-1 predicate and also
    `--btime`, `--projid` and `--attrs`, because the ring record carries only the
    nine fields `osd_raw_attr()` fills — §5.1's gap seen from the consumer end.
    ZFS refuses `--attrs Compressed` and `--attrs Encrypted`: `z_pflags` has no
@@ -349,17 +349,17 @@ insmod lfu_ring.ko dev=lustre-MDT0000-osd
 
 # the consumer, built anywhere: first a plain stream, then the filters
 cd lfu && make kmdt
-build/lfu-scan-kmdt -q /dev/lfu_scan                       # INFO line, counts
-build/lfu-scan-kmdt -q --type f --mtime +30d /dev/lfu_scan  # tier 0 in kernel
-build/lfu-scan-kmdt -q --blocks +1G /dev/lfu_scan          # tier 1: SOM via DORA_XATTR
-build/lfu-scan-kmdt -q --pool fast --stripe-count +1 /dev/lfu_scan
-build/lfu-scan-kmdt -q -u --size +0 /dev/lfu_scan          # the undecided population
+build/lfind-kmdt -q /dev/lfu_scan                       # INFO line, counts
+build/lfind-kmdt -q --type f --mtime +30d /dev/lfu_scan  # tier 0 in kernel
+build/lfind-kmdt -q --blocks +1G /dev/lfu_scan          # tier 1: SOM via DORA_XATTR
+build/lfind-kmdt -q --pool fast --stripe-count +1 /dev/lfu_scan
+build/lfind-kmdt -q -u --size +0 /dev/lfu_scan          # the undecided population
 ```
 
 The three things to look at in the summary: `filtered (t0)`/`(t1)` (the
 kernel did the work), `xattr: inline=… external=… iget=…` (tier 1 was served
 from the block, and how often it was not), and `fallback=` (queue item 4, the
-`-EAGAIN` rate). Then the same filter through `lfu-scan-ldiskfs` on the
+`-EAGAIN` rate). Then the same filter through `lfind-ldiskfs` on the
 unmounted device should give the same emitted set.
 
 ---

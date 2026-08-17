@@ -7,11 +7,11 @@ cd ~/lfu
 kscan() {
 	sudo rmmod lfu_ring 2>/dev/null
 	sudo insmod src/kernel/lfu_ring.ko dev=testfs-MDT0000-osd 2>/dev/null
-	sudo timeout 180 build/lfu-scan-kmdt "$@" /dev/lfu_scan 2>/dev/null |
+	sudo timeout 180 build/lfind-kmdt "$@" /dev/lfu_scan 2>/dev/null |
 		grep -oE '^\[0x[0-9a-f]+:0x[0-9a-f]+:0x[0-9a-f]+\]' | sort
 }
 dscan() {
-	sudo timeout 300 build/lfu-scan-ldiskfs "$@" /lustre/mdt.img 2>/dev/null |
+	sudo timeout 300 build/lfind-ldiskfs "$@" /lustre/mdt.img 2>/dev/null |
 		grep -oE '^\[0x[0-9a-f]+:0x[0-9a-f]+:0x[0-9a-f]+\]' | sort
 }
 cmp_one() {
@@ -45,7 +45,7 @@ echo
 echo "=== what --blocks +1G actually found, in full ==="
 sudo rmmod lfu_ring 2>/dev/null
 sudo insmod src/kernel/lfu_ring.ko dev=testfs-MDT0000-osd
-sudo timeout 180 build/lfu-scan-kmdt --blocks +1G /dev/lfu_scan 2>/dev/null
+sudo timeout 180 build/lfind-kmdt --blocks +1G /dev/lfu_scan 2>/dev/null
 echo
 echo "=== and the same object from the client, for the size ==="
 sudo lfs getstripe -c /mnt/testfs/shapes/big1 2>/dev/null | tail -1
@@ -55,6 +55,6 @@ echo
 echo "=== the one tier-2 object (external EA): which is it? ==="
 sudo rmmod lfu_ring 2>/dev/null
 sudo insmod src/kernel/lfu_ring.ko dev=testfs-MDT0000-osd
-sudo timeout 180 build/lfu-scan-kmdt --stripe-count +8 /dev/lfu_scan 2>/dev/null
+sudo timeout 180 build/lfind-kmdt --stripe-count +8 /dev/lfu_scan 2>/dev/null
 sudo lfs path2fid /mnt/testfs/shapes/over60
 sudo lfs getstripe -c /mnt/testfs/shapes/over60 2>/dev/null | tail -1

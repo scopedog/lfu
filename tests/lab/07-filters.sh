@@ -8,7 +8,7 @@ run() {                 # run <label> <args...>
 	sudo insmod src/kernel/lfu_ring.ko dev=testfs-MDT0000-osd 2>/dev/null
 	local label="$1"; shift
 	local out rc
-	out=$(sudo timeout 180 build/lfu-scan-kmdt "$@" /dev/lfu_scan 2>&1)
+	out=$(sudo timeout 180 build/lfind-kmdt "$@" /dev/lfu_scan 2>&1)
 	rc=$?
 	local n=$(echo "$out" | grep -c '^\[0x')
 	local k=$(echo "$out" | grep -oE 'filtered \(t0\) *: *[0-9]+' | grep -oE '[0-9]+$')
@@ -55,7 +55,7 @@ echo
 echo "===== a full stats line ====="
 sudo rmmod lfu_ring 2>/dev/null
 sudo insmod src/kernel/lfu_ring.ko dev=testfs-MDT0000-osd
-sudo timeout 180 build/lfu-scan-kmdt -q --blocks +1G /dev/lfu_scan 2>&1 | tail -12
+sudo timeout 180 build/lfind-kmdt -q --blocks +1G /dev/lfu_scan 2>&1 | tail -12
 echo
 echo "--- dmesg: anything alarming? ---"
 sudo dmesg | grep -iE 'BUG|WARN|Call Trace|general protection|null pointer' | tail -10 || echo "(clean)"

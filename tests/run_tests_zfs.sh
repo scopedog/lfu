@@ -1,11 +1,11 @@
 #!/bin/bash
-# lfu-scan-zfs test suite. Requires root. Builds a synthetic MDT-like ZFS
+# lfind-zfs test suite. Requires root. Builds a synthetic MDT-like ZFS
 # dataset (tests/mkzpool.sh), scans the snapshot, asserts classification,
 # atomicity and filter behaviour.
 set -u
 cd "$(dirname "$0")/.."
 
-BIN=build/lfu-scan-zfs
+BIN=build/lfind-zfs
 POOL=${LFU_TEST_POOL:-lfutest}
 DS=$POOL/mdt0
 SNAP=$DS@s1

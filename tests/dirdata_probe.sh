@@ -19,7 +19,7 @@ set -uo pipefail
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$(dirname "$HERE")"
-SCAN="${1:-$ROOT/build/lfu-scan-ldiskfs}"
+SCAN="${1:-$ROOT/build/lfind-ldiskfs}"
 WORK="$(mktemp -d)"
 IMG="$WORK/dirdata.img"
 trap 'rm -rf "$WORK"' EXIT
@@ -58,7 +58,7 @@ else
 	echo "    REFUSES  <- expected with stock e2fsprogs"
 fi
 
-echo "==> lfu-scan-ldiskfs (EXT2_FLAG_SOFTSUPP_FEATURES set):"
+echo "==> lfind-ldiskfs (EXT2_FLAG_SOFTSUPP_FEATURES set):"
 if [ ! -x "$SCAN" ]; then
 	echo "    scanner not built: $SCAN" >&2
 	exit 1

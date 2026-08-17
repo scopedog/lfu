@@ -48,7 +48,7 @@ ring_cold() {    # ring_cold <label> <args...>
 	sudo insmod src/kernel/lfu_ring.ko dev=testfs-MDT0000-osd
 	local label="$1"; shift
 	local out
-	out=$(sudo timeout 900 build/lfu-scan-kmdt -q "$@" /dev/lfu_scan 2>&1)
+	out=$(sudo timeout 900 build/lfind-kmdt -q "$@" /dev/lfu_scan 2>&1)
 	local r=$(echo "$out" | grep -oE 'rate *: *[0-9]+' | grep -oE '[0-9]+$')
 	local sc=$(echo "$out" | grep -oE 'objects scanned : [0-9]+' | grep -oE '[0-9]+$')
 	local k=$(echo "$out" | grep '^kernel:' | grep -oE 'xattr: inline=[0-9]+ external=[0-9]+')
