@@ -165,6 +165,38 @@ static int sa_get_time(sa_handle_t *hdl, sa_attr_type_t attr, uint32_t *out)
 }
 
 /*
+ * z_pflags carries ZFS's own attribute bits, which are 64-bit and nothing like
+ * the FS_IOC_GETFLAGS numbering the record format uses, so convert — the same
+ * mapping osd-zfs applies in attrs_zfs2fs() (osd_internal.h:838).
+ *
+ * ZFS has no per-file equivalent of the compressed or encrypted bits (both are
+ * dataset properties there), which is why lfu_zfs_ops.attr_mask advertises
+ * only these three and a filter asking for the others is refused rather than
+ * quietly answered "no".
+ */
+static uint32_t lfu_zfs_attrs(uint64_t pflags)
+{
+	return ((pflags & ZFS_IMMUTABLE) ? LFU_ATTR_IMMUTABLE : 0) |
+	       ((pflags & ZFS_APPENDONLY) ? LFU_ATTR_APPEND : 0) |
+	       ((pflags & ZFS_NODUMP) ? LFU_ATTR_NODUMP : 0);
+}
+
+/* One demanded xattr out of the already-unpacked DXATTR nvlist — §4.3's
+ * "one unpack yields all of them", and the reason tier 1 costs what tier 0
+ * costs on this backend.
+ */
+static void lfu_zfs_ea(nvlist_t *nv, const char *name, struct lfu_ea *ea)
+{
+	uchar_t *val = NULL;
+	uint_t vlen = 0;
+
+	if (nvlist_lookup_byte_array(nv, (char *)name, &val, &vlen) == 0) {
+		ea->buf = val;
+		ea->len = vlen;
+	}
+}
+
+/*
  * Read one object.  Returns:
  *   0  — record filled and classified via lfu_object()
  *  -1  — not a znode (no SA bonus): ZFS-internal object
@@ -178,6 +210,7 @@ static int lfu_zfs_read_obj(struct lfu_zfs *z, uint64_t obj,
 	struct lfu_stats *st = cx->st;
 	dmu_object_info_t doi;
 	struct lfu_rec rec;
+	struct lfu_eas eas;
 	sa_handle_t *hdl = NULL;
 	dmu_buf_t *db = NULL;
 	dnode_t *dn = NULL;
@@ -187,6 +220,7 @@ static int lfu_zfs_read_obj(struct lfu_zfs *z, uint64_t obj,
 	int err;
 
 	memset(&rec, 0, sizeof(rec));
+	memset(&eas, 0, sizeof(eas));
 
 	/*
 	 * One dnode hold for the whole object.
@@ -247,6 +281,8 @@ static int lfu_zfs_read_obj(struct lfu_zfs *z, uint64_t obj,
 	/* ZPL_PROJID is a feature; absence simply means projid 0. */
 	if (sa_get_u64(hdl, a[ZPL_PROJID], &v) == 0)
 		rec.projid = (uint32_t)v;
+	if (sa_get_u64(hdl, a[ZPL_FLAGS], &v) == 0)
+		rec.flags = lfu_zfs_attrs(v);
 	sa_get_time(hdl, a[ZPL_ATIME], &rec.atime);
 	sa_get_time(hdl, a[ZPL_MTIME], &rec.mtime);
 	sa_get_time(hdl, a[ZPL_CTIME], &rec.ctime);
@@ -276,6 +312,9 @@ static int lfu_zfs_read_obj(struct lfu_zfs *z, uint64_t obj,
 	/*
 	 * §4.3 — one unpack yields every Lustre xattr.  ENOENT means the
 	 * znode has no SA xattrs at all: a no-LMA object, not an error.
+	 *
+	 * The nvlist has to outlive lfu_object(): the tier-1 values handed to
+	 * the filter are pointers into it, not copies.
 	 */
 	{
 		nvlist_t *nv = NULL;
@@ -315,11 +354,26 @@ static int lfu_zfs_read_obj(struct lfu_zfs *z, uint64_t obj,
 				have_lma = 1;
 			}
 		}
+
+		/* Only what the compiled filter asked for (design §9), even
+		 * though here the unpack has already paid for all of it.
+		 */
+		if (cx->needs & LFU_NEED_SOM)
+			lfu_zfs_ea(nv, XATTR_NAME_SOM, &eas.som);
+		if (cx->needs & LFU_NEED_LOV)
+			lfu_zfs_ea(nv, XATTR_NAME_LOV, &eas.lov);
+		if (cx->needs & LFU_NEED_LMV)
+			lfu_zfs_ea(nv, XATTR_NAME_LMV, &eas.lmv);
+		if (cx->needs & LFU_NEED_LINK)
+			lfu_zfs_ea(nv, XATTR_NAME_LINK, &eas.link);
+
+		lfu_object(cx, &rec, have_lma, &eas);
 		nvlist_free(nv);
+		goto out;
 	}
 
 emit:
-	lfu_object(cx, &rec, have_lma);
+	lfu_object(cx, &rec, have_lma, &eas);
 out:
 	sa_handle_destroy(hdl);	/* releases the bonus buffer */
 	dnode_rele(dn, lfu_tag);
@@ -467,7 +521,10 @@ static void lfu_zfs_report(const struct lfu_stats *st, double secs, void *tgt)
 		if (st->cls[i])
 			fprintf(stderr, "  %-14s: %" PRIu64 "\n",
 			    lfu_class_name[i], st->cls[i]);
-	fprintf(stderr, "  filtered      : %" PRIu64 "\n", st->filtered);
+	fprintf(stderr, "  filtered (t0) : %" PRIu64 "\n", st->filtered);
+	fprintf(stderr, "  filtered (t1) : %" PRIu64 "\n", st->filtered1);
+	/* §4.4 — a size test no MDT-only scan can answer for this object. */
+	fprintf(stderr, "  undecided     : %" PRIu64 "\n", st->unknown);
 	fprintf(stderr, "emitted         : %" PRIu64 "\n", st->emitted);
 	fprintf(stderr, "skipped: sa_fail=%" PRIu64 "\n", st->sa_fail);
 	fprintf(stderr, "max bonus seen  : %" PRIu64 " bytes\n", st->max_bonus);
@@ -521,6 +578,16 @@ static const struct lfu_target_ops lfu_zfs_ops = {
 "                          what reached disk is visible\n"
 "\n"
 "Scan a snapshot where possible: a live dataset cannot show the open txg.\n",
+	/* §6 — every Lustre xattr arrives in the one DXATTR unpack, so tier 1
+	 * is the same read as tier 0 here and nothing is out of reach.
+	 */
+	.can_supply	= LFU_NEED_SOM | LFU_NEED_LOV | LFU_NEED_LMV |
+			  LFU_NEED_LINK,
+	/* z_pflags has no compressed or encrypted bit; both are dataset
+	 * properties on ZFS.  See lfu_zfs_attrs().
+	 */
+	.attr_mask	= LFU_ATTR_IMMUTABLE | LFU_ATTR_APPEND |
+			  LFU_ATTR_NODUMP,
 	.optstring_extra = "ep:",
 	.lopts_extra	= lfu_zfs_lopts,
 	.parse_opt	= lfu_zfs_parse_opt,

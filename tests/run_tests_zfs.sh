@@ -55,8 +55,8 @@ echo "$out" | grep -q post_snap 2>/dev/null && bad "post-snap file leaked" \
 
 # --- 4. live scan: sees mutations, warns ----------------------------
 outl=$(scan "$DS")
-# 62 - 1 deleted; post-snap touch has no LMA so it is not visible
-chk "live scan sees churn (61 visible)" "$(echo "$outl" | grep -c .)" 61
+# 68 - 1 deleted; post-snap touch has no LMA so it is not visible
+chk "live scan sees churn (67 visible)" "$(echo "$outl" | grep -c .)" 67
 grep -q "LIVE dataset" /tmp/lfu_zfs_stderr.$$ \
     && ok "live-dataset warning printed" || bad "live-dataset warning missing"
 
@@ -68,9 +68,55 @@ echo "$outf" | grep -q '0x270f' && ok "blocks-gt hit is big" || bad "wrong block
 outa=$(scan --atime-older 999999 "$SNAP")
 chk "atime filter excludes all" "$(echo "$outa" | grep -c .)" 0
 
+# The lfs find spellings must compile to the same predicates as the legacy
+# flags above (docs/filter-levels.md §2).
+chk "--dev-blocks +100 == --blocks-gt 100" \
+    "$(scan --dev-blocks +100 "$SNAP" | grep -c .)" 1
+chk "--type f" "$(scan --type f "$SNAP" | grep -c .)" 66
+chk "--type d finds the striped directory" \
+    "$(scan --type d "$SNAP" | grep -c .)" 1
+chk "--type l finds the symlink" "$(scan --type l "$SNAP" | grep -c .)" 1
+chk "! --type f" "$(scan '!' --type f "$SNAP" | grep -c .)" 2
+
+# z_pflags has no per-file compressed or encrypted bit, so those must be
+# refused rather than answered "no matches" (lfu_zfs_attrs()).
+"$BIN" --attrs E "$SNAP" >/dev/null 2>&1
+chk "--attrs Encrypted is refused on zfs" "$?" 2
+"$BIN" --attrs i "$SNAP" >/dev/null 2>&1
+chk "--attrs Immutable is accepted on zfs" "$?" 0
+
+# --- 5b. tier-1 filters, out of the one DXATTR unpack (§5.2, §6) -----
+# The same predicates the ldiskfs suite checks, against byte-identical xattrs.
+chk "--dev-blocks +1G matches nothing" \
+    "$(scan --dev-blocks +1G "$SNAP" | grep -c .)" 0
+chk "--blocks +1G finds striped1 via SOM" \
+    "$(scan --blocks +1G "$SNAP" | grep -c .)" 1
+chk "--size +1G finds striped1 via SOM" \
+    "$(scan --size +1G "$SNAP" | grep -c .)" 1
+chk "--stripe-count 2" "$(scan --stripe-count 2 "$SNAP" | grep -c .)" 1
+chk "--pool fast (LOV v3)" "$(scan --pool fast "$SNAP" | grep -c .)" 1
+chk "--ost 5" "$(scan --ost 5 "$SNAP" | grep -c .)" 1
+chk "--ost 3,7 (a list)" "$(scan --ost 3,7 "$SNAP" | grep -c .)" 2
+chk "--layout released" "$(scan --layout released "$SNAP" | grep -c .)" 1
+chk "--name matches a linkea entry" \
+    "$(scan --name 'report*' "$SNAP" | grep -c .)" 1
+chk "--name matches the second link too" \
+    "$(scan --name second_link.txt "$SNAP" | grep -c .)" 1
+chk "--mdt-count 4 (striped directory)" \
+    "$(scan --mdt-count 4 "$SNAP" | grep -c .)" 1
+chk "--mdt-hash fnv_1a_64" "$(scan --mdt-hash fnv_1a_64 "$SNAP" | grep -c .)" 1
+
+# --- 5c. the third outcome: undecided (§4.4) -------------------------
+# striped_nosom is striped with no trusted.som, so no MDT-only scan can say
+# whether it matches a size test.
+scan -q --size +0 "$SNAP" >/dev/null
+chk "striped, SOM-less object is undecided" "$(stat_of 'undecided')" 1
+chk "-u emits it tagged" \
+    "$(scan -u --size +0 "$SNAP" | grep -c '+unknown')" 1
+
 # --- 6. internal visibility flag ------------------------------------
 outi=$(scan -i "$SNAP")
-chk "-i adds internals (62+2)" "$(echo "$outi" | wc -l)" 64
+chk "-i adds internals (68+2)" "$(echo "$outi" | wc -l)" 70
 
 rm -f /tmp/lfu_zfs_stderr.$$
 echo

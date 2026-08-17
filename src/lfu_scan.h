@@ -32,6 +32,7 @@
 #include <getopt.h>
 
 #include "lfu_lustre.h"
+#include "lfu_filter.h"
 
 enum lfu_class {
 	LFU_CLS_VISIBLE = 0,	/* namespace-visible MDT object — emit */
@@ -56,9 +57,17 @@ struct lfu_rec {
 	uint32_t uid;
 	uint32_t gid;
 	uint32_t projid;
+	uint32_t flags;		/* FS_IOC_GETFLAGS-style attribute bits, which
+				 * coincide with STATX_ATTR_* for the five
+				 * --attrs names LFU supports (lfu_lustre.h).
+				 * ldiskfs passes i_flags through; osd-zfs
+				 * converts its own flag word first. */
 	uint64_t size;
 	uint64_t blocks;	/* 512-byte units; see docs — semantics differ
-				 * across backends for compressed data */
+				 * across backends for compressed data.  This
+				 * is the target's own allocation, which for a
+				 * striped file is NOT the file's: --size and
+				 * --blocks read trusted.som instead (§4). */
 	uint32_t atime, mtime, ctime, crtime;
 	int has_ext_ea;		/* ldiskfs tier-2 marker; ZFS never sets it */
 };
@@ -73,12 +82,18 @@ struct lfu_stats {
 	uint64_t seen;
 	uint64_t cls[LFU_CLS_MAX];
 	uint64_t emitted;
-	uint64_t filtered;
+	uint64_t filtered;	/* rejected at tier 0 */
+	uint64_t filtered1;	/* rejected at tier 1 */
+	uint64_t unknown;	/* §4.4 — a size test with no trusted.som to
+				 * answer it: neither match nor no-match */
 	/* ldiskfs */
 	uint64_t free_ino;
 	uint64_t deleted;
 	uint64_t in_use;
-	uint64_t tier2;
+	uint64_t tier2;		/* objects with an external EA block at all */
+	uint64_t tier2_read;	/* objects where a demanded xattr actually had
+				 * to be read from outside the inode — the
+				 * countable tier-2 event of design §9 */
 	uint64_t csum_bad;
 	uint64_t validate_bad;
 	/* zfs */
@@ -98,10 +113,9 @@ struct lfu_opts {
 	int quiet;
 	uint64_t limit;		/* stop after N emitted records; forces -j 1 */
 	int threads;		/* -j: parallel workers, default 1 */
-	/* tier-0 filters */
-	int64_t atime_older_than;	/* seconds; <0 = unset */
-	int64_t blocks_gt;		/* 512B units; <0 = unset */
-	int64_t projid_eq;		/* <0 = unset */
+	int emit_unknown;	/* also emit records whose filter outcome is
+				 * unknown, tagged; default is to count only */
+	struct lfu_filter filter;
 	/* zfs backend */
 	int import;
 	int force_active;
@@ -119,6 +133,9 @@ struct lfu_ctx {
 	struct lfu_stats *st;
 	const struct lfu_target_ops *ops;
 	time_t now;
+	uint32_t needs;		/* lfu_needs bits the compiled filter wants;
+				 * the backend reads exactly these xattrs and
+				 * no more (design §9) */
 	int stop;
 };
 
@@ -127,6 +144,30 @@ struct lfu_target_ops {
 	const char *id_label;	/* "ino" / "obj" — record field name */
 	const char *usage_target;	/* "<device>" / "pool/dataset[@snapshot]" */
 	const char *usage_extra;	/* backend option help text, or NULL */
+
+	/*
+	 * Which xattrs this backend can supply, as lfu_needs bits.  A filter
+	 * demanding anything outside this set is refused at parse time: the
+	 * alternative is a scan that silently answers a narrower question than
+	 * the one asked.
+	 */
+	uint32_t can_supply;
+
+	/*
+	 * Which --attrs bits this backend's flag word can actually carry.
+	 * ldiskfs passes ext4's i_flags through and covers all five; ZFS's
+	 * z_pflags has no per-file compressed or encrypted bit.  A filter
+	 * asking for one this backend cannot see is refused, because "no
+	 * matches" would be indistinguishable from "not supported".
+	 */
+	uint32_t attr_mask;
+
+	/*
+	 * Bitmask over enum lfu_field (LFU_FIELD_BIT) of tier-0 fields this
+	 * backend leaves zero — the kernel ring, for one, carries neither
+	 * crtime nor projid nor flags.  Refused, not silently compared.
+	 */
+	uint32_t missing_fields;
 
 	/* backend-specific CLI additions */
 	const char *optstring_extra;
@@ -171,11 +212,18 @@ struct lfu_target_ops {
 int lfu_prefilter(struct lfu_ctx *cx, const struct lfu_rec *rec);
 
 /*
- * Classify + emit one fully-read object.  Sets cx->stop when --limit is
- * reached.  With -v, emits a class-tagged diagnostic line per object
- * instead of the plain record.
+ * Classify one fully-read object, apply the tier-1 predicates against the
+ * xattrs the backend fetched, and emit it if it matches.  Sets cx->stop when
+ * --limit is reached.  With -v, emits a class-tagged diagnostic line per
+ * object instead of the plain record.
+ *
+ * `eas` may be NULL for a backend that reads no xattr beyond the LMA; a
+ * tier-1 predicate then has nothing to work with and matches nothing, which
+ * is why lfu_main() refuses such a filter up front rather than answering the
+ * wrong question quietly.
  */
-void lfu_object(struct lfu_ctx *cx, struct lfu_rec *rec, int have_lma);
+void lfu_object(struct lfu_ctx *cx, struct lfu_rec *rec, int have_lma,
+		const struct lfu_eas *eas);
 
 /* Shared classification ladder (§5) — exposed for backends that need it */
 enum lfu_class lfu_classify(const struct lfu_rec *rec, int have_lma);

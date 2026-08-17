@@ -61,7 +61,15 @@ Not filters, listed so the accounting is complete: `--lazy|-l`, `--skip|-k`,
 
 `OSD` = in-kernel OSD scanner (`DOIF_PARALLEL` + block parse).
 `ldiskfs` / `ZFS` = the two userspace device-scanner backends.
-**bold** = not implemented today; see §5.
+**bold** = not implemented in the scanner named by that column; see §5.
+
+**Status, 2026-08-17.** Both *device* backends now implement every predicate in
+this table except the tier-3 depth pair — the filter compiler is
+`src/lfu_filter.{c,h}`, exercised by 43 new cases in `tests/run_tests.sh`. The
+`OSD` column is unchanged: the in-kernel scanner still has the three tier-0 gaps
+of §5.1 and no tier-1 path at all. The bold markers below are left as written so
+the table still records what was missing when the analysis was done; §5 says
+what each one is now.
 
 | predicate | OSD | ldiskfs dev | ZFS dev | source |
 |---|---|---|---|---|
@@ -75,8 +83,8 @@ Not filters, listed so the accounting is complete: `--lazy|-l`, `--skip|-k`,
 | `--attrs` | **0** | **0** | 0 | `i_flags` / `SA_ZPL_FLAGS` |
 | `--mdt-index -m` *(files)* | 0 | 0 | 0 | not stored — it is *which target you are scanning* |
 | `--size -s` `--blocks -b` | **1** | **1** | **1** | `trusted.som`, **not** `i_size`/`SA_ZPL_SIZE` — see §4 |
-| `--stripe-count -c` `--stripe-index -i` `--stripe-size -S` | **1** | **1** | **1** | `trusted.lov` |
-| `--ost -O` `--pool` | **1** | **1** | **1** | `trusted.lov` — resolvable from the MDT, **no OST scan needed** |
+| `--stripe-count -c` `--stripe-size -S` | **1** | **1** | **1** | `trusted.lov` |
+| `--ost -O` `--stripe-index -i` `--pool` | **1** | **1** | **1** | `trusted.lov` — resolvable from the MDT, **no OST scan needed**. `-i` and `-O` are **one predicate**, not two: `lfs.c:7804` handles `case 'i': case 'O':` in the same block, so both mean "has an object on any of these indices" |
 | `--layout -L` (`released`/`raid0`/`mdt`) | **1** | **1** | **1** | `trusted.lov` |
 | `--comp-*`, `--mirror-count -N`, `--mirror-state`, `--ext-size -z` | **1** | **1** | **1** | composite `trusted.lov` — bigger, spills sooner |
 | `--foreign` | **1** | **1** | **1** | `trusted.lov`/`.lmv` magic |
@@ -183,22 +191,59 @@ against ZFS and then run on ldiskfs.
 (`src/lfu_scan_ldiskfs.c:91-104`), guarded on `i_extra_isize` reaching the
 field. The in-kernel path can copy that logic directly.
 
-### 5.2 Device scanners — no tier 1 at all beyond LMA
+### 5.2 Device scanners — closed, 2026-08-17
 
-Both backends parse exactly one xattr: `trusted.lma`, for the FID
-(`lfu_scan_ldiskfs.c:141`, `lfu_scan_zfs.c:305`). `XATTR_NAME_LOV`, `_LMV`,
-`_LINK`, `_HSM`, `_SOM` are all defined in `src/lfu_lustre.h:22-28` and none is
-read. So today **no layout, pool, name or size predicate is implementable on
-either device backend** — that is the single largest gap in the filter story,
-and it is the same gap on all three scanners.
+This section described the largest gap in the filter story: both backends
+parsed exactly one xattr, `trusted.lma`, so no layout, pool, name or size
+predicate was implementable on either, and `struct lfu_rec` had no `flags`
+field so `--attrs` was missing too. Three of 34 predicates worked.
 
-`struct lfu_rec` (`src/lfu_scan.h:50-64`) has no `flags` field either, so
-`--attrs` is missing on the device scanners too, even though §6 lists it at
-tier 0.
+**All of it is now implemented for both device backends.** The shape follows
+§9 rather than bolting more options onto the core:
 
-Implemented filters today: `--atime`, `--blocks`, `--projid` — three of 34,
-chosen to match the LUG slide-21 example, and `--blocks` is the one §4 says is
-reading the wrong number.
+| piece | where |
+|---|---|
+| predicate compiler, demand mask, tier-0/tier-1 evaluation, `lfs find` argument grammar | `src/lfu_filter.c`, `src/lfu_filter.h` |
+| on-disk SOM / LOV v1+v3+composite / LMV structures, with `_Static_assert` on every size | `src/lfu_lustre.h` |
+| xattr fetch per demand mask, external-block accounting | `lfu_read_xattrs()` in `src/lfu_scan_ldiskfs.c` |
+| the same, from the already-unpacked DXATTR nvlist | `lfu_zfs_read_obj()` in `src/lfu_scan_zfs.c` |
+| `rec.flags` for `--attrs` | `i_flags` on ldiskfs; `lfu_zfs_attrs()` converts `z_pflags` as `attrs_zfs2fs()` does |
+
+Everything in the §3 table is implemented on both device backends except the
+tier-3 depth pair, which a flat scan cannot answer at all. 43 new cases in
+`tests/run_tests.sh` cover it (61 total, from 18), including the §4 size trap
+and the §4.4 undecided outcome, all green under ASan+UBSan.
+
+Three decisions were forced along the way, none of them cosmetic:
+
+1. **`--blocks` means what `lfs find` means**, so the old behaviour needed a
+   new name: `--dev-blocks` is the target's own allocation — `i_blocks` on
+   ldiskfs, `doi_physical_blocks_512` on ZFS — and `--blocks` is the file's,
+   resolved per §4. `-b/--blocks-gt` compiles to `--dev-blocks`, unchanged, so
+   the LUG slide-21 command still runs and now means what it says. This settles
+   the §6 "three numbers, one predicate name" question for two of the three;
+   OST-actual still needs an OST scan.
+2. **Both quantities compare in bytes.** `lfs find` multiplies `stx_blocks` by
+   512 before comparing (`liblustreapi_pfind.c:2971`) and treats a bare number
+   as 512-byte units, so `--blocks +1G` is "more than 1 GiB allocated". The
+   unit multiplier doubles as the equality margin, exactly as `find_value_cmp()`
+   has it, so `--size 1M` means "up to 1 MiB" here too.
+3. **A backend refuses what it cannot answer.** `lfu_target_ops` grew
+   `can_supply`, `attr_mask` and `missing_fields`; a filter needing an xattr or
+   field the backend has no access to is rejected at parse time. The kernel-ring
+   backend (`lfu-scan-kmdt`) therefore refuses every tier-1 predicate and also
+   `--btime`, `--projid` and `--attrs`, because the ring record carries only the
+   nine fields `osd_raw_attr()` fills — §5.1's gap seen from the consumer end.
+   ZFS refuses `--attrs Compressed` and `--attrs Encrypted`: `z_pflags` has no
+   per-file bit for either. "No matches" and "not supported" must not look alike.
+
+**Correction to this document's own reading of linkea.** `src/lfu_lustre.h` said
+`leh_magic`/`leh_len` were big-endian. They are not: `linkea_init()` writes the
+header in the *writing host's* order (`linkea.c:23`) and a reader detects a
+foreign order by comparing the magic against its own swab (`linkea.c:38-41`).
+Only `lee_reclen` is genuinely big-endian, byte by byte (`linkea.c:97`).
+`--name` matched nothing until the reader was changed to do what the kernel
+does. Anything else in this tree that reads linkea should be checked.
 
 ### 5.3 The xattr walkers are already generic
 
@@ -207,11 +252,13 @@ reading the wrong number.
   the name comparison plus a per-xattr decoder — no new mechanism, no new I/O.
 - **ldiskfs device**: `ext2fs_xattrs_read_inode()` parses from the inode buffer
   already held, and `ext2fs_xattr_get(h, key, ...)` fetches by name. Design
-  question **M9** — whether `read_inode()` also follows `i_file_acl` to the
-  external block — is still open and decides whether tier 1 stays free for
-  spilled objects or the inline region must be parsed by hand
-  (`design-ldiskfs-scanner.md` §6.1). The OSD block parser has already written
-  that hand-rolled inline parser, so if M9 comes out badly the code exists.
+  question **M9 is answered: `read_inode()` does follow `i_file_acl`** (measured
+  2026-08-17 — `design-ldiskfs-scanner.md` §6.1). Tier 1 is therefore free *and*
+  correct for spilled objects, and the hand-rolled inline parser is not needed.
+  The sting in the tail: there is no inline-only request in the API, so the
+  extra block read is invisible from outside libext2fs and the tier-2 *cost*
+  can only be inferred from `i_file_acl` plus the demand mask, never counted
+  directly.
 - **ZFS device**: one `nvlist_unpack` of `SA_ZPL_DXATTR` already yields **every**
   Lustre xattr; only the LMA lookup is wired up. Adding SOM/LOV/linkea is
   `nvlist_lookup_byte_array()` calls against an nvlist already in hand — free.
@@ -345,18 +392,34 @@ scan.
 ## 10. What is not settled
 
 - **The tier-2 rate on a realistic filesystem** (§7). The two numbers we have
-  are both ~0 on lab targets with default striping.
-- **Design question M9** — whether `ext2fs_xattrs_read_inode()` follows
-  `i_file_acl`. Decides whether tier 1 is free for spilled objects on the
-  ldiskfs device backend.
+  are both ~0 on lab targets with default striping. Note that M9's answer
+  changes how this has to be measured on ldiskfs: since libext2fs fetches the
+  external block transparently, the rate is now reported as "objects with an
+  external block, under a filter that demanded a tier-1 xattr"
+  (`tier-2 (read)`), and its *cost* has to come from timing a scan with and
+  without a tier-1 predicate rather than from any counter.
+- ~~**Design question M9**~~ — **answered 2026-08-17: it follows.** See §5.3.
 - **Whether `-blocks +1G` really matches nothing on a real MDT today** (§4.3).
-  The mechanism is clear from `mdt_handler.c`, but the `lfs find` oracle test
-  (§17) compared FID *sets* only, and `tests/run_tests.sh:78` exercises
-  `--blocks` against a synthetic image with no striped files. One run against
-  the benchfs MDT settles it.
-- **Which `--blocks` LFU means** across ldiskfs / ZFS / OST-actual (§6).
+  Still not reproduced on a real MDT — that needs a Lustre filesystem with
+  striped files, and the benchfs lab is gone. What now exists is the mechanism
+  reproduced synthetically: `tests/mkimage.sh` builds `striped1`, a 2-stripe
+  file with 2 GiB in `trusted.som` and 8 blocks in its own inode, and the suite
+  asserts that `--dev-blocks +1G` misses it while `--blocks +1G` finds it. That
+  is the predicted failure, demonstrated against bytes a real MDT would write —
+  but it is a fixture we wrote, so it confirms the reasoning, not the field.
+  A real-MDT run is still worth doing and is now a one-command check.
+- ~~**Which `--blocks` LFU means**~~ — **decided** (§5.2): `--blocks` is the
+  file's, `--dev-blocks` is the target's. OST-actual remains out of reach
+  without an OST scan.
 - **Linkea completeness for `--name`** — maintained, but not verified in this
-  project as reliable enough to answer `-name` without the namespace.
-- **How "unknown" is represented.** SOM-less files under a size filter, and
-  objects the block parser fell back on, are neither matches nor non-matches.
-  The output format has no representation for that yet.
+  project as reliable enough to answer `-name` without the namespace. `--name`
+  is now implemented and tested against a linkea we wrote; what is untested is
+  whether a real MDT's linkea holds every name for every object. (Its byte
+  order, at least, is now right — see §5.2.)
+- **How "unknown" is represented.** Now has *an* answer, not necessarily the
+  right one: undecided objects are counted on their own summary line and
+  suppressed from the output, and `-u/--emit-unknown` emits them tagged
+  `+unknown`. What is unsettled is whether a consumer wants that as a third
+  output stream, an exit status, or a per-record field — and what the aggregation
+  operators (`largest`, `histogram`) should do with an unknown size, since
+  "skip it" and "count it as zero" give different answers to the same question.

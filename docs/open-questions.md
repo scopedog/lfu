@@ -261,7 +261,29 @@ change the design rather than just recording it:
   pool, name or size predicate is implementable there at all — 3 of 34
   predicates exist today.
 
-**Blocks:** filter module design, attribute mask definition.
+**Implemented 2026-08-17 for both device backends —
+[`filter-levels.md`](filter-levels.md) §5.2.** `src/lfu_filter.{c,h}` compiles
+the `lfs find` vocabulary into a predicate array plus a **demand mask**, so a
+pure tier-0 query never opens the xattr area and a tier-1 query reads exactly
+the xattrs it needs. 33 of the 34 predicates now work on both device backends
+(the tier-3 depth pair excepted); the in-kernel OSD scanner is untouched and
+still has the three tier-0 gaps. Three things the implementation forced:
+
+- **`--blocks` now means the file's blocks, via SOM**, and the old
+  inode-allocation test is `--dev-blocks`. That answers *Which `--blocks` LFU
+  means* for two of its three candidates; OST-actual still needs an OST scan.
+- **A backend refuses what it cannot answer** rather than returning "no
+  matches" — `lfu_target_ops.can_supply`, `.attr_mask`, `.missing_fields`. This
+  is the attribute-mask definition this item was blocking on, arrived at from
+  the bottom: the mask is a property of the *target*, not of the protocol.
+- **Design question M9 is answered** (`ext2fs_xattrs_read_inode()` does follow
+  `i_file_acl`), which makes tier 1 free and correct on ldiskfs but makes the
+  tier-2 *cost* unmeasurable from outside libext2fs.
+
+**Still blocks:** the protocol-level filter/aggregation encoding — the operators
+in the LUG list that are not selections (`largest`, `histogram`, `count`, `sum`)
+are unimplemented, and `filter-levels.md` §9's sharding constraint applies to
+them. Also unresolved: what an *unknown* size means to an aggregation.
 
 ### Kernel-side Object Stream encoding **[new]**
 

@@ -13,7 +13,8 @@ only its device access.
 | File | Owns |
 |---|---|
 | `src/lfu_scan.h` | `lfu_target_ops`, `lfu_rec`, `lfu_stats`, `lfu_opts`, `lfu_ctx` |
-| `src/lfu_core.c` | §5 classification ladder · §7 tier-0 filter · record emission · stats merge · §8 chunked worker pool · common CLI (`-a -b --projid -j -i -n -q -v`) |
+| `src/lfu_core.c` | §5 classification ladder · tier ordering · record emission · stats merge · §8 chunked worker pool · common CLI · per-backend capability refusal |
+| `src/lfu_filter.{c,h}` | the `lfs find` predicate vocabulary: parse → compiled predicate array + demand mask, tier-0 and tier-1 evaluation, SOM/LOV/LMV/linkea decoders, the *undecided* outcome (`filter-levels.md`) |
 | `src/lfu_scan_ldiskfs.c` | libext2fs open/scan, torn-read defence (§8.2), inode+LMA extraction, superblock banner, summary format |
 | `src/lfu_scan_zfs.c` | libzpool import/open, SA registry, dnode read path, DXATTR/LMA unpack, summary format |
 
@@ -25,10 +26,20 @@ binary is now a link-time choice, not a design question.
 
 Control is inverted relative to a `next()`/`read()` iterator API: the backend
 loops over one *chunk* of its id space and calls the core per object —
-`lfu_prefilter()` on tier-0 attributes, then `lfu_object()` once the LMA is
-read.  The two enumeration styles (libext2fs buffered inode scan; ZFS
-`dmu_object_next()`) are different enough that a shared iterator signature
-made both worse.
+`lfu_prefilter()` on tier-0 attributes, then `lfu_object()` once the LMA and
+whatever xattrs the demand mask asked for are read.  The two enumeration styles
+(libext2fs buffered inode scan; ZFS `dmu_object_next()`) are different enough
+that a shared iterator signature made both worse.
+
+The backend does not decide *which* xattrs to read: `cx->needs` carries the
+compiled filter's demand mask, and the backend fetches exactly that set and
+hands the raw values over as `struct lfu_eas` for the core to decode.  Fetching
+is device-specific (`ext2fs_xattr_get()` vs `nvlist_lookup_byte_array()` against
+an already-unpacked DXATTR); interpreting is Lustre, and identical on both, so
+it lives in one place.  A backend also declares what it *cannot* answer —
+`can_supply`, `attr_mask`, `missing_fields` — and the core refuses such a query
+at parse time rather than letting a scan quietly test fewer predicates than were
+asked for.
 
 The core hands out chunk indices from a shared cursor (not N equal slices —
 allocation is sparse and clustered on both backends, so equal slices
@@ -57,6 +68,10 @@ Unified (behavior changes, both deliberate):
   dnodes seen) and forces `-j 1`.
 - `-p` stays backend-local (ldiskfs: historical short for `--projid`;
   ZFS: `--search DIR`).  `--projid` is the common spelling.
+- **The filter vocabulary is `lfs find`'s** (2026-08-17), because LFU replaces
+  that command: `--atime +30d`, `--size +1G`, `--type f`, `!` for negation, and
+  the rest.  `-a`, `-b` and `-p` are kept as aliases and compile to the same
+  predicates — `-b` to `--dev-blocks`, which is what it always measured.
 
 Kept split, because the difference is real and papering over it would lie:
 
