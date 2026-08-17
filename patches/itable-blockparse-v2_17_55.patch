@@ -84,10 +84,10 @@ index 572a382396..e2d7e10506 100644
 +	if (it->ooi_ra_next >= cur + lfu_ra_blocks || it->ooi_ra_next >= last)
 +		return;
 +
-+	/* Plugged, so the window leaves as merged requests rather than as N
-+	 * separate 4 KiB reads -- this is what __ldiskfs_get_inode_loc() does
-+	 * around its own 32-block window, and without it the block-parse path
-+	 * runs at queue depth ~1 and reads an order of magnitude slower. */
++	/* Plugged only because __ldiskfs_get_inode_loc() plugs its own 32-block
++	 * window; it was never shown to help.  What sets the cold rate is how
++	 * far the window reaches -- queue depth, not request size: at ra=64 on
++	 * one thread, plugged gave 594,180 obj/s against 666,026 unplugged. */
 +	blk_start_plug(&plug);
  	while (it->ooi_ra_next < cur + lfu_ra_blocks &&
  	       it->ooi_ra_next < last) {
