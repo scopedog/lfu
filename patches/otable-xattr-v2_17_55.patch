@@ -1,0 +1,289 @@
+diff --git a/lustre/include/dt_object.h b/lustre/include/dt_object.h
+index 7502d99614..bf50d491d6 100644
+--- a/lustre/include/dt_object.h
++++ b/lustre/include/dt_object.h
+@@ -1881,6 +1881,61 @@ struct dt_otable_rec {
+ 	struct lu_attr	dor_attr;
+ };
+ 
++/*
++ * rec() attr bit requesting one extended attribute of the current object,
++ * described by struct dt_otable_xattr in place of the record (LFU).
++ *
++ * This is the tier-1 read of the filter cost model: it exists so that a
++ * kernel-side filter can ask for trusted.som, trusted.lov, trusted.lmv or
++ * trusted.link *after* the tier-0 predicates have passed, and get the bytes
++ * from wherever the iterator already has the object -- the mapped inode-table
++ * block on a block-parsing ldiskfs iterator, at no I/O -- rather than through
++ * a dt_locate() + dt_xattr_get() pair, which is an OI lookup and an iget per
++ * object and would give back everything block parsing took away.
++ *
++ * Return value of rec(): the value's length in bytes on success (>= 0), or
++ *   -ENODATA     the object has no such attribute
++ *   -ERANGE      it exists but does not fit dox_buflen; dox_len holds its size
++ *   -EOPNOTSUPP  this OSD's iterator does not implement DORA_XATTR
++ *   other negative errors
++ *
++ * dox_where reports where the bytes came from, so a caller can count the
++ * tier-2 rate rather than guess at it.
++ */
++#define DORA_XATTR 0x02
++
++enum dt_otable_xattr_where {
++	DOX_NONE = 0,
++	DOX_INLINE,	/* the in-inode area of the mapped block: tier 1 */
++	DOX_EXTERNAL,	/* an external xattr block via iget: tier 2 */
++	DOX_IGET,	/* through a live inode; the iterator held no block */
++};
++
++struct dt_otable_xattr {
++	const char	*dox_name;	/* full name, e.g. XATTR_NAME_SOM */
++	void		*dox_buf;	/* caller's buffer */
++	__u32		 dox_buflen;	/* its size */
++	__u32		 dox_len;	/* [out] value size, also on -ERANGE */
++	__u32		 dox_where;	/* [out] enum dt_otable_xattr_where */
++};
++
++/*
++ * rec() attr bit requesting the iterator's own counters, in struct
++ * dt_otable_stats in place of the record (LFU).  How often the block parser
++ * had to fall back to iget, and how often a DORA_XATTR read went outside the
++ * inode, are the two numbers that decide whether the tier model holds on a
++ * given filesystem; nothing else can see them.
++ */
++#define DORA_STATS 0x04
++
++struct dt_otable_stats {
++	__u64	dos_raw;	/* objects decoded from the raw inode table */
++	__u64	dos_fallback;	/* objects the raw parse declined (-EAGAIN) */
++	__u64	dos_xa_inline;	/* DORA_XATTR served from the in-inode area */
++	__u64	dos_xa_ext;	/* DORA_XATTR that needed the external block */
++	__u64	dos_xa_iget;	/* DORA_XATTR served through a live inode */
++};
++
+ /*
+  * otable based iteration needs to use the common DT iteration APIs.
+  * To initialize the iteration, it needs call dio_it::init() firstly.
+diff --git a/lustre/osd-ldiskfs/osd_internal.h b/lustre/osd-ldiskfs/osd_internal.h
+index 476fba29d7..bc6ec2721c 100644
+--- a/lustre/osd-ldiskfs/osd_internal.h
++++ b/lustre/osd-ldiskfs/osd_internal.h
+@@ -256,6 +256,16 @@ struct osd_otable_it {
+ 	struct buffer_head	*ooi_bp_bh;
+ 	ldiskfs_fsblk_t		 ooi_bp_blk;
+ 
++	/* The iterator's own counters, read back through rec(DORA_STATS):
++	 * how the objects were reached and where DORA_XATTR values came from
++	 * (LFU).  Per iterator, so no locking; a consumer with N private
++	 * iterators sums them. */
++	__u64			 ooi_st_raw;
++	__u64			 ooi_st_fallback;
++	__u64			 ooi_st_xa_inline;
++	__u64			 ooi_st_xa_ext;
++	__u64			 ooi_st_xa_iget;
++
+ 	/* The following bits can be updated/checked w/o lock protection.
+ 	 * If more bits will be introduced in the future and need lock to
+ 	 * protect, please add comment. */
+diff --git a/lustre/osd-ldiskfs/osd_scrub.c b/lustre/osd-ldiskfs/osd_scrub.c
+index c594db9b8c..82c7c86179 100644
+--- a/lustre/osd-ldiskfs/osd_scrub.c
++++ b/lustre/osd-ldiskfs/osd_scrub.c
+@@ -3489,12 +3489,18 @@ static int osd_otable_it_next_private(const struct lu_env *env,
+ 					      &ooc->ooc_cache[0].oic_lid, *pos,
+ 					      it->ooi_want_attr ?
+ 					      &ooc->ooc_attr[0] : NULL);
+-		if (rc == -EAGAIN)
++		if (rc == -EAGAIN) {
++			/* The tier-2 event of the filter model, counted so a
++			 * consumer can see the rate rather than infer it. */
++			it->ooi_st_fallback++;
+ 			rc = osd_iit_iget(info, dev,
+ 				  &ooc->ooc_cache[0].oic_fid,
+ 				  &ooc->ooc_cache[0].oic_lid, *pos, param->sb,
+ 				  false,
+ 				  it->ooi_want_attr ? &ooc->ooc_attr[0] : NULL);
++		} else if (rc == 0) {
++			it->ooi_st_raw++;
++		}
+ 		if (rc == 0)
+ 			RETURN(0);
+ 		if (rc < 0)
+@@ -3598,12 +3604,159 @@ static int osd_otable_it_key_size(const struct lu_env *env,
+ 	return sizeof(__u64);
+ }
+ 
++/**
++ * osd_otable_it_xattr() - DORA_XATTR: one xattr of the current object
++ * @env: the thread context
++ * @it: the iterator, positioned on the object rec() describes
++ * @dox: the request; see struct dt_otable_xattr
++ *
++ * Three ways to reach the bytes, tried cheapest first:
++ *
++ *  1. The in-inode area of the inode-table block a block-parsing private
++ *     iterator still holds in ooi_bp_bh.  No I/O, no inode: this is the tier-1
++ *     read of the filter model, and on an MDT formatted by mkfs.lustre it is
++ *     where LMA, LOV, SOM and linkea normally are.
++ *  2. If the attribute is not there but the raw inode has an external xattr
++ *     block (i_file_acl), a real inode is taken and __osd_xattr_get() follows
++ *     the block.  This is tier 2 -- one extra read -- and is counted as such.
++ *  3. Without a held block (the singleton iterator, or a block-parse fallback
++ *     that already went through iget), the same __osd_xattr_get() on a live
++ *     inode.  Counted separately: it is not a tier-2 event, it is the price of
++ *     not block parsing.
++ *
++ * "Not in the inode and no external block" is a definite -ENODATA and costs
++ * nothing beyond the walk: an unstriped file has no trusted.lov, a file never
++ * closed since SOM was enabled has no trusted.som, and neither must cost an
++ * iget to find out.
++ *
++ * Return: value length (>= 0), or negative errno per struct dt_otable_xattr.
++ */
++static int osd_otable_it_xattr(const struct lu_env *env,
++			       struct osd_otable_it *it,
++			       struct dt_otable_xattr *dox)
++{
++	struct osd_thread_info *info = osd_oti_get(env);
++	struct osd_device *dev = it->ooi_dev;
++	struct osd_otable_cache *ooc = &it->ooi_cache;
++	struct osd_iit_param *param = &it->ooi_iit_param;
++	struct osd_inode_id *lid;
++	struct inode *inode;
++	const char *name;
++	__u32 where = DOX_IGET;
++	int rc;
++
++	ENTRY;
++
++	if (unlikely(dox->dox_name == NULL || dox->dox_buf == NULL))
++		RETURN(-EINVAL);
++	dox->dox_len = 0;
++	dox->dox_where = DOX_NONE;
++
++	if (unlikely(ooc->ooc_consumer_idx < 0))
++		RETURN(-ENOENT);
++	lid = &ooc->ooc_cache[ooc->ooc_consumer_idx].oic_lid;
++
++	/* Only the "trusted." namespace is reachable from the raw inode area
++	 * by index; anything else goes through the inode. */
++	name = dox->dox_name;
++	if (strncmp(name, XATTR_TRUSTED_PREFIX,
++		    sizeof(XATTR_TRUSTED_PREFIX) - 1) == 0)
++		name += sizeof(XATTR_TRUSTED_PREFIX) - 1;
++	else
++		name = NULL;
++
++	/* 1. the held inode-table block */
++	if (it->ooi_private && it->ooi_bp_bh != NULL && name != NULL &&
++	    strlen(name) <= 255 && lid->oii_ino >= param->gbase) {
++		struct super_block *sb = param->sb;
++		struct ldiskfs_group_desc *desc;
++		__u32 isize = LDISKFS_INODE_SIZE(sb);
++		__u32 ipb = sb->s_blocksize / isize;
++		__u32 index = lid->oii_ino - param->gbase;
++
++		desc = ldiskfs_get_group_desc(sb, param->bg, NULL);
++		if (desc != NULL && ipb != 0 &&
++		    index < LDISKFS_INODES_PER_GROUP(sb) &&
++		    osd_group_itable(sb, desc) + index / ipb == it->ooi_bp_blk) {
++			struct ldiskfs_inode *raw;
++			const void *val;
++			__u32 vlen;
++
++			raw = (struct ldiskfs_inode *)
++			      (it->ooi_bp_bh->b_data + (index % ipb) * isize);
++			rc = osd_raw_xattr(sb, raw, LFU_XATTR_INDEX_TRUSTED,
++					   name, (__u8)strlen(name),
++					   &val, &vlen);
++			if (rc == 0) {
++				it->ooi_st_xa_inline++;
++				dox->dox_len = vlen;
++				dox->dox_where = DOX_INLINE;
++				if (vlen > dox->dox_buflen)
++					RETURN(-ERANGE);
++				memcpy(dox->dox_buf, val, vlen);
++				RETURN(vlen);
++			}
++			/* Not in the inode and nowhere else to look: a
++			 * definite answer, and a free one. */
++			if (rc == -ENODATA && raw->i_file_acl_lo == 0 &&
++			    raw->osd2.linux2.l_i_file_acl_high == 0)
++				RETURN(-ENODATA);
++			/* 2. an external block, or an ea_inode value */
++			where = DOX_EXTERNAL;
++		}
++	}
++
++	/* 2./3. through a live inode */
++	inode = osd_iget(info, dev, lid, LDISKFS_IGET_NO_CHECKS);
++	if (IS_ERR(inode))
++		RETURN(PTR_ERR(inode));
++
++	rc = __osd_xattr_get(inode, &info->oti_obj_dentry, dox->dox_name,
++			     dox->dox_buf, dox->dox_buflen);
++	if (rc == -ERANGE) {
++		/* size probe, so the caller can say how big it was */
++		int sz = __osd_xattr_get(inode, &info->oti_obj_dentry,
++					 dox->dox_name, NULL, 0);
++
++		dox->dox_len = sz > 0 ? sz : 0;
++	} else if (rc >= 0) {
++		dox->dox_len = rc;
++	}
++	iput(inode);
++
++	if (rc >= 0 || rc == -ERANGE) {
++		dox->dox_where = where;
++		if (where == DOX_EXTERNAL)
++			it->ooi_st_xa_ext++;
++		else
++			it->ooi_st_xa_iget++;
++	}
++	if (rc == 0)
++		rc = -ENODATA;	/* __vfs_getxattr: 0 bytes means absent */
++
++	RETURN(rc);
++}
++
+ static int osd_otable_it_rec(const struct lu_env *env, const struct dt_it *di,
+ 			     struct dt_rec *rec, __u32 attr)
+ {
+ 	struct osd_otable_it    *it  = (struct osd_otable_it *)di;
+ 	struct osd_otable_cache *ooc = &it->ooi_cache;
+ 
++	/* Two requests that are not the record at all (LFU) */
++	if (attr & DORA_XATTR)
++		return osd_otable_it_xattr(env, it, (struct dt_otable_xattr *)rec);
++	if (attr & DORA_STATS) {
++		struct dt_otable_stats *dos = (struct dt_otable_stats *)rec;
++
++		dos->dos_raw = it->ooi_st_raw;
++		dos->dos_fallback = it->ooi_st_fallback;
++		dos->dos_xa_inline = it->ooi_st_xa_inline;
++		dos->dos_xa_ext = it->ooi_st_xa_ext;
++		dos->dos_xa_iget = it->ooi_st_xa_iget;
++		return 0;
++	}
++
+ 	if ((attr & DORA_ATTR) && it->ooi_want_attr) {
+ 		struct dt_otable_rec *dor = (struct dt_otable_rec *)rec;
+ 
+diff --git a/lustre/osd-zfs/osd_scrub.c b/lustre/osd-zfs/osd_scrub.c
+index 96416d9bea..723c47c773 100644
+--- a/lustre/osd-zfs/osd_scrub.c
++++ b/lustre/osd-zfs/osd_scrub.c
+@@ -1900,6 +1900,13 @@ static int osd_otable_it_rec(const struct lu_env *env, const struct dt_it *di,
+ {
+ 	struct osd_otable_it *it  = (struct osd_otable_it *)di;
+ 
++	/* Not implemented on this OSD yet: the SA handle is released before
++	 * rec() and re-holding it per object is the second dnode hold the
++	 * design set out to avoid.  Say so, rather than write a FID over the
++	 * caller's request struct (LFU). */
++	if (attr & (DORA_XATTR | DORA_STATS))
++		return -EOPNOTSUPP;
++
+ 	if ((attr & DORA_ATTR) && it->ooi_want_attr) {
+ 		struct dt_otable_rec *dor = (struct dt_otable_rec *)rec;
+ 

@@ -213,6 +213,20 @@ else
 	sed -n '/FAIL/p' "$WORK/bp.txt"
 fi
 
+echo "==> the filter evaluator, along both build branches (kernel pushdown)"
+# One evaluator source is linked into the device scanners and #included into
+# the lfu_ring kernel module.  This compiles it both ways -- the kernel way at
+# -std=gnu89 with stand-ins for the four kernel headers -- and requires the
+# same decisions on the same bytes, and no libc beyond string functions along
+# the kernel branch.
+if "$HERE/filter_eval_test.sh" > "$WORK/feval.txt" 2>&1; then
+	check_eq "evaluator: both branches agree with the design tables" PASS \
+		"$(tail -1 "$WORK/feval.txt" | awk '{print $1}')"
+else
+	check_eq "evaluator: both branches agree with the design tables" PASS FAILED
+	sed -n '/FAIL/,$p' "$WORK/feval.txt" | head -30
+fi
+
 echo "==> the OSD benchmark sweep's own logic (no kernel, no lab needed)"
 # bench_osd_sweep.sh can only run against a mounted MDT as root, so the parts
 # that can be wrong on any machine -- report-line parsing, median selection,

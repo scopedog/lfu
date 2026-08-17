@@ -128,7 +128,7 @@ by measurement:
 |---|---|---|
 | 1 | **ldiskfs device scanner** — userspace, libext2fs | **Prototype in `src/`, 61/61 tests**, measured **705k inodes/s** cold-cache on a 12M-inode MDT; **2026-08-17: the `lfs find` filter vocabulary implemented** — 33 of 34 predicates, tier-ordered, with a demand mask |
 | 1 | **ZFS device scanner** — userspace, libzpool, snapshot-first | **Prototype in `src/`, 16/16 tests** against a synthetic MDT-like dataset (`make zfs`); shares the same filter compiler |
-| 2 | **OSD API scanner** — in-kernel, `dt_it_ops`, all backends | Prototype scanner end-to-end (enumerate → attrs → ring → userspace) at ~796k obj/s on a live MDT; **2026-08-15: parallel enumeration measured — ldiskfs 2.03M obj/s, ZFS 561k (now faster than the ZFS device scanner), concurrent with LFSCK**; **2026-08-16: block parsing — 17.4M obj/s warm and cold parity with the device scanner (99% of an NVMe stripe)** |
+| 2 | **OSD API scanner** — in-kernel, `dt_it_ops`, all backends | Prototype scanner end-to-end (enumerate → attrs → ring → userspace) at ~796k obj/s on a live MDT; **2026-08-15: parallel enumeration measured — ldiskfs 2.03M obj/s, ZFS 561k (now faster than the ZFS device scanner), concurrent with LFSCK**; **2026-08-16: block parsing — 17.4M obj/s warm and cold parity with the device scanner (99% of an NVMe stripe)**; **2026-08-17: filter pushdown — the same evaluator compiled into `lfu_ring.ko`, tier 1 served from the mapped inode-table block via `rec(DORA_XATTR)`; testable halves tested, kernel side not yet built in a lab** |
 
 ## Status
 

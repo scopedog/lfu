@@ -2,6 +2,14 @@
 # tree:
 #   make -C /lib/modules/$(uname -r)/build M=$PWD LUS=/root/lustre-release \
 #        KBUILD_EXTRA_SYMBOLS=$(LUS)/Module.symvers modules
+#
+# lfu_ring needs the tree to carry the whole patch stack through
+# patches/otable-xattr-v2_17_55.patch for tier-1 filtering (DORA_XATTR); it
+# still builds and filters tier 0 against a tree that stops at rec-attr.  It
+# #includes ../lfu_filter_eval.c -- the same evaluator the userspace scanners
+# link -- so there is no out-of-directory object here; that file compiles at
+# the kernel's -std=gnu89 (tests/filter_eval_test.sh checks it stays so) and
+# needs CONFIG_GLOB=y for glob_match().
 obj-m := lfu_it.o lfu_fanout.o lfu_ring.o lfu_par.o
 LUS ?= /root/lustre-release
 ccflags-y := -include $(LUS)/config.h \

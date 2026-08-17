@@ -280,6 +280,17 @@ still has the three tier-0 gaps. Three things the implementation forced:
   `i_file_acl`), which makes tier 1 free and correct on ldiskfs but makes the
   tier-2 *cost* unmeasurable from outside libext2fs.
 
+**Extended to the OSD scanner the same day —
+[`filter-levels.md`](filter-levels.md) §5.4.** The evaluator is now one source
+built into both the userspace scanners and the `lfu_ring` kernel module, where
+it runs between `rec()` and the ring (design-osd-scanner.md §4's pushdown); the
+three tier-0 fields are filled on both OSD read paths, and tier 1 is served by
+a `rec(DORA_XATTR)` iterator extension out of the mapped inode-table block. The
+"filter program is UAPI" requirement is met by `struct lfu_filter` as an ioctl
+payload, validated index by index before use. **Written and reviewed against
+the applied v2_17_55 tree, testable halves tested, kernel side not built or run
+— no lab.**
+
 **Still blocks:** the protocol-level filter/aggregation encoding — the operators
 in the LUG list that are not selections (`largest`, `histogram`, `count`, `sum`)
 are unimplemented, and `filter-levels.md` §9's sharding constraint applies to

@@ -261,6 +261,26 @@ This is the **"Filter cost tiers"** question (`design-ldiskfs-scanner.md` §15) 
 unchanged and still unanswered: the filter API must expose each predicate's cost
 tier, or the ordering optimisation is impossible.
 
+**Implemented 2026-08-17 — [`filter-levels.md`](filter-levels.md) §5.4.** The
+shape is the one above, with one thing this section could not have known: the
+tier-1 read has to be served *by the iterator*, through a `rec(DORA_XATTR)`
+extension, because a producer above the OSD can only reach an object by
+`dt_locate()`, which is the OI lookup and `iget` that block parsing removed.
+The filter program is `struct lfu_filter` — a fixed array of fixed-size
+predicates, `_Static_assert`ed to 11,280 bytes, magic/version/size-checked and
+index-range-checked (`lfu_filter_validate()`) on the `SET_FILTER` ioctl before
+anything is evaluated — and the evaluator is the userspace scanners' own
+`lfu_filter_eval.c`, `#include`d into `lfu_ring.ko` and held to kernel
+constraints (no allocation, no libc, `gnu89`) in both builds. Every predicate's
+cost tier is exposed (`lfu_field_tier()`), and the compiled filter's demand
+mask is what decides which xattrs are read at all: the "Filter cost tiers"
+question is answered by construction. What is *not* yet done is the residue
+mechanism for predicates the kernel cannot evaluate — there are none in the
+`lfs find` set today except the tier-3 depth pair, which no flat scan can
+answer — and, more importantly, **a kernel build and a run**: the code was
+written against the applied v2_17_55 tree and its testable halves are tested,
+but no lab has executed it.
+
 ---
 
 ## 5. Object Stream export — the ring buffer
@@ -538,7 +558,7 @@ except throughput at realistic scale.
 | **Module layout** | `lfu.ko` or code in `mdt.ko`? (§7) | Packaging and dependencies |
 | **Backend coverage** | Is WBCFS in scope? (§9) | Which backends v1 serves |
 | **Transport scope** | `read()` ring first, or `mmap` zero-copy from the start? (§5.1) | How much of the export lands in v1 |
-| **Filter cost tiers** | Can the filter API expose per-predicate cost tiers? (§4) | Pushdown ordering — carried over, still unanswered |
+| **Filter cost tiers** | Can the filter API expose per-predicate cost tiers? (§4) | **answered 2026-08-17**: `lfu_field_tier()` + the compiled demand mask; the kernel producer reads only what the filter demands (`filter-levels.md` §5.4). Unbuilt/unrun in a lab |
 
 **"Cost to existing users" is answerable by reading code now** and should be
 settled before anything is written.

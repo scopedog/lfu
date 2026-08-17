@@ -59,7 +59,7 @@ enum lfu_class lfu_classify(const struct lfu_rec *rec, int have_lma)
 
 int lfu_prefilter(struct lfu_ctx *cx, const struct lfu_rec *rec)
 {
-	if (!lfu_filter_active(&cx->o->filter))
+	if (!lfu_filter_active(&cx->o->filter) || cx->ops->pushdown)
 		return 1;
 	if (lfu_filter_tier0(&cx->o->filter, rec, cx->now))
 		return 1;
@@ -93,9 +93,9 @@ static char lfu_type_char(uint16_t mode)
  * trusted.hsm, which is a tier-2 read (design §5).
  */
 static void lfu_emit(const struct lfu_ctx *cx, const char *prefix,
-		     const struct lfu_rec *rec, const struct lfu_tier1 *t1,
-		     const char *suffix)
+		     const struct lfu_rec *rec, const char *suffix)
 {
+	const struct lfu_tier1 *t1 = rec->t1_valid ? &rec->t1 : NULL;
 	char lay[96];
 
 	/*
@@ -141,17 +141,20 @@ void lfu_object(struct lfu_ctx *cx, struct lfu_rec *rec, int have_lma,
 		const struct lfu_eas *eas)
 {
 	const struct lfu_filter *f = &cx->o->filter;
-	struct lfu_tier1 t1;
-	const struct lfu_tier1 *t1p = NULL;
 	enum lfu_class cls;
 	enum lfu_match m = LFU_MATCH;
 
 	cls = lfu_classify(rec, have_lma);
 	cx->st->cls[cls]++;
 
-	if (cx->needs != 0) {
-		lfu_ea_decode(&t1, eas);
-		t1p = &t1;
+	/*
+	 * Decode the demanded xattrs once, into the record, so both the
+	 * filter and the emitted line see the same values.  A pushdown
+	 * backend hands them over already decoded (rec->t1_valid set).
+	 */
+	if (cx->needs != 0 && !rec->t1_valid) {
+		lfu_ea_decode(&rec->t1, eas);
+		rec->t1_valid = 1;
 		if (eas != NULL && eas->external)
 			cx->st->tier2_read++;
 	}
@@ -167,7 +170,7 @@ void lfu_object(struct lfu_ctx *cx, struct lfu_rec *rec, int have_lma,
 
 		(void)snprintf(pfx, sizeof(pfx), "%-8s ",
 		    lfu_class_name[cls]);
-		lfu_emit(cx, pfx, rec, t1p, "");
+		lfu_emit(cx, pfx, rec, "");
 	}
 
 	if (cls != LFU_CLS_VISIBLE &&
@@ -179,8 +182,11 @@ void lfu_object(struct lfu_ctx *cx, struct lfu_rec *rec, int have_lma,
 	 * classification so that internal objects, which are never emitted,
 	 * do not inflate the filter counters or the unknown population.
 	 */
-	if (cx->needs != 0) {
-		m = lfu_filter_tier1(f, rec, t1p, eas);
+	if (cx->ops->pushdown) {
+		/* the backend already applied the filter; honour its verdict */
+		m = rec->unknown ? LFU_UNKNOWN : LFU_MATCH;
+	} else if (cx->needs != 0) {
+		m = lfu_filter_tier1(f, rec, &rec->t1, eas);
 		if (m == LFU_NOMATCH) {
 			cx->st->filtered1++;
 			return;
@@ -194,8 +200,7 @@ void lfu_object(struct lfu_ctx *cx, struct lfu_rec *rec, int have_lma,
 
 	cx->st->emitted++;
 	if (!cx->o->quiet && !cx->o->verbose)
-		lfu_emit(cx, "", rec, t1p,
-			 m == LFU_UNKNOWN ? " +unknown" : "");
+		lfu_emit(cx, "", rec, m == LFU_UNKNOWN ? " +unknown" : "");
 
 	if (cx->o->limit && cx->st->emitted >= cx->o->limit)
 		cx->stop = 1;

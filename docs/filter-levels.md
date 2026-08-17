@@ -63,13 +63,18 @@ Not filters, listed so the accounting is complete: `--lazy|-l`, `--skip|-k`,
 `ldiskfs` / `ZFS` = the two userspace device-scanner backends.
 **bold** = not implemented in the scanner named by that column; see §5.
 
-**Status, 2026-08-17.** Both *device* backends now implement every predicate in
-this table except the tier-3 depth pair — the filter compiler is
-`src/lfu_filter.{c,h}`, exercised by 43 new cases in `tests/run_tests.sh`. The
-`OSD` column is unchanged: the in-kernel scanner still has the three tier-0 gaps
-of §5.1 and no tier-1 path at all. The bold markers below are left as written so
-the table still records what was missing when the analysis was done; §5 says
-what each one is now.
+**Status, 2026-08-17.** All three scanners now implement every predicate in
+this table except the tier-3 depth pair. The device backends got it in the
+morning (`src/lfu_filter.{c,h}`, 43 cases in `tests/run_tests.sh`); the OSD
+scanner got it in the afternoon, as **filter pushdown**: the same evaluator
+compiled into the `lfu_ring` kernel module and applied to each object between
+`rec()` and the ring, with the three tier-0 fields added to both OSD read paths
+and a `rec(DORA_XATTR)` extension that serves tier 1 out of the mapped
+inode-table block (§5.4). The bold markers below are left as written so the
+table still records what was missing when the analysis was done; §5 says what
+each one is now. **The kernel side is written and reviewed but has not been
+built or run against a lab MDT** — see §5.4 for exactly what is and is not
+verified.
 
 | predicate | OSD | ldiskfs dev | ZFS dev | source |
 |---|---|---|---|---|
@@ -167,29 +172,34 @@ Four consequences, all three scanners:
 
 ## 5. Implementation gaps, per scanner
 
-### 5.1 OSD scanner — three free tier-0 predicates missing
+### 5.1 OSD scanner — three free tier-0 predicates missing (closed 2026-08-17)
 
-`osd_raw_attr()` fills nine fields — mode, nlink, uid, gid, size, blocks,
-atime, mtime, ctime (`patches/itable-blockparse-v2_17_55.patch`). The
-iget-based `DOIF_ATTR` path fills the same nine
-(`patches/rec-attr-v2_17_55.patch:91-102`), which is why the `attrsum`
-checksums match between them.
+`osd_raw_attr()` filled nine fields — mode, nlink, uid, gid, size, blocks,
+atime, mtime, ctime — and the iget-based `DOIF_ATTR` path the same nine, which
+is why the `attrsum` checksums matched between them. Missing from both:
 
-| missing | field | needed by |
+| was missing | field | needed by |
 |---|---|---|
 | `la_btime` | `i_crtime`, `i_crtime_extra` | `--btime/--crtime` + 8 `--newerXY` forms |
 | `la_projid` | `i_projid` | `--projid` |
 | `la_flags` | `i_flags` | `--attrs` |
 
-All three are in the same inode record — free. **The ZFS OSD path already fills
-all three** (`SA_ZPL_CRTIME`, `SA_ZPL_FLAGS`, `SA_ZPL_PROJID` in
-`patches/rec-attr-zfs-v2_17_55.patch:134-179`), so this is an ldiskfs-only gap
-and a backend asymmetry that will bite the first time a filter is written
-against ZFS and then run on ldiskfs.
+All three are in the same inode record — free — and the ZFS OSD path already
+filled them, so this was an ldiskfs-only asymmetry.
 
-**The ldiskfs *device* scanner already reads crtime and projid**
-(`src/lfu_scan_ldiskfs.c:91-104`), guarded on `i_extra_isize` reaching the
-field. The in-kernel path can copy that logic directly.
+**Closed.** `patches/itable-blockparse-v2_17_55.patch` now fills all twelve on
+both paths, kept field-for-field identical so `attrsum` still matches:
+`la_btime` from `i_crtime` plus its epoch bits, guarded on `i_extra_isize`
+reaching the field exactly as the device scanner does; `la_projid` guarded the
+same way and on the `project` feature; and `la_flags` composed the way
+`osd_inode_getattr()` composes it — `i_flags & LUSTRE_FL_USER_VISIBLE`, plus
+the orphan/encrypted bits from the LMA via `lma_to_lustre_flags()`. On the iget
+path the LMA-derived bits are added only when the LMA in `oti_ost_attrs` is
+provably this object's (its FID equals the returned one), because
+`osd_get_lma()` leaves that buffer untouched when there is no LMA.
+`tests/blockparse_test.sh` lifts the raw parser out of the patch and checks the
+three new fields against `debugfs stat` on inodes it set them on — 106 checks,
+at both 256- and 1024-byte inode sizes.
 
 ### 5.2 Device scanners — closed, 2026-08-17
 
@@ -247,9 +257,11 @@ does. Anything else in this tree that reads linkea should be checked.
 
 ### 5.3 The xattr walkers are already generic
 
-- **OSD**: `osd_raw_lma()` walks the in-inode xattr area with a name match on
-  `("trusted","lma")`. Extending to `som`, `lov`, `link`, `lmv` is a change to
-  the name comparison plus a per-xattr decoder — no new mechanism, no new I/O.
+- **OSD**: `osd_raw_lma()` walked the in-inode xattr area with a name match on
+  `("trusted","lma")`. **Done:** it is now a wrapper over `osd_raw_xattr(sb,
+  raw, index, name, nlen, &val, &vlen)`, the generic lookup, which returns a
+  pointer into the mapped block — no copy, no I/O. `rec(DORA_XATTR)` calls it
+  for whatever the filter demands (§5.4).
 - **ldiskfs device**: `ext2fs_xattrs_read_inode()` parses from the inode buffer
   already held, and `ext2fs_xattr_get(h, key, ...)` fetches by name. Design
   question **M9 is answered: `read_inode()` does follow `i_file_acl`** (measured
@@ -262,6 +274,88 @@ does. Anything else in this tree that reads linkea should be checked.
 - **ZFS device**: one `nvlist_unpack` of `SA_ZPL_DXATTR` already yields **every**
   Lustre xattr; only the LMA lookup is wired up. Adding SOM/LOV/linkea is
   `nvlist_lookup_byte_array()` calls against an nvlist already in hand — free.
+
+### 5.4 Filter pushdown on the OSD scanner — the shape, and what is verified
+
+Design-osd-scanner.md §4 asked for the filter to evaluate **in kernel,
+immediately after `rec()`, before the record enters the ring**, cost-ordered,
+bounded and non-allocating, with the filter program as UAPI. That is what
+landed, in four pieces:
+
+| piece | where | what |
+|---|---|---|
+| the evaluator, built twice | `src/lfu_filter_eval.c` + `src/lfu_filter.h` | the parser (`lfu_filter.c`, lfs find syntax → `struct lfu_filter`) stays userspace; the evaluator is one source, linked into the device scanners and `#include`d into the kernel module. `lfu_filter.h` has a kernel branch: `<linux/glob.h>`'s `glob_match()` for `fnmatch()`, the on-disk structures from `<uapi/linux/lustre/lustre_idl.h>` instead of `lfu_lustre.h`, no libc |
+| tier 1 through the iterator | `patches/otable-xattr-v2_17_55.patch` | `rec(DORA_XATTR)` returns one named xattr of the current object: from the in-inode area of the block a block-parsing iterator still holds (tier 1, no I/O), else via a live inode and `__osd_xattr_get()` (tier 2 if the raw inode had `i_file_acl`, counted as such); "not in the inode and no external block" is a free, definite `-ENODATA`. `rec(DORA_STATS)` reads back the iterator's counters: raw vs `-EAGAIN` fallback (queue item 4), and where every xattr came from. osd-zfs answers both `-EOPNOTSUPP` |
+| the producer as filter | `src/kernel/lfu_ring.c` | `SET_FILTER` ioctl takes `struct lfu_filter` (fixed-size POD, magic+version+size checked, every index range-checked by `lfu_filter_validate()` before use); per object: `rec(DORA_ATTR)` → `lfu_filter_tier0()` → only if it survives and the demand mask is non-empty, `rec(DORA_XATTR)` per demanded xattr into scratch allocated once at open → `lfu_filter_tier1()`. NOMATCH never touches the ring; UNKNOWN is counted and enters only with `LFU_FILTER_EMIT_UNKNOWN`. `INFO` reports what the OSD under the module can serve; `STATS` returns every counter at EOF. The producer now uses a `DOIF_PARALLEL` private iterator by default, so it is on the block-parse path |
+| the consumer | `src/lfu_scan_kmdt.c` | compiles the filter, negotiates via `INFO` (wire version 2 with `btime`/`projid`/`flags`, LMA flags, and the decoded SOM/LOV/LMV values riding along so `size=` prints the file's size), sends it, and sets `lfu_target_ops.pushdown` so the core neither prefilters nor re-runs tier 1; the kernel's per-tier counts are folded into the ordinary summary, and tier 2 is printed as a rate over the objects tier 1 examined |
+
+Two design points worth stating because they were forced rather than chosen:
+
+- **The xattr fetch had to go through the iterator.** A producer above the OSD
+  can only reach an object by `dt_locate()`, which is an OI lookup and an
+  `iget` — the two things block parsing removed. `rec(DORA_XATTR)` is the only
+  place the mapped block is still in hand, so that is where tier 1 has to be
+  served, and the tier-2 fallback there is `osd_iget()` +
+  `__osd_xattr_get()`, exactly the path a spilled LMA already takes.
+- **The evaluator is now under kernel constraints everywhere.** No allocation,
+  no recursion, no libc, `-std=gnu89` (a RHEL 9 kernel's dialect: no `for (int
+  i…)`), and `struct lfu_filter`'s layout is a wire contract
+  (`_Static_assert`ed at 32 × 352 + 16 bytes). Those constraints apply to the
+  userspace scanners too now, since it is one source — which is the point.
+
+**What is verified, and how far:**
+
+| claim | how | status |
+|---|---|---|
+| the raw parser fills btime/projid/flags correctly and `osd_raw_xattr()` finds inline SOM/LOV and refuses to invent a spilled one | code lifted verbatim from the patch, run against `mke2fs`/`debugfs` images | **106 checks pass** (`tests/blockparse_test.sh`) |
+| the evaluator makes the same decisions along its kernel branch as its userspace one, on the same bytes, and matches this document's tables | compiled twice (`-std=gnu89 -DLFU_KERNEL_TEST` with `tests/kstubs/` for the four kernel headers) | **47 cases, identical** (`tests/filter_eval_test.sh`) |
+| the kernel branch of the evaluator uses no libc beyond `mem*` | `nm -u` on the object | passes |
+| every Lustre identifier the evaluator uses exists in the real `lustre_idl.h`/`lustre_user.h` | grep against v2_17_55 | all resolve |
+| the six-patch stack applies cleanly on v2_17_55 | `git apply` on a fresh worktree | clean |
+| `lfu_ring.c` and the two OSD patches **compile and run** | needs a lab with a built Lustre tree and a mounted MDT | **not done** |
+
+The last row is the honest one. `lfu_ring.c` and `osd_otable_it_xattr()` were
+written against the applied v2_17_55 source and reviewed identifier by
+identifier, but a kernel build and a scan on a real MDT are what would prove
+them, and the lab that could do it is not up. The pieces that *can* be proven
+here have been.
+
+**Lab checklist, when one is next up** (same recipe as
+`parallel-osd-scanner-2026-08-15.md` §"Nothing here has been compiled"; the
+stack order matters — `rec-attr-zfs` must precede `parallel-it`, which touches
+`osd-zfs/osd_internal.h` after it):
+
+```sh
+# in the lustre-release checkout at v2_17_55, on the lab
+for p in rec-attr rec-attr-zfs parallel-it itable-readahead \
+         itable-blockparse otable-xattr; do
+	git apply lfu/patches/$p-v2_17_55.patch || exit 1
+done
+make -j$(nproc)
+cp lustre/osd-ldiskfs/osd_ldiskfs.ko /lib/modules/$(uname -r)/extra/lustre/fs/ && depmod -a
+# unmount, rmmod osd_ldiskfs, remount; then:
+modinfo osd_ldiskfs | grep -q lfu_blockparse && echo patched
+
+# the ring module (needs CONFIG_GLOB=y: grep GLOB /boot/config-$(uname -r))
+cd lfu/src/kernel
+make -C /lib/modules/$(uname -r)/build M=$PWD LUS=/root/lustre-release \
+     KBUILD_EXTRA_SYMBOLS=/root/lustre-release/Module.symvers modules
+insmod lfu_ring.ko dev=lustre-MDT0000-osd
+
+# the consumer, built anywhere: first a plain stream, then the filters
+cd lfu && make kmdt
+build/lfu-scan-kmdt -q /dev/lfu_scan                       # INFO line, counts
+build/lfu-scan-kmdt -q --type f --mtime +30d /dev/lfu_scan  # tier 0 in kernel
+build/lfu-scan-kmdt -q --blocks +1G /dev/lfu_scan          # tier 1: SOM via DORA_XATTR
+build/lfu-scan-kmdt -q --pool fast --stripe-count +1 /dev/lfu_scan
+build/lfu-scan-kmdt -q -u --size +0 /dev/lfu_scan          # the undecided population
+```
+
+The three things to look at in the summary: `filtered (t0)`/`(t1)` (the
+kernel did the work), `xattr: inline=… external=… iget=…` (tier 1 was served
+from the block, and how often it was not), and `fallback=` (queue item 4, the
+`-EAGAIN` rate). Then the same filter through `lfu-scan-ldiskfs` on the
+unmounted device should give the same emitted set.
 
 ---
 
@@ -374,7 +468,9 @@ NEEDS_TREE     — depth predicates; rejected by both scanners
   whether to defer it to a second pass instead of taking it inline.
 - **§7's ordering rule needs a tier from the filter API.** A filter presented as
   an opaque match function forfeits all of this; worth stating in the Filter
-  Rule module design.
+  Rule module design. *(2026-08-17: it now has one — `lfu_field_tier()`, and
+  the demand mask is what the kernel producer uses to decide which
+  `rec(DORA_XATTR)` calls to make at all.)*
 
 **Sharding constraint on aggregations.** Filters that aggregate rather than
 select — `count`, `sum`, `histogram`, `largest`/`smallest N`, `min`/`max` — must
@@ -391,6 +487,10 @@ scan.
 
 ## 10. What is not settled
 
+- **The OSD-side filter has not run.** §5.4 lists what is proven; a kernel
+  build and one filtered scan on a lab MDT are what remain, and they are the
+  first thing to do when a lab is next up. `bench_osd_sweep.sh`'s warm rows
+  should also be re-taken with a tier-1 filter set, which is now possible.
 - **The tier-2 rate on a realistic filesystem** (§7). The two numbers we have
   are both ~0 on lab targets with default striping. Note that M9's answer
   changes how this has to be measured on ldiskfs: since libext2fs fetches the

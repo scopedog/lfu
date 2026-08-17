@@ -47,30 +47,8 @@ enum lfu_class {
 
 extern const char *const lfu_class_name[LFU_CLS_MAX];
 
-struct lfu_rec {
-	struct lu_fid fid;
-	uint32_t lma_compat;
-	uint32_t lma_incompat;
-	uint64_t id;		/* backend object id: inode number / dnode */
-	uint16_t mode;
-	uint32_t nlink;
-	uint32_t uid;
-	uint32_t gid;
-	uint32_t projid;
-	uint32_t flags;		/* FS_IOC_GETFLAGS-style attribute bits, which
-				 * coincide with STATX_ATTR_* for the five
-				 * --attrs names LFU supports (lfu_lustre.h).
-				 * ldiskfs passes i_flags through; osd-zfs
-				 * converts its own flag word first. */
-	uint64_t size;
-	uint64_t blocks;	/* 512-byte units; see docs — semantics differ
-				 * across backends for compressed data.  This
-				 * is the target's own allocation, which for a
-				 * striped file is NOT the file's: --size and
-				 * --blocks read trusted.som instead (§4). */
-	uint32_t atime, mtime, ctime, crtime;
-	int has_ext_ea;		/* ldiskfs tier-2 marker; ZFS never sets it */
-};
+/* struct lfu_rec — the record — is defined in lfu_filter.h, because the
+ * kernel-side evaluator sees the same structure. */
 
 /*
  * One stats struct for all backends: common counters plus each backend's
@@ -168,6 +146,15 @@ struct lfu_target_ops {
 	 * crtime nor projid nor flags.  Refused, not silently compared.
 	 */
 	uint32_t missing_fields;
+
+	/*
+	 * The backend evaluates the whole filter itself -- the kmdt stream,
+	 * where the kernel applies tier 0 and tier 1 before a record enters
+	 * the ring -- so the core must neither prefilter nor re-run tier 1,
+	 * and rec->unknown says what the backend decided.  Its tier-1 values
+	 * arrive already decoded in rec->t1.
+	 */
+	int pushdown;
 
 	/* backend-specific CLI additions */
 	const char *optstring_extra;

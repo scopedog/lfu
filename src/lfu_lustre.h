@@ -22,56 +22,6 @@
 #define LFU_LUSTRE_H
 
 #include <stdint.h>
-#include <string.h>
-
-/*
- * Every structure below is read out of a device buffer at an arbitrary
- * offset, so load through memcpy rather than a cast: an xattr value inside an
- * inode is not guaranteed to be aligned for a uint64_t, and on-disk order is
- * little-endian regardless of the host.
- */
-static inline uint16_t lfu_le16(const void *p)
-{
-	uint16_t v;
-
-	memcpy(&v, p, sizeof(v));
-	return __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__ ? __builtin_bswap16(v) : v;
-}
-
-static inline uint32_t lfu_le32(const void *p)
-{
-	uint32_t v;
-
-	memcpy(&v, p, sizeof(v));
-	return __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__ ? __builtin_bswap32(v) : v;
-}
-
-static inline uint64_t lfu_le64(const void *p)
-{
-	uint64_t v;
-
-	memcpy(&v, p, sizeof(v));
-	return __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__ ? __builtin_bswap64(v) : v;
-}
-
-/* Host order, no conversion — for linkea, whose header is stored in the
- * writing host's byte order and normalised by the reader (see below).
- */
-static inline uint32_t lfu_host32(const void *p)
-{
-	uint32_t v;
-
-	memcpy(&v, p, sizeof(v));
-	return v;
-}
-
-static inline uint64_t lfu_host64(const void *p)
-{
-	uint64_t v;
-
-	memcpy(&v, p, sizeof(v));
-	return v;
-}
 
 /* Lustre xattr names — lustre_idl.h:1283-1292 */
 #define XATTR_NAME_LMA		"trusted.lma"
@@ -257,23 +207,6 @@ struct lmv_mds_md_v1 {
 	char lmv_pool_name[LOV_MAXPOOLNAME + 1];
 	struct lu_fid lmv_stripe_fids[];
 } __attribute__((packed));
-
-/*
- * Attribute bits for --attrs.  lfs find names them from attrs_array
- * (lustreapi.h:1416) using STATX_ATTR_* values, which lustre_user.h:236-243
- * notes were chosen to coincide with the FS_IOC_GETFLAGS bits — and therefore
- * with ext4's on-disk i_flags for exactly these five.  That is what lets the
- * ldiskfs device scanner compare i_flags directly; osd-zfs converts its own
- * flag word first (attrs_zfs2fs(), osd_internal.h:838).
- *
- * STATX_ATTR_AUTOMOUNT is deliberately absent: ext4 reuses 0x1000 for
- * EXT4_INDEX_FL, so on a device scan that bit means "hash-indexed directory".
- */
-#define LFU_ATTR_COMPRESSED	0x00000004
-#define LFU_ATTR_IMMUTABLE	0x00000010
-#define LFU_ATTR_APPEND		0x00000020
-#define LFU_ATTR_NODUMP		0x00000040
-#define LFU_ATTR_ENCRYPTED	0x00000800
 
 /* lustre_idl.h:278-310 — FID sequence ranges */
 #define FID_SEQ_OST_MDT0	0x0ULL
