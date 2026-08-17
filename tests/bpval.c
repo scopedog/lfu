@@ -110,8 +110,8 @@ static void lustre_loa_swab(struct lustre_ost_attrs *loa, int to_cpu) { }
 
 struct lu_attr {
 	__u64 la_size, la_blocks;
-	__s64 la_mtime, la_atime, la_ctime;
-	__u32 la_mode, la_uid, la_gid, la_nlink, la_valid;
+	__s64 la_mtime, la_atime, la_ctime, la_btime;
+	__u32 la_mode, la_uid, la_gid, la_nlink, la_valid, la_projid, la_flags;
 };
 #define LA_MODE 1
 #define LA_NLINK 2
@@ -122,8 +122,48 @@ struct lu_attr {
 #define LA_ATIME 64
 #define LA_MTIME 128
 #define LA_CTIME 256
+#define LA_BTIME 512
+#define LA_PROJID 1024
+#define LA_FLAGS 2048
+
+/* lustre_idl.h:1926 -- the flag bits Lustre shows users.  Kept as the real
+ * value rather than a stub, because the test asserts that i_flags bits set by
+ * debugfs come through this mask unchanged. */
+#define LUSTRE_FL_USER_VISIBLE 0x709b5cfe
+#define LMAI_ORPHAN  0x10
+#define LMAI_ENCRYPT 0x20
+#define LUSTRE_ORPHAN_FL  0x00002000
+#define LUSTRE_ENCRYPT_FL 0x00800000
+static inline int lma_to_lustre_flags(__u32 lma_flags)
+{
+	return ((lma_flags & LMAI_ORPHAN) ? LUSTRE_ORPHAN_FL : 0) |
+	       ((lma_flags & LMAI_ENCRYPT) ? LUSTRE_ENCRYPT_FL : 0);
+}
+static int g_project;
+#define ldiskfs_has_feature_project(sb) (g_project)
 
 #include "extracted.c"
+
+/* argv: img ino itable ipg isize huge project [xattr-name ...] */
+static void dump_xattr(struct super_block *sb, struct ldiskfs_inode *raw,
+		       const char *name)
+{
+	const void *val = NULL;
+	__u32 vlen = 0;
+	int rc = osd_raw_xattr(sb, raw, LFU_XATTR_INDEX_TRUSTED, name,
+			       (__u8)strlen(name), &val, &vlen);
+
+	printf("xattr %s rc=%d len=%u", name, rc, vlen);
+	if (rc == 0) {
+		const unsigned char *b = val;
+		__u32 i;
+
+		printf(" hex=");
+		for (i = 0; i < vlen; i++)
+			printf("%02x", b[i]);
+	}
+	printf("\n");
+}
 
 int main(int argc, char **argv)
 {
@@ -143,6 +183,7 @@ int main(int argc, char **argv)
 
 	g_isize = atoi(argv[5]);
 	g_huge = atoi(argv[6]);
+	g_project = argc > 7 ? atoi(argv[7]) : 0;
 
 	fd = open(img, O_RDONLY);
 	if (fd < 0 || fstat(fd, &st))
@@ -172,7 +213,9 @@ int main(int argc, char **argv)
 		       loa.loa_lma.lma_self_fid.f_ver,
 		       loa.loa_lma.lma_compat, loa.loa_lma.lma_incompat);
 
-	osd_raw_attr(&sb, raw, &la);
+	/* the LMA incompat feeds la_flags; pass what osd_raw_lma() decoded,
+	 * or 0 when there was none, exactly as osd_iit_iget_raw() does */
+	osd_raw_attr(&sb, raw, rc == 0 ? loa.loa_lma.lma_incompat : 0, &la);
 	printf("mode=0%o nlink=%u uid=%u gid=%u size=%llu blocks=%llu\n",
 	       la.la_mode, la.la_nlink, la.la_uid, la.la_gid,
 	       (unsigned long long)la.la_size,
@@ -180,5 +223,14 @@ int main(int argc, char **argv)
 	printf("atime=%lld mtime=%lld ctime=%lld\n",
 	       (long long)la.la_atime, (long long)la.la_mtime,
 	       (long long)la.la_ctime);
+	printf("btime=%lld projid=%u flags=%#x\n",
+	       (long long)la.la_btime, la.la_projid, la.la_flags);
+
+	{
+		int i;
+
+		for (i = 8; i < argc; i++)
+			dump_xattr(&sb, raw, argv[i]);
+	}
 	return 0;
 }

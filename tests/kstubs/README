@@ -1,0 +1,6 @@
+Stand-ins for the four kernel headers src/lfu_filter.h includes when it is
+built as part of the lfu_ring module.  They exist so that lfu_filter_eval.c
+can be compiled here, in userspace, along the kernel branch of every #if in
+that header (-DLFU_KERNEL_TEST) -- which is the only way, short of a lustre
+build tree, to notice that the evaluator has picked up a libc dependency it
+must not have.  Nothing in here is used by any real build.

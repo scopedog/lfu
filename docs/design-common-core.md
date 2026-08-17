@@ -14,9 +14,12 @@ only its device access.
 |---|---|
 | `src/lfu_scan.h` | `lfu_target_ops`, `lfu_rec`, `lfu_stats`, `lfu_opts`, `lfu_ctx` |
 | `src/lfu_core.c` | §5 classification ladder · tier ordering · record emission · stats merge · §8 chunked worker pool · common CLI · per-backend capability refusal |
-| `src/lfu_filter.{c,h}` | the `lfs find` predicate vocabulary: parse → compiled predicate array + demand mask, tier-0 and tier-1 evaluation, SOM/LOV/LMV/linkea decoders, the *undecided* outcome (`filter-levels.md`) |
+| `src/lfu_filter.h` | the compiled filter (`struct lfu_filter`, a fixed-size POD that is also the kernel ioctl payload), the record, the demand mask, and the evaluator's contract — dual-mode: kernel branch under `__KERNEL__` (`filter-levels.md`) |
+| `src/lfu_filter.c` | the parser: lfs find syntax → `struct lfu_filter`; userspace only |
+| `src/lfu_filter_eval.c` | the evaluator: tier-0/tier-1 evaluation, SOM/LOV/LMV/linkea decoders, `lfu_filter_validate()`; one source, linked here and `#include`d into `src/kernel/lfu_ring.c`, held to kernel constraints (no libc, no allocation, `gnu89`) in both |
 | `src/lfu_scan_ldiskfs.c` | libext2fs open/scan, torn-read defence (§8.2), inode+LMA extraction, superblock banner, summary format |
 | `src/lfu_scan_zfs.c` | libzpool import/open, SA registry, dnode read path, DXATTR/LMA unpack, summary format |
+| `src/lfu_scan_kmdt.c` | the `lfu_ring` stream from a mounted MDT; compiles the filter and hands it to the kernel (`.pushdown`), which evaluates it before a record enters the ring; per-tier counts come back by ioctl |
 
 Two binaries remain (`lfu-scan-ldiskfs`, `lfu-scan-zfs`) because the build
 hosts differ — MDS build hosts lack ZFS headers, and vice versa.  A combined
@@ -39,7 +42,10 @@ an already-unpacked DXATTR); interpreting is Lustre, and identical on both, so
 it lives in one place.  A backend also declares what it *cannot* answer —
 `can_supply`, `attr_mask`, `missing_fields` — and the core refuses such a query
 at parse time rather than letting a scan quietly test fewer predicates than were
-asked for.
+asked for.  A backend that evaluates the whole filter itself (`pushdown`: the
+kmdt stream, where the kernel does it) tells the core so, and the core neither
+prefilters nor re-runs tier 1 on what it receives; the backend's verdict rides
+in the record (`rec->unknown`) and its decoded tier-1 values in `rec->t1`.
 
 The core hands out chunk indices from a shared cursor (not N equal slices —
 allocation is sparse and clustered on both backends, so equal slices
