@@ -285,6 +285,33 @@ in the LUG list that are not selections (`largest`, `histogram`, `count`, `sum`)
 are unimplemented, and `filter-levels.md` §9's sharding constraint applies to
 them. Also unresolved: what an *unknown* size means to an aggregation.
 
+### Does readahead cost anything warm? **[new 2026-08-17]**
+
+Unmeasured, and it bears on a published headline. Every row of the warm curve in
+[`blockparse-2026-08-16.md`](blockparse-2026-08-16.md) §3 — including the
+17,392,147 obj/s peak and the 10.4× — ran at `lfu_ra_blocks=32`, the default,
+and the axis was never swept warm.
+
+Warm, readahead cannot help: every inode-table block is a page-cache hit, so
+each `sb_breadahead()` is a buffer-cache lookup that accomplishes nothing while
+taking the same lock as the `sb_bread()` it precedes — on a path where spin is
+still 36.62% of the profile. Roughly two lookups per block where one would do.
+So the warm peak is plausibly a floor.
+
+The root cause of the omission is worth fixing regardless: `lfu_par`'s report
+line records `dev`, `private`, `nthreads`, `chunk` and `recattr` but none of the
+three `osd_ldiskfs` tunables (`lfu_blockparse`, `lfu_ra_blocks`,
+`lfu_noverify`) the run actually depended on, so every published `bp=` was a
+hand-written label — a label that can be wrong, and an axis that can go
+unrecorded. [`tests/bench_osd_sweep.sh`](../tests/bench_osd_sweep.sh) closes it
+from the harness side by deriving every label from a sysfs readback; the cleaner
+fix would be for `lfu_par` to print them itself, which needs a way for one
+module to read another's parameters.
+
+**Needs:** an ldiskfs lab MDT. One warm sweep settles it. If readahead does cost
+warm, the follow-on question is whether it should be conditional on cache state
+rather than unconditionally on, since cold it is worth 8×.
+
 ### Kernel-side Object Stream encoding **[new]**
 
 Deferred rather than avoided. The initial ldiskfs scanner runs in userspace, so

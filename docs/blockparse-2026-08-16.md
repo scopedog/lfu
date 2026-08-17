@@ -110,6 +110,33 @@ path, and that row does not move. Whatever the other rows are measuring, it is
 Attributes remain free — `bp=1` at 8 threads is 14,085,190 with them and
 14,085,190 without.
 
+### 17,392,147 is a lower bound, because `ra` was never swept warm
+
+**Every row above ran at `lfu_ra_blocks=32`, the default, and that axis was
+never varied warm** — there is not one `ra=` label in
+[`blockparse-warm.txt`](../bench-data/2026-08-16/blockparse-warm.txt) to say
+otherwise. The omission was not deliberate; it followed from `lfu_par` recording
+`dev`, `private`, `nthreads`, `chunk` and `recattr` in its report line but *not*
+the three `osd_ldiskfs` tunables a run depends on, so `bp=` had to be a
+hand-written label and `ra=` was simply never written down.
+
+Warm, readahead can only cost. Every inode-table block is already in page
+cache, so each `sb_breadahead()` is a buffer-cache lookup that finds what it
+wants and accomplishes nothing — and it takes the same lock as the `sb_bread()`
+it precedes, on a path where `__pv_queued_spin_lock_slowpath` is still 36.62%.
+Per block that is roughly two lookups where one would do (`ooi_bp_bh` already
+caches the buffer head across the four objects in a block, so this is per block,
+not per object).
+
+So the warm figures here are a floor for the block-parse path, not its ceiling,
+and the 10.4× may be understated. [`tests/bench_osd_sweep.sh`](../tests/bench_osd_sweep.sh)
+sweeps `bp` × `ra` × threads warm and builds every label from a sysfs *readback*
+rather than from what it asked for, so no row can claim a configuration it did
+not run under. It needs the lab, and has not been run.
+
+None of this touches §4: cold, the window *is* the point, and at 99–100% device
+utilisation the extra lock traffic hides entirely behind a 126 µs read.
+
 ### Where the time goes now
 
 | bp=0, 8 threads | | bp=1, 8 threads | |
