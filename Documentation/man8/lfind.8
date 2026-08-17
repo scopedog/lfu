@@ -456,6 +456,15 @@ LMR mirroring produces across MDTs, is not done here.
 The object stream exported by the
 .B lfu_ring
 module for a mounted target.
+.TP
+.I /usr/sbin/lfind
+.TQ
+.IR /usr/sbin/lfind- { ldiskfs | zfs | kmdt }
+The front-end and the backends are installed in the same directory, so the
+front-end finds a backend beside itself without a compiled-in path. Expect only
+the backends this host could build to be present;
+.B --list-backends
+reports which those are.
 .SH NOTES
 Reading a block device directly exposes every object's metadata on the target
 with no access control of any kind, and the names in

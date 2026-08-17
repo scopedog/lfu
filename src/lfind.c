@@ -159,18 +159,61 @@ static char *lfind_locate(const char *self, const char *bin)
 	return strdup(bin);	/* let execvp search PATH */
 }
 
+/*
+ * Resolve a bare name through PATH, the way execvp will.
+ *
+ * Only --list-backends needs this: dispatch can just hand the name to execvp.
+ * But a partial install is the normal case -- a host builds the one backend its
+ * libraries allow -- so "not found" has to be a fact there rather than a
+ * cheerful assumption that PATH will sort it out.
+ */
+static char *lfind_search_path(const char *bin)
+{
+	char *dirs, *save, *dir, *path = NULL;
+	const char *env = getenv("PATH");
+
+	if (env == NULL || *env == '\0')
+		return NULL;
+
+	dirs = strdup(env);
+	if (dirs == NULL)
+		return NULL;
+
+	for (dir = strtok_r(dirs, ":", &save); dir != NULL;
+	     dir = strtok_r(NULL, ":", &save)) {
+		if (asprintf(&path, "%s/%s", *dir != '\0' ? dir : ".", bin) < 0) {
+			path = NULL;
+			continue;
+		}
+		if (access(path, X_OK) == 0)
+			break;
+		free(path);
+		path = NULL;
+	}
+
+	free(dirs);
+	return path;
+}
+
 static void lfind_list_backends(const char *self)
 {
 	int i;
 
 	for (i = LFIND_LDISKFS; i <= LFIND_KMDT; i++) {
 		char *p = lfind_locate(self, lfind_backend_bin[i]);
-		int have = p != NULL &&
-			   (strchr(p, '/') != NULL ? access(p, X_OK) == 0 : 1);
+		char *found = NULL;
+
+		if (p != NULL && strchr(p, '/') != NULL) {
+			if (access(p, X_OK) == 0)
+				found = strdup(p);
+		} else if (p != NULL) {
+			found = lfind_search_path(p);
+		}
 
 		printf("%-8s %-16s %s\n", lfind_backend_name[i],
 		       lfind_backend_bin[i],
-		       have ? (strchr(p, '/') ? p : "(on PATH)") : "not built");
+		       found != NULL ? found : "not built");
+		free(found);
 		free(p);
 	}
 }

@@ -66,7 +66,25 @@ ZFS_LDLIBS   := -lzpool -lnvpair -lpthread
 # The dispatcher links no device library, so it builds anywhere.
 FRONT   := $(BINDIR)/lfind
 
-.PHONY: all clean test zfs test-zfs front
+# --- install ---------------------------------------------------------
+# GNU-standard variables, so a spec file can override any of them and
+# DESTDIR staging works:  make install DESTDIR=%{buildroot}
+prefix      ?= /usr
+exec_prefix ?= $(prefix)
+sbindir     ?= $(exec_prefix)/sbin
+datarootdir ?= $(prefix)/share
+mandir      ?= $(datarootdir)/man
+INSTALL     ?= install
+MANPAGE     := Documentation/man8/lfind.8
+
+# Everything goes in one directory, front-end and backends together.  The
+# front-end finds a backend next to itself first (src/lfind.c: dirname of
+# argv[0], then $LFIND_LIBEXEC, then PATH), so co-location needs no compiled-in
+# path and no environment variable, and it keeps working whether lfind is
+# invoked by absolute path or found on PATH.  A libexec split would need one of
+# the two, for no gain -- these are all root-only tools reading a raw target.
+
+.PHONY: all clean test zfs test-zfs front install install-man uninstall
 
 all: $(FRONT) $(BIN)
 
@@ -93,6 +111,48 @@ test: $(BIN)
 
 test-zfs: $(ZFS_BIN)
 	@tests/run_tests_zfs.sh
+
+# Installs what this host actually built, rather than depending on `all`:
+# no host builds all three backends (the MDS hosts lack ZFS headers, and the
+# kmdt backend is only useful where lfu_ring is loaded), so a hard dependency
+# would make `install` fail on every real machine.  Build first, then install.
+#
+# The man page is installed by a sub-make rather than a prerequisite so that a
+# failed binary check leaves nothing behind at all -- prerequisite order is not
+# guaranteed under -j.
+install:
+	@test -d $(BINDIR) || { \
+		echo "make install: nothing built -- run make [zfs] [kmdt] first" >&2; \
+		exit 1; }
+	@found=; \
+	for b in lfind lfind-ldiskfs lfind-zfs lfind-kmdt; do \
+		test -x $(BINDIR)/$$b || continue; \
+		found="$$found $$b"; \
+	done; \
+	test -n "$$found" || { \
+		echo "make install: nothing built -- run make [zfs] [kmdt] first" >&2; \
+		exit 1; }; \
+	$(INSTALL) -d $(DESTDIR)$(sbindir); \
+	for b in $$found; do \
+		echo "  install $$b -> $(DESTDIR)$(sbindir)"; \
+		$(INSTALL) -m 755 $(BINDIR)/$$b $(DESTDIR)$(sbindir)/$$b || exit 1; \
+	done; \
+	case "$$found" in \
+	*lfind-*) ;; \
+	*) echo "make install: warning: lfind installed with no backend" >&2 ;; \
+	esac
+	@$(MAKE) --no-print-directory install-man
+
+install-man:
+	@$(INSTALL) -d $(DESTDIR)$(mandir)/man8
+	@echo "  install $(MANPAGE) -> $(DESTDIR)$(mandir)/man8"
+	@$(INSTALL) -m 644 $(MANPAGE) $(DESTDIR)$(mandir)/man8/lfind.8
+
+uninstall:
+	@for b in lfind lfind-ldiskfs lfind-zfs lfind-kmdt; do \
+		rm -f $(DESTDIR)$(sbindir)/$$b; \
+	done
+	@rm -f $(DESTDIR)$(mandir)/man8/lfind.8
 
 clean:
 	@rm -rf $(BINDIR)
