@@ -213,6 +213,25 @@ else
 	sed -n '/FAIL/p' "$WORK/bp.txt"
 fi
 
+echo "==> the OSD benchmark sweep's own logic (no kernel, no lab needed)"
+# bench_osd_sweep.sh can only run against a mounted MDT as root, so the parts
+# that can be wrong on any machine -- report-line parsing, median selection,
+# and the readback-derived labels -- are checked here instead of never.
+if "$HERE/bench_osd_sweep.sh" --self-test > "$WORK/sweep.txt" 2>&1; then
+	check_eq "sweep parser and median self-test" PASS PASS
+else
+	check_eq "sweep parser and median self-test" PASS FAILED
+	sed -n '/FAIL/p' "$WORK/sweep.txt"
+fi
+# The dry run exercises the matrix, the label construction and the identity
+# check without touching a tunable.
+sweep_rows=$("$HERE/bench_osd_sweep.sh" --dry-run --ra "0 32" --threads "1 4" \
+	--passes 1 2>/dev/null | grep -c '^WARM ')
+check_eq "sweep dry run emits one row per (ra, threads)" 4 "$sweep_rows"
+check_eq "every sweep row carries an ra= label" 4 \
+	"$("$HERE/bench_osd_sweep.sh" --dry-run --ra "0 32" --threads "1 4" \
+	   --passes 1 2>/dev/null | grep -c '^WARM bp=[01] ra=[0-9]')"
+
 echo
 echo "passed: $pass   failed: $fail"
 [ "$fail" -eq 0 ]
