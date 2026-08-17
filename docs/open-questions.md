@@ -323,9 +323,31 @@ from the harness side by deriving every label from a sysfs readback; the cleaner
 fix would be for `lfu_par` to print them itself, which needs a way for one
 module to read another's parameters.
 
-**Needs:** an ldiskfs lab MDT. One warm sweep settles it. If readahead does cost
-warm, the follow-on question is whether it should be conditional on cache state
-rather than unconditionally on, since cold it is worth 8×.
+**Answered 2026-08-17 — it costs, by 22% at one thread and 90% at four**:
+[`warm-readahead-and-cold-2026-08-17.md`](warm-readahead-and-cold-2026-08-17.md).
+`ra=0` gives 5.21M obj/s at j1 against 4.26M at the default 32, and 15.1M against
+7.95M at j4, monotonic across the window range, with the iget-path control moving
+only ~7% as predicted. So the published warm rows were understated, and by more
+at higher thread counts.
+
+**The follow-on is now the live question, and it is sized.** `lfu_ra_blocks=32`
+is wrong in two of three regimes: it costs up to 90% warm, is irrelevant when
+the device is bandwidth-saturated (measured: cold flat within 0.9% across every
+window, because the scan sits at ~100% of a 183 MB/s disk), and is worth 8× only
+cold *and* latency-bound (the 2026-08-16 NVMe result). The window wants to be
+adaptive on whether `sb_bread()` is hitting the buffer cache. That is a design
+change, not a tuning change.
+
+### Does filter pushdown cost anything? **[answered 2026-08-17]**
+
+No — it is free or better in every regime measured
+([`warm-readahead-and-cold-2026-08-17.md`](warm-readahead-and-cold-2026-08-17.md)
+§3). Warm, a rejecting tier-0 filter is **+8%** because the object never enters
+the ring; cold it is +4%. And **cold, a tier-1 predicate costs nothing at all**:
+`--name` did 302,018 xattr lookups at the same rate as no filter, because the
+xattr is in an inode-table block the scan was already paying for. Tier 1 is a CPU
+cost, visible when the scan is CPU-bound and invisible when it is device-bound —
+which is the tier model seen from the other side.
 
 ### Kernel-side Object Stream encoding **[new]**
 

@@ -15,8 +15,10 @@ compile and run — not done."* This fills it in.
 `5.14.0-687.36.1.el9_8`, Lustre **v2_17_55 source build** with the whole stack,
 single node carrying MGS + MDT0 + four OSTs + the client. MDT on a 20 GiB loop
 file with **1024-byte inodes** — the size `mkfs.lustre` picks, and the reason
-LMA, LOV and SOM are normally inline. **302,122 objects.** Instance deleted
-after the run.
+LMA, LOV and SOM are normally inline. **302,122 objects.** Instance *stopped*
+rather than deleted after the run, so the lab can be restarted for the cold-on-NVMe
+and parallel-ring measurements §8 still lists; the recipe to rebuild it from
+nothing is in `notes/reference/build_install.md` §3.4 as corrected here.
 
 ---
 
@@ -192,9 +194,13 @@ Both in reporting/control, neither in the filter logic, and both fixed:
 
 ## 8. What is still not measured
 
-- **Cold.** Everything here is warm; the MDT is 302k objects in page cache.
-  §5 of `blockparse-2026-08-16.md` applies unchanged: the number that sizes a
-  scan is the cold one, and this run does not have it.
+- **Cold** — since measured, in
+  [`warm-readahead-and-cold-2026-08-17.md`](warm-readahead-and-cold-2026-08-17.md)
+  §2-3: on this box cold is bandwidth-bound at ~100% of a 183 MB/s disk, so every
+  configuration is flat within 0.9%, and **a tier-1 predicate costs nothing cold**
+  because its xattr rides in a block already being read. What is still missing is
+  cold on *latency-bound* storage (local NVMe) with a filter set, which needs a
+  different instance type.
 - **Parallel enumeration into one ring.** The producer is a single thread. The
   2.03M→17.4M warm scaling of `lfu_par` is behind the iterator; feeding N
   private iterators into one ring is the next step and is untested.
