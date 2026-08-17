@@ -1,9 +1,12 @@
 # LFU Device Input Scanner — prototype build.
 #
-# One common core (src/lfu_core.c), two backends.  Each binary links the core
-# plus its backend, so a host that has only one device library can still
-# build that backend (design §3: the MDS build hosts lack ZFS headers, the
-# workstation lacks system libext2fs).
+# One common core (src/lfu_core.c), three backends, and one command over them.
+#
+# `lfind` is the user-facing name; the backends are separate binaries only
+# because a host that has just one device library must still be able to build
+# the backend it can (design §3: the MDS build hosts lack ZFS headers, a
+# workstation may lack libext2fs).  lfind picks one from the target and execs
+# it, so that packaging constraint does not reach the command line.
 #
 # libext2fs is not a system package on this workstation.  Point E2FSROOT at an
 # extracted libext2fs-dev tree to build against it without installing:
@@ -31,7 +34,7 @@ LDFLAGS  += -L$(E2FSROOT)/usr/lib/x86_64-linux-gnu \
             -Wl,-rpath,$(E2FSROOT)/usr/lib/x86_64-linux-gnu
 endif
 
-BIN     := $(BINDIR)/lfu-scan-ldiskfs
+BIN     := $(BINDIR)/lfind-ldiskfs
 LDLIBS  += -lext2fs -lcom_err -lpthread
 
 # --- ZFS backend (design-zfs-scanner.md route 1) --------------------
@@ -48,7 +51,7 @@ LDLIBS  += -lext2fs -lcom_err -lpthread
 #       make zfs ZFS_SRC=/usr/src/zfs-2.2.10
 #
 # Separate target, not in `all`: the MDS build hosts lack these headers.
-ZFS_BIN      := $(BINDIR)/lfu-scan-zfs
+ZFS_BIN      := $(BINDIR)/lfind-zfs
 ZFS_SRC      ?=
 ifeq ($(ZFS_SRC),)
 ZFS_CPPFLAGS := -I/usr/include/libzfs -I/usr/include/libspl
@@ -60,9 +63,17 @@ ZFS_CPPFLAGS := -I$(ZFS_SRC)/lib/libzpool/include \
 endif
 ZFS_LDLIBS   := -lzpool -lnvpair -lpthread
 
-.PHONY: all clean test zfs test-zfs
+# The dispatcher links no device library, so it builds anywhere.
+FRONT   := $(BINDIR)/lfind
 
-all: $(BIN)
+.PHONY: all clean test zfs test-zfs front
+
+all: $(FRONT) $(BIN)
+
+front: $(FRONT)
+
+$(FRONT): $(SRCDIR)/lfind.c | $(BINDIR)
+	$(CC) $(CFLAGS) -o $@ $(SRCDIR)/lfind.c
 
 $(BIN): $(SRCDIR)/lfu_scan_ldiskfs.c $(CORE) $(HDRS) | $(BINDIR)
 	$(CC) $(CFLAGS) $(CPPFLAGS) -o $@ \
@@ -89,7 +100,7 @@ clean:
 # --- kernel-stream backend (Option 2 consumer; design step 4) --------
 # Needs no device library — it reads /dev/lfu_scan from the lfu_ring
 # kernel module.  Build anywhere.
-KMDT_BIN := $(BINDIR)/lfu-scan-kmdt
+KMDT_BIN := $(BINDIR)/lfind-kmdt
 
 kmdt: $(KMDT_BIN)
 

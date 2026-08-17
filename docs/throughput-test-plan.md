@@ -186,7 +186,7 @@ hit is the same one).
 ```bash
 # MDS
 sync; echo 3 > /proc/sys/vm/drop_caches
-time ./build/lfu-scan-ldiskfs -q /dev/vdc
+time ./build/lfind-ldiskfs -q /dev/vdc
 ```
 
 Record: wall time, inodes/sec (allocated-inode count ÷ wall time), the

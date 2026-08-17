@@ -100,8 +100,8 @@ struct lfu_target_ops {
 };
 ```
 
-**Recommendation: extend the existing `lfu-scan` binary with this interface
-rather than writing a separate `lfu-scan-zfs`.** The filter, output and
+**Recommendation: extend the existing scanner binary with this interface
+rather than writing a separate `lfind-zfs`.** The filter, output and
 correctness machinery is the bulk of the work and should be written once. The
 ZFS backend's whole job is "give me `(object id, attributes, LMA)`".
 

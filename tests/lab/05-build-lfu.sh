@@ -21,10 +21,10 @@ done
 echo "=== userspace consumer ==="
 cd ~/lfu
 make kmdt > /tmp/kmdt.log 2>&1 || { tail -20 /tmp/kmdt.log; exit 1; }
-ls -la build/lfu-scan-kmdt
+ls -la build/lfind-kmdt
 # the ldiskfs device scanner too, for the cross-check against the same device
 if make > /tmp/ldiskfs.log 2>&1; then
-	echo "device scanner: built"; ls -la build/lfu-scan-ldiskfs
+	echo "device scanner: built"; ls -la build/lfind-ldiskfs
 else
 	echo "device scanner: not built (needs libext2fs headers)"; tail -3 /tmp/ldiskfs.log
 fi

@@ -21,9 +21,23 @@ only its device access.
 | `src/lfu_scan_zfs.c` | libzpool import/open, SA registry, dnode read path, DXATTR/LMA unpack, summary format |
 | `src/lfu_scan_kmdt.c` | the `lfu_ring` stream from a mounted MDT; compiles the filter and hands it to the kernel (`.pushdown`), which evaluates it before a record enters the ring; per-tier counts come back by ioctl |
 
-Two binaries remain (`lfu-scan-ldiskfs`, `lfu-scan-zfs`) because the build
-hosts differ — MDS build hosts lack ZFS headers, and vice versa.  A combined
-binary is now a link-time choice, not a design question.
+Three backend binaries remain (`lfind-ldiskfs`, `lfind-zfs`, `lfind-kmdt`)
+because the build hosts differ — MDS build hosts lack ZFS headers, and vice
+versa.  **That is a packaging constraint and no longer reaches the command
+line**: `lfind` (`src/lfind.c`) is the user-facing command, and it picks a
+backend from the target and `exec`s it.
+
+The choice is by what the target *is*, not by a required flag, because each
+backend already takes a different kind of name: a block device or image is
+ldiskfs, `pool/dataset[@snap]` is ZFS, a character device is the `lfu_ring`
+stream from a mounted target.  The front-end deliberately does not parse the
+filter vocabulary — duplicating that table would give it two places to drift —
+so it finds the target by scanning arguments from the right in two passes: first
+for one that really is a device, image or stream, then for one merely *shaped*
+like a dataset spec.  The ordering matters: a `--name a/b` pattern does not
+exist as a path and so looks exactly like a dataset, and without the two passes
+`lfind <image> --name a/b` dispatches on the pattern.  `--backend
+ldiskfs|zfs|kmdt` overrides all of it.
 
 ## The ops contract
 

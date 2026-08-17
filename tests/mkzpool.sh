@@ -1,5 +1,5 @@
 #!/bin/bash
-# Build a synthetic Lustre-MDT-like ZFS dataset for lfu-scan-zfs tests.
+# Build a synthetic Lustre-MDT-like ZFS dataset for lfind-zfs tests.
 # Requires root (zpool create + trusted.* xattrs). File-backed vdev.
 #
 # NOT a real osd-zfs MDT: objects are created through the ZPL with

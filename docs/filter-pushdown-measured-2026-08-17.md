@@ -97,7 +97,7 @@ modern MDT it is rare, which is better news for the largest-files use case than
 ## 4. Every predicate agrees with the userspace scanner
 
 The same filter through the kernel (Option 2, pushed down) and through
-`lfu-scan-ldiskfs` reading the same loop file read-only while mounted (Option
+`lfind-ldiskfs` reading the same loop file read-only while mounted (Option
 1). FID sets compared, not counts:
 
 | filter | verdict | objects |

@@ -12,7 +12,7 @@ Execution of `throughput-test-plan.md` on the lab cluster. All twelve runs compl
 | Cache honesty | In-use inode table ≈ 11.5 GiB > 8 GiB VM RAM; `echo 3 > drop_caches` before every run |
 | OST | 1 × 16 GiB on the OSS VM (files are mknod — no OST objects; OST exists to satisfy the `mdt_obd_connect` OSP gate) |
 | Load harness | `createmany -m` 20 k / `unlinkmany` loop on an MDS-local client mount, single-threaded |
-| Scanner | `lfu-scan-ldiskfs` built on the MDS against e2fsprogs-devel-1.47.3-wc2 |
+| Scanner | `lfind-ldiskfs` built on the MDS against e2fsprogs-devel-1.47.3-wc2 |
 | Snapshot | `lfu-benchfs-mdt.pristine.qcow2` (16 GiB actual) taken post-population, pre-benchmark |
 
 `dumpe2fs`: `uninit_bg`, no `metadata_csum` — same feature set as testfs, confirming the earlier metadata_csum finding at this scale.

@@ -842,7 +842,7 @@ first — everything else is easier once the two enumerations can be diffed.
   ```
   s_feature_incompat: 0x6c2 -> 0x16c2
   stock dumpe2fs                        : REFUSES
-  lfu-scan-ldiskfs (SOFTSUPP set)       : REFUSES
+  lfind-ldiskfs (SOFTSUPP set)       : REFUSES
   ```
 
   Since `mkfs.lustre` sets `dirdata` on every MDT, **the WhamCloud e2fsprogs fork

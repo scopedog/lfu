@@ -662,7 +662,7 @@ static const struct lfu_target_ops lfu_ldiskfs_ops = {
 "  -a SEC / -b N           historical --atime +SECs / --dev-blocks +N\n"
 "\n"
 "The LUG 2026 slide-21 example is two tier-0 predicates and one tier-1:\n"
-"  lfu-scan-ldiskfs --atime +30d --blocks +1G --projid 1999 <device>\n"
+"  lfind --atime +30d --blocks +1G --projid 1999 <device>\n"
 "--blocks reads trusted.som, because an MDT inode's own block count says\n"
 "nothing about a striped file's data (docs/filter-levels.md §4).\n",
 	.optstring_extra = "p:",
