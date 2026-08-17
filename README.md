@@ -111,6 +111,7 @@ Rollout is incremental with **no flag day**: server-only mode (already improves
 | [`docs/option-comparison.md`](docs/option-comparison.md) | The two MDT approaches side by side, with measurements |
 | [`docs/throughput-test-plan.md`](docs/throughput-test-plan.md) / [`docs/throughput-results-2026-08-06.md`](docs/throughput-results-2026-08-06.md) | The benchmark that set the build order: 705k vs 105k objects/sec |
 | [`docs/upstream-survey.md`](docs/upstream-survey.md) | What already exists in `lustre-release` and what LFU must build |
+| [`docs/filter-levels.md`](docs/filter-levels.md) | **Filters — all 34 `lfs find` predicates, per scanner, with a cost tier each.** Why `--size`/`--blocks` are tier 1 and not tier 0, and what "unknown" means on an MDT-only scan. Implemented for both device backends 2026-08-17 |
 | [`docs/open-questions.md`](docs/open-questions.md) | Resolved and live design questions |
 | [`docs/reference/`](docs/reference/) | Source PDFs |
 
@@ -125,8 +126,8 @@ by measurement:
 
 | | Scanner | Status |
 |---|---|---|
-| 1 | **ldiskfs device scanner** — userspace, libext2fs | **Prototype in `src/`, 17/17 tests**, measured **705k inodes/s** cold-cache on a 12M-inode MDT |
-| 1 | **ZFS device scanner** — userspace, libzpool, snapshot-first | **Prototype in `src/`, 16/16 tests** against a synthetic MDT-like dataset (`make zfs`) |
+| 1 | **ldiskfs device scanner** — userspace, libext2fs | **Prototype in `src/`, 61/61 tests**, measured **705k inodes/s** cold-cache on a 12M-inode MDT; **2026-08-17: the `lfs find` filter vocabulary implemented** — 33 of 34 predicates, tier-ordered, with a demand mask |
+| 1 | **ZFS device scanner** — userspace, libzpool, snapshot-first | **Prototype in `src/`, 16/16 tests** against a synthetic MDT-like dataset (`make zfs`); shares the same filter compiler |
 | 2 | **OSD API scanner** — in-kernel, `dt_it_ops`, all backends | Prototype scanner end-to-end (enumerate → attrs → ring → userspace) at ~796k obj/s on a live MDT; **2026-08-15: parallel enumeration measured — ldiskfs 2.03M obj/s, ZFS 561k (now faster than the ZFS device scanner), concurrent with LFSCK**; **2026-08-16: block parsing — 17.4M obj/s warm and cold parity with the device scanner (99% of an NVMe stripe)** |
 
 ## Status

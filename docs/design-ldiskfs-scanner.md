@@ -378,12 +378,30 @@ Verified against libext2fs 1.47.0 headers:
   by-inode-number path, which will follow `i_file_acl`. Tier 2.
 - `ext2fs_xattr_get(h, key, &value, &len)` — fetch by name, e.g. `trusted.lma`.
 
-**To verify in the source (headers don't settle it):** whether
-`ext2fs_xattrs_read_inode()` reads *only* the inline region or also follows
-`i_file_acl` to the external block. The tier separation depends on being able to
-request inline-only. If it always follows, the scanner must parse the inline
-xattr region itself to keep tier 1 free — which is not hard, but it is code we
-would rather not own.
+**Answered 2026-08-17 — `ext2fs_xattrs_read_inode()` does follow `i_file_acl`.**
+Measured, not read out of the source: `tests/mkimage.sh` now builds `widelov1`,
+a 60-stripe file whose `trusted.lov` is 1472 bytes and therefore cannot fit a
+1024-byte inode (`debugfs` confirms `File ACL: <block>`), and all 60 stripes
+come back from the first `read_inode()` pass. e2fsprogs 1.47.0.
+
+Both halves of the prediction above turn out to matter, in opposite directions:
+
+- **Correctness is free.** No hand-rolled inline parser, no second call: every
+  tier-1 predicate is answerable on every object, spilled or not. The
+  `ext2fs_xattrs_read()` retry in `lfu_read_xattrs()` is therefore dead code on
+  this libext2fs and kept only as insurance for builds that behave otherwise.
+- **The cost is invisible.** The extra block read happens *inside* libext2fs,
+  so a caller cannot count it, and the inline-only request the tier separation
+  wanted does not exist in the API. What is countable is the condition: an
+  object with `i_file_acl != 0` under a filter that demands a tier-1 xattr has
+  necessarily paid for the block. That is what the `tier-2 (read)` line in the
+  summary reports, and it is a *predicate-and-data* property, not a per-object
+  measurement of I/O.
+
+So tier 1 → tier 2 is not a code boundary here at all; it is a cost boundary
+that has to be inferred. If the tier-2 rate on a real filesystem ever turns out
+to matter (§7 of `filter-levels.md`), measuring it properly means timing the
+scan with and without a tier-1 predicate, not counting fallbacks.
 
 ---
 
@@ -854,7 +872,7 @@ first — everything else is easier once the two enumerations can be diffed.
 | **Filter cost tiers** | Can the filter API expose per-predicate cost tiers (§7)? | open — needs the Filter Rule module owner | Whether pushdown ordering is possible at all |
 | **Internal-object exclusion** | **How to exclude internal objects LMA cannot identify (§5.1b)?** | open — proposed: inode-number denylist from a one-time root directory read | Correctness of "visible"; 3 objects leak today |
 | **Should metadata_csum be on?** | **Should `metadata_csum` be enabled on Lustre MDTs?** It is off today (§17) and is the only exact torn-read detector | open — a question for Andreas; affects `mkfs.lustre` defaults | Whether §8.2 stays heuristic forever |
-| **xattr API depth** | Does `ext2fs_xattrs_read_inode()` follow `i_file_acl`, or is it inline-only? (§6.1) | open — read the e2fsprogs source | Whether tier 1 stays free without hand-rolled parsing |
+| **xattr API depth** | Does `ext2fs_xattrs_read_inode()` follow `i_file_acl`, or is it inline-only? (§6.1) | **answered 2026-08-17: it follows.** Tier 1 is free and correct for spilled xattrs; there is no inline-only request, so tier-2 *cost* can only be inferred, not counted | Tier 1 needs no hand-rolled parser; the tier-2 rate needs timing, not a counter |
 | **Replica vs primary flag** | Is there an LMA/LMR flag distinguishing replica from primary (*LMR duplicate objects*)? | open | Record layout, dedup correctness |
 | **Throttling policy** | Throttling policy for scans on live targets (§9.3) | open | Production usability |
 | **Flag resumed scans** | Should a resumed scan be flagged in the stream (*Restart, checkpoint and scan identity*)? | open | Consumer semantics |

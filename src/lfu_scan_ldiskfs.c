@@ -88,6 +88,13 @@ static void lfu_extract_tier0(const struct ext2_inode_large *in,
 	rec->mtime = in->i_mtime;
 	rec->ctime = in->i_ctime;
 
+	/*
+	 * i_flags feeds --attrs directly: ext4's on-disk bits and the
+	 * STATX_ATTR_* values lfs find names are the same numbers for the five
+	 * attributes LFU supports (lfu_lustre.h).
+	 */
+	rec->flags = in->i_flags;
+
 	/* crtime and projid live in the extended part of a large inode and
 	 * are only valid if i_extra_isize covers them.
 	 */
@@ -111,59 +118,166 @@ static void lfu_extract_tier0(const struct ext2_inode_large *in,
 }
 
 /*
- * Tier 1 — read trusted.lma.
+ * Tier 1 — read trusted.lma and whatever else the compiled filter demands.
  *
- * ext2fs_xattrs_read_inode() parses from the inode buffer we already hold.
- * Whether it also follows i_file_acl to the external block is design question
- * M9; if it does, tier 1 is not free for objects with spilled xattrs and we
- * will need to parse the inline region ourselves.
+ * Design question M9 — whether ext2fs_xattrs_read_inode() follows i_file_acl
+ * to the external EA block — is **answered: it does.**  Measured 2026-08-17
+ * against e2fsprogs 1.47.0 with tests/mkimage.sh's widelov1, a 60-stripe
+ * 1472-byte trusted.lov that cannot fit a 1024-byte inode: all 60 stripes come
+ * back from the first read_inode() pass, and debugfs confirms the value lives
+ * in an external block.
+ *
+ * Two consequences, and they pull in opposite directions:
+ *
+ *  - Correctness is free.  A spilled xattr needs no second call and no
+ *    hand-rolled inline parser, so every tier-1 predicate is answerable on
+ *    every object.  The fallback below is therefore normally dead code, kept
+ *    only for libext2fs builds that behave otherwise.
+ *  - The *cost* is invisible.  The extra block read happens inside libext2fs,
+ *    so it cannot be counted from out here.  What is countable is the
+ *    condition: a filter that demands a tier-1 xattr from an object with
+ *    i_file_acl set has necessarily paid for the block.  That is what
+ *    st->tier2_read reports.
  */
-static int lfu_read_lma(ext2_filsys fs, ext2_ino_t ino,
-			struct ext2_inode_large *inode,
-			struct lustre_mdt_attrs *lma)
+
+/* Values handed back by libext2fs are ours to free. */
+#define LFU_EA_BUFS	5
+
+struct lfu_ea_bufs {
+	void *p[LFU_EA_BUFS];
+	int n;
+};
+
+static void lfu_ea_bufs_free(struct lfu_ea_bufs *b)
 {
-	struct ext2_xattr_handle *h = NULL;
+	while (b->n > 0)
+		ext2fs_free_mem(&b->p[--b->n]);
+}
+
+static int lfu_ea_fetch(struct ext2_xattr_handle *h, const char *name,
+			struct lfu_ea *ea, struct lfu_ea_bufs *bufs)
+{
 	void *val = NULL;
 	size_t len = 0;
-	errcode_t err;
-	int rc = 0;
 
-	err = ext2fs_xattrs_open(fs, ino, &h);
-	if (err)
-		return -1;
+	if (bufs->n == LFU_EA_BUFS)
+		return 0;
+	if (ext2fs_xattr_get(h, name, &val, &len) != 0 || val == NULL)
+		return 0;
 
-	err = ext2fs_xattrs_read_inode(h, inode);
-	if (err) {
-		ext2fs_xattrs_close(&h);
-		return -1;
-	}
+	bufs->p[bufs->n++] = val;
+	ea->buf = val;
+	ea->len = len;
+	return 1;
+}
 
-	err = ext2fs_xattr_get(h, XATTR_NAME_LMA, &val, &len);
-	if (err || val == NULL) {
-		ext2fs_xattrs_close(&h);
-		return -1;
-	}
+static void lfu_decode_lma(const void *val, size_t len,
+			   struct lustre_mdt_attrs *lma, int *have_lma)
+{
+	const struct lustre_mdt_attrs *d = val;
 
 	/* §8.2 item 4 — never trust a length field. */
-	if (len < sizeof(*lma)) {
-		rc = -1;
-	} else {
-		const struct lustre_mdt_attrs *d = val;
+	if (val == NULL || len < sizeof(*lma))
+		return;
 
-		/* On-disk LMA is little-endian; osd_get_lma() swabs on read. */
-		lma->lma_compat = ext2fs_le32_to_cpu(d->lma_compat);
-		lma->lma_incompat = ext2fs_le32_to_cpu(d->lma_incompat);
-		lma->lma_self_fid.f_seq =
-			ext2fs_le64_to_cpu(d->lma_self_fid.f_seq);
-		lma->lma_self_fid.f_oid =
-			ext2fs_le32_to_cpu(d->lma_self_fid.f_oid);
-		lma->lma_self_fid.f_ver =
-			ext2fs_le32_to_cpu(d->lma_self_fid.f_ver);
+	/* On-disk LMA is little-endian; osd_get_lma() swabs on read. */
+	lma->lma_compat = ext2fs_le32_to_cpu(d->lma_compat);
+	lma->lma_incompat = ext2fs_le32_to_cpu(d->lma_incompat);
+	lma->lma_self_fid.f_seq = ext2fs_le64_to_cpu(d->lma_self_fid.f_seq);
+	lma->lma_self_fid.f_oid = ext2fs_le32_to_cpu(d->lma_self_fid.f_oid);
+	lma->lma_self_fid.f_ver = ext2fs_le32_to_cpu(d->lma_self_fid.f_ver);
+	*have_lma = 1;
+}
+
+/* Which demanded values are still missing after a pass over the handle? */
+static uint32_t lfu_eas_missing(uint32_t needs, const struct lfu_eas *eas)
+{
+	uint32_t miss = 0;
+
+	if ((needs & LFU_NEED_SOM) && eas->som.buf == NULL)
+		miss |= LFU_NEED_SOM;
+	if ((needs & LFU_NEED_LOV) && eas->lov.buf == NULL)
+		miss |= LFU_NEED_LOV;
+	if ((needs & LFU_NEED_LMV) && eas->lmv.buf == NULL)
+		miss |= LFU_NEED_LMV;
+	if ((needs & LFU_NEED_LINK) && eas->link.buf == NULL)
+		miss |= LFU_NEED_LINK;
+	return miss;
+}
+
+static void lfu_eas_fetch_set(struct ext2_xattr_handle *h, uint32_t want,
+			      struct lfu_eas *eas, struct lfu_ea_bufs *bufs)
+{
+	if (want & LFU_NEED_SOM)
+		lfu_ea_fetch(h, XATTR_NAME_SOM, &eas->som, bufs);
+	if (want & LFU_NEED_LOV)
+		lfu_ea_fetch(h, XATTR_NAME_LOV, &eas->lov, bufs);
+	if (want & LFU_NEED_LMV)
+		lfu_ea_fetch(h, XATTR_NAME_LMV, &eas->lmv, bufs);
+	if (want & LFU_NEED_LINK)
+		lfu_ea_fetch(h, XATTR_NAME_LINK, &eas->link, bufs);
+}
+
+static int lfu_read_xattrs(ext2_filsys fs, ext2_ino_t ino,
+			   struct ext2_inode_large *inode, uint32_t needs,
+			   struct lustre_mdt_attrs *lma, int *have_lma,
+			   struct lfu_eas *eas, struct lfu_ea_bufs *bufs)
+{
+	struct ext2_xattr_handle *h = NULL;
+	struct lfu_ea lma_ea = { NULL, 0 };
+	uint32_t miss;
+	int lma_missing;
+
+	if (ext2fs_xattrs_open(fs, ino, &h) != 0)
+		return -1;
+
+	if (ext2fs_xattrs_read_inode(h, inode) != 0) {
+		ext2fs_xattrs_close(&h);
+		return -1;
 	}
 
-	ext2fs_free_mem(&val);
+	lfu_ea_fetch(h, XATTR_NAME_LMA, &lma_ea, bufs);
+	lfu_decode_lma(lma_ea.buf, lma_ea.len, lma, have_lma);
+	lfu_eas_fetch_set(h, needs, eas, bufs);
 	ext2fs_xattrs_close(&h);
-	return rc;
+
+	/*
+	 * Per M9 above, that one pass already included the external block if
+	 * there is one — so if this object has a block and the filter wanted a
+	 * tier-1 value, the block was read.  Count it: this is the tier-2 rate
+	 * design §9 asks to be visible rather than merely suffered.
+	 */
+	if (needs != 0 && inode->i_file_acl != 0)
+		eas->external = 1;
+
+	miss = lfu_eas_missing(needs, eas);
+	lma_missing = !*have_lma;
+
+	/*
+	 * Nothing missing, or nothing outside the inode to go looking in: an
+	 * absent xattr is normal (an unstriped file has no trusted.lov, a file
+	 * never closed has no trusted.som) and must not cost a second read.
+	 */
+	if ((miss == 0 && !lma_missing) || inode->i_file_acl == 0)
+		return 0;
+
+	/* Tier 2: the external EA block, read only for what is still missing */
+	if (ext2fs_xattrs_open(fs, ino, &h) != 0)
+		return 0;
+	if (ext2fs_xattrs_read(h) != 0) {
+		ext2fs_xattrs_close(&h);
+		return 0;
+	}
+
+	if (lma_missing) {
+		struct lfu_ea again = { NULL, 0 };
+
+		lfu_ea_fetch(h, XATTR_NAME_LMA, &again, bufs);
+		lfu_decode_lma(again.buf, again.len, lma, have_lma);
+	}
+	lfu_eas_fetch_set(h, miss, eas, bufs);
+	ext2fs_xattrs_close(&h);
+	return 0;
 }
 
 /* ------------------------------------------------------------------ */
@@ -462,10 +576,14 @@ static int lfu_ldiskfs_scan_chunk(void *tgt, void *wctx, struct lfu_ctx *cx,
 
 		struct lfu_rec rec;
 		struct lustre_mdt_attrs lma;
-		int have_lma;
+		struct lfu_eas eas;
+		struct lfu_ea_bufs bufs;
+		int have_lma = 0;
 
 		memset(&rec, 0, sizeof(rec));
 		memset(&lma, 0, sizeof(lma));
+		memset(&eas, 0, sizeof(eas));
+		memset(&bufs, 0, sizeof(bufs));
 
 		lfu_extract_tier0(wk->inode, ino, inode_size, &rec);
 		if (rec.has_ext_ea)
@@ -479,13 +597,15 @@ static int lfu_ldiskfs_scan_chunk(void *tgt, void *wctx, struct lfu_ctx *cx,
 		if (!lfu_prefilter(cx, &rec))
 			continue;
 
-		have_lma = (lfu_read_lma(fs, ino, wk->inode, &lma) == 0);
+		(void)lfu_read_xattrs(fs, ino, wk->inode, cx->needs, &lma,
+				      &have_lma, &eas, &bufs);
 		rec.lma_compat = lma.lma_compat;
 		rec.lma_incompat = lma.lma_incompat;
 		if (have_lma)
 			rec.fid = lma.lma_self_fid;
 
-		lfu_object(cx, &rec, have_lma);
+		lfu_object(cx, &rec, have_lma, &eas);
+		lfu_ea_bufs_free(&bufs);
 	}
 }
 
@@ -504,10 +624,14 @@ static void lfu_ldiskfs_report(const struct lfu_stats *st, double secs,
 			fprintf(stderr, "  %-13s : %" PRIu64 "\n",
 				lfu_class_name[i], st->cls[i]);
 	fprintf(stderr, "filtered (t0)   : %" PRIu64 "\n", st->filtered);
+	fprintf(stderr, "filtered (t1)   : %" PRIu64 "\n", st->filtered1);
+	/* §4.4 — a size test no MDT-only scan can answer for this object. */
+	fprintf(stderr, "undecided       : %" PRIu64 "\n", st->unknown);
 	fprintf(stderr, "emitted         : %" PRIu64 "\n", st->emitted);
 	fprintf(stderr, "tier-2 (ext EA) : %" PRIu64 " (%.1f%% of in-use)\n",
 		st->tier2,
 		st->in_use ? 100.0 * (double)st->tier2 / (double)st->in_use : 0.0);
+	fprintf(stderr, "tier-2 (read)   : %" PRIu64 "\n", st->tier2_read);
 	fprintf(stderr, "skipped: csum=%" PRIu64 " validate=%" PRIu64 "\n",
 		st->csum_bad, st->validate_bad);
 	if (secs > 0.0)
@@ -521,8 +645,8 @@ static int lfu_ldiskfs_parse_opt(int c, const char *arg, struct lfu_opts *o)
 {
 	switch (c) {
 	case 'p':	/* historical short option for --projid */
-		o->projid_eq = strtoll(arg, NULL, 0);
-		return 0;
+		return lfu_filter_opt(&o->filter, LFU_OPT_PROJID, arg) == 0 ?
+		       0 : -1;
 	default:
 		return -1;
 	}
@@ -533,12 +657,28 @@ static const struct lfu_target_ops lfu_ldiskfs_ops = {
 	.id_label	= "ino",
 	.usage_target	= "<device>",
 	.usage_extra	=
-"  -p N                    short form of --projid (historical)\n"
 "\n"
-"The three filters are all tier-0 (inode-resident) and mirror the LUG 2026\n"
-"slide 21 example:  lfs find -atime +30d -blocks +1G -projid 1999\n",
+"  -p N                    short form of --projid (historical)\n"
+"  -a SEC / -b N           historical --atime +SECs / --dev-blocks +N\n"
+"\n"
+"The LUG 2026 slide-21 example is two tier-0 predicates and one tier-1:\n"
+"  lfu-scan-ldiskfs --atime +30d --blocks +1G --projid 1999 <device>\n"
+"--blocks reads trusted.som, because an MDT inode's own block count says\n"
+"nothing about a striped file's data (docs/filter-levels.md §4).\n",
 	.optstring_extra = "p:",
 	.parse_opt	= lfu_ldiskfs_parse_opt,
+	/* Every Lustre xattr is reachable from the inode, plus the external
+	 * block when one exists, so this backend can answer any tier-1
+	 * predicate LFU compiles.
+	 */
+	.can_supply	= LFU_NEED_SOM | LFU_NEED_LOV | LFU_NEED_LMV |
+			  LFU_NEED_LINK,
+	/* ext4's i_flags uses the same bit values as STATX_ATTR_*, so all five
+	 * --attrs names are answerable here (src/lfu_lustre.h).
+	 */
+	.attr_mask	= LFU_ATTR_COMPRESSED | LFU_ATTR_IMMUTABLE |
+			  LFU_ATTR_APPEND | LFU_ATTR_NODUMP |
+			  LFU_ATTR_ENCRYPTED,
 	.open		= lfu_ldiskfs_open,
 	.close		= lfu_ldiskfs_close,
 	.worker_init	= lfu_ldiskfs_worker_init,

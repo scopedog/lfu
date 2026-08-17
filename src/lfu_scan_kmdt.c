@@ -142,7 +142,11 @@ static int lfu_kmdt_scan_chunk(void *tgt, void *wctx, struct lfu_ctx *cx,
 
 			if (!lfu_prefilter(cx, &rec))
 				continue;
-			lfu_object(cx, &rec, have_lma);
+			/* The kernel stream carries the record only, no
+			 * xattrs, so no tier-1 predicate is answerable —
+			 * lfu_main() refuses those up front via can_supply.
+			 */
+			lfu_object(cx, &rec, have_lma, NULL);
 		}
 	}
 
@@ -180,7 +184,22 @@ static const struct lfu_target_ops lfu_kmdt_ops = {
 	.usage_target	= "/dev/" LFU_RING_DEVNAME,
 	.usage_extra	=
 "\nThe lfu_ring kernel module must be loaded with dev=<osd name>; the MDT\n"
-"stays mounted and serving.  The stream is single-reader: -j is forced to 1.\n",
+"stays mounted and serving.  The stream is single-reader: -j is forced to 1.\n"
+"\n"
+"Tier-0 filters only: the ring carries records, not xattrs, so --size,\n"
+"--blocks, --pool, --name and the other tier-1 predicates are refused here\n"
+"rather than silently answered from the wrong field.\n",
+	.can_supply	= 0,
+	/*
+	 * The ring record is the nine fields osd_raw_attr() fills, so crtime,
+	 * projid and i_flags are simply not on the wire — the ldiskfs tier-0
+	 * gap of docs/filter-levels.md §5.1, seen from the consumer side.
+	 * Refuse those three rather than compare against a zero.
+	 */
+	.attr_mask	= 0,
+	.missing_fields	= LFU_FIELD_BIT(LFU_F_BTIME) |
+			  LFU_FIELD_BIT(LFU_F_PROJID) |
+			  LFU_FIELD_BIT(LFU_F_ATTRS),
 	.parse_opt	= lfu_kmdt_parse_opt,
 	.open		= lfu_kmdt_open,
 	.close		= lfu_kmdt_close,

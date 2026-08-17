@@ -18,8 +18,10 @@ CFLAGS  += -std=gnu11
 
 SRCDIR  := src
 BINDIR  := build
-CORE    := $(SRCDIR)/lfu_core.c
-HDRS    := $(SRCDIR)/lfu_lustre.h $(SRCDIR)/lfu_scan.h
+# The core is two files: the scan pipeline and the filter compiler.  Both
+# are device-library-free, so every backend links the same pair.
+CORE    := $(SRCDIR)/lfu_core.c $(SRCDIR)/lfu_filter.c
+HDRS    := $(SRCDIR)/lfu_lustre.h $(SRCDIR)/lfu_scan.h $(SRCDIR)/lfu_filter.h
 
 # --- ldiskfs backend ------------------------------------------------
 E2FSROOT ?=
