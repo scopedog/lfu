@@ -18,28 +18,38 @@ sudo lctl pool_add lfufs.fast OST0000 2>/dev/null || true
 sleep 2
 
 echo "=== shapes ==="
+# Each shape is individually non-fatal and reports itself: a feature this build
+# happens not to support (project quota on ZFS is the likely one) should cost
+# its own predicate, not the whole stage.
+shape() { local n="$1"; shift; if "$@"; then echo "  ok      $n"; else echo "  SKIPPED $n"; fi; }
+
 # 2-striped, 1.5 GiB: --blocks/--size +1G via trusted.som
-lfs setstripe -c 2 big1; dd if=/dev/zero of=big1 bs=1M count=1536 status=none; sync
+shape big1 bash -c 'lfs setstripe -c 2 big1 && dd if=/dev/zero of=big1 bs=1M count=1536 status=none'
+sync
 # pooled: --pool fast
-lfs setstripe -p fast pooled1; echo x > pooled1
+shape pooled1 bash -c 'lfs setstripe -p fast pooled1 && echo x > pooled1'
 # 2-striped small: --stripe-count +1
-lfs setstripe -c 2 striped1; echo x > striped1
+shape striped1 bash -c 'lfs setstripe -c 2 striped1 && echo x > striped1'
 # hardlinked: --name through trusted.link, 2 entries
-echo x > named1; ln named1 named2
+shape named1 bash -c 'echo x > named1 && ln named1 named2'
 # projid
-echo x > proj1; sudo lfs project -p 1999 proj1
+shape proj1 bash -c 'echo x > proj1 && sudo lfs project -p 1999 proj1'
 # immutable
-echo x > immut1; sudo chattr +i immut1 2>/dev/null || sudo lfs setstripe --help >/dev/null
-# striped directory is single-MDT here, so no LMV shape; note it
-mkdir dir1
+shape immut1 bash -c 'echo x > immut1 && sudo chattr +i immut1'
+# striped directory is single-MDT here, so no LMV shape
+shape dir1 mkdir -p dir1
 # a deliberately large xattr: bigger than DXATTR_MAX_SA_SIZE, so it must land in
 # the xattr directory -- the tier-2 path of the new code
-echo x > bigxattr1
-sudo setfattr -n trusted.lfu_big -v "$(head -c 200000 /dev/zero | tr '\0' 'A')" bigxattr1 2>/dev/null && \
-	echo "  big xattr set" || echo "  big xattr refused (fine; tier 2 then only if a real one spills)"
+shape bigxattr1 bash -c 'echo x > bigxattr1'
+if sudo setfattr -n trusted.lfu_big -v "$(head -c 200000 /dev/zero | tr '\0' 'A')" bigxattr1 2>/tmp/bigxattr.err; then
+	echo "  ok      big xattr (should land in the xattr directory: tier 2)"
+else
+	echo "  SKIPPED big xattr: $(head -1 /tmp/bigxattr.err)"
+fi
 
 echo "=== ground truth from the client ==="
-for f in big1 pooled1 striped1 named1 proj1 immut1; do
+for f in big1 pooled1 striped1 named1 proj1 immut1 bigxattr1; do
+	[ -e $f ] || continue
 	printf "%-10s fid=%s size=%s\n" "$f" "$(lfs path2fid $f)" "$(stat -c %s $f)"
 done
 lfs getstripe -y big1 | head -20

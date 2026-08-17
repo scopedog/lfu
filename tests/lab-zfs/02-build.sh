@@ -48,5 +48,9 @@ for s in osd_otable_it_xattr osd_otable_it_attr __osd_xattr_load_by_oid_keep; do
 	nm lustre/osd-zfs/osd_zfs.ko | grep -qw "$s" && echo "  present  $s" || { echo "  ABSENT   $s"; exit 1; }
 done
 echo "=== warnings from our hunks, if any ==="
-grep -iE "osd_scrub\.c.*(warning|error)" /tmp/make.log | head -20 || echo "  (none)"
+# NOT `grep ... | head || echo none`: the pipeline's status is head's, so the
+# fallback never fires and "no warnings" is indistinguishable from "warnings
+# hidden".  Capture first, then decide.
+w=$(grep -iE "osd_scrub\.c.*(warning|error)" /tmp/make.log | head -20)
+[ -n "$w" ] && echo "$w" || echo "  (none)"
 echo "STAGE2 OK"

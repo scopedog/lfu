@@ -1,0 +1,182 @@
+=== ZFS TIER-1 LAB — 2026-08-17 — lfu-zfs-tier1 (c3-standard-8, us-east1-b) ===
+kernel: 5.14.0-687.36.1.el9_8.x86_64   zfs: 2.2.10-1   lustre: 2.17.55_dirty
+
+########## STAGE 2: build ##########
+zfs: enabled
+=== make -j8 ===
+build took 95s
+-rw-r--r--. 1 nishida nishida 10212832 Aug 17 18:16 lustre/osd-zfs/osd_zfs.ko
+=== the new symbols must be in osd_zfs.ko ===
+  present  osd_otable_it_xattr
+  present  osd_otable_it_attr
+  present  __osd_xattr_load_by_oid_keep
+=== warnings from our hunks, if any ===
+STAGE2 OK
+
+########## STAGE 3: filesystem ##########
+=== zpools ===
+=== mkfs.lustre ===
+  MDT created
+  OST0 dataset already exists, keeping it
+  OST1 dataset already exists, keeping it
+=== dataset properties (xattr=sa is what puts tier 1 in the SA area) ===
+lfu-mdt/mdt0	xattr	sa	local
+lfu-mdt/mdt0	dnodesize	auto	local
+lfu-mdt/mdt0	recordsize	128K	default
+lfu-mdt/mdt0	compression	off	local
+=== mount ===
+10.142.0.23@tcp:/lfufs   46G  4.0M   46G   1% /mnt/lfufs
+2.17.55_dirty
+STAGE3 OK
+
+########## STAGE 4: populate ##########
+=== shapes ===
+  ok      big1
+  ok      pooled1
+  ok      striped1
+  ok      named1
+  ok      proj1
+  ok      immut1
+  ok      dir1
+  ok      bigxattr1
+  SKIPPED big xattr: /home/nishida/lfu/tests/lab-zfs/04-populate.sh: line 44: /usr/bin/sudo: Argument list too long
+=== ground truth from the client ===
+big1       fid=[0x200000401:0x2:0x0] size=1610612736
+pooled1    fid=[0x200000401:0x4:0x0] size=2
+striped1   fid=[0x200000401:0x6:0x0] size=2
+named1     fid=[0x200000401:0x8:0x0] size=2
+proj1      fid=[0x200000401:0x9:0x0] size=2
+immut1     fid=[0x200000401:0xa:0x0] size=2
+bigxattr1  fid=[0x200000401:0xc:0x0] size=2
+lmm_stripe_count:  2
+lmm_stripe_size:   4194304
+lmm_pattern:       raid0
+lmm_layout_gen:    0
+lmm_stripe_offset: 1
+lmm_objects:
+      - l_ost_idx: 1
+        l_fid:     0x280000400:0x2:0x0
+      - l_ost_idx: 0
+        l_fid:     0x240000400:0x2:0x0
+=== bulk: 100k ===
+createmany: 9s
+objects on the MDT:
+
+filesystem_summary:       323063       67683      255380  21%  /mnt/lfufs 
+
+STAGE4 OK
+
+########## STAGE 7: filter matrix (live, serving MDT) ##########
+===== what the module says it can do on osd-zfs =====
+kernel side  : lfufs-MDT0000-osd, wire v2, private iterator, tier 1: som lov lmv link
+stream complete in 0.01s (live MDT via lfu_ring)
+  records seen  : 1
+  visible       : 1
+  filtered (t0) : 0  (in kernel)
+  filtered (t1) : 0  (in kernel)
+  undecided     : 0
+emitted         : 1
+(the 'tier 1:' line above must list som lov lmv link -- it said 'none' before today)
+
+===== baseline =====
+(none)                                   rc=0   emitted=100018 t0=0      t1=0      undec=0    xattr: inline=0 external=0 iget=0
+
+===== tier 0 =====
+--type f                                 rc=0   emitted=100011 t0=17     t1=0      undec=0    xattr: inline=0 external=0 iget=0
+--type d                                 rc=0   emitted=7      t0=100095 t1=0      undec=0    xattr: inline=0 external=0 iget=0
+--projid 1999                            rc=0   emitted=1      t0=100111 t1=0      undec=0    xattr: inline=0 external=0 iget=0
+--uid 0                                  rc=0   emitted=6      t0=100012 t1=0      undec=0    xattr: inline=0 external=0 iget=0
+--links +1                               rc=0   emitted=8      t0=100094 t1=0      undec=0    xattr: inline=0 external=0 iget=0
+--attrs i                                rc=0   emitted=1      t0=100111 t1=0      undec=0    xattr: inline=0 external=0 iget=0
+--mtime -1d                              rc=0   emitted=100015 t0=85     t1=0      undec=0    xattr: inline=0 external=0 iget=0
+--dev-blocks +1G                         rc=0   emitted=0      t0=100112 t1=0      undec=0    xattr: inline=0 external=0 iget=0
+
+===== tier 1 -- the new path, out of the SA xattr nvlist =====
+--blocks +1G  (SOM)                      rc=0   emitted=1      t0=0      t1=100111 undec=0    xattr: inline=19 external=0 iget=0
+--size +1G    (SOM)                      rc=0   emitted=1      t0=0      t1=100111 undec=0    xattr: inline=19 external=0 iget=0
+--size +1M    (SOM)                      rc=0   emitted=1      t0=0      t1=100111 undec=0    xattr: inline=19 external=0 iget=0
+--stripe-count 2                         rc=0   emitted=2      t0=0      t1=100110 undec=0    xattr: inline=9 external=0 iget=0
+--stripe-count +1                        rc=0   emitted=3      t0=0      t1=100109 undec=0    xattr: inline=9 external=0 iget=0
+--pool fast                              rc=0   emitted=1      t0=0      t1=100111 undec=0    xattr: inline=9 external=0 iget=0
+--ost 1                                  rc=0   emitted=5      t0=0      t1=100107 undec=0    xattr: inline=9 external=0 iget=0
+--name 'named*'                          rc=0   emitted=1      t0=0      t1=100111 undec=0    xattr: inline=100015 external=0 iget=0
+--name named2                            rc=0   emitted=1      t0=0      t1=100111 undec=0    xattr: inline=100015 external=0 iget=0
+--comp-count +1                          rc=0   emitted=0      t0=0      t1=100112 undec=0    xattr: inline=9 external=0 iget=0
+--mdt-count +1 (LMV)                     rc=0   emitted=0      t0=0      t1=100112 undec=0    xattr: inline=0 external=0 iget=0
+--type f --blocks +1G                    rc=0   emitted=1      t0=17     t1=100094 undec=0    xattr: inline=19 external=0 iget=0
+-u --size +0                             rc=0   emitted=16     t0=0      t1=100007 undec=0    xattr: inline=19 external=0 iget=0
+
+===== full stats line, tier 1 =====
+kernel side  : lfufs-MDT0000-osd, wire v2, private iterator, tier 1: som lov lmv link
+stream complete in 0.38s (live MDT via lfu_ring)
+  records seen  : 1
+  visible       : 1
+  filtered (t0) : 0  (in kernel)
+  filtered (t1) : 100111  (in kernel)
+  undecided     : 0
+emitted         : 1
+kernel: seen=100112 emitted=1 raw=100112 fallback=0 xattr: inline=19 external=0 iget=0 toolarge=0 err=0 stalls=0 rc=0
+tier-2 (read)   : 0 (0.00% of the 100112 objects tier 1 examined)
+objects scanned : 100112 (in kernel)
+rate            : 261234 objects/sec
+
+===== the object --blocks +1G found, in full =====
+[0x200000401:0x2:0x0] ino=780 f mode=0644 nlink=1 uid=1006 gid=1011 projid=0 size=1610612736 blocks=2148358 atime=1786990892 mtime=1786990893 stripes=2 ssize=4194304
+client ground truth:
+size=1610612736
+[0x200000401:0x2:0x0]
+
+--- dmesg ---
+[    0.480351] PCI: Using host bridge windows from ACPI; if necessary, use "pci=nocrs" and report a bug
+[    1.069017] i8042: Warning: Keylock active
+[    3.336962] SGI XFS with ACLs, security attributes, scrub, quota, no debug enabled
+[    4.311882] systemd[1]: Mounting Kernel Debug File System...
+[  500.585022] Disabling lock debugging due to kernel taint
+
+########## STAGE 8: kernel vs userspace ##########
+=== phase 1: through the kernel, target mounted and serving ===
+  --blocks +1G             1 objects
+  --size +1G               1 objects
+  --size +1M               1 objects
+  --stripe-count 2         2 objects
+  --stripe-count +1        3 objects
+  --pool fast              1 objects
+  --projid 1999            1 objects
+  --attrs i                1 objects
+  --name named*            1 objects
+  --comp-count +1          0 objects
+  --type d                 7 objects
+  --type f                 100011 objects
+  --uid 0                  6 objects
+  --dev-blocks +1G         0 objects
+=== taking the filesystem down and exporting the pool ===
+NAME       SIZE  ALLOC   FREE  CKPOINT  EXPANDSZ   FRAG    CAP  DEDUP    HEALTH  ALTROOT
+lfu-ost0  23.5G   771M  22.7G        -         -     0%     3%  1.00x    ONLINE  -
+lfu-ost1  23.5G   771M  22.7G        -         -     0%     3%  1.00x    ONLINE  -
+=== phase 2: the same filters through lfind-zfs, pool exported ===
+  --blocks +1G             AGREE  (1)
+  --size +1G               AGREE  (1)
+  --size +1M               AGREE  (1)
+  --stripe-count 2         AGREE  (2)
+  --stripe-count +1        AGREE  (3)
+  --pool fast              AGREE  (1)
+  --projid 1999            AGREE  (1)
+  --attrs i                AGREE  (1)
+  --name named*            AGREE  (1)
+  --comp-count +1          AGREE  (0)
+  --type d                 AGREE  (7)
+  --type f                 AGREE  (100011)
+  --uid 0                  AGREE  (6)
+  --dev-blocks +1G         AGREE  (0)
+
+agree=14 differ=0 of 14
+=== bringing it back up ===
+10.142.0.23@tcp:/lfufs   46G  1.6G   44G   4% /mnt/lfufs
+
+########## STAGE 9: warm rates ##########
+=== warm, single enumerator ===
+no filter                        170141 (runs: 170141 170724 169695)
+--uid 4242 (tier 0, rejects all) 171145 (runs: 170865 171252 171145)
+--type f (tier 0, matches all)   170030 (runs: 169902 170211 170030)
+--blocks +1G (tier 1, SOM)       167367 (runs: 167770 167367 166758)
+--name 'zzz*' (tier 1, linkea)   167459 (runs: 167843 167112 167459)
