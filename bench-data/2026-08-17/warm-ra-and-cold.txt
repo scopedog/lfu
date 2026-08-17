@@ -1,0 +1,81 @@
+### LFU warm ra sweep + cold, 2026-08-17
+### GCP c3-standard-8, Rocky 9.8, kernel 5.14.0-687.36.1.el9_8.x86_64, pd-balanced 120GB boot disk
+### Lustre v2_17_55 + the six-patch LFU stack; MDT 20 GiB loop file, 1024-byte inodes
+### 302,122 objects (13,981,688 inodes total, 13,679,355 free)
+
+=== WARM: bp x ra x threads (tests/bench_osd_sweep.sh, first real run) ===
+### warm bp x ra x threads sweep -- dev=testfs-MDT0000-osd recattr=1 chunk=65536 passes=3 noverify=1
+### every row's bp= and ra= are read back from /sys/module/osd_ldiskfs/parameters, not assumed
+### priming page cache (one unrecorded pass)
+WARM bp=1 ra=0 j1 objects=302122 fidsum=8eaa920fb878ae8b attrsum=758a31a8e2ec0915 passes=3 rate_median=5209000/s rates=5209000,5209000,5209000
+WARM bp=1 ra=0 j4 objects=302122 fidsum=8eaa920fb878ae8b attrsum=758a31a8e2ec0915 passes=3 rate_median=15106100/s rates=14386761,15106100,15106100
+WARM bp=1 ra=8 j1 objects=302122 fidsum=8eaa920fb878ae8b attrsum=758a31a8e2ec0915 passes=3 rate_median=4720656/s rates=4648030,4720656,4720656
+WARM bp=1 ra=8 j4 objects=302122 fidsum=8eaa920fb878ae8b attrsum=758a31a8e2ec0915 passes=3 rate_median=13732818/s rates=13732818,13732818,13732818
+WARM bp=1 ra=16 j1 objects=302122 fidsum=8eaa920fb878ae8b attrsum=758a31a8e2ec0915 passes=3 rate_median=4255239/s rates=4316028,4255239,4255239
+WARM bp=1 ra=16 j4 objects=302122 fidsum=8eaa920fb878ae8b attrsum=758a31a8e2ec0915 passes=3 rate_median=8392277/s rates=8392277,9155212,8165459
+WARM bp=1 ra=32 j1 objects=302122 fidsum=8eaa920fb878ae8b attrsum=758a31a8e2ec0915 passes=3 rate_median=4255239/s rates=4255239,4196138,4378579
+WARM bp=1 ra=32 j4 objects=302122 fidsum=8eaa920fb878ae8b attrsum=758a31a8e2ec0915 passes=3 rate_median=7950578/s rates=7950578,7950578,7950578
+WARM bp=1 ra=64 j1 objects=302122 fidsum=8eaa920fb878ae8b attrsum=758a31a8e2ec0915 passes=3 rate_median=4196138/s rates=4028293,4196138,4196138
+WARM bp=1 ra=64 j4 objects=302122 fidsum=8eaa920fb878ae8b attrsum=758a31a8e2ec0915 passes=3 rate_median=7368829/s rates=7368829,7368829,7368829
+WARM bp=1 ra=128 j1 objects=302122 fidsum=8eaa920fb878ae8b attrsum=758a31a8e2ec0915 passes=3 rate_median=4028293/s rates=4028293,4028293,4028293
+WARM bp=1 ra=128 j4 objects=302122 fidsum=8eaa920fb878ae8b attrsum=758a31a8e2ec0915 passes=3 rate_median=6567869/s rates=6567869,6567869,6567869
+WARM bp=1 ra=256 j1 objects=302122 fidsum=8eaa920fb878ae8b attrsum=758a31a8e2ec0915 passes=3 rate_median=3824329/s rates=3824329,3729901,3824329
+WARM bp=1 ra=256 j4 objects=302122 fidsum=8eaa920fb878ae8b attrsum=758a31a8e2ec0915 passes=3 rate_median=5493127/s rates=5493127,5493127,5493127
+WARM bp=0 ra=0 j1 objects=302122 fidsum=8eaa920fb878ae8b attrsum=758a31a8e2ec0915 passes=3 rate_median=1319310/s rates=1218233,1325096,1319310
+WARM bp=0 ra=0 j4 objects=302122 fidsum=8eaa920fb878ae8b attrsum=758a31a8e2ec0915 passes=3 rate_median=1912164/s rates=1912164,1900138,1912164
+WARM bp=0 ra=8 j1 objects=302122 fidsum=8eaa920fb878ae8b attrsum=758a31a8e2ec0915 passes=3 rate_median=1336823/s rates=1336823,1342764,1325096
+WARM bp=0 ra=8 j4 objects=302122 fidsum=8eaa920fb878ae8b attrsum=758a31a8e2ec0915 passes=3 rate_median=1876534/s rates=1864950,1876534,1900138
+WARM bp=0 ra=16 j1 objects=302122 fidsum=8eaa920fb878ae8b attrsum=758a31a8e2ec0915 passes=3 rate_median=1307887/s rates=1307887,1296660,1307887
+WARM bp=0 ra=16 j4 objects=302122 fidsum=8eaa920fb878ae8b attrsum=758a31a8e2ec0915 passes=3 rate_median=1864950/s rates=1876534,1864950,1864950
+WARM bp=0 ra=32 j1 objects=302122 fidsum=8eaa920fb878ae8b attrsum=758a31a8e2ec0915 passes=3 rate_median=1296660/s rates=1291119,1296660,1296660
+WARM bp=0 ra=32 j4 objects=302122 fidsum=8eaa920fb878ae8b attrsum=758a31a8e2ec0915 passes=3 rate_median=1864950/s rates=1864950,1864950,1876534
+WARM bp=0 ra=64 j1 objects=302122 fidsum=8eaa920fb878ae8b attrsum=758a31a8e2ec0915 passes=3 rate_median=1285625/s rates=1274776,1285625,1296660
+WARM bp=0 ra=64 j4 objects=302122 fidsum=8eaa920fb878ae8b attrsum=758a31a8e2ec0915 passes=3 rate_median=1842207/s rates=1853509,1842207,1842207
+WARM bp=0 ra=128 j1 objects=302122 fidsum=8eaa920fb878ae8b attrsum=758a31a8e2ec0915 passes=3 rate_median=1264108/s rates=1274776,1264108,1264108
+WARM bp=0 ra=128 j4 objects=302122 fidsum=8eaa920fb878ae8b attrsum=758a31a8e2ec0915 passes=3 rate_median=1798345/s rates=1809113,1798345,1798345
+WARM bp=0 ra=256 j1 objects=302122 fidsum=8eaa920fb878ae8b attrsum=758a31a8e2ec0915 passes=3 rate_median=1233151/s rates=1203673,1233151,1238204
+WARM bp=0 ra=256 j4 objects=302122 fidsum=8eaa920fb878ae8b attrsum=758a31a8e2ec0915 passes=3 rate_median=1726411/s rates=1726411,1726411,1726411
+### tunables restored to blockparse=1 ra=32 noverify=0
+### all rows agree: objects=302122 fidsum=8eaa920fb878ae8b attrsum=758a31a8e2ec0915
+
+=== COLD: readahead and filters ===
+=== is readahead still worth it cold? (lfu_par, first pass) ===
+COLD lfu_par bp=1 ra=0    j1  objects=302122   rate=190133/s
+COLD lfu_par bp=1 ra=32   j1  objects=302126   rate=190255/s
+COLD lfu_par bp=1 ra=256  j1  objects=302130   rate=189423/s
+COLD lfu_par bp=1 ra=0    j4  objects=302134   rate=190140/s
+COLD lfu_par bp=1 ra=256  j4  objects=302138   rate=188718/s
+COLD lfu_par bp=0 ra=32   j1  objects=302142   rate=190385/s
+
+=== does pushing a filter down change the cold rate? (lfu_ring) ===
+COLD ring no filter                      scanned=302146   rate=183299    xattr: inline=0 external=0
+COLD ring --uid 4242 (tier 0, rejects all) scanned=302150   rate=190442    xattr: inline=0 external=0
+COLD ring --blocks +1G (tier 1)          scanned=302154   rate=190458    xattr: inline=4021 external=1
+COLD ring --name 'zzz*' (tier 1, every obj) scanned=302158   rate=190387    xattr: inline=302018 external=0
+
+=== restore, remount the client ===
+10.128.15.207@tcp:/testfs   41G  1.6G   38G   4% /mnt/testfs
+
+=== the device, which explains the cold flatness ===
+=== disk ===
+NAME     SIZE ROTA MODEL
+loop0     20G    0 
+loop1     20G    0 
+loop2      8G    0 
+loop3      8G    0 
+
+=== raw sequential read, one reader, 2 GiB off the MDT loop file ===
+2147483648 bytes (2.1 GB, 2.0 GiB) copied, 0.966001 s, 2.2 GB/s
+
+=== raw sequential read of the backing block device ===
+2147483648 bytes (2.1 GB, 2.0 GiB) copied, 11.7235 s, 183 MB/s
+
+=== 4 KiB random read depth 1 (the latency the iget path would see) ===
+33554432 bytes (34 MB, 32 MiB) copied, 0.291769 s, 115 MB/s
+
+=== how much of the inode table is actually in use ===
+Inode count:              13981688
+Block count:              5242880
+Reserved block count:     261734
+Free inodes:              13679355
+Inode size:               1024
