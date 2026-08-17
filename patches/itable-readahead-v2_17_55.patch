@@ -6,9 +6,9 @@ diff --git a/lustre/osd-ldiskfs/osd_internal.h b/lustre/osd-ldiskfs/osd_internal
  	struct osd_iit_param	 ooi_iit_param;
  
 +	/* itable readahead cursor (DOIF_PARALLEL): the next inode-table block
-+	 * index within ooi_ra_bg for which readahead has been issued.  The
-+	 * private walk reads one 4 KiB itable block per few inodes and waits
-+	 * on each, so without this it runs at queue depth ~1 (LFU). */
++	 * index within ooi_ra_bg for which readahead has been issued.  How far
++	 * this reaches ahead of the walk is what sets the cold rate, because
++	 * reaching further is the only way to raise queue depth (LFU). */
 +	__u32			 ooi_ra_next;
 +	__u32			 ooi_ra_bg;
 +
@@ -30,7 +30,7 @@ diff --git a/lustre/osd-ldiskfs/osd_scrub.c b/lustre/osd-ldiskfs/osd_scrub.c
  #include "osd_oi.h"
  #include "osd_scrub.h"
  
-@@ -2941,6 +2946,62 @@
+@@ -2941,6 +2946,65 @@
   * * %1 end of the inode table
   * * %negative on error
   */
@@ -41,10 +41,13 @@ diff --git a/lustre/osd-ldiskfs/osd_scrub.c b/lustre/osd-ldiskfs/osd_scrub.c
 + * @pos: the inode about to be read
 + *
 + * The private walk reaches each inode through osd_iget() -> ldiskfs_iget() ->
-+ * __ldiskfs_get_inode_loc() -> sb_bread(), one 4 KiB inode-table block at a
-+ * time, and waits on each.  Cold, that is queue depth ~1 and the device sits
-+ * mostly idle -- measured at 14-17% utilisation of an NVMe stripe while the
-+ * userspace device scanner, which streams whole block groups, reached 93%.
++ * __ldiskfs_get_inode_loc(), and cold the device sits mostly idle -- measured
++ * at 14-17% utilisation of an NVMe stripe while the userspace device scanner,
++ * which streams whole block groups, reached 93%.  Note that this is NOT a bare
++ * read per block: __ldiskfs_get_inode_loc() already issues a plugged 32-block
++ * window of its own (EXT4_DEF_INODE_READAHEAD_BLKS), so every number measured
++ * against this baseline is measured on top of that window, and a value below
++ * 32 here disrupts it rather than adding to it.
 + *
 + * Inodes are walked in ascending order within a group, so the blocks this
 + * walk is about to want are exactly the next ones.  Issue them as readahead
@@ -93,7 +96,7 @@ diff --git a/lustre/osd-ldiskfs/osd_scrub.c b/lustre/osd-ldiskfs/osd_scrub.c
  static int osd_otable_it_next_private(const struct lu_env *env,
  				      struct osd_otable_it *it)
  {
-@@ -2984,6 +3045,8 @@
+@@ -2984,6 +3048,8 @@
  		if (rc == SCRUB_NEXT_BREAK)
  			goto next_group;
  
