@@ -1,0 +1,187 @@
+### LFU filter pushdown -- lab verification, 2026-08-17
+### GCP c3-standard-8, Rocky 9.8, kernel 5.14.0-687.36.1.el9_8.x86_64
+### Lustre v2_17_55 + the six-patch LFU stack, single node: MGS+MDT0+4 OSTs+client
+### MDT: 20 GiB loop file, 1024-byte inodes, 302,122 objects
+
+=== build ===
+=== applying the LFU stack, in order ===
+  applied  rec-attr
+  applied  rec-attr-zfs
+  applied  parallel-it
+  applied  itable-readahead
+  applied  itable-blockparse
+  applied  otable-xattr
+  applied  bench-noverify-zfs (with fuzz)
+=== autogen ===
+=== configure ===
+--- never trust exit 0 alone ---
+ENABLE_LDISKFS='yes'
+ldiskfs: enabled
+=== make -j8 ===
+build took 105s
+WARNING: suspiciously fast build
+-rw-r--r--. 1 nishida nishida 13787680 Aug 17 15:17 lustre/osd-ldiskfs/osd_ldiskfs.ko
+=== our symbols are in the module ===
+  present  osd_raw_xattr
+  present  osd_raw_attr
+  present  osd_iit_iget_raw
+  present  osd_otable_it_xattr
+  present  lfu_blockparse
+  present  lfu_ra_blocks
+STAGE2 OK
+
+=== module + parms ===
+=== modules ===
+filename:       /lib/modules/5.14.0-687.36.1.el9_8.x86_64/extra/kernel/fs/lustre/osd_ldiskfs.ko
+version:        2.17.55_dirty
+--- the LFU parms must be there ---
+parm:           lfu_noverify:LFU experiment: skip OI verification during scrub (bool)
+parm:           lfu_ra_blocks:DOIF_PARALLEL: inode-table blocks to read ahead (0 disables) (uint)
+parm:           lfu_blockparse:DOIF_PARALLEL: parse raw inode-table blocks instead of iget (bool)
+=== lnet ===
+
+=== lfu_ring.ko carries the evaluator ===
+=== CONFIG_GLOB (glob_match, which --name/--pool need) ===
+CONFIG_GLOB=y
+--- warnings, if any ---
+-rw-r--r--. 1 nishida nishida 785768 Aug 17 15:21 lfu_fanout.ko
+-rw-r--r--. 1 nishida nishida 745040 Aug 17 15:21 lfu_it.ko
+-rw-r--r--. 1 nishida nishida 787800 Aug 17 15:21 lfu_par.ko
+-rw-r--r--. 1 nishida nishida 898616 Aug 17 15:21 lfu_ring.ko
+=== the evaluator really is in lfu_ring.ko ===
+  present  lfu_filter_tier0
+  present  lfu_filter_tier1
+  present  lfu_ea_decode
+  present  lfu_filter_validate
+=== userspace consumer ===
+-rwxr-xr-x. 1 nishida nishida 114824 Aug 17 15:21 build/lfu-scan-kmdt
+device scanner: built
+-rwxr-xr-x. 1 nishida nishida 141000 Aug 17 15:21 build/lfu-scan-ldiskfs
+STAGE5 OK
+
+=== filter matrix (kernel-side counts) ===
+===== no filter (baseline) =====
+(none)                                     rc=0   emitted=0      t0=0      t1=0      undec=0    xattr: inline=0 external=0 iget=0
+
+===== tier 0, evaluated in kernel =====
+--type f                                   rc=0   emitted=0      t0=18     t1=0      undec=0    xattr: inline=0 external=0 iget=0
+--type d                                   rc=0   emitted=0      t0=2103   t1=0      undec=0    xattr: inline=0 external=0 iget=0
+--projid 1999                              rc=0   emitted=0      t0=2120   t1=0      undec=0    xattr: inline=0 external=0 iget=0
+--uid 0                                    rc=0   emitted=0      t0=0      t1=0      undec=0    xattr: inline=0 external=0 iget=0
+--links +1                                 rc=0   emitted=0      t0=2102   t1=0      undec=0    xattr: inline=0 external=0 iget=0
+--attrs i                                  rc=0   emitted=0      t0=2120   t1=0      undec=0    xattr: inline=0 external=0 iget=0
+! --type f                                 rc=0   emitted=0      t0=2103   t1=0      undec=0    xattr: inline=0 external=0 iget=0
+--mtime -1d                                rc=0   emitted=0      t0=84     t1=0      undec=0    xattr: inline=0 external=0 iget=0
+--btime -1d                                rc=0   emitted=0      t0=0      t1=0      undec=0    xattr: inline=0 external=0 iget=0
+--dev-blocks +1G                           rc=0   emitted=0      t0=2121   t1=0      undec=0    xattr: inline=0 external=0 iget=0
+
+===== tier 1: rec(DORA_XATTR) out of the mapped block =====
+--blocks +1G  (SOM)                        rc=0   emitted=0      t0=0      t1=2120   undec=0    xattr: inline=4021 external=1 iget=0
+--size +1G    (SOM)                        rc=0   emitted=0      t0=0      t1=2120   undec=0    xattr: inline=4021 external=1 iget=0
+--size +1M    (SOM)                        rc=0   emitted=0      t0=0      t1=2114   undec=0    xattr: inline=4021 external=1 iget=0
+--stripe-count 4                           rc=0   emitted=0      t0=0      t1=2119   undec=0    xattr: inline=2010 external=1 iget=0
+--stripe-count +4                          rc=0   emitted=0      t0=0      t1=2120   undec=0    xattr: inline=2010 external=1 iget=0
+--pool fast                                rc=0   emitted=0      t0=0      t1=2120   undec=0    xattr: inline=2010 external=1 iget=0
+--ost 3                                    rc=0   emitted=0      t0=0      t1=1730   undec=0    xattr: inline=2010 external=1 iget=0
+--layout mdt   (DoM)                       rc=0   emitted=0      t0=0      t1=2120   undec=0    xattr: inline=2010 external=1 iget=0
+--name 'report*'                           rc=0   emitted=0      t0=0      t1=2120   undec=0    xattr: inline=2017 external=0 iget=0
+--name second_link.txt                     rc=0   emitted=0      t0=0      t1=2120   undec=0    xattr: inline=2017 external=0 iget=0
+--comp-count +1                            rc=0   emitted=0      t0=0      t1=2120   undec=0    xattr: inline=2010 external=1 iget=0
+
+===== combined, the LUG slide-21 shape =====
+--type f --mtime -1d --blocks +1G          rc=0   emitted=0      t0=90     t1=2030   undec=0    xattr: inline=4021 external=1 iget=0
+-u --size +0 (undecided?)                  rc=0   emitted=0      t0=0      t1=2006   undec=0    xattr: inline=4021 external=1 iget=0
+
+===== a full stats line =====
+kernel side  : testfs-MDT0000-osd, wire v2, private (block parse) iterator, tier 1: som lov lmv link
+stream complete in 0.00s (live MDT via lfu_ring)
+  records seen  : 1
+  visible       : 1
+  filtered (t0) : 0  (in kernel)
+  filtered (t1) : 2120  (in kernel)
+  undecided     : 0
+emitted         : 1
+kernel: seen=2121 emitted=1 raw=2121 fallback=0 xattr: inline=4021 external=1 iget=0 toolarge=0 err=0 stalls=0 rc=0
+tier-2 (read)   : 1 (0.05% of the 2121 objects tier 1 examined)
+rate            : 741 objects/sec
+
+--- dmesg: anything alarming? ---
+
+=== cross-check: kernel pushdown vs userspace device scanner ===
+=== the same filter through both scanners ===
+--blocks +1G                             AGREE  (1 objects)
+--size +1G                               AGREE  (1 objects)
+--stripe-count 4                         AGREE  (2 objects)
+--pool fast                              AGREE  (1 objects)
+--projid 1999                            AGREE  (1 objects)
+--attrs i                                AGREE  (1 objects)
+--layout mdt                             AGREE  (1 objects)
+--name report*                           AGREE  (1 objects)
+--name second_link.txt                   AGREE  (1 objects)
+--comp-count +1                          AGREE  (1 objects)
+--type d                                 AGREE  (8 objects)
+--dev-blocks +1G                         AGREE  (0 objects)
+
+=== what --blocks +1G actually found, in full ===
+[0x200000401:0x7:0x0] ino=11001992 f mode=0644 nlink=1 uid=0 gid=0 projid=0 size=1610612736 blocks=3129344 atime=1786980058 mtime=1786980059 stripes=4 ssize=4194304
+
+=== and the same object from the client, for the size ===
+
+size=1610612736 blocks=3145728
+[0x200000401:0x7:0x0]
+
+=== the one tier-2 object (external EA): which is it? ===
+[0x200000401:0x9:0x0] ino=11001993 f mode=0644 nlink=1 uid=0 gid=0 projid=0 size=0 blocks=8 atime=1786980059 mtime=1786980059 stripes=60 ssize=4194304 +extea
+[0x200000401:0x9:0x0]
+
+
+=== scale ===
+=== populate: 300k mknod objects ===
+ - create 240000 (time 1786980377.24 total 18.31 last 13491.23)
+ - create 270000 (time 1786980379.55 total 20.62 last 13012.80)
+total: 300000 create in 22.91 seconds: 13096.48 ops/second
+
+real	0m22.951s
+user	0m0.209s
+sys	0m6.478s
+objects: 300000
+
+=== rates, medians of three, warm (the table is in page cache) ===
+no filter                          rate=3606884   emitted=302022   kernel: seen=302122 emitted=302122 raw=302122 fallback=0 xattr: inline=0 external=0 iget=0 toolarge=0 err=0 stalls=0 rc=0
+no filter                          rate=3559909   emitted=302022   kernel: seen=302122 emitted=302122 raw=302122 fallback=0 xattr: inline=0 external=0 iget=0 toolarge=0 err=0 stalls=0 rc=0
+no filter                          rate=3556334   emitted=302022   kernel: seen=302122 emitted=302122 raw=302122 fallback=0 xattr: inline=0 external=0 iget=0 toolarge=0 err=0 stalls=0 rc=0
+--type f (tier 0 only)             rate=3523952   emitted=302013   kernel: seen=302122 emitted=302103 raw=302122 fallback=0 xattr: inline=0 external=0 iget=0 toolarge=0 err=0 stalls=0 rc=0
+--type f (tier 0 only)             rate=3514374   emitted=302013   kernel: seen=302122 emitted=302103 raw=302122 fallback=0 xattr: inline=0 external=0 iget=0 toolarge=0 err=0 stalls=0 rc=0
+--type f (tier 0 only)             rate=3554467   emitted=302013   kernel: seen=302122 emitted=302103 raw=302122 fallback=0 xattr: inline=0 external=0 iget=0 toolarge=0 err=0 stalls=0 rc=0
+--uid 4242 (tier 0, matches ~0)    rate=0         emitted=0        kernel: seen=302122 emitted=0 raw=302122 fallback=0 xattr: inline=0 external=0 iget=0 toolarge=0 err=0 stalls=0 rc=0
+--uid 4242 (tier 0, matches ~0)    rate=0         emitted=0        kernel: seen=302122 emitted=0 raw=302122 fallback=0 xattr: inline=0 external=0 iget=0 toolarge=0 err=0 stalls=0 rc=0
+--uid 4242 (tier 0, matches ~0)    rate=0         emitted=0        kernel: seen=302122 emitted=0 raw=302122 fallback=0 xattr: inline=0 external=0 iget=0 toolarge=0 err=0 stalls=0 rc=0
+--blocks +1G (tier 1: SOM+LOV)     rate=9         emitted=1        kernel: seen=302122 emitted=1 raw=302122 fallback=0 xattr: inline=4021 external=1 iget=0 toolarge=0 err=0 stalls=0 rc=0
+--blocks +1G (tier 1: SOM+LOV)     rate=9         emitted=1        kernel: seen=302122 emitted=1 raw=302122 fallback=0 xattr: inline=4021 external=1 iget=0 toolarge=0 err=0 stalls=0 rc=0
+--blocks +1G (tier 1: SOM+LOV)     rate=9         emitted=1        kernel: seen=302122 emitted=1 raw=302122 fallback=0 xattr: inline=4021 external=1 iget=0 toolarge=0 err=0 stalls=0 rc=0
+--type f --blocks +1G (ordered)    rate=9         emitted=1        kernel: seen=302122 emitted=1 raw=302122 fallback=0 xattr: inline=4021 external=1 iget=0 toolarge=0 err=0 stalls=0 rc=0
+--type f --blocks +1G (ordered)    rate=9         emitted=1        kernel: seen=302122 emitted=1 raw=302122 fallback=0 xattr: inline=4021 external=1 iget=0 toolarge=0 err=0 stalls=0 rc=0
+--type f --blocks +1G (ordered)    rate=9         emitted=1        kernel: seen=302122 emitted=1 raw=302122 fallback=0 xattr: inline=4021 external=1 iget=0 toolarge=0 err=0 stalls=0 rc=0
+
+=== --limit now stops mid-batch ===
+records printed with -n 5: 5
+
+--- dmesg ---
+
+=== rates ===
+objects on the MDT: 302122
+
+filter                                 obj/s        (three passes)
+no filter                              3587401      (3592355 3587401 3575953)
+--type f              (tier 0)         3572170      (3597668 3511638 3572170)
+--uid 4242            (tier 0)         3884601      (3884696 3884601 3879743)
+--mtime +365d         (tier 0)         3896108      (3927194 3883767 3896108)
+--blocks +1G          (tier 1)         2775551      (2770694 2776424 2775551)
+--stripe-count +1     (tier 1)         3128778      (3130809 3124081 3128778)
+--name 'zzz*'         (tier 1)         2632343      (2622444 2632343 2645485)
+--type f --blocks +1G (ordered)        2767194      (2767194 2767334 2751792)
+
+=== and the same three, with the xattr counters ===
+--type f                 kernel: seen=302122 emitted=302103 raw=302122 fallback=0 xattr: inline=0 external=0 iget=0 toolarge=0 err=0 stalls=0 rc=0
+--blocks +1G             kernel: seen=302122 emitted=1 raw=302122 fallback=0 xattr: inline=4021 external=1 iget=0 toolarge=0 err=0 stalls=0 rc=0
+--name zzz*              kernel: seen=302122 emitted=0 raw=302122 fallback=0 xattr: inline=302018 external=0 iget=0 toolarge=0 err=0 stalls=0 rc=0
