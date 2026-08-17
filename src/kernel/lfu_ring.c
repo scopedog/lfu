@@ -41,9 +41,12 @@
  *
  * Prototype limits, recorded: single fixed target (module param), one
  * enumerator thread (parallel enumeration is behind the iterator, measured in
- * lfu_par; feeding N iterators into one ring is the next step), ldiskfs-first
- * (osd-zfs answers DORA_XATTR with -EOPNOTSUPP, so INFO reports no tier 1
- * there and SET_FILTER refuses a filter that needs it).
+ * lfu_par; feeding N iterators into one ring is the next step).  Both OSDs
+ * serve DORA_XATTR now -- osd-zfs out of the SA xattr nvlist its iterator
+ * already unpacks to find the LMA, osd-ldiskfs out of the mapped inode-table
+ * block -- so INFO promises tier 1 on either.  An OSD built without the
+ * otable-xattr patch still answers -EOPNOTSUPP per object, and the producer
+ * ends the scan on the first one rather than answer wrong.
  */
 #include <linux/module.h>
 #include <linux/miscdevice.h>
@@ -576,7 +579,11 @@ static void lfu_ring_probe(struct lfu_ring *r)
 		/* z_pflags: no per-file compressed or encrypted bit */
 		r->attr_mask = LFU_ATTR_IMMUTABLE | LFU_ATTR_APPEND |
 			       LFU_ATTR_NODUMP;
-		r->can_supply = 0;	/* rec(DORA_XATTR) is -EOPNOTSUPP there */
+		/* served from the SA xattr nvlist the iterator holds; the
+		 * xattr-directory fallback is the tier-2 read there */
+		if (LFU_RING_HAVE_XATTR)
+			r->can_supply = LFU_NEED_SOM | LFU_NEED_LOV |
+					LFU_NEED_LMV | LFU_NEED_LINK;
 	}
 }
 

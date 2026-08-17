@@ -285,7 +285,7 @@ landed, in four pieces:
 | piece | where | what |
 |---|---|---|
 | the evaluator, built twice | `src/lfu_filter_eval.c` + `src/lfu_filter.h` | the parser (`lfu_filter.c`, lfs find syntax → `struct lfu_filter`) stays userspace; the evaluator is one source, linked into the device scanners and `#include`d into the kernel module. `lfu_filter.h` has a kernel branch: `<linux/glob.h>`'s `glob_match()` for `fnmatch()`, the on-disk structures from `<uapi/linux/lustre/lustre_idl.h>` instead of `lfu_lustre.h`, no libc |
-| tier 1 through the iterator | `patches/otable-xattr-v2_17_55.patch` | `rec(DORA_XATTR)` returns one named xattr of the current object: from the in-inode area of the block a block-parsing iterator still holds (tier 1, no I/O), else via a live inode and `__osd_xattr_get()` (tier 2 if the raw inode had `i_file_acl`, counted as such); "not in the inode and no external block" is a free, definite `-ENODATA`. `rec(DORA_STATS)` reads back the iterator's counters: raw vs `-EAGAIN` fallback (queue item 4), and where every xattr came from. osd-zfs answers both `-EOPNOTSUPP` |
+| tier 1 through the iterator | `patches/otable-xattr-v2_17_55.patch` | `rec(DORA_XATTR)` returns one named xattr of the current object: from the in-inode area of the block a block-parsing iterator still holds (tier 1, no I/O), else via a live inode and `__osd_xattr_get()` (tier 2 if the raw inode had `i_file_acl`, counted as such); "not in the inode and no external block" is a free, definite `-ENODATA`. `rec(DORA_STATS)` reads back the iterator's counters: raw vs `-EAGAIN` fallback (queue item 4), and where every xattr came from. **osd-zfs (added 2026-08-17, later in the day):** the same two requests, served from the `SA_ZPL_DXATTR` nvlist `it::next` already unpacks to find the LMA and now keeps until the next `next()` (tier 1, no I/O, no second dnode hold), else from the xattr directory through `__osd_xattr_get_large()` (tier 2, counted); "not in the SA area and no xattr directory" is the free `-ENODATA`. Only alongside `DOIF_ATTR`, which is when the SA handle is open long enough to read `SA_ZPL_XATTR`. Written and applied clean; **not yet built or run on a lab** |
 | the producer as filter | `src/kernel/lfu_ring.c` | `SET_FILTER` ioctl takes `struct lfu_filter` (fixed-size POD, magic+version+size checked, every index range-checked by `lfu_filter_validate()` before use); per object: `rec(DORA_ATTR)` → `lfu_filter_tier0()` → only if it survives and the demand mask is non-empty, `rec(DORA_XATTR)` per demanded xattr into scratch allocated once at open → `lfu_filter_tier1()`. NOMATCH never touches the ring; UNKNOWN is counted and enters only with `LFU_FILTER_EMIT_UNKNOWN`. `INFO` reports what the OSD under the module can serve; `STATS` returns every counter at EOF. The producer now uses a `DOIF_PARALLEL` private iterator by default, so it is on the block-parse path |
 | the consumer | `src/lfu_scan_kmdt.c` | compiles the filter, negotiates via `INFO` (wire version 2 with `btime`/`projid`/`flags`, LMA flags, and the decoded SOM/LOV/LMV values riding along so `size=` prints the file's size), sends it, and sets `lfu_target_ops.pushdown` so the core neither prefilters nor re-runs tier 1; the kernel's per-tier counts are folded into the ordinary summary, and tier 2 is printed as a rate over the objects tier 1 examined |
 
@@ -378,7 +378,11 @@ bonus buffer, and one unpack yields all of them
 - **1 spill block in 1351 objects** — 0.074%
 
 So on ZFS, tier 1 is genuinely the same read as tier 0, and the unpack profiled
-at **0.0%** of runtime. The tier-ordered prefilter is kept there for *semantic
+at **0.0%** of runtime. The OSD scanner now leans on exactly this: its
+iterator has to unpack that nvlist to find the LMA anyway, so keeping it one
+call longer makes `rec(DORA_XATTR)` a lookup in memory (§5.4) — the ZFS analogue
+of reading the in-inode area out of the mapped block on ldiskfs, and cheaper,
+because there is no name-index walk. The tier-ordered prefilter is kept there for *semantic
 parity* with ldiskfs, not for speed (`design-common-core.md`, and the comment at
 `src/lfu_scan_zfs.c:266-270`).
 

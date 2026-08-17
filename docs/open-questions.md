@@ -293,7 +293,11 @@ every predicate agrees with the userspace device scanner on the same device, the
 `-blocks +1G` trap is reproduced on a real MDT, tier 2 fired once out of 302,122
 objects and was counted, and a rejecting tier-0 filter runs **8% faster than no
 filter at all** because a rejected object never enters the ring. Cold, parallel
-enumeration into one ring, and ZFS remain unmeasured.
+enumeration into one ring, and ZFS remain unmeasured. **osd-zfs gained the same
+`rec(DORA_XATTR)` later that day** — served from the SA xattr nvlist its
+iterator already unpacks for the LMA, with the xattr directory as tier 2
+(`filter-levels.md` §5.4, §6) — so the refusal of tier-1 filters on a live ZFS
+target is gone in the code; it applies clean and is not yet built or run.
 
 **Still blocks:** the protocol-level filter/aggregation encoding — the operators
 in the LUG list that are not selections (`largest`, `histogram`, `count`, `sum`)
