@@ -43,6 +43,13 @@ semantics and a size filter can answer *unknown* as well as yes and no — see
 | `lfind-zfs` | `pool/dataset[@snap]` | an unmounted ZFS target, via libzpool |
 | `lfind-kmdt` | `/dev/lfu_scan` | a mounted, serving target, via the `lfu_ring` module |
 
+The reference is the man page,
+[`Documentation/man8/lfind.8`](Documentation/man8/lfind.8) — upstream's path and
+macro style, so it can be submitted as it stands. Read it from the tree with
+`man -l Documentation/man8/lfind.8`. It documents the backend choice, every
+option and filter, the three outcomes of a size filter, and the exit statuses;
+`lfind --help` is the short form of the same thing.
+
 ## Benchmark results
 
 GCP c3-standard-8 labs, Rocky 9.8, kernel 5.14.0-687.36.1, Lustre v2_17_55 built
@@ -141,6 +148,7 @@ Rollout is incremental with **no flag day**: server-only mode (already improves
 
 | Doc | Contents |
 |-----|----------|
+| [`Documentation/man8/lfind.8`](Documentation/man8/lfind.8) | **`lfind(8)` — the user-facing reference.** Backends, options, all 33 filters, the *unknown* outcome, exit statuses. Written in upstream's `Documentation/man8/` style for submission as-is |
 | [`docs/architecture.md`](docs/architecture.md) | The HLD design, plus analysis and a suggested build order |
 | [`docs/design-ldiskfs-scanner.md`](docs/design-ldiskfs-scanner.md) | **ldiskfs device scanner — first wave.** Design + prototype results |
 | [`docs/design-zfs-scanner.md`](docs/design-zfs-scanner.md) | **ZFS device scanner.** Design + prototype (libzpool, snapshot-first) |

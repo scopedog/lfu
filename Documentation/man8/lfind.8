@@ -1,0 +1,477 @@
+.TH LFIND 8 2026-08-17 Lustre "Lustre Configuration Utilities"
+.SH NAME
+lfind \- scan a Lustre target on the server and list objects matching attributes
+.SH SYNOPSIS
+.SY lfind
+.RI [ OPTION ]...
+.RI [ FILTER ]...
+.I TARGET
+.YS
+.SY lfind
+.B --backend
+.RB { ldiskfs | zfs | kmdt }
+.RI [ OPTION ]...
+.I TARGET
+.YS
+.SY lfind
+.B --list-backends
+.YS
+.SH DESCRIPTION
+.B lfind
+reads the metadata of a single Lustre target \(em an MDT or an OST \(em on the
+server that holds it, and writes one record per namespace-visible object to
+standard output. It replaces a client-side
+.BR lfs-find (1)
+traversal for administrative queries over a whole target: nothing is walked
+through the namespace, no RPCs are issued, and on an unmounted target no Lustre
+kernel module need be loaded at all.
+.PP
+.B This is not
+.BR lfs-find (1),
+and the difference is not only one of speed. See
+.B SEMANTICS
+below before relying on a result, particularly for
+.BR --size .
+.SS Choosing a backend
+Three backends read the three kinds of target. They are separate binaries
+because a host with only
+.B libext2fs
+installed, or only
+.BR libzpool ,
+must still be able to build the one it can;
+.B lfind
+hides that by choosing from the target and executing the right one, passing
+every other argument through unchanged.
+.TP
+.BR "a block device or a regular file" " \(em " lfind-ldiskfs
+An unmounted ldiskfs MDT or OST, read
+.B read-only
+through libext2fs. A regular file is accepted because a loop-backed image is a
+normal way to hold one.
+.TP
+.BI pool/dataset [ @snapshot ] " \(em " lfind-zfs
+An unmounted ZFS target, or a snapshot of one, read through libzpool. Prefer a
+snapshot: a live dataset cannot show the open transaction group.
+.TP
+.BR "a character device" " \(em " lfind-kmdt
+A
+.B mounted, serving
+target, read through the
+.B lfu_ring
+kernel module, conventionally
+.IR /dev/lfu_scan .
+This is the only backend that works without taking the target offline, and the
+only one where the filter is evaluated in the kernel.
+.PP
+The target is identified by scanning the arguments from the right for one that
+is a device, an image or a stream, and only then for one merely shaped like a
+dataset specification. A filter's value \(em
+.BR +1G ,
+.BR report* ,
+.B fast
+\(em is neither, and is skipped. Use
+.B --backend
+when a target is genuinely ambiguous, such as a
+.B --name
+pattern containing a slash that names no existing file.
+.SH OPTIONS
+.SS Front-end options
+.TP
+.BR --backend " " { ldiskfs | zfs | kmdt }
+Use this backend instead of choosing one from the target.
+.TP
+.B --list-backends
+List the backends, and where each was found, then exit.
+.SS Common options
+.TP
+.BR -j ", " --threads " " \fIN\fR
+Run
+.I N
+workers over disjoint chunks of the object-id space. Record order is then
+unspecified. Default 1. Not available on the
+.B kmdt
+backend, where the stream is a single reader; parallelism there belongs behind
+the kernel enumerator.
+.TP
+.BR -i ", " --show-internal
+Also emit internal objects, which are otherwise classified and skipped.
+.TP
+.BR -n ", " --limit " " \fIN\fR
+Stop after
+.I N
+emitted records. Forces
+.BR "-j 1" ,
+since a limit is only well defined in one worker.
+.TP
+.BR -q ", " --quiet
+Statistics only; no records.
+.TP
+.BR -u ", " --emit-unknown
+Also emit records whose filter outcome is
+.I unknown
+(see
+.BR SEMANTICS ),
+tagged
+.BR +unknown .
+By default they are counted and not emitted.
+.TP
+.BR -v ", " --verbose
+One class-tagged line per classified object, before filtering. A diagnostic, not
+an output format.
+.TP
+.BR -h ", " --help
+Usage, including the filter vocabulary, then exit.
+.SS ZFS backend options
+.TP
+.BR -e ", " --import
+Find the pool by scanning devices, as
+.B zpool import
+does. Required for Lustre pools, which are created with
+.BR cachefile=none .
+.TP
+.BR -p ", " --search " " \fIDIR\fR
+Directory to search for pool devices. Repeatable, default
+.IR /dev ,
+implies
+.BR -e .
+.TP
+.B --force-active
+Read a pool whose on-disk label is ACTIVE \(em imported elsewhere, or left dirty
+by a crash. The read is still read-only, but only what reached disk is visible.
+.SH FILTERS
+The vocabulary is
+.BR lfs-find (1)'s,
+so a query written for one runs on the other.
+.B !
+before an option negates it,
+.B +
+means more than,
+.B -
+means less than, and a bare value must fall inside the unit it names \(em
+.B --size 1M
+is everything above zero up to 1 MiB. Several filters are ANDed.
+.PP
+Of
+.BR lfs-find (1)'s
+34 predicates, 33 are implemented; see
+.B LIMITATIONS
+for the exception.
+.SS Attributes held in the inode or dnode
+These cost nothing beyond the object's own record.
+.TP
+.BR --atime | --mtime | --ctime | --btime | --crtime " " [\fB+-\fR]\fIN\fR[\fBsmhdwy\fR]
+Age of the object. Days if no unit is given. On an OST note that access time is
+not maintained for objects, and precreated objects carry no time at all, so they
+sort older than anything.
+.TP
+.BR --uid | --user " " \fIID\fR| \fINAME\fR, " " \fB--gid\fR| \fB--group\fR " " \fIID\fR| \fINAME\fR
+Owner. A name is resolved through the local password or group database.
+.TP
+.BR --type " " { f | d | l | b | c | p | s }
+Object type, as
+.BR find (1)
+spells it. The long names
+.BR file ,
+.BR dir ,
+.BR link ,
+.BR block ,
+.BR char ,
+.B pipe
+and
+.B sock
+are accepted too.
+.TP
+.BR --perm " " [\fB/-\fR]\fIMODE\fR
+Permission bits.
+.I MODE
+alone is exact,
+.BI - MODE
+requires all of those bits,
+.BI / MODE
+any of them.
+.TP
+.BR --links " " [\fB+-\fR]\fIN\fR
+Link count.
+.TP
+.BI --projid " N"
+Project ID.
+.TP
+.BR --attrs " " [\fB^\fR]\fIATTR\fR[\fB,\fR...]
+Attribute flags, spelled as
+.BR lfs-find (1)
+spells them \(em either the letter or the long name:
+.BR c " or " Compressed ,
+.BR i " or " Immutable ,
+.BR a " or " Append_Only ,
+.BR d " or " No_Dump ,
+.BR E " or " Encrypted .
+.B ^
+before one requires it absent, so
+.B --attrs i,^E
+selects immutable files that are not encrypted. Not every backend can see every
+flag \(em see
+.BR LIMITATIONS .
+.TP
+.BR --dev-blocks " " [\fB+-\fR]\fIN\fR
+Blocks used by
+.B this target's own
+inode or dnode, compared in bytes with a bare number counting 512-byte units.
+This is
+.B not
+the file's size on an MDT; it is the metadata object's own footprint. Provided
+because it is occasionally what an administrator wants, and named so that it
+cannot be mistaken for
+.BR --blocks .
+.SS Attributes held in an extended attribute
+These are read only for objects that survive the filters above, and only the
+attributes the query actually needs.
+.TP
+.BR --size | --blocks " " [\fB+-\fR]\fIN\fR[\fBbcKMGTPE\fR]
+The
+.B file's
+size or block count, compared in bytes; a bare number counts 512-byte units.
+On an MDT this is read from
+.BR trusted.som ,
+not from the inode \(em see
+.BR SEMANTICS ,
+which this option is the whole reason for.
+.TP
+.BR --stripe-count | --stripe-size | --mirror-count | --comp-count | --component-count " " [\fB+-\fR]\fIN\fR
+Layout geometry, from
+.BR trusted.lov .
+.B --comp-count
+counts composite (PFL) components;
+.B --mirror-count
+counts actual mirrors, so a non-FLR file is 1.
+.TP
+.BR --ost | --stripe-index " " \fIIDX\fR[\fB,\fIIDX\fR...][\fIN\fB-\fIM\fR]
+Objects with a stripe on any of these OST indices. Ranges are accepted.
+.B --stripe-index
+is a spelling of
+.BR --ost ,
+not a separate predicate, matching
+.BR lfs-find (1).
+.TP
+.BI --pool " NAME"
+OST pool, from a v3 layout. Resolvable from the MDT alone; no OST scan is needed.
+.TP
+.BR --layout " " { released | raid0 | mdt | foreign | overstriped }[\fB,\fR...]
+Layout pattern.
+.B mdt
+selects data-on-MDT components,
+.B released
+HSM-released files.
+.TP
+.BI --name " PATTERN"
+Any of the object's names, from
+.BR trusted.link .
+.I PATTERN
+is a shell glob. A hard-linked object matches on any of its links.
+.TP
+.BR --mdt-count " " [\fB+-\fR]\fIN\fR, " " \fB--mdt-hash\fR " " \fINAME\fR| \fIN\fR
+Directory striping, from
+.BR trusted.lmv .
+.I NAME
+is one of
+.BR all_char ,
+.BR fnv_1a_64 ,
+.BR crush ,
+.BR crush2 .
+.SH SEMANTICS
+.SS An MDT-only scan is lfs find --lazy
+A striped regular file's data is on the OSTs, so its MDT inode's size is stale
+or zero and its block count covers only the inode's own blocks. The single
+number an MDT holds for the whole file is in the
+.B trusted.som
+extended attribute, written when the file is closed, and that is what
+.B --size
+and
+.B --blocks
+read.
+.PP
+This is exactly the
+.B --lazy
+mode of
+.BR lfs-find (1),
+which is a supported mode of that command and not an approximation. It has one
+consequence worth stating plainly: a size or block filter has
+.B three
+outcomes, not two.
+.TP
+.B match
+The size is known and satisfies the predicate.
+.TP
+.B no match
+The size is known and does not.
+.TP
+.B unknown
+The size is not known to this target: the object is a striped regular file with
+no
+.B trusted.som
+yet, because it has not been closed since SOM was enabled. Such an object is
+neither reported nor silently discarded \(em it is counted on its own line of the
+summary, and
+.B -u
+emits it tagged
+.BR +unknown .
+.PP
+A caller that must not miss an object cannot treat
+.I unknown
+as
+.IR "no match" .
+On a target where SOM is enabled and files are closed normally, the population is
+usually zero, but it is never guaranteed to be.
+.SS Metadata may be stale, and may be torn
+On a mounted target the scan sees what has reached disk, which lags the live
+state, and a structure may be read while it is being written. The scanners
+validate what they read and count what they reject rather than interpreting it,
+but a consumer that acts on a record should re-read the object first. The
+.B kmdt
+backend reads through the OSD and is not exposed to torn reads in the same way.
+.SH EXIT STATUS
+.TP
+.B 0
+The scan completed.
+.TP
+.B 1
+The target could not be opened or read, or the scan failed part way.
+.TP
+.B 2
+The command line was wrong: an unparsable filter, no target, a target whose kind
+could not be determined, or a filter this target cannot answer.
+.TP
+.B 127
+The chosen backend is not built or not installed. Try
+.BR --list-backends .
+.SH ENVIRONMENT
+.TP
+.B LFIND_LIBEXEC
+Directory to search for the backend binaries. The directory holding
+.B lfind
+itself is tried first, so a build tree works without installing.
+.SH EXAMPLES
+.PP
+Large files nobody has read for a month, on an unmounted MDT \(em two
+inode-resident predicates and one extended attribute:
+.RS
+.EX
+.B lfind --atime +30d --blocks +1G --projid 1999 /dev/sdb
+.EE
+.RE
+.PP
+The same query against a target that is mounted and serving, with the filter
+evaluated in the kernel so that rejected objects never cross into user space:
+.RS
+.EX
+.B modprobe lfu_ring dev=testfs-MDT0000-osd
+.B lfind --atime +30d --blocks +1G /dev/lfu_scan
+.EE
+.RE
+.PP
+Everything in one OST pool, or on a particular OST, answered from the MDT alone:
+.RS
+.EX
+.B lfind --pool fast /dev/sdb
+.B lfind --ost 3,7 --stripe-count +1 /dev/sdb
+.EE
+.RE
+.PP
+Wide-striped files, and files whose layout keeps data on the MDT:
+.RS
+.EX
+.B lfind --stripe-count +16 /dev/sdb
+.B lfind --layout mdt /dev/sdb
+.EE
+.RE
+.PP
+A ZFS snapshot, importing the pool by scanning devices because a Lustre pool has
+.BR cachefile=none :
+.RS
+.EX
+.B lfind -e --type f --mtime +1y testpool/mdt0@backup
+.EE
+.RE
+.PP
+Count what a size filter cannot decide on this target, and then look at those
+objects:
+.RS
+.EX
+.B lfind -q --size +1G /dev/sdb
+.B lfind -u --size +1G /dev/sdb | grep +unknown
+.EE
+.RE
+.PP
+Everything with two or more names, one of which looks like a report:
+.RS
+.EX
+.B lfind --links +1 --name 'report*' /dev/sdb
+.EE
+.RE
+.SH LIMITATIONS
+.TP
+.B Depth predicates are not implemented
+.B --maxdepth
+and
+.B --mindepth
+describe a position in a directory tree. This is a flat scan of a target's
+objects and has no tree to be at a depth in; the two options are rejected rather
+than ignored.
+.TP
+.B Tier-1 filters are refused on a mounted ZFS target
+The
+.B kmdt
+backend can only read an extended attribute through the OSD iterator, and
+.B osd-zfs
+does not serve that request. A filter needing
+.BR trusted.som ,
+.BR trusted.lov ,
+.B trusted.lmv
+or
+.B trusted.link
+is therefore refused at start-up on a ZFS target rather than answered from
+nothing. Use
+.B lfind-zfs
+against a snapshot instead.
+.TP
+.B --attrs sees fewer flags on ZFS
+.B z_pflags
+has no per-file compressed or encrypted bit \(em both are dataset properties \(em
+so those two names are refused on a ZFS target rather than reported as absent.
+.TP
+.B No aggregation
+.B lfind
+selects; it does not summarise. There is no
+.BR count ,
+.BR sum ,
+.B histogram
+or
+.BR "largest N" .
+.TP
+.B One target per invocation
+Merging the streams of several targets, and removing the duplicate objects that
+LMR mirroring produces across MDTs, is not done here.
+.SH FILES
+.TP
+.I /dev/lfu_scan
+The object stream exported by the
+.B lfu_ring
+module for a mounted target.
+.SH NOTES
+Reading a block device directly exposes every object's metadata on the target
+with no access control of any kind, and the names in
+.B trusted.link
+are user data. This is an administrator's tool: run it as a user in the device's
+group rather than as root where you can, and treat its output as being as
+sensitive as the namespace itself.
+.PP
+Do not confuse this command with
+.BR lfind (3),
+an unrelated C library function for linear search in an array.
+.SH SEE ALSO
+.BR lfs-find (1),
+.BR lfs (1),
+.BR lctl (8),
+.BR lfsck (8),
+.BR mount.lustre (8),
+.BR find (1),
+.BR lfind (3)
