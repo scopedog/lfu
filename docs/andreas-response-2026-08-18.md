@@ -206,7 +206,9 @@ alone. [`option-comparison.md`](option-comparison.md) and
 [`design-osd-scanner.md`](design-osd-scanner.md) §1 both carry it as the reason
 Option 1 needs a hand-maintained denylist.
 
-- [ ] File the LU ticket, with that table as the evidence.
+- [x] **Filed 2026-08-18 as LU-20602**, with that table as the evidence; source
+      text and remaining open items in
+      [`tickets/lma-internal-objects.md`](tickets/lma-internal-objects.md).
 - [ ] Note in the ticket that existing filesystems still need the denylist
       through the upgrade window, so the scanner-side workaround does not go
       away when the fix lands.
@@ -361,7 +363,7 @@ E1 rather than being a per-tool concern.
 
 ## Suggested order
 
-1. **C1**, the ticket — cheap, and he asked for it directly.
+1. ~~**C1**, the ticket~~ — **done, LU-20602.**
 2. **A1–A3 and D1–D3** — the doc retractions and closures. The repository states
    two things that are now wrong (merge is server-side; only FIDs cross the
    wire) and one that is out of date (MsgPack).

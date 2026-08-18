@@ -476,3 +476,7 @@ for resumption. The lab cluster's MDS failover setup makes this directly testabl
 
 TLU-186 (TLC, In Progress) · LU-20462 (WhamCloud epic, Open, Artem Blagodarenko).
 HLD authored by Andreas Dilger.
+
+Filed from this work: **LU-20602** — MDT-internal objects carry no LMA flag
+marking them internal (2026-08-18; source text and open items in
+`tickets/lma-internal-objects.md`).

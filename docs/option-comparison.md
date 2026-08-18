@@ -194,7 +194,7 @@ a scan.
   skip-counted. **[measured]**
 - No inode checksums, so mid-update inodes with plausible `nlink` are emitted
   with wrong attributes, undetectably. **[measured]**
-- LMA cannot identify every internal object; needs a denylist. **[measured]**
+- LMA cannot identify every internal object; needs a denylist. **[measured; filed upstream as LU-20602]**
 - Separate code path from the MDS; results need transporting for delivery.
 
 ## Option 2 — summary
