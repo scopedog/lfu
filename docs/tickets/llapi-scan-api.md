@@ -1,12 +1,11 @@
-# Draft ticket: client-side namespace scanner API in liblustreapi
+# LU-20603: client-side namespace scanner API in liblustreapi
 
-**Status:** draft, not filed. The reusable half of LU-20462's first step
-(*replacing `lfs find` on the client side*); its first consumer is drafted in
-[`lfs-find-on-llapi-scan.md`](lfs-find-on-llapi-scan.md).
+**Filed 2026-08-18 as LU-20603** — Technical task, Open, linked to LU-20462 and
+LU-17814. The reusable half of LU-20462's first step (*replacing `lfs find` on
+the client side*); its first consumer is drafted in
+[`lfs-find-on-llapi-scan.md`](lfs-find-on-llapi-scan.md) and **not yet filed**.
 
-**File** linked to **LU-20462**, not as a sub-task — LU-20591 and LU-13650 hang
-off it the same way. Type New Feature · Components llapi · Related LU-20462,
-LU-17814.
+Kept here as the source text and the working checklist.
 
 ---
 
@@ -52,8 +51,10 @@ conversion, so the API's first caller is visible in the same push.
 
 ---
 
-## Before filing
+## Open on the ticket
 
-- [ ] Confirm the API name and the record's field set.
-- [ ] Check whether `libhsm_scanner.c` folds into this rather than remaining a
-      second in-tree scanner.
+- [ ] The record's field set — proposed in the patch, from the prototype's
+      168-byte record, minus what only a device scanner can know.
+- [ ] Whether `libhsm_scanner.c` folds into this rather than remaining a second
+      in-tree scanner.
+- [ ] Components field is empty on the ticket; set it to llapi.
