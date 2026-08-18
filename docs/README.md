@@ -57,8 +57,8 @@ later record says what it overturns.
 | Document | State |
 |---|---|
 | [`tickets/lma-internal-objects.md`](tickets/lma-internal-objects.md) | **Filed as LU-20602.** Source text, evidence, and what is still open |
-| [`tickets/llapi-scan-api.md`](tickets/llapi-scan-api.md) | **Filed as LU-20603.** Client-side namespace scanner API — the reusable half of LU-20462's first step |
-| [`tickets/lfs-find-on-llapi-scan.md`](tickets/lfs-find-on-llapi-scan.md) | **Filed as LU-20605.** `lfs find` reimplemented on that API — its first consumer |
+| [`tickets/llapi-scan-api.md`](tickets/llapi-scan-api.md) | **LU-20603, Gerrit 68094.** Client-side namespace scanner API — the reusable half of LU-20462's first step |
+| [`tickets/lfs-find-on-llapi-scan.md`](tickets/lfs-find-on-llapi-scan.md) | **LU-20605, Gerrit 68095.** `lfs find` reimplemented on that API — its first consumer |
 
 ## Superseded — kept for provenance
 

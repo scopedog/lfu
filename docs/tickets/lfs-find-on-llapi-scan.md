@@ -1,9 +1,13 @@
 # LU-20605: reimplement `lfs find` on the namespace scanner API
 
 **Filed 2026-08-18 as LU-20605** — Technical task, Open, parent LU-20462,
-related to **LU-20603** (the scanner API,
-[`llapi-scan-api.md`](llapi-scan-api.md)). The consumer half of LU-20462's
+related to **LU-20603**, the scanner API
+([`llapi-scan-api.md`](llapi-scan-api.md)). The consumer half of LU-20462's
 first step, *replacing `lfs find` on the client side*.
+
+**Pushed to Gerrit as
+[68095](https://review.whamcloud.com/c/fs/lustre-release/+/68095)**, stacked on
+[68094](https://review.whamcloud.com/c/fs/lustre-release/+/68094).
 
 Two edits still wanted on the ticket: the description was pasted as Markdown
 and carries stray asterisks around every bold lead-in, which the wiki-markup
