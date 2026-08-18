@@ -1,0 +1,17 @@
+=== BEFORE: 4322543e7e2814ea25420426ab24540dca76cbf7
+  before: llapi_scan_namespace symbols installed = 0
+  before: 75 pass, 2 fail, 9 skip
+=== AFTER: base + LU-20603 + LU-20605
+9b5730505e LU-20605 lfs: lfs find on the scanner's record front-end
+1a1475f904 LU-20603 llapi: namespace scanner API for per-object records
+4322543e7e New tag 2.17.57
+  after: llapi_scan_namespace symbols installed = 1
+  after: 75 pass, 2 fail, 9 skip
+=== DIFF (before vs after)
+IDENTICAL
+=== failures after, if any
+FAIL 56Eaa
+FAIL 56xb
+STAGE7 DONE
+
+FAIL 56Eaa FAIL 56xb PASS 56a PASS 56ab PASS 56aca PASS 56acb PASS 56acc PASS 56b PASS 56Ba PASS 56c PASS 56ca PASS 56Ca PASS 56d PASS 56Da PASS 56Db PASS 56Dc PASS 56Dd PASS 56e PASS 56Ea PASS 56Eab PASS 56Eb PASS 56Ebb PASS 56Ec PASS 56Ed PASS 56Eda PASS 56Ef PASS 56Eg PASS 56Eh PASS 56Ei PASS 56Ej PASS 56Ek PASS 56g PASS 56h PASS 56i PASS 56ib PASS 56j PASS 56k PASS 56l PASS 56m PASS 56n PASS 56o PASS 56ob PASS 56oc PASS 56od PASS 56oe PASS 56p PASS 56q PASS 56r PASS 56ra PASS 56rb PASS 56rd PASS 56re PASS 56rf PASS 56s PASS 56t PASS 56u PASS 56v PASS 56wa PASS 56wb PASS 56wc PASS 56wd PASS 56we PASS 56x PASS 56xa PASS 56xab PASS 56xB PASS 56xC PASS 56xd PASS 56xD PASS 56xe PASS 56xf PASS 56xg PASS 56xh PASS 56xj PASS 56xk PASS 56y PASS 56z SKIP 56Aa SKIP 56bb SKIP 56bc SKIP 56bd SKIP 56Edb SKIP 56rc SKIP 56xc SKIP 56xi SKIP 56xl 

@@ -1,0 +1,60 @@
+=== built
+=== 1. one record per object, and what is in it
+[0x200000007:0x1:0x0] /mnt/testfs mode=777 nlink=6 uid=0 gid=0 size=4096 blocks=8 mtime=1787084749 mdt=0 valid=0x4fff lmm=no recsz=152
+[0x200001b71:0x8:0x0] /mnt/testfs/0many mode=755 nlink=2 uid=1001 gid=1006 size=20480 blocks=40 mtime=1787084749 mdt=0 valid=0x4fff lmm=no recsz=152
+[0x200001b71:0x7f:0x0] /mnt/testfs/0many/f119 mode=644 nlink=1 uid=1001 gid=1006 size=0 blocks=0 mtime=1787084749 mdt=0 valid=0x35f9f lmm=yes recsz=152
+[0x200001b71:0x12a:0x0] /mnt/testfs/0many/f290 mode=644 nlink=1 uid=1001 gid=1006 size=0 blocks=0 mtime=1787084749 mdt=0 valid=0x35f9f lmm=yes recsz=152
+[0x200001b71:0x1b:0x0] /mnt/testfs/0many/f19 mode=644 nlink=1 uid=1001 gid=1006 size=0 blocks=0 mtime=1787084749 mdt=0 valid=0x35f9f lmm=yes recsz=152
+[0x200001b71:0xe:0x0] /mnt/testfs/0many/f6 mode=644 nlink=1 uid=1001 gid=1006 size=0 blocks=0 mtime=1787084749 mdt=0 valid=0x35f9f lmm=yes recsz=152
+[0x200001b71:0x122:0x0] /mnt/testfs/0many/f282 mode=644 nlink=1 uid=1001 gid=1006 size=0 blocks=0 mtime=1787084749 mdt=0 valid=0x35f9f lmm=yes recsz=152
+[0x200001b71:0xc5:0x0] /mnt/testfs/0many/f189 mode=644 nlink=1 uid=1001 gid=1006 size=0 blocks=0 mtime=1787084749 mdt=0 valid=0x35f9f lmm=yes recsz=152
+[0x200001b71:0xcb:0x0] /mnt/testfs/0many/f195 mode=644 nlink=1 uid=1001 gid=1006 size=0 blocks=0 mtime=1787084749 mdt=0 valid=0x35f9f lmm=yes recsz=152
+[0x200001b71:0x2d:0x0] /mnt/testfs/0many/f37 mode=644 nlink=1 uid=1001 gid=1006 size=0 blocks=0 mtime=1787084749 mdt=0 valid=0x35f9f lmm=yes recsz=152
+[0x200001b71:0xed:0x0] /mnt/testfs/0many/f229 mode=644 nlink=1 uid=1001 gid=1006 size=0 blocks=0 mtime=1787084749 mdt=0 valid=0x35f9f lmm=yes recsz=152
+[0x200001b71:0x124:0x0] /mnt/testfs/0many/f284 mode=644 nlink=1 uid=1001 gid=1006 size=0 blocks=0 mtime=1787084749 mdt=0 valid=0x35f9f lmm=yes recsz=152
+scanned=312 filtered=0 rc=0
+=== 2. FID set vs lfs find + lfs path2fid
+  lfs find objects : 311
+  scanner objects  : 311
+  PASS  no objects missed
+  PASS  no extra objects
+=== 3. thread count does not change the answer
+  PASS  -j 2 identical to -j 1
+  PASS  -j 4 identical to -j 1
+  PASS  -j 8 identical to -j 1
+=== 4. max_depth limits the descent
+  depth 1: 4   depth 2: 309   unlimited: 312
+  PASS  depth 1 < depth 2
+  PASS  depth 2 < unlimited
+=== 5. a callback that stops the scan
+  scanned=3 filtered=0 rc=42
+  PASS  callback return reaches the caller
+  PASS  stopped at the third record
+=== 6. the validity mask is populated, not blank
+  PASS  no record with an empty valid mask
+  a record's mask: valid=0x4fff
+  records with a layout: 305 of 312
+  distinct record sizes: recsz=152 
+=== 7. bad arguments are refused
+  scanned=0 filtered=0 rc=-2
+  PASS  a missing path is an error, not a crash
+=== 8. the demand mask: TYPE-only asks for no ioctl
+scanned=312 filtered=0 rc=0
+  PASS  TYPE-only records carry only TYPE
+  PASS  TYPE-only still sees every object
+  PASS  no FID fetched under TYPE-only
+=== 9. the pre-filter: name glob before any I/O
+scanned=4 filtered=308 rc=0
+  PASS  pre-filter delivers exactly the *.txt objects
+  PASS  delivered records are fully gathered (FID present)
+  PASS  pre-filter never saw a gathered field
+  PASS  everything else was filtered, not lost
+=== 10. a stop really stops, including with threads and work left
+  -j 1: scanned=5 filtered=0 rc=42
+  PASS  -j 1: consumer's value returned
+  PASS  -j 1: at most 5+threads records after a stop-after-5 (of 312)
+  -j 4: scanned=6 filtered=0 rc=42
+  PASS  -j 4: consumer's value returned
+  PASS  -j 4: at most 5+threads records after a stop-after-5 (of 312)
+
+STAGE5 OK

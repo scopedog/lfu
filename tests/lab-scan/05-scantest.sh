@@ -99,5 +99,24 @@ ck "delivered records are fully gathered (FID present)" "$NOFID" "0"
 ck "pre-filter never saw a gathered field" "$(grep -c 'prefilter saw' ~/pre.err || true)" "0"
 ck "everything else was filtered, not lost" "$(( $(wc -l < ~/pre.out) + $(sed -n 's/.*filtered=\([0-9]*\).*/\1/p' ~/pre.err) ))" "$DA"
 
+echo "=== 10. a stop really stops, including with threads and work left"
+# The traversal only abandons a walk on a negative callback return when
+# fp_stop_on_error is set; otherwise it records it and carries on, and
+# other worker threads never hear about it.  So the scanner enforces the
+# stop itself.  With 300+ objects and a stop after 5 -- past the root, so
+# the traversal is inside a directory listing with entries left -- anything
+# close to the full count means the stop was ignored.  (A stop on the root
+# alone proves nothing: the traversal never opens the root either way.)
+for T in 1 4; do
+	set +e
+	SCAN_QUIET=1 ~/scan_test $R $T 0 5 > /dev/null 2> ~/stopT$T.err
+	RC=$?
+	set -e
+	N=$(sed -n 's/.*scanned=\([0-9]*\).*/\1/p' ~/stopT$T.err)
+	echo "  -j $T: $(cat ~/stopT$T.err)"
+	ck "-j $T: consumer's value returned" "$RC" "42"
+	ck "-j $T: at most 5+threads records after a stop-after-5 (of $DA)" "$([ "$N" -le $((5 + T)) ] && echo yes || echo no)" "yes"
+done
+
 echo
 [ $FAIL -eq 0 ] && echo "STAGE5 OK" || { echo "STAGE5 FAILED"; exit 1; }
