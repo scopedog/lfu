@@ -1,0 +1,44 @@
+=== built
+=== 1. one record per object, and what is in it
+[0x200000007:0x1:0x0] /mnt/testfs mode=777 nlink=5 uid=0 gid=0 size=4096 blocks=8 mtime=1787077925 mdt=0 valid=0x2fff lmm=no recsz=136
+[0x200000401:0x4:0x0] /mnt/testfs/empty mode=755 nlink=2 uid=1001 gid=1006 size=4096 blocks=8 mtime=1787077925 mdt=0 valid=0x2fff lmm=no recsz=136
+[0x200000401:0x1:0x0] /mnt/testfs/a mode=755 nlink=3 uid=1001 gid=1006 size=4096 blocks=8 mtime=1787077925 mdt=0 valid=0x2fff lmm=no recsz=136
+[0x200000401:0x9:0x0] /mnt/testfs/a/striped.bin mode=644 nlink=1 uid=1001 gid=1006 size=0 blocks=0 mtime=1787077925 mdt=0 valid=0x1f9f lmm=yes recsz=136
+[0x200000401:0x7:0x0] /mnt/testfs/a/symlink.txt mode=777 nlink=1 uid=1001 gid=1006 size=9 blocks=0 mtime=1787077925 mdt=0 valid=0xfff lmm=no recsz=136
+[0x200000401:0x2:0x0] /mnt/testfs/a/b mode=755 nlink=3 uid=1001 gid=1006 size=4096 blocks=8 mtime=1787077925 mdt=0 valid=0x2fff lmm=no recsz=136
+[0x200000401:0x5:0x0] /mnt/testfs/a/b/hardlink.txt mode=640 nlink=2 uid=1001 gid=1006 size=0 blocks=0 mtime=1787077925 mdt=0 valid=0x1f9f lmm=yes recsz=136
+[0x200000401:0x3:0x0] /mnt/testfs/a/b/c mode=755 nlink=2 uid=1001 gid=1006 size=4096 blocks=8 mtime=1787077925 mdt=0 valid=0x2fff lmm=no recsz=136
+[0x200000401:0x8:0x0] /mnt/testfs/a/b/c/deep.txt mode=644 nlink=1 uid=1001 gid=1006 size=0 blocks=0 mtime=1787077925 mdt=0 valid=0x1f9f lmm=yes recsz=136
+[0x200000401:0x5:0x0] /mnt/testfs/a/plain.txt mode=640 nlink=2 uid=1001 gid=1006 size=0 blocks=0 mtime=1787077925 mdt=0 valid=0x1f9f lmm=yes recsz=136
+[0x200000401:0x6:0x0] /mnt/testfs/a/big.bin mode=644 nlink=1 uid=1001 gid=1006 size=0 blocks=0 mtime=1787077925 mdt=0 valid=0x1f9f lmm=yes recsz=136
+scanned=11 rc=0
+=== 2. FID set vs lfs find + lfs path2fid
+  lfs find objects : 10
+  scanner objects  : 10
+  PASS  no objects missed
+  PASS  no extra objects
+=== 3. thread count does not change the answer
+  PASS  -j 2 identical to -j 1
+  PASS  -j 4 identical to -j 1
+  PASS  -j 8 identical to -j 1
+=== 4. max_depth limits the descent
+  depth 1: 3   depth 2: 8   unlimited: 11
+  PASS  depth 1 < depth 2
+  PASS  depth 2 < unlimited
+=== 5. a callback that stops the scan
+  scanned=3 rc=42
+  PASS  callback return reaches the caller
+  PASS  stopped at the third record
+=== 6. the validity mask is populated, not blank
+  PASS  no record with an empty valid mask
+  a record's mask: valid=0x2fff
+  records with a layout: 5 of 11
+  distinct record sizes: recsz=136 
+=== 7. bad arguments are refused
+  scanned=0 rc=-2
+  PASS  a missing path is an error, not a crash
+
+STAGE5 OK
+c535414920 LU-20603 llapi: namespace scanner API for per-object records
+5.14.0-687.36.1.el9_8.x86_64
+e2fsprogs-1.47.3-wc2.el9.x86_64
