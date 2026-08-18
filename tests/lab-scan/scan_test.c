@@ -7,7 +7,11 @@
  * that stops the scan.
  *
  * Usage: scan_test <path> [threads] [max_depth] [stop_after]
+ *   SCAN_WANT=<hex>   demand mask (0 = everything)
+ *   SCAN_NAME=<glob>  pre-filter on the entry name, before any I/O
+ *   SCAN_QUIET=1      count only
  */
+#include <fnmatch.h>
 #include <errno.h>
 #include <pthread.h>
 #include <stdio.h>
@@ -19,9 +23,27 @@
 struct ctx {
 	pthread_mutex_t	 lock;
 	unsigned long	 count;
+	unsigned long	 filtered;	/* rejected by the pre-filter */
 	unsigned long	 stop_after;	/* 0: never stop */
+	const char	*name_glob;
 	int		 quiet;
 };
+
+/* sp_filter: sees path, name and TYPE only; nothing has been fetched yet */
+static int prefilter(const struct llapi_scan_rec *rec, void *data)
+{
+	struct ctx *c = data;
+
+	if (rec->sr_valid & ~LLAPI_SCAN_DIRENT_MASK) {
+		fprintf(stderr, "prefilter saw a gathered field: valid=0x%llx\n",
+			(unsigned long long)rec->sr_valid);
+		return -EIO;
+	}
+	if (fnmatch(c->name_glob, rec->sr_name, 0) == 0)
+		return 0;
+	__sync_fetch_and_add(&c->filtered, 1);
+	return 1;
+}
 
 static int cb(const struct llapi_scan_rec *rec, void *data)
 {
@@ -69,8 +91,15 @@ int main(int argc, char *argv[])
 		c.stop_after = strtoul(argv[4], NULL, 0);
 	if (getenv("SCAN_QUIET"))
 		c.quiet = 1;
+	if (getenv("SCAN_WANT"))
+		sp.sp_want = strtoull(getenv("SCAN_WANT"), NULL, 16);
+	if (getenv("SCAN_NAME")) {
+		c.name_glob = getenv("SCAN_NAME");
+		sp.sp_filter = prefilter;
+	}
 
 	rc = llapi_scan_namespace(argv[1], &sp, cb, &c);
-	fprintf(stderr, "scanned=%lu rc=%d\n", c.count, rc);
+	fprintf(stderr, "scanned=%lu filtered=%lu rc=%d\n", c.count,
+		c.filtered, rc);
 	return rc == 0 ? 0 : (rc == 42 ? 42 : 1);
 }
