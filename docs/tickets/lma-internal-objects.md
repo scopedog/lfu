@@ -49,12 +49,33 @@ and `.lustre/lost+found`, which are genuinely visible and merely hidden from
 internal inode numbers, tracking every future layout change, in every consumer.
 A flag on the object is durable; a denylist is not.
 
-**Proposed fix.** Because both objects are already flagged-or-not by the same
-function, and that function is the initial OI Scrub, "set it at creation" and
-"have the initial LFSCK set it" are the same change: pass a compat flag instead
-of `0` at `osd_scrub.c:1918`. Either reuse `LMAC_NOT_IN_OI` (no new constant,
-existing consumers already skip on it, but its meaning is OI mapping rather
-than namespace visibility) or add `LMAC_INTERNAL`.
+**Proposed fix.** Add a new compat flag — `LMAC_INTERNAL`, "not part of the
+user namespace" — and set it at `osd_scrub.c:1918`. Because both objects are
+flagged-or-not by the same function, and that function is the initial OI Scrub,
+"set it at creation" and "have the initial LFSCK set it" are the same change: a
+compat flag instead of `0`.
+
+**Not `LMAC_NOT_IN_OI`.** That flag is a control, not a label, and these objects
+need the behaviour it suppresses:
+
+- It gates the OI insert in the function being patched. The `else` branch of
+  `osd_ios_scan_one()` returns at :1926 on `LMAC_NOT_IN_OI`, before the
+  fallthrough to `osd_oi_lookup()` (:1954) and
+  `osd_scrub_refresh_mapping(..., DTO_INDEX_INSERT, ...)` (:1959). Setting it
+  would stop the next initial scrub inserting, verifying or repairing these
+  objects' OI mappings.
+- They do have OI mappings — the same function inserts them. The
+  `update_log_dir` entries are on normal sequences, so `osd_oi_lookup()` reaches
+  `__osd_oi_lookup()`; `mountdata`'s IGIF does too whenever `od_igif_inoi` is 1,
+  which is the normal case (cleared only on an upgrade path, `osd_scrub.c:2696`).
+- It is evidence in duplicate-FID detection: `osd_oi.c:729` treats
+  `!(lma_compat & LMAC_NOT_IN_OI) && lu_fid_eq(...)` as two objects sharing one
+  FID and errors. Flagging these would disarm that check for them.
+
+**Compat, not incompat.** An unknown incompat bit fails `LMA_INCOMPAT_SUPP` and
+the object is rejected as unsupported. A compat bit is ignored by old readers,
+which is what a classification hint wants: old scanners keep their denylist, new
+ones use the flag.
 
 Two questions for review:
 
@@ -79,8 +100,9 @@ unflagged objects.
 
 **Still open on the ticket:**
 
-- [ ] `LMAC_NOT_IN_OI` vs a new `LMAC_INTERNAL` — for the reviewer to settle;
-      decides whether the patch is one line or a UAPI change.
+- [x] ~~`LMAC_NOT_IN_OI` vs a new `LMAC_INTERNAL`~~ — resolved from the code:
+      a new compat flag. `LMAC_NOT_IN_OI` gates the OI insert these objects
+      need. Confirm with the reviewer, but the patch can be written on it.
 - [ ] Confirm nothing namespace-visible reaches `osd_ios_scan_one()` via the
       `ROOT` scan.
 - [ ] Check whether osd-zfs has the same gap.
@@ -116,6 +138,22 @@ Paste-ready; the code trail above, minus the repo-internal references.
 > Scrub, "set the flag at creation" and "have the initial LFSCK set it" are the
 > same change — pass a compat flag instead of `0` at :1918.
 >
+> On which flag: I think this needs a **new compat flag** (`LMAC_INTERNAL`, "not
+> part of the user namespace") rather than reusing `LMAC_NOT_IN_OI`. The latter
+> is a control rather than a label, and these objects need what it suppresses.
+> The `else` branch of `osd_ios_scan_one()` returns at :1926 on
+> `LMAC_NOT_IN_OI`, before the fallthrough to `osd_oi_lookup()` at :1954 and
+> `osd_scrub_refresh_mapping(..., DTO_INDEX_INSERT, ...)` at :1959 — so setting
+> it would stop the next initial scrub inserting or repairing these objects' OI
+> mappings, and they do have mappings, inserted by that same code. The
+> `update_log_dir` entries are on normal sequences and so reach
+> `__osd_oi_lookup()`; `mountdata`'s IGIF does too whenever `od_igif_inoi` is 1.
+> `osd_oi.c:729` also uses the absence of that flag as evidence when detecting
+> two objects sharing a FID, and flagging these would disarm the check for them.
+>
+> Compat rather than incompat, so that an old reader ignores it instead of
+> rejecting the object through `LMA_INCOMPAT_SUPP`.
+>
 > Two things I could not settle from reading:
 >
 > 1. Is everything `osd_ios_scan_one()` walks internal by construction? It is
@@ -127,6 +165,6 @@ Paste-ready; the code trail above, minus the repo-internal references.
 >    mapping, so a filesystem whose internal objects already carry an unflagged
 >    LMA needs the flag added there as well.
 >
-> Happy to post a patch once the flag question — reuse `LMAC_NOT_IN_OI` or add
-> `LMAC_INTERNAL` — is settled. I have a lab that reproduces the leak and can
-> show the before/after against `lfs find`.
+> Happy to post a patch on `LMAC_INTERNAL` if that reading is right. I have a
+> lab that reproduces the leak and can show the before/after against
+> `lfs find`.

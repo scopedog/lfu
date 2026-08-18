@@ -209,6 +209,9 @@ Option 1 needs a hand-maintained denylist.
 - [x] **Filed 2026-08-18 as LU-20602**, with that table as the evidence; source
       text and remaining open items in
       [`tickets/lma-internal-objects.md`](tickets/lma-internal-objects.md).
+      The fix turned out to be one flag argument in the initial OI Scrub
+      (`osd_scrub.c:1918`), on a **new** `LMAC_INTERNAL` compat flag —
+      `LMAC_NOT_IN_OI` gates the OI insert these objects need.
 - [ ] Note in the ticket that existing filesystems still need the denylist
       through the upgrade window, so the scanner-side workaround does not go
       away when the fix lands.
