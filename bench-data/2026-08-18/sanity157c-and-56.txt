@@ -1,0 +1,23 @@
+  built: -rwxr-xr-x. 1 root root 7890 Aug 18 21:06 /home/nishida/lustre-release/lustre/tests/llapi_scan_test
+=== what 157c did
+PASS 157c (1s)
+STAGE8 DONE
+
+=== llapi_scan_test subtests, run directly:
+ test0 @1787087217: llapi_scan_namespace delivers every object once ............ pass
+ test1 @1787087217: llapi_scan_namespace is the same answer at any thread count  pass
+ test2 @1787087217: sp_max_depth limits the descent ............................ pass
+ test3 @1787087217: a consumer can stop the scan and hear its own value back ... pass
+ test4 @1787087217: sp_want holds back what the consumer did not ask for ....... pass
+ test5 @1787087217: sp_filter rejects an object before its attributes are read . pass
+ test6 @1787087217: bad arguments are refused, not crashed on .................. pass
+
+=== sanity 56* before/after:
+  after: llapi_scan_namespace symbols installed = 1
+  after: 75 pass, 2 fail, 9 skip
+=== DIFF (before vs after)
+IDENTICAL
+=== failures after, if any
+FAIL 56Eaa
+FAIL 56xb
+STAGE7 DONE
