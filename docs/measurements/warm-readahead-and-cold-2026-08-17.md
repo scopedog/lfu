@@ -1,8 +1,8 @@
 # Warm Readahead Costs, and Cold the Filter Is Free
 
 **Date:** 2026-08-17
-**Harness:** [`tests/bench_osd_sweep.sh`](../tests/bench_osd_sweep.sh) (first real run)
-**Raw data:** [`bench-data/2026-08-17/warm-ra-and-cold.txt`](../bench-data/2026-08-17/warm-ra-and-cold.txt)
+**Harness:** [`tests/bench_osd_sweep.sh`](../../tests/bench_osd_sweep.sh) (first real run)
+**Raw data:** [`bench-data/2026-08-17/warm-ra-and-cold.txt`](../../bench-data/2026-08-17/warm-ra-and-cold.txt)
 
 Two open questions, one lab session. `open-questions.md` asked *"Does readahead
 cost anything warm?"* — the warm curve of

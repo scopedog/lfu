@@ -1,10 +1,10 @@
 # Block Parsing: Removing iget From the Scan
 
 **Date:** 2026-08-16
-**Patch:** [`patches/itable-blockparse-v2_17_55.patch`](../patches/itable-blockparse-v2_17_55.patch)
-**Test:** [`tests/blockparse_test.sh`](../tests/blockparse_test.sh)
-**Raw data:** [`bench-data/2026-08-16/blockparse-warm.txt`](../bench-data/2026-08-16/blockparse-warm.txt),
-[`bench-data/2026-08-16/blockparse-cold.txt`](../bench-data/2026-08-16/blockparse-cold.txt)
+**Patch:** [`patches/itable-blockparse-v2_17_55.patch`](../../patches/itable-blockparse-v2_17_55.patch)
+**Test:** [`tests/blockparse_test.sh`](../../tests/blockparse_test.sh)
+**Raw data:** [`bench-data/2026-08-16/blockparse-warm.txt`](../../bench-data/2026-08-16/blockparse-warm.txt),
+[`bench-data/2026-08-16/blockparse-cold.txt`](../../bench-data/2026-08-16/blockparse-cold.txt)
 
 Two measurements pointed at the same call. Warm, eight enumerator threads spent
 71% of their time spinning on one lock, and the symbol under it was
@@ -114,7 +114,7 @@ Attributes remain free — `bp=1` at 8 threads is 14,085,190 with them and
 
 **Every row above ran at `lfu_ra_blocks=32`, the default, and that axis was
 never varied warm** — there is not one `ra=` label in
-[`blockparse-warm.txt`](../bench-data/2026-08-16/blockparse-warm.txt) to say
+[`blockparse-warm.txt`](../../bench-data/2026-08-16/blockparse-warm.txt) to say
 otherwise. The omission was not deliberate; it followed from `lfu_par` recording
 `dev`, `private`, `nthreads`, `chunk` and `recattr` in its report line but *not*
 the three `osd_ldiskfs` tunables a run depends on, so `bp=` had to be a

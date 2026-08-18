@@ -122,7 +122,7 @@ kernel context. Neither library ships a kernel-space encoder:
   framing".
 
 Timing matters here: the format is frozen early (build order step 1), the kernel
-encoder isn't needed until step 6. See [`open-questions.md`](open-questions.md)
+encoder isn't needed until step 6. See [`open-questions.md`](../open-questions.md)
 Kernel-side encoding — the question must be answered *before* the freeze.
 
 ## 5. Related subsystems LFU must not collide with

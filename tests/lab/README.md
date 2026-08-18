@@ -1,9 +1,9 @@
 # Lab scripts — the 2026-08-17 GCP session, as it actually ran
 
 These are the scripts that built and measured the filter work on a throwaway GCP
-instance: `docs/filter-pushdown-measured-2026-08-17.md`,
-`docs/warm-readahead-and-cold-2026-08-17.md` and
-`docs/xiong-68020-filter-measured-2026-08-17.md` are their output. They are kept
+instance: `docs/measurements/filter-pushdown-measured-2026-08-17.md`,
+`docs/measurements/warm-readahead-and-cold-2026-08-17.md` and
+`docs/upstream/xiong-68020-filter-measured-2026-08-17.md` are their output. They are kept
 because the next lab should not have to rediscover the shape of this one — not
 because they are a polished harness. Nothing here is run by `tests/run_tests.sh`;
 all of it needs root, a Lustre build tree and a mounted MDT.

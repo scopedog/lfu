@@ -1,7 +1,7 @@
 # Cold Scanning on Fast Storage — a Standing Conclusion Retracted
 
 **Date:** 2026-08-16
-**Raw data:** [`bench-data/2026-08-16/local-ssd-cold.txt`](../bench-data/2026-08-16/local-ssd-cold.txt)
+**Raw data:** [`bench-data/2026-08-16/local-ssd-cold.txt`](../../bench-data/2026-08-16/local-ssd-cold.txt)
 **Retracts:** the "cold is device-bound, flat at every thread count, and a tie
 between the two options" result recorded in `option-comparison.md` and repeated
 in `parallel-osd-measured-2026-08-15.md` §4 and §6b.
@@ -154,7 +154,7 @@ they are where the remaining 2× lives.
 
 `patches/itable-readahead-v2_17_55.patch` adds `sb_breadahead()` on the next N
 itable blocks, N as a module parm. Raw data:
-[`bench-data/2026-08-16/itable-readahead.txt`](../bench-data/2026-08-16/itable-readahead.txt).
+[`bench-data/2026-08-16/itable-readahead.txt`](../../bench-data/2026-08-16/itable-readahead.txt).
 
 Cold, one thread, against the 248,266 baseline: **ra=4 85,132 · ra=8 126,905 ·
 ra=16 202,750 · ra=32 295,479 · ra=64 339,704 · ra=128 305,933.** A clean U with

@@ -1,8 +1,7 @@
 # LU-20602: LMA flag for MDT-internal objects
 
-**Filed 2026-08-18** as **LU-20602**. Requested by Andreas Dilger the same day
-([comments](../andreas-comments-2026-08-18.txt), final paragraph; item C1 in
-[the response plan](../andreas-response-2026-08-18.md)).
+**Filed 2026-08-18** as **LU-20602**. Requested by Andreas Dilger the same day,
+in review comments kept under `docs/local/` (not published).
 
 Type Improvement · Priority Minor · Components osd-ldiskfs, osd-zfs, lod,
 lfsck · Affects 2.17 (observed; code inspected at v2_17_55) · Related LU-20462.

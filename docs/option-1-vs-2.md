@@ -2,12 +2,12 @@
 
 One-table summary. Full discussion, caveats and provenance in
 [`option-comparison.md`](option-comparison.md); raw measurements in
-[`../bench-data/`](../bench-data/).
+[`../bench-data/`](../bench-data).
 
 **Rewritten 2026-08-16.** Every throughput row below changed twice in two days:
-[`parallel-osd-measured-2026-08-15.md`](parallel-osd-measured-2026-08-15.md)
+[`parallel-osd-measured-2026-08-15.md`](measurements/parallel-osd-measured-2026-08-15.md)
 (`DOIF_PARALLEL` private iterators) and
-[`blockparse-2026-08-16.md`](blockparse-2026-08-16.md) (reading the inode table
+[`blockparse-2026-08-16.md`](measurements/blockparse-2026-08-16.md) (reading the inode table
 instead of one `iget` per inode). The version of this table dated 2026-08-10 is
 superseded in full; its numbers are preserved in §"What the old table said" at
 the end, because two of its conclusions were wrong in instructive ways.
@@ -86,7 +86,7 @@ Both were wrong, and neither for the reason the caveats anticipated:
 
 - The "little difference under cold cache" tie (174k vs 166k obj/s) was an
   artifact of a **190 MB/s disk**, retracted in
-  [`cold-on-fast-storage-2026-08-16.md`](cold-on-fast-storage-2026-08-16.md). On
+  [`cold-on-fast-storage-2026-08-16.md`](measurements/cold-on-fast-storage-2026-08-16.md). On
   NVMe the options *did* diverge — but the prediction that Option 2 would hit a
   *CPU* ceiling was also wrong. It was latency-bound at queue depth ~1, one
   dependent read per inode-table block.

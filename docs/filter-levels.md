@@ -4,7 +4,7 @@
 **Status:** design analysis. Every "where the data lives" claim is read out of
 `lustre-release` at `v2_17_0` or out of this repo's own source and is cited.
 Cost claims are inferences from
-[`blockparse-2026-08-16.md`](blockparse-2026-08-16.md) and the tier-2 counters
+[`blockparse-2026-08-16.md`](measurements/blockparse-2026-08-16.md) and the tier-2 counters
 already in the device scanner, and are marked as such.
 **Answers:** "we know the items we filter on — at which level do we filter
 each?", for the OSD scanner and for both device-scanner backends.
@@ -285,7 +285,7 @@ landed, in four pieces:
 | piece | where | what |
 |---|---|---|
 | the evaluator, built twice | `src/lfu_filter_eval.c` + `src/lfu_filter.h` | the parser (`lfu_filter.c`, lfs find syntax → `struct lfu_filter`) stays userspace; the evaluator is one source, linked into the device scanners and `#include`d into the kernel module. `lfu_filter.h` has a kernel branch: `<linux/glob.h>`'s `glob_match()` for `fnmatch()`, the on-disk structures from `<uapi/linux/lustre/lustre_idl.h>` instead of `lfu_lustre.h`, no libc |
-| tier 1 through the iterator | `patches/otable-xattr-v2_17_55.patch` | `rec(DORA_XATTR)` returns one named xattr of the current object: from the in-inode area of the block a block-parsing iterator still holds (tier 1, no I/O), else via a live inode and `__osd_xattr_get()` (tier 2 if the raw inode had `i_file_acl`, counted as such); "not in the inode and no external block" is a free, definite `-ENODATA`. `rec(DORA_STATS)` reads back the iterator's counters: raw vs `-EAGAIN` fallback (queue item 4), and where every xattr came from. **osd-zfs (added 2026-08-17, later in the day):** the same two requests, served from the `SA_ZPL_DXATTR` nvlist `it::next` already unpacks to find the LMA and now keeps until the next `next()` (tier 1, no I/O, no second dnode hold), else from the xattr directory through `__osd_xattr_get_large()` (tier 2, counted); "not in the SA area and no xattr directory" is the free `-ENODATA`. Only alongside `DOIF_ATTR`, which is when the SA handle is open long enough to read `SA_ZPL_XATTR`. **Built and run 2026-08-17** — [`zfs-tier1-measured-2026-08-17.md`](zfs-tier1-measured-2026-08-17.md): all 14 filters agree with `lfind-zfs` on the same data, and a predicate reading an xattr for every object costs 1.6% |
+| tier 1 through the iterator | `patches/otable-xattr-v2_17_55.patch` | `rec(DORA_XATTR)` returns one named xattr of the current object: from the in-inode area of the block a block-parsing iterator still holds (tier 1, no I/O), else via a live inode and `__osd_xattr_get()` (tier 2 if the raw inode had `i_file_acl`, counted as such); "not in the inode and no external block" is a free, definite `-ENODATA`. `rec(DORA_STATS)` reads back the iterator's counters: raw vs `-EAGAIN` fallback (queue item 4), and where every xattr came from. **osd-zfs (added 2026-08-17, later in the day):** the same two requests, served from the `SA_ZPL_DXATTR` nvlist `it::next` already unpacks to find the LMA and now keeps until the next `next()` (tier 1, no I/O, no second dnode hold), else from the xattr directory through `__osd_xattr_get_large()` (tier 2, counted); "not in the SA area and no xattr directory" is the free `-ENODATA`. Only alongside `DOIF_ATTR`, which is when the SA handle is open long enough to read `SA_ZPL_XATTR`. **Built and run 2026-08-17** — [`zfs-tier1-measured-2026-08-17.md`](measurements/zfs-tier1-measured-2026-08-17.md): all 14 filters agree with `lfind-zfs` on the same data, and a predicate reading an xattr for every object costs 1.6% |
 | the producer as filter | `src/kernel/lfu_ring.c` | `SET_FILTER` ioctl takes `struct lfu_filter` (fixed-size POD, magic+version+size checked, every index range-checked by `lfu_filter_validate()` before use); per object: `rec(DORA_ATTR)` → `lfu_filter_tier0()` → only if it survives and the demand mask is non-empty, `rec(DORA_XATTR)` per demanded xattr into scratch allocated once at open → `lfu_filter_tier1()`. NOMATCH never touches the ring; UNKNOWN is counted and enters only with `LFU_FILTER_EMIT_UNKNOWN`. `INFO` reports what the OSD under the module can serve; `STATS` returns every counter at EOF. The producer now uses a `DOIF_PARALLEL` private iterator by default, so it is on the block-parse path |
 | the consumer | `src/lfu_scan_kmdt.c` | compiles the filter, negotiates via `INFO` (wire version 2 with `btime`/`projid`/`flags`, LMA flags, and the decoded SOM/LOV/LMV values riding along so `size=` prints the file's size), sends it, and sets `lfu_target_ops.pushdown` so the core neither prefilters nor re-runs tier 1; the kernel's per-tier counts are folded into the ordinary summary, and tier 2 is printed as a rate over the objects tier 1 examined |
 
@@ -312,12 +312,12 @@ Two design points worth stating because they were forced rather than chosen:
 | the kernel branch of the evaluator uses no libc beyond `mem*` | `nm -u` on the object | passes |
 | every Lustre identifier the evaluator uses exists in the real `lustre_idl.h`/`lustre_user.h` | grep against v2_17_55 | all resolve |
 | the six-patch stack applies cleanly on v2_17_55 | `git apply` on a fresh worktree | clean |
-| `lfu_ring.c` and the two OSD patches **compile and run** | GCP lab, Rocky 9.8, Lustre v2_17_55 + the stack, single node, 302,122 objects | **done 2026-08-17** — [`filter-pushdown-measured-2026-08-17.md`](filter-pushdown-measured-2026-08-17.md) |
+| `lfu_ring.c` and the two OSD patches **compile and run** | GCP lab, Rocky 9.8, Lustre v2_17_55 + the stack, single node, 302,122 objects | **done 2026-08-17** — [`filter-pushdown-measured-2026-08-17.md`](measurements/filter-pushdown-measured-2026-08-17.md) |
 | every predicate agrees with the userspace device scanner on the same device | 12 filters, FID sets compared | **all AGREE** |
 | `--dev-blocks +1G` matches nothing and `--blocks +1G` finds the 1.5 GiB file | the §4.3 prediction, on a real MDT | **reproduced** |
 
 **Built and run 2026-08-17** —
-[`filter-pushdown-measured-2026-08-17.md`](filter-pushdown-measured-2026-08-17.md).
+[`filter-pushdown-measured-2026-08-17.md`](measurements/filter-pushdown-measured-2026-08-17.md).
 The stack compiles, `lfu_ring.ko` carries the evaluator, every predicate agrees
 with the userspace scanner on the same device, tier 2 fired once and was counted,
 and a rejecting tier-0 filter turns out to be **8% faster than no filter at
@@ -393,7 +393,7 @@ xattr pushed *the pad* into the xattr directory while `trusted.lma`, `lov`,
 attribute being set and the filter's own attributes are small by construction
 (SOM 24 B, linkea capped, LOV bounded by 2000 stripes ≈ 48 KB against a 64 KB
 budget). Details in
-[`zfs-tier1-measured-2026-08-17.md`](zfs-tier1-measured-2026-08-17.md) §7. The tier-ordered prefilter is kept there for *semantic
+[`zfs-tier1-measured-2026-08-17.md`](measurements/zfs-tier1-measured-2026-08-17.md) §7. The tier-ordered prefilter is kept there for *semantic
 parity* with ldiskfs, not for speed (`design-common-core.md`, and the comment at
 `src/lfu_scan_zfs.c:266-270`).
 

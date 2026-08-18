@@ -3,7 +3,7 @@
 #
 # Why this exists
 # ---------------
-# The 2026-08-16 warm curve (docs/blockparse-2026-08-16.md §3) was measured at
+# The 2026-08-16 warm curve (docs/measurements/blockparse-2026-08-16.md §3) was measured at
 # whatever lfu_ra_blocks happened to be set to -- the default 32 -- and there is
 # not a single ra= label in bench-data/2026-08-16/blockparse-warm.txt to prove
 # otherwise.  That axis was never swept warm, and it should have been: warm,
@@ -23,7 +23,7 @@
 # -------------------
 # Cold.  That ritual is different in kind -- unmount everything, drop_caches,
 # remount, and take the FIRST pass only, because a second pass is warm by
-# definition (docs/parallel-osd-measured-2026-08-15.md §"Unmount everything").
+# definition (docs/measurements/parallel-osd-measured-2026-08-15.md §"Unmount everything").
 # Automating it means unmounting a filesystem, which is not something to do
 # behind a --flag.  Run cold by hand, as it was run before.
 #

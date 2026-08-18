@@ -13,8 +13,8 @@
 > singleton and block parsing removed `osd_iit_iget()` itself, and the same path
 > now measures **17.4M obj/s warm** and **1,420,664 cold at 99% of an NVMe
 > stripe** — 1.01× the device scanner, where this plan recorded 6.7× against.
-> See [`parallel-osd-measured-2026-08-15.md`](parallel-osd-measured-2026-08-15.md)
-> and [`blockparse-2026-08-16.md`](blockparse-2026-08-16.md).
+> See [`parallel-osd-measured-2026-08-15.md`](../measurements/parallel-osd-measured-2026-08-15.md)
+> and [`blockparse-2026-08-16.md`](../measurements/blockparse-2026-08-16.md).
 >
 > The methodology is still good and §4's foreground procedure is still the one to
 > use — that measurement remains the open item. What to carry forward: an
