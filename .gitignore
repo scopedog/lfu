@@ -11,3 +11,8 @@ modules.order
 
 # internal upstream analysis — kept local, not published
 docs/upstream-collision-68019.md
+
+# editor scratch
+*.swp
+*.swo
+*~
