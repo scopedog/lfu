@@ -54,6 +54,15 @@ push.
 
 ---
 
+## Held locally, not yet pushed (2026-08-18)
+
+Both commit messages were shortened and, on Gerrit, re-wrapped: editing a
+message in Gerrit's web UI **bypasses the `commit-msg` hook**, so the tree's
+70-column limit was not applied and each paragraph went in as one line, 437
+characters at worst. Corrected copies sit on `lu-20603-scan-api` in the
+`~/projects/lustre/lustre-lu20603` worktree, trees identical to patchset 2, to
+ride along with the next real change rather than a wrapping-only round trip.
+
 ## Pre-push state, 2026-08-18
 
 - [x] `contrib/scripts/checkpatch.pl` clean on both patches, bar one advisory
