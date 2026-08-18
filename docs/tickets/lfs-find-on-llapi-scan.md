@@ -2,10 +2,10 @@
 
 **Status:** draft, not filed. The consumer half of LU-20462's first step
 (2026-08-18 meeting: *replacing `lfs find` on the client side*). Depends on
-[`llapi-scan-api.md`](llapi-scan-api.md).
+**LU-20603**, the scanner API ([`llapi-scan-api.md`](llapi-scan-api.md)).
 
-**File** linked to **LU-20462**, and marked as depending on the scanner-API
-ticket. Type New Feature · Components utils · Related LU-20462.
+**File** linked to **LU-20462** and to **LU-20603**. Type Technical task ·
+Components utils.
 
 ---
 
@@ -54,7 +54,7 @@ its caller together.
       currently carries unrelated modifications (`sanity.sh`,
       `sanity-selinux.sh`, untracked `lustre/utils/selinux/`) on the LU-20551
       branch — none of it belongs in this push.
-- [ ] Subjects `LU-XXXXX llapi: ...` and `LU-YYYYY lfs: ...`, each with
+- [ ] Subjects `LU-20603 llapi: ...` and `LU-YYYYY lfs: ...`, each with
       `Signed-off-by:` and the `Change-Id:` the `commit-msg` hook generates.
 - [ ] `Test-Parameters:` covering the `sanity.sh` 56\* series.
 - [ ] `git push review HEAD:refs/for/master`.
