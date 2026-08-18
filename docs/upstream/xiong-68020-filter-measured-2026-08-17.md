@@ -8,7 +8,7 @@
 **Ours:** v2_17_55 + the six-patch stack.
 **Raw data:** [`bench-data/2026-08-17/xiong-68020-vs-ours.txt`](../../bench-data/2026-08-17/xiong-68020-vs-ours.txt)
 
-[`upstream-collision-68019.md`](../local/upstream-collision-68019.md) §7 measured their
+The internal collision analysis (`docs/local/`, not published) §7 measured their
 *enumeration* on 2026-08-15. This measures their **filter**, which is what 68020
 adds and what our own filter work of this morning makes directly comparable.
 
