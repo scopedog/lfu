@@ -47,7 +47,8 @@ serialization. The Object Stream format is still open between FlatBuffers and
 Cap'n Proto, so nothing here should freeze it.
 
 **Review note:** pushed as one stacked Gerrit series with the `lfs find`
-conversion, so the API's first caller is visible in the same push.
+conversion (**LU-20605**), so the API's first caller is visible in the same
+push.
 
 ---
 
@@ -57,7 +58,10 @@ conversion, so the API's first caller is visible in the same push.
       168-byte record, minus what only a device scanner can know.
 - [ ] Whether `libhsm_scanner.c` folds into this rather than remaining a second
       in-tree scanner.
-- [ ] Components field is empty on the ticket; set it to llapi.
+- [ ] Components field is empty on the ticket; set it to llapi. Same on
+      LU-20605, which wants utils.
+- [ ] The filed description is Markdown and shows stray asterisks around bold
+      lead-ins; replace it with the wiki-markup block below.
 
 ---
 

@@ -1,11 +1,14 @@
-# Draft ticket: reimplement `lfs find` on the namespace scanner API
+# LU-20605: reimplement `lfs find` on the namespace scanner API
 
-**Status:** draft, not filed. The consumer half of LU-20462's first step
-(*replacing `lfs find` on the client side*). Depends on **LU-20603**, the
-scanner API ([`llapi-scan-api.md`](llapi-scan-api.md)).
+**Filed 2026-08-18 as LU-20605** — Technical task, Open, parent LU-20462,
+related to **LU-20603** (the scanner API,
+[`llapi-scan-api.md`](llapi-scan-api.md)). The consumer half of LU-20462's
+first step, *replacing `lfs find` on the client side*.
 
-**File** linked to **LU-20462** and to **LU-20603**. Type Technical task ·
-Components utils.
+Two edits still wanted on the ticket: the description was pasted as Markdown
+and carries stray asterisks around every bold lead-in, which the wiki-markup
+block at the end of this file replaces; and Components is empty, which should
+say utils.
 
 ---
 
@@ -47,7 +50,7 @@ and its first caller are visible together.
 
 - [ ] Branch off a fresh `origin/master`; the main `lustre-release` tree
       carries unrelated LU-20551 work.
-- [ ] Subjects `LU-20603 llapi: ...` and `LU-YYYYY lfs: ...`, each with
+- [ ] Subjects `LU-20603 llapi: ...` and `LU-20605 lfs: ...`, each with
       `Signed-off-by:` and the hook's `Change-Id:`.
 - [ ] `Test-Parameters:` covering the `sanity.sh` 56\* series.
 - [ ] `git push review HEAD:refs/for/master`.
