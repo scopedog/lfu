@@ -23,6 +23,7 @@ the reason a number changed is often more useful than the number.
 | [`design-osd-scanner.md`](design-osd-scanner.md) | Option 2: in-kernel OSD API scanner and the ring |
 | [`design-zfs-scanner.md`](design-zfs-scanner.md) | The ZFS backend |
 | [`filter-levels.md`](filter-levels.md) | The filter vocabulary and its I/O cost tiers |
+| [`design-lfs-find-on-scan.md`](design-lfs-find-on-scan.md) | LU-20605: how `lfs find` splits onto the scanner API, and what that forced into the API |
 
 ## Measurements — dated, frozen
 

@@ -78,5 +78,26 @@ set -e
 echo "  $(cat ~/bad.err)"
 ck "a missing path is an error, not a crash" "$([ $BRC -ne 0 ] && echo yes || echo no)" "yes"
 
+echo "=== 8. the demand mask: TYPE-only asks for no ioctl"
+SCAN_WANT=4000 ~/scan_test $R > ~/want.out 2> ~/want.err
+cat ~/want.err
+# every non-root record should carry exactly TYPE; root has no dirent, so 0
+NONTYPE=$(grep -v " $R " ~/want.out | awk '{for(i=1;i<=NF;i++) if($i ~ /^valid=/) print $i}' | grep -vc "valid=0x4000$" || true)
+ck "TYPE-only records carry only TYPE" "$NONTYPE" "0"
+ck "TYPE-only still sees every object" "$(wc -l < ~/want.out)" "$DA"
+# and no FID was fetched: every FID prints as zero
+# DFID prints seq with %#llx, so a zero FID is [0:0x0:0x0], not [0x0:...]
+ck "no FID fetched under TYPE-only" "$(grep -vc '^\[0:0x0:0x0\]' ~/want.out || true)" "0"
+
+echo "=== 9. the pre-filter: name glob before any I/O"
+SCAN_NAME='*.txt' ~/scan_test $R > ~/pre.out 2> ~/pre.err
+cat ~/pre.err
+TXT=$(sudo lfs find $R -name '*.txt' | wc -l)
+ck "pre-filter delivers exactly the *.txt objects" "$(wc -l < ~/pre.out)" "$TXT"
+NOFID=$(awk '{for(i=1;i<=NF;i++) if($i ~ /^valid=/) {v=strtonum(substr($i,7)); if(!and(v,1)) n++}} END{print n+0}' ~/pre.out)
+ck "delivered records are fully gathered (FID present)" "$NOFID" "0"
+ck "pre-filter never saw a gathered field" "$(grep -c 'prefilter saw' ~/pre.err || true)" "0"
+ck "everything else was filtered, not lost" "$(( $(wc -l < ~/pre.out) + $(sed -n 's/.*filtered=\([0-9]*\).*/\1/p' ~/pre.err) ))" "$DA"
+
 echo
 [ $FAIL -eq 0 ] && echo "STAGE5 OK" || { echo "STAGE5 FAILED"; exit 1; }
