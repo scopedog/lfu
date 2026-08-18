@@ -6,9 +6,9 @@
 (`a7268a7a2a`), status NEW, **`Verified: -1`**, unchanged since 2026-08-14 21:02.
 68019 (`7ad8529dda`) and 68018 (`dad4c95a8c`) are ancestors; base tag 2.17.57.
 **Ours:** v2_17_55 + the six-patch stack.
-**Raw data:** [`bench-data/2026-08-17/xiong-68020-vs-ours.txt`](../bench-data/2026-08-17/xiong-68020-vs-ours.txt)
+**Raw data:** [`bench-data/2026-08-17/xiong-68020-vs-ours.txt`](../../bench-data/2026-08-17/xiong-68020-vs-ours.txt)
 
-[`upstream-collision-68019.md`](upstream-collision-68019.md) §7 measured their
+[`upstream-collision-68019.md`](../local/upstream-collision-68019.md) §7 measured their
 *enumeration* on 2026-08-15. This measures their **filter**, which is what 68020
 adds and what our own filter work of this morning makes directly comparable.
 
@@ -39,7 +39,7 @@ trusted.som on that inode:
 
 **The MDT inode holds size 0 and blockcount 0 for a 1.5 GiB file.** The real
 number is in `trusted.som`, and it matches the client exactly. This is
-[`filter-levels.md`](filter-levels.md) §4 as a hex dump.
+[`filter-levels.md`](../filter-levels.md) §4 as a hex dump.
 
 ## 2. Their `--size` on an MDT selects on that zero
 

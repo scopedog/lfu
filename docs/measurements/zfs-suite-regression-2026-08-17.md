@@ -2,9 +2,9 @@
 
 **Date:** 2026-08-17 (after
 [`zfs-tier1-measured-2026-08-17.md`](zfs-tier1-measured-2026-08-17.md))
-**Lab scripts:** [`tests/lab-zfs/`](../tests/lab-zfs/) — `10-suite.sh`,
+**Lab scripts:** [`tests/lab-zfs/`](../../tests/lab-zfs) — `10-suite.sh`,
 `11-swap.sh`, `12-recheck.sh`
-**Raw data:** [`bench-data/2026-08-17/zfs-suite-regression.txt`](../bench-data/2026-08-17/zfs-suite-regression.txt)
+**Raw data:** [`bench-data/2026-08-17/zfs-suite-regression.txt`](../../bench-data/2026-08-17/zfs-suite-regression.txt)
 
 Every ZFS run so far tested the feature we *added*. This tests the code we
 **touched**. `lustre/osd-zfs/osd_scrub.c` is the scrub's own file, and the patch

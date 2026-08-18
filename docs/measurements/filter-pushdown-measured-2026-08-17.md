@@ -2,12 +2,12 @@
 
 **Date:** 2026-08-17
 **Patches:** the six-patch stack through
-[`patches/otable-xattr-v2_17_55.patch`](../patches/otable-xattr-v2_17_55.patch)
-**Module:** [`src/kernel/lfu_ring.c`](../src/kernel/lfu_ring.c) ·
-**Consumer:** [`src/lfu_scan_kmdt.c`](../src/lfu_scan_kmdt.c)
-**Raw data:** [`bench-data/2026-08-17/filter-pushdown-lab.txt`](../bench-data/2026-08-17/filter-pushdown-lab.txt)
+[`patches/otable-xattr-v2_17_55.patch`](../../patches/otable-xattr-v2_17_55.patch)
+**Module:** [`src/kernel/lfu_ring.c`](../../src/kernel/lfu_ring.c) ·
+**Consumer:** [`src/lfu_scan_kmdt.c`](../../src/lfu_scan_kmdt.c)
+**Raw data:** [`bench-data/2026-08-17/filter-pushdown-lab.txt`](../../bench-data/2026-08-17/filter-pushdown-lab.txt)
 
-[`filter-levels.md`](filter-levels.md) §5.4 shipped the OSD-side filter with one
+[`filter-levels.md`](../filter-levels.md) §5.4 shipped the OSD-side filter with one
 row of its verification table empty: *"`lfu_ring.c` and `osd_otable_it_xattr()`
 compile and run — not done."* This fills it in.
 
@@ -40,7 +40,7 @@ present  osd_raw_attr         present  osd_otable_it_xattr present  lfu_ra_block
 really does compile for both userspace and kernel. `CONFIG_GLOB=y`, so
 `glob_match()` is there for `--name` and `--pool`.
 
-Two corrections to [`notes/reference/build_install.md`](../../notes/reference/build_install.md)
+Two corrections to [`notes/reference/build_install.md`](../../../notes/reference/build_install.md)
 fell out of this: **every `downloads.lustre.software` path in §3.1 now 404s**,
 including the GPG key, so the Lustre-patched e2fsprogs has to come from
 `downloads.whamcloud.com/public/e2fsprogs/latest/el9/` (1.47.3-wc2); and
@@ -158,7 +158,7 @@ about where the 8% comes from, because "filtering makes it faster" sounds
 backwards.
 
 Up to the filter, the producer loop
-([`lfu_ring.c`](../src/kernel/lfu_ring.c) §`lfu_ring_producer`) does the same
+([`lfu_ring.c`](../../src/kernel/lfu_ring.c) §`lfu_ring_producer`) does the same
 work per object either way: `iops->rec(..., DORA_ATTR)` — the attributes are
 read regardless, block parsing has the raw inode in hand anyway —
 `lfu_rec_from_dor()` to fill the record, then `lfu_filter_tier0()`, which for

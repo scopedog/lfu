@@ -2,8 +2,8 @@
 
 **Date:** 2026-08-17 (evening; the filter pushdown lab of the same morning is
 [`filter-pushdown-measured-2026-08-17.md`](filter-pushdown-measured-2026-08-17.md))
-**Lab scripts:** [`tests/lab-zfs/`](../tests/lab-zfs/)
-**Raw data:** [`bench-data/2026-08-17/zfs-tier1.txt`](../bench-data/2026-08-17/zfs-tier1.txt)
+**Lab scripts:** [`tests/lab-zfs/`](../../tests/lab-zfs)
+**Raw data:** [`bench-data/2026-08-17/zfs-tier1.txt`](../../bench-data/2026-08-17/zfs-tier1.txt)
 
 Until this run, a filter needing `trusted.som`, `trusted.lov`, `trusted.lmv` or
 `trusted.link` was **refused at start-up** on a mounted ZFS target: osd-zfs
@@ -78,9 +78,9 @@ client's `lfs path2fid` and `stat` byte for byte.
 `--dev-blocks +1G` selected **0** objects where `--blocks +1G` selected 1, on the
 same namespace in the same run. The metadata object's own footprint is not the
 file's size; only `trusted.som` carries the whole-file number. This is
-[`filter-levels.md`](filter-levels.md) §4 on a second backend, and it is the
+[`filter-levels.md`](../filter-levels.md) §4 on a second backend, and it is the
 same distinction LU-20591's 68020 filter gets wrong on an MDT
-([`xiong-68020-filter-measured-2026-08-17.md`](xiong-68020-filter-measured-2026-08-17.md) §2).
+([`xiong-68020-filter-measured-2026-08-17.md`](../upstream/xiong-68020-filter-measured-2026-08-17.md) §2).
 
 ## 5. The two evaluators agree — 14 of 14, as FID sets
 
@@ -139,7 +139,7 @@ are small by construction: SOM is 24 bytes, LMV is small, linkea is capped at
 (a 1500-stripe file measured 36,032 bytes — comfortably inside the budget, and
 served `inline`).
 
-So on osd-zfs the tier-1/tier-2 cliff of [`filter-levels.md`](filter-levels.md)
+So on osd-zfs the tier-1/tier-2 cliff of [`filter-levels.md`](../filter-levels.md)
 §6 does not merely flatten; for the attributes a filter reads it **does not
 exist**. Two honest consequences:
 
@@ -175,7 +175,7 @@ Two things the ZFS column says that the ldiskfs one does not.
 reads an xattr for *every object in the namespace* costs 1.6%. The same
 predicate on ldiskfs costs 27%, because there the value has to be found in the
 inode's xattr area per object; here it is a lookup in an nvlist the iterator has
-already unpacked to get the FID. §6 of [`filter-levels.md`](filter-levels.md)
+already unpacked to get the FID. §6 of [`filter-levels.md`](../filter-levels.md)
 predicted this from the on-disk layout; this measures it.
 
 **Rejecting early wins much less here (+0.6% against ldiskfs's +8.3%)**, and for

@@ -1,9 +1,9 @@
 # Step 5 Measured — Parallel Enumeration Clears 1M obj/s, Reverses the ZFS Posture, and Ends the LFSCK Conflict
 
 **Date:** 2026-08-15
-**Design:** [`parallel-osd-scanner-2026-08-15.md`](parallel-osd-scanner-2026-08-15.md)
+**Design:** [`parallel-osd-scanner-2026-08-15.md`](../superseded/parallel-osd-scanner-2026-08-15.md)
 **Patch:** `patches/parallel-it-v2_17_55.patch` · **Harness:** `src/kernel/lfu_par.c`
-**Raw data:** [`bench-data/2026-08-15/`](../bench-data/2026-08-15/)
+**Raw data:** [`bench-data/2026-08-15/`](../../bench-data/2026-08-15)
 **Supersedes:** `design-osd-scanner.md` §8.1 (the singleton as a hard ceiling)
 and the open item left by `scrub-decomposition-2026-08-07.md` step 2.
 
@@ -334,7 +334,7 @@ A third lab settled the provenance question: **one Lustre built with both OSDs**
 filesystem → Option 2 on it → Option 1 on that same unmounted device; then the
 ZFS pool → Option 2 → Option 1 with the pool exported. Same kernel, e2fsprogs,
 OpenZFS, `createmany` recipe and hour throughout. Raw data:
-[`bench-data/2026-08-15/same-lab-head-to-head.txt`](../bench-data/2026-08-15/same-lab-head-to-head.txt).
+[`bench-data/2026-08-15/same-lab-head-to-head.txt`](../../bench-data/2026-08-15/same-lab-head-to-head.txt).
 
 | | Option 1 · device scanner | Option 2 · OSD scanner, sharded | faster by |
 |---|---|---|---|

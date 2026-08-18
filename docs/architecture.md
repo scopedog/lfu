@@ -179,7 +179,7 @@ integration is an Output Format module feeding them directly.
 > **Detailed design: [`design-ldiskfs-scanner.md`](design-ldiskfs-scanner.md).**
 > **Revised 2026-08-06:** this is now the first target, not the alternative.
 > A working prototype exists; the throughput benchmark
-> ([`throughput-results-2026-08-06.md`](throughput-results-2026-08-06.md)) measured it at
+> ([`throughput-results-2026-08-06.md`](measurements/throughput-results-2026-08-06.md)) measured it at
 > **705k inodes/s** against **105k objects/s** for the §6b iterator path on
 > identical hardware. It is also the only option that works on **old servers
 > with no LFU kernel support** and for **offline analysis of an unmounted MDT

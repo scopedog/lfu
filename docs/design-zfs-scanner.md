@@ -28,7 +28,7 @@ directly from userspace, without going through a mounted Lustre server.
 `design-ldiskfs-scanner.md` covers ldiskfs only. Roughly the same job on ZFS
 needs different machinery, and the OSD API scanner — the other route to ZFS —
 is second-wave work gated on a 6.7× throughput gap
-([`throughput-results-2026-08-06.md`](throughput-results-2026-08-06.md)). A
+([`throughput-results-2026-08-06.md`](measurements/throughput-results-2026-08-06.md)). A
 userspace ZFS scanner is not a substitute for the OSD path; it serves the cases
 the OSD path structurally cannot: **exported or unmounted pools, snapshots,
 servers with no LFU kernel support, and analysis on a different machine
@@ -275,7 +275,7 @@ The ldiskfs arithmetic (`design-ldiskfs-scanner.md` §11.1) carries over in shap
 
 **No ZFS numbers exist.** None of the measured figures transfer: 705k inodes/s
 (ldiskfs scanner) and 105k objects/s (OSD path via OI Scrub) are both ldiskfs
-measurements on one VM. Running [`throughput-test-plan.md`](throughput-test-plan.md)
+measurements on one VM. Running [`throughput-test-plan.md`](superseded/throughput-test-plan.md)
 against a ZFS MDT — for this scanner *and* for ZFS OI Scrub as the OSD-path proxy
 — is required before any claim is made, and the plan needs one change: populate
 with `dnodesize=auto` and verify the pool is not host-cached.
@@ -411,7 +411,7 @@ lab does not currently have.
 ## 15. Verified against a real osd-zfs MDT **[added v0.3, 2026-08-07]**
 
 The §14 fidelity gap is **closed**. Full results:
-[`zfs-mdt-verification-2026-08-07.md`](zfs-mdt-verification-2026-08-07.md) —
+[`zfs-mdt-verification-2026-08-07.md`](measurements/zfs-mdt-verification-2026-08-07.md) —
 Lustre `v2_17_55` + OpenZFS 2.2.10 on Rocky 9.8, single-node `llmount.sh
 FSTYPE=zfs`, 1,027-FID `lfs path2fid` oracle and a 301k-object scale run.
 

@@ -16,7 +16,7 @@
  *   §6   snapshot-first             — live datasets miss the open txg
  *
  * Verified against a real osd-zfs MDT 2026-08-07
- * (docs/zfs-mdt-verification-2026-08-07.md).  The read path is the same
+ * (docs/measurements/zfs-mdt-verification-2026-08-07.md).  The read path is the same
  * sequence as osd_scrub.c:395-407 and osd_xattr.c:47-70.
  */
 #include <sys/zfs_context.h>

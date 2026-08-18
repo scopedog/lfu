@@ -113,7 +113,7 @@ a scan.
   | best | 1,435,080 (flat at every `-j`) | 731,452 at 16 threads (714 MB/s, 51%) |
 
   **Superseded 2026-08-16 (later) by
-  [`blockparse-2026-08-16.md`](blockparse-2026-08-16.md).** Option 2's cold
+  [`blockparse-2026-08-16.md`](measurements/blockparse-2026-08-16.md).** Option 2's cold
   ceiling was `ldiskfs_iget()`, not the kernel. Reading the inode-table block
   directly and supplying an explicit readahead window in place of the one
   `__ldiskfs_get_inode_loc()` was providing:

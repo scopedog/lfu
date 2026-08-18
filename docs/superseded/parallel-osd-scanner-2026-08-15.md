@@ -6,7 +6,7 @@ fan-out, `rec()` attributes, ring), `design-osd-scanner.md` §8.1 (the
 singleton), and the LU-20591 exchange of 2026-08-15 in which we committed
 publicly to prototype this and post the scaling curve.
 **Status:** **superseded in its predictions by
-[`parallel-osd-measured-2026-08-15.md`](parallel-osd-measured-2026-08-15.md)**,
+[`parallel-osd-measured-2026-08-15.md`](../measurements/parallel-osd-measured-2026-08-15.md)**,
 which ran the matrix below on a fresh ldiskfs lab the same day: 2.03M obj/s at
 2 threads (2.4x the singleton), correctness identical to the singleton, the
 wall identified as the kernel's global `inode_hash_lock`, and LFSCK

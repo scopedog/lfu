@@ -288,7 +288,7 @@ three tier-0 fields are filled on both OSD read paths, and tier 1 is served by
 a `rec(DORA_XATTR)` iterator extension out of the mapped inode-table block. The
 "filter program is UAPI" requirement is met by `struct lfu_filter` as an ioctl
 payload, validated index by index before use. **Built and run 2026-08-17 on a GCP lab** —
-[`filter-pushdown-measured-2026-08-17.md`](filter-pushdown-measured-2026-08-17.md):
+[`filter-pushdown-measured-2026-08-17.md`](measurements/filter-pushdown-measured-2026-08-17.md):
 every predicate agrees with the userspace device scanner on the same device, the
 `-blocks +1G` trap is reproduced on a real MDT, tier 2 fired once out of 302,122
 objects and was counted, and a rejecting tier-0 filter runs **8% faster than no
@@ -296,7 +296,7 @@ filter at all** because a rejected object never enters the ring. Cold, parallel
 enumeration into one ring, and ZFS remain unmeasured. **osd-zfs gained the same
 `rec(DORA_XATTR)` later that day, and it too is now built and run** — served
 from the SA xattr nvlist its iterator already unpacks for the LMA
-([`zfs-tier1-measured-2026-08-17.md`](zfs-tier1-measured-2026-08-17.md)): the
+([`zfs-tier1-measured-2026-08-17.md`](measurements/zfs-tier1-measured-2026-08-17.md)): the
 whole vocabulary works on a live ZFS MDT, 14 of 14 filters agree with the
 userspace scanner, and tier 1 costs 1.6% there against 27% on ldiskfs. Cold and
 parallel enumeration into one ring remain unmeasured on both backends.
@@ -309,7 +309,7 @@ them. Also unresolved: what an *unknown* size means to an aggregation.
 ### Does readahead cost anything warm? **[new 2026-08-17]**
 
 Unmeasured, and it bears on a published headline. Every row of the warm curve in
-[`blockparse-2026-08-16.md`](blockparse-2026-08-16.md) §3 — including the
+[`blockparse-2026-08-16.md`](measurements/blockparse-2026-08-16.md) §3 — including the
 17,392,147 obj/s peak and the 10.4× — ran at `lfu_ra_blocks=32`, the default,
 and the axis was never swept warm.
 
@@ -330,7 +330,7 @@ fix would be for `lfu_par` to print them itself, which needs a way for one
 module to read another's parameters.
 
 **Answered 2026-08-17 — it costs, by 22% at one thread and 90% at four**:
-[`warm-readahead-and-cold-2026-08-17.md`](warm-readahead-and-cold-2026-08-17.md).
+[`warm-readahead-and-cold-2026-08-17.md`](measurements/warm-readahead-and-cold-2026-08-17.md).
 `ra=0` gives 5.21M obj/s at j1 against 4.26M at the default 32, and 15.1M against
 7.95M at j4, monotonic across the window range, with the iget-path control moving
 only ~7% as predicted. So the published warm rows were understated, and by more
@@ -347,7 +347,7 @@ change, not a tuning change.
 ### Does filter pushdown cost anything? **[answered 2026-08-17]**
 
 No — it is free or better in every regime measured
-([`warm-readahead-and-cold-2026-08-17.md`](warm-readahead-and-cold-2026-08-17.md)
+([`warm-readahead-and-cold-2026-08-17.md`](measurements/warm-readahead-and-cold-2026-08-17.md)
 §3). Warm, a rejecting tier-0 filter is **+8%** because the object never enters
 the ring; cold it is +4%. And **cold, a tier-1 predicate costs nothing at all**:
 `--name` did 302,018 xattr lookups at the same rate as no filter, because the

@@ -9,8 +9,9 @@ build/
 Module.symvers
 modules.order
 
-# internal upstream analysis — kept local, not published
-docs/upstream-collision-68019.md
+# working material kept local, not published: reviewer correspondence and
+# internal upstream analysis
+docs/local/
 
 # editor scratch
 *.swp

@@ -105,7 +105,7 @@ unexplained gap; the sound comparisons are within a single table.
 `lfu_ra_blocks=32`, and that axis was never swept until 2026-08-17: warm, readahead
 *costs* — turning it off is **+22% at one thread and +90% at four**, monotonically
 across the window range, while the `iget`-path control moves only ~7%
-([`docs/warm-readahead-and-cold-2026-08-17.md`](docs/warm-readahead-and-cold-2026-08-17.md)).
+([`docs/measurements/warm-readahead-and-cold-2026-08-17.md`](docs/measurements/warm-readahead-and-cold-2026-08-17.md)).
 Cold it is worth 8× when the device is latency-bound and irrelevant when it is
 bandwidth-saturated, so a single static window is wrong in two of three regimes.
 The figures above are not restated from the newer lab, whose rates sit 1.6× below
@@ -168,6 +168,10 @@ Rollout is incremental with **no flag day**: server-only mode (already improves
 
 ## Documents
 
+**[`docs/README.md`](docs/README.md) is the index** — design documents (current),
+measurement records (dated and frozen), upstream analysis, tickets, and
+superseded material, each marked as such. The table below is the highlights.
+
 | Doc | Contents |
 |-----|----------|
 | [`Documentation/man8/lfind.8`](Documentation/man8/lfind.8) | **`lfind(8)` — the user-facing reference.** Backends, options, all 33 filters, the *unknown* outcome, exit statuses. Written in upstream's `Documentation/man8/` style for submission as-is |
@@ -175,19 +179,19 @@ Rollout is incremental with **no flag day**: server-only mode (already improves
 | [`docs/design-ldiskfs-scanner.md`](docs/design-ldiskfs-scanner.md) | **ldiskfs device scanner — first wave.** Design + prototype results |
 | [`docs/design-zfs-scanner.md`](docs/design-zfs-scanner.md) | **ZFS device scanner.** Design + prototype (libzpool, snapshot-first) |
 | [`docs/design-osd-scanner.md`](docs/design-osd-scanner.md) | **OSD API scanner — second wave.** In-kernel, all backends; gated on the throughput gap |
-| [`docs/parallel-osd-scanner-2026-08-15.md`](docs/parallel-osd-scanner-2026-08-15.md) | **Parallel enumeration (step 5) — design.** `DOIF_PARALLEL` private iterators + the `lfu_par` harness |
-| [`docs/parallel-osd-measured-2026-08-15.md`](docs/parallel-osd-measured-2026-08-15.md) | **Parallel enumeration — measured, both backends.** ldiskfs 2.03M obj/s (2.4×, wall = `inode_hash_lock`); ZFS 561k (3.64×) and now **2.5× the userspace scanner**; LFSCK coexistence proven |
-| [`docs/blockparse-2026-08-16.md`](docs/blockparse-2026-08-16.md) | **Block parsing — the `inode_hash_lock` wall removed.** Read the inode table directly instead of one `iget` per inode: **17.4M obj/s warm (10.4×)**, and with an explicit readahead window **1,420,664 cold at 99% of an NVMe stripe — parity with the userspace device scanner** |
-| [`docs/cold-on-fast-storage-2026-08-16.md`](docs/cold-on-fast-storage-2026-08-16.md) | **Cold, on NVMe — a retraction.** Cold is latency-bound for Option 2 and scales 3.6× with threads; Option 1 saturates 93% of the device with one thread. "Cold is a tie" was an artifact of 190 MB/s storage |
+| [`docs/superseded/parallel-osd-scanner-2026-08-15.md`](docs/superseded/parallel-osd-scanner-2026-08-15.md) | **Parallel enumeration (step 5) — design.** `DOIF_PARALLEL` private iterators + the `lfu_par` harness |
+| [`docs/measurements/parallel-osd-measured-2026-08-15.md`](docs/measurements/parallel-osd-measured-2026-08-15.md) | **Parallel enumeration — measured, both backends.** ldiskfs 2.03M obj/s (2.4×, wall = `inode_hash_lock`); ZFS 561k (3.64×) and now **2.5× the userspace scanner**; LFSCK coexistence proven |
+| [`docs/measurements/blockparse-2026-08-16.md`](docs/measurements/blockparse-2026-08-16.md) | **Block parsing — the `inode_hash_lock` wall removed.** Read the inode table directly instead of one `iget` per inode: **17.4M obj/s warm (10.4×)**, and with an explicit readahead window **1,420,664 cold at 99% of an NVMe stripe — parity with the userspace device scanner** |
+| [`docs/measurements/cold-on-fast-storage-2026-08-16.md`](docs/measurements/cold-on-fast-storage-2026-08-16.md) | **Cold, on NVMe — a retraction.** Cold is latency-bound for Option 2 and scales 3.6× with threads; Option 1 saturates 93% of the device with one thread. "Cold is a tie" was an artifact of 190 MB/s storage |
 | [`docs/option-comparison.md`](docs/option-comparison.md) | The two MDT approaches side by side, with measurements |
-| [`docs/throughput-test-plan.md`](docs/throughput-test-plan.md) / [`docs/throughput-results-2026-08-06.md`](docs/throughput-results-2026-08-06.md) | The benchmark that set the build order: 705k vs 105k objects/sec |
-| [`docs/upstream-survey.md`](docs/upstream-survey.md) | What already exists in `lustre-release` and what LFU must build |
+| [`docs/superseded/throughput-test-plan.md`](docs/superseded/throughput-test-plan.md) / [`docs/measurements/throughput-results-2026-08-06.md`](docs/measurements/throughput-results-2026-08-06.md) | The benchmark that set the build order: 705k vs 105k objects/sec |
+| [`docs/upstream/upstream-survey.md`](docs/upstream/upstream-survey.md) | What already exists in `lustre-release` and what LFU must build |
 | [`docs/filter-levels.md`](docs/filter-levels.md) | **Filters — all 34 `lfs find` predicates, per scanner, with a cost tier each.** Why `--size`/`--blocks` are tier 1 and not tier 0, and what "unknown" means on an MDT-only scan. Implemented on all three scanners 2026-08-17 |
-| [`docs/filter-pushdown-measured-2026-08-17.md`](docs/filter-pushdown-measured-2026-08-17.md) | **Filter pushdown, measured.** The kernel side built and run: every predicate agrees with the userspace scanner, the `-blocks +1G` trap reproduced on a real MDT, and a rejecting tier-0 filter is **8% faster than no filter at all** |
-| [`docs/xiong-68020-filter-measured-2026-08-17.md`](docs/xiong-68020-filter-measured-2026-08-17.md) | **LU-20591's filter (68020) against ours**, one box, one MDT image. Their filter is worth +26% to them against our +12%; their absolute rate is 6–7× lower; and on an MDT their `--size` selects on the inode's zero, so `--size +1G` finds nothing and `--size -1M` includes a 1.5 GiB file |
-| [`docs/zfs-tier1-measured-2026-08-17.md`](docs/zfs-tier1-measured-2026-08-17.md) | **Tier 1 on a live ZFS MDT — built and run.** The whole `lfs find` vocabulary now works on a *mounted, serving* ZFS target: 14 of 14 filters agree with the userspace scanner as FID sets, and a predicate reading an xattr for every one of 100,112 objects costs **1.6%** (27% on ldiskfs). Tier 2 proved unreachable there, with a `zdb` dump showing why |
-| [`docs/zfs-suite-regression-2026-08-17.md`](docs/zfs-suite-regression-2026-08-17.md) | **Lustre's own suites against the patched osd-zfs.** `sanity-scrub`, a `sanity` subset and `conf-sanity`, each run twice — patched and clean `v2_17_55`, module sets swapped in one boot. Identical results, clean kernel log: **no regressions**. The four `sanity` failures are a 0700 home directory, and are present on both |
-| [`docs/warm-readahead-and-cold-2026-08-17.md`](docs/warm-readahead-and-cold-2026-08-17.md) | **Warm readahead costs, and cold the filter is free.** `lfu_ra_blocks=32` is the wrong default warm — off is +22% at 1 thread, **+90% at 4** — while cold a tier-1 predicate doing 302k xattr lookups costs nothing |
+| [`docs/measurements/filter-pushdown-measured-2026-08-17.md`](docs/measurements/filter-pushdown-measured-2026-08-17.md) | **Filter pushdown, measured.** The kernel side built and run: every predicate agrees with the userspace scanner, the `-blocks +1G` trap reproduced on a real MDT, and a rejecting tier-0 filter is **8% faster than no filter at all** |
+| [`docs/upstream/xiong-68020-filter-measured-2026-08-17.md`](docs/upstream/xiong-68020-filter-measured-2026-08-17.md) | **LU-20591's filter (68020) against ours**, one box, one MDT image. Their filter is worth +26% to them against our +12%; their absolute rate is 6–7× lower; and on an MDT their `--size` selects on the inode's zero, so `--size +1G` finds nothing and `--size -1M` includes a 1.5 GiB file |
+| [`docs/measurements/zfs-tier1-measured-2026-08-17.md`](docs/measurements/zfs-tier1-measured-2026-08-17.md) | **Tier 1 on a live ZFS MDT — built and run.** The whole `lfs find` vocabulary now works on a *mounted, serving* ZFS target: 14 of 14 filters agree with the userspace scanner as FID sets, and a predicate reading an xattr for every one of 100,112 objects costs **1.6%** (27% on ldiskfs). Tier 2 proved unreachable there, with a `zdb` dump showing why |
+| [`docs/measurements/zfs-suite-regression-2026-08-17.md`](docs/measurements/zfs-suite-regression-2026-08-17.md) | **Lustre's own suites against the patched osd-zfs.** `sanity-scrub`, a `sanity` subset and `conf-sanity`, each run twice — patched and clean `v2_17_55`, module sets swapped in one boot. Identical results, clean kernel log: **no regressions**. The four `sanity` failures are a 0700 home directory, and are present on both |
+| [`docs/measurements/warm-readahead-and-cold-2026-08-17.md`](docs/measurements/warm-readahead-and-cold-2026-08-17.md) | **Warm readahead costs, and cold the filter is free.** `lfu_ra_blocks=32` is the wrong default warm — off is +22% at 1 thread, **+90% at 4** — while cold a tier-1 predicate doing 302k xattr lookups costs nothing |
 | [`docs/open-questions.md`](docs/open-questions.md) | Resolved and live design questions |
 | [`docs/reference/`](docs/reference/) | Source PDFs |
 
@@ -225,7 +229,7 @@ against the same device agree on all twelve, comparing FID *sets* rather than
 counts.
 
 **Cost, measured on a 302,122-object MDT** — the surprise is the sign on the
-second row ([`docs/filter-pushdown-measured-2026-08-17.md`](docs/filter-pushdown-measured-2026-08-17.md)):
+second row ([`docs/measurements/filter-pushdown-measured-2026-08-17.md`](docs/measurements/filter-pushdown-measured-2026-08-17.md)):
 
 | filter | obj/s | vs no filter | xattr lookups |
 |---|---|---|---|

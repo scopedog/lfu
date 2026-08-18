@@ -6,7 +6,7 @@
 hunk: `DOIF_ATTR`, `DORA_ATTR`, `struct dt_otable_rec`)
 **Base:** `v2_17_55-22-g61b1dc9d13`
 **Status:** **compiled and measured 2026-08-10** — see
-[`rec-attr-zfs-measured-2026-08-10.md`](rec-attr-zfs-measured-2026-08-10.md).
+[`rec-attr-zfs-measured-2026-08-10.md`](../measurements/rec-attr-zfs-measured-2026-08-10.md).
 It built clean on the first attempt and holds the iterator's rate with 100%
 attribute capture (110,463 vs 109,270 obj/s bare-FID, same boot, 2M objects).
 This document is the design rationale; the numbers below marked "expected" have
@@ -99,7 +99,7 @@ bare-FID on the same boot), and ZFS should hold its rate.
 passes: **110,463 obj/s with 100% attribute capture vs 109,270 obj/s
 bare-FID** — the with-attributes arm marginally ahead, i.e. free within noise.
 Full run in
-[`rec-attr-zfs-measured-2026-08-10.md`](rec-attr-zfs-measured-2026-08-10.md).
+[`rec-attr-zfs-measured-2026-08-10.md`](../measurements/rec-attr-zfs-measured-2026-08-10.md).
 
 Two things the prediction got wrong, both about context rather than the patch:
 
