@@ -153,10 +153,42 @@ Medians of three, warm, one enumerator thread, 302,122 objects.
 Three things worth taking from this.
 
 **A rejecting tier-0 filter is faster than no filter at all** — 3.88M against
-3.59M, +8%. That is pushdown paying for itself: a rejected object never enters
-the ring, so the ring write, the `copy_to_user` and all the userspace record
-handling are saved. The premise of design-osd-scanner.md §4 ("the ring is the
-scarce resource") is now measured rather than asserted.
+3.59M, +8%. That is pushdown paying for itself, and it is worth being precise
+about where the 8% comes from, because "filtering makes it faster" sounds
+backwards.
+
+Up to the filter, the producer loop
+([`lfu_ring.c`](../src/kernel/lfu_ring.c) §`lfu_ring_producer`) does the same
+work per object either way: `iops->rec(..., DORA_ATTR)` — the attributes are
+read regardless, block parsing has the raw inode in hand anyway —
+`lfu_rec_from_dor()` to fill the record, then `lfu_filter_tier0()`, which for
+`--uid 4242` is one integer compare on a field already loaded and touches no
+xattr area at all.
+
+Then the paths diverge, and only the *matching* one pays:
+
+- the ring-space check, and a stall if the consumer is behind
+- `lfu_fill_rec()` into `r->buf[head & (ring_recs - 1)]` — a wide store into
+  the ring
+- `smp_store_release(&r->head, ...)`, and a `wake_up(&r->wq_cons)` per batch
+- downstream, the consumer's `read()` → `copy_to_user()` for all 302,122
+  records and the userspace record handling, on the same 8 vCPUs
+
+`--uid 4242` matches nothing, so all of that disappears for the whole scan.
+
+Two things in the data pin the explanation down rather than leaving it a story.
+**`--type f` is the control**: the same tier-0 evaluator, matching ~everything,
+costs −0.4%. So evaluation itself is free to within the noise, and the +8% is
+entirely the emit path not being taken. And **`stalls=0` on every run**, so it
+is not the producer blocking on a full ring — it is the per-record store, the
+`copy_to_user`, the consumer's CPU, and the ring cachelines bouncing between
+the producer kthread and the reader.
+
+That also predicts the shape of the win: it scales with selectivity. A tier-0
+filter rejecting half the objects should land near +4%, and one that matches
+everything near 0 — which is exactly what `--type f` does. The premise of
+design-osd-scanner.md §4 ("the ring is the scarce resource") is now measured
+rather than asserted.
 
 **A pure tier-0 query never opens the xattr area.** `inline=0 external=0
 iget=0` on every tier-0 row. The demand mask does exactly what §9 asked for.
