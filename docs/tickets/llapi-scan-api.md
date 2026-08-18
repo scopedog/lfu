@@ -52,6 +52,22 @@ push.
 
 ---
 
+## Before pushing — state as of 2026-08-18
+
+- [x] `contrib/scripts/checkpatch.pl` clean on both patches, bar one advisory
+      ("added file(s), does MAINTAINERS need updating?"). Fixing it took
+      moving the `LLAPI_SCAN_*` comments above their `#define`s, shortening
+      two struct comments, and reordering the man page's NOTES after ERRORS.
+- [x] Builds under the tree's own `-Wall -Werror`; `sanity` 56\* identical
+      before and after; ten lab checks green.
+- [ ] **Nothing in-tree calls `llapi_scan_namespace()`.** LU-20605 uses the
+      internal `llapi_scan_rec_dirent()` and `llapi_scan_rec_gather()`, not
+      the public entry point, so the "stacked series shows the caller"
+      argument does not cover the exported symbol. Either add an in-tree
+      test that calls it, or expect the question on review.
+- [ ] `Test-Parameters:` — neither commit has one. The default autotest run
+      covers `sanity`; a line is only needed to ask for more.
+
 ## Open on the ticket
 
 - [ ] The record's field set — proposed in the patch, from the prototype's
