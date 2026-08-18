@@ -1,7 +1,9 @@
 # LU-20603: client-side namespace scanner API in liblustreapi
 
 **Filed 2026-08-18 as LU-20603** — Technical task, Open, linked to LU-20462 and
-LU-17814. The reusable half of LU-20462's first step (*replacing `lfs find` on
+LU-17814. **Pushed to Gerrit as
+[68094](https://review.whamcloud.com/c/fs/lustre-release/+/68094)**, parent of
+[68095](https://review.whamcloud.com/c/fs/lustre-release/+/68095) (LU-20605). The reusable half of LU-20462's first step (*replacing `lfs find` on
 the client side*); its first consumer is drafted in
 [`lfs-find-on-llapi-scan.md`](lfs-find-on-llapi-scan.md) and **not yet filed**.
 
@@ -52,7 +54,7 @@ push.
 
 ---
 
-## Before pushing — state as of 2026-08-18
+## Pre-push state, 2026-08-18
 
 - [x] `contrib/scripts/checkpatch.pl` clean on both patches, bar one advisory
       ("added file(s), does MAINTAINERS need updating?"). Fixing it took
