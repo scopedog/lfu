@@ -32,6 +32,15 @@ Two reasons this is the right first consumer, beyond the HLD naming it:
 suite for `lfs find` semantics. Keeping it green is the acceptance criterion,
 and being obliged to keep it green is the point.
 
+**Known piece of work, from the LU-20603 lab.** A regular file's record carries
+neither `LLAPI_SCAN_SIZE` nor `LLAPI_SCAN_BLOCKS`: the data is on OSTs and the
+MDT's statx has no authoritative size, so the mask reports "cannot answer"
+rather than zero. `lfs find` handles this today by testing `OBD_MD_FLSIZE` /
+`OBD_MD_FLLAZYSIZE` and falling back to a `stat()` glimpse. `--size`, `--blocks`
+and `--lazy` therefore need that fallback carried over explicitly rather than
+inherited — it is the one place where consuming records instead of walking and
+testing in one pass changes what the code has to do.
+
 **Scope boundary.** Filter evaluation stays where it is for this patch: the goal
 is a behaviour-preserving change of internals. Pushing the filter down into the
 scanner, with the I/O cost tiers, is separate work and a separate ticket.
