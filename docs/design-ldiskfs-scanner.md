@@ -300,6 +300,12 @@ quota files, `last_rcvd`, `seq`/`fld` — then exclude their contents by inode
 number. A handful of directory reads, once per scan, bounded cost. This is
 question *Internal-object exclusion*.
 
+**Filed upstream as LU-20602** (2026-08-18): set a compat flag in `trusted.lma`
+at creation so the object says what it is, with the initial LFSCK setting it on
+existing filesystems. The denylist above remains necessary until that lands and
+for filesystems that have not run the new LFSCK, so it is the fix here either
+way. Source text: `tickets/lma-internal-objects.md`.
+
 ### 5.2 Objects deliberately not emitted
 
 Internal objects are skipped by default (`LFU_SCAN_INTERNAL` overrides, for
@@ -870,7 +876,7 @@ first — everything else is easier once the two enumerations can be diffed.
 | Topic | Question | Status | Blocks |
 |---|---|---|---|
 | **Filter cost tiers** | Can the filter API expose per-predicate cost tiers (§7)? | open — needs the Filter Rule module owner | Whether pushdown ordering is possible at all |
-| **Internal-object exclusion** | **How to exclude internal objects LMA cannot identify (§5.1b)?** | open — proposed: inode-number denylist from a one-time root directory read | Correctness of "visible"; 3 objects leak today |
+| **Internal-object exclusion** | **How to exclude internal objects LMA cannot identify (§5.1b)?** | open here — inode-number denylist from a one-time root directory read; **filed upstream as LU-20602** for the durable fix | Correctness of "visible"; 3 objects leak today |
 | **Should metadata_csum be on?** | **Should `metadata_csum` be enabled on Lustre MDTs?** It is off today (§17) and is the only exact torn-read detector | open — a question for Andreas; affects `mkfs.lustre` defaults | Whether §8.2 stays heuristic forever |
 | **xattr API depth** | Does `ext2fs_xattrs_read_inode()` follow `i_file_acl`, or is it inline-only? (§6.1) | **answered 2026-08-17: it follows.** Tier 1 is free and correct for spilled xattrs; there is no inline-only request, so tier-2 *cost* can only be inferred, not counted | Tier 1 needs no hand-rolled parser; the tier-2 rate needs timing, not a counter |
 | **Replica vs primary flag** | Is there an LMA/LMR flag distinguishing replica from primary (*LMR duplicate objects*)? | open | Record layout, dedup correctness |
