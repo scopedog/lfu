@@ -301,10 +301,15 @@ number. A handful of directory reads, once per scan, bounded cost. This is
 question *Internal-object exclusion*.
 
 **Filed upstream as LU-20602** (2026-08-18): set a compat flag in `trusted.lma`
-at creation so the object says what it is, with the initial LFSCK setting it on
-existing filesystems. The denylist above remains necessary until that lands and
-for filesystems that have not run the new LFSCK, so it is the fix here either
-way. Source text: `tickets/lma-internal-objects.md`.
+so the object says what it is. Both LMAs turn out to be written by the initial
+OI Scrub — `osd_ios_scan_one()`, `osd-ldiskfs/osd_scrub.c:1876`, reaching
+`osd_ea_fid_set(..., 0, 0)` at :1918 — so the fix is one flag argument there
+rather than anything at creation time. The same trail shows the
+`update_log_dir` objects take their normal-sequence FIDs from their entry
+names by design, which is why FID range cannot separate them. The denylist
+above remains necessary until the fix lands and for filesystems that have not
+run the new LFSCK, so it is the fix here either way. Source text:
+`tickets/lma-internal-objects.md`.
 
 ### 5.2 Objects deliberately not emitted
 
