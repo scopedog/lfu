@@ -60,11 +60,14 @@ push.
       two struct comments, and reordering the man page's NOTES after ERRORS.
 - [x] Builds under the tree's own `-Wall -Werror`; `sanity` 56\* identical
       before and after; ten lab checks green.
-- [ ] **Nothing in-tree calls `llapi_scan_namespace()`.** LU-20605 uses the
-      internal `llapi_scan_rec_dirent()` and `llapi_scan_rec_gather()`, not
-      the public entry point, so the "stacked series shows the caller"
-      argument does not cover the exported symbol. Either add an in-tree
-      test that calls it, or expect the question on review.
+- [x] **An in-tree caller for `llapi_scan_namespace()`**:
+      `lustre/tests/llapi_scan_test.c`, seven subtests in the
+      `llapi_test_utils.h` pattern the other `llapi_*_test` programs use,
+      run by `sanity` **test_157c**. Passes on the lab, and 56\* is still
+      identical before and after.
+- [x] `Assisted-by:` on both commits, in the tree's own form
+      (`ClaudeCode:Opus-5 llm_code_and_review_tools`) — 10 of the last few
+      hundred commits on master use that spelling.
 - [ ] `Test-Parameters:` — neither commit has one. The default autotest run
       covers `sanity`; a line is only needed to ask for more.
 
