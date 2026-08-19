@@ -224,9 +224,14 @@ already say `lfind`; `lfsscan` is the alternative if a reviewer objects.
       ticket says what the first change does and does not do
 - [ ] The same Components gap is still open on LU-20603 and LU-20605, and
       both descriptions still carry the Markdown asterisks
-- [ ] `lfs find --device` — the consumer, second change of the series
-- [ ] Rebuild an ldiskfs lab (`tests/lab-scan/`, stages 01→04) and run
-      test_165 against a real MDT before pushing
+- [x] `lfind(8)` — the consumer, built as three commits: the deciding half of
+      `cb_find_init()` split out, the predicate parser shared into
+      `lfs_find_parse.c`, and `llapi_find_device()` under it
+- [ ] Rebuild an ldiskfs lab (`tests/lab-scan/`, stages 01→04) and run both
+      **`sanity` 56\*** (the refactor's proof) and **conf-sanity test_165**
+      (the scanner's) before pushing. Neither has ever run
+- [ ] File the `lfs find` bug the refactor uncovered: a bad `--comp-flags` or
+      `--mirror-state` prints its error and exits 0
 
 ---
 
