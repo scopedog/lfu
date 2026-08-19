@@ -17,8 +17,8 @@ the first change — see *What the first change covers* below.
 Design of record: [`design-llapi-scan-device.md`](../design-llapi-scan-device.md).
 Mechanism and measurements: [`design-ldiskfs-scanner.md`](../design-ldiskfs-scanner.md).
 
-**Components is empty**, as on LU-20603 and LU-20605. `llapi` fits the first
-change and `utils` the second.
+The LU project defines no components, so that field stays empty here as it is
+on every other ticket in the project.
 
 **One change under this ticket**, pushed on top of 68094/68095:
 `llapi_scan_device()` and its plugin. The consumer went the other way in the
@@ -238,11 +238,10 @@ already say `lfind`; `lfsscan` is the alternative if a reviewer objects.
       test_165 now runs the contract against an OST as well
 - [x] The ticket exists: **LU-20606**, filed by Dilger on 2026-08-18. The
       local commit is re-tagged to it
-- [ ] Set **Components** on LU-20606 (`llapi`; `utils` too once the consumer
-      lands under it), and post the comment at the end of this file so the
-      ticket says what the first change does and does not do
-- [ ] The same Components gap is still open on LU-20603 and LU-20605, and
-      both descriptions still carry the Markdown asterisks
+- [ ] Post the comment at the end of this file, so the ticket says what the
+      change does and does not do
+- [ ] LU-20603's and LU-20605's descriptions still carry the Markdown
+      asterisks from their first paste
 - [x] `lfind(8)` — the consumer, built as three commits: the deciding half of
       `cb_find_init()` split out, the predicate parser shared into
       `lfs_find_parse.c`, and `llapi_find_device()` under it

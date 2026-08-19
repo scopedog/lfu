@@ -12,7 +12,7 @@ The four commits are tagged to it.
   is a run of hyphen pairs. Replace it with the block at the end of this file,
   which has no hyphen pair, asterisk or brace outside a `{code}` block.
 - **Assignee is WC Triage**, not you.
-- **Components is empty**; it wants `utils`. And there is no link to
+- There is no link to
   **LU-20606** (the scanner it consumes) or **LU-20605** (the front half of the
   split it finishes) — only the LU-20462 parent.
 

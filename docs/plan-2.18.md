@@ -134,8 +134,10 @@ patch's ticket; the lab itself is infrastructure and has none.
 Nothing here is hard; all of it is visible to the people whose review everything
 else waits on.
 
-- **Components** are empty on all four tickets: `llapi` for **LU-20603** and
-  **LU-20606**, `utils` for **LU-20605** and **LU-20611**.
+- ~~Components~~ — **not a gap.** The LU project defines *no* components at
+  all and no ticket in it carries one, ours or anyone else's, so the field
+  cannot be set from the web either. This was an invented requirement, carried
+  through four documents before anyone tried to act on it.
 - **LU-20611's description** is the older block and renders mangled; the
   replacement is in [`tickets/lfind.md`](tickets/lfind.md). → **LU-20611**
 - **The comment** has never been posted; it is in
@@ -187,11 +189,11 @@ comment first and see.
 1. **Aggregate / histogram Filter Rules** (step 4). Andreas named the bounded
    histogram as a requirement for the Trash Can tool, so this is a consumer
    blocker, not a reporting nicety. → **file a new Technical task** under
-   LU-20462, Components `llapi` and `utils`; it serves LU-19598.
+   LU-20462; it serves LU-19598.
 2. **ZFS backend behind `llapi_scan_device()`** (step 3b). The cheapest test
    that the backend ABI generalises, which is the whole claim of the plugin
    split; the prototype's ZFS scanner already exists to port. → **file a new
-   Technical task** under LU-20462, Components `utils`.
+   Technical task** under LU-20462.
 3. **Named consumers.** The Trash Can already has a ticket and an owner —
    **LU-19598**, "TCU: Clean up files from the Trash Can", Emoly Liu — so this
    is coordination, not a filing: read the `ltrash_purge` patch and see whether
