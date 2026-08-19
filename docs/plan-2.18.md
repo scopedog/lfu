@@ -39,18 +39,24 @@ and `struct llapi_scan_param` are exported: free to change now, an ABI event
 after landing. Everything else in this plan is internal or new API and stays
 cheap.
 
+All of it amends **LU-20603** (68094), except where noted.
+
 1. **HSM state.** `trusted.hsm` is tier 2 in the scanner design, PCC-RO and
    tiering are 2.18 consumers that need it, and the record has no field and no
-   bit. One bit, one field, one tier-2 read.
+   bit. One bit, one field, one tier-2 read. → **LU-20603** for the bit, the
+   field and the namespace producer (an ioctl per object, so demand-gated like
+   the project id); **LU-20606** for the device producer's xattr read.
 2. **Say what the record is not.** It holds five pointers and two descriptors,
    so it can never cross a kernel or wire boundary; the Object Stream is a
    separate flat encoding. A paragraph in the header, not a design — it stops
-   both the review question and the 2.19 surprise.
+   both the review question and the 2.19 surprise. → **LU-20603**
 3. **Filter intent.** `sp_filter` is a callback, which serves an in-process
    consumer. A serializable filter is needed only across the kernel and RPC
    boundaries, so it is 2.19 work; state that the field is expected and leave
-   room for it.
+   room for it. → **LU-20603**
 4. **LMR replica bit.** Reserve it, or accept it as an appended field later.
+   The LMR tickets themselves are LU-16742 / LU-17820, neither of them ours.
+   → **LU-20603**
 
 **Open decision:** whether to ask Andreas first. Recommended: **both** — put the
 question in the LU-20606 comment (§C, which is being posted anyway) and
@@ -61,34 +67,41 @@ nothing if he wants a different shape.
 
 Rebuild a lab: `tests/lab-scan/` stages 01→04, about 40 minutes.
 
+Each run is the proof obligation of a particular patch, so it carries that
+patch's ticket; the lab itself is infrastructure and has none.
+
 1. **`sanity` 56\*** — the whole proof that moving the parser and splitting
    `cb_find_init()` changed nothing. Nothing else substitutes for it.
+   → **LU-20611**
 2. **conf-sanity test_165** — the scanner's oracle: every FID the client sees
-   must come off the device, and `lfind --type f` must return every regular file
-   and no directory.
+   must come off the device (→ **LU-20606**), and `lfind --type f` must return
+   every regular file and no directory (→ **LU-20611**).
 3. **`sanity` 157c** — re-run against the amended 68094, which has changed since
-   its last Maloo run.
+   its last Maloo run. → **LU-20603**
 4. Opportunistic while a real MDT exists: `--target` and `--local`, which have
-   only ever exercised their no-targets path; and a scan of a mounted, serving
-   MDT, which is the torn-read case no synthetic image reproduces.
+   only ever exercised their no-targets path (→ **LU-20611**); and a scan of a
+   mounted, serving MDT, the torn-read case no synthetic image reproduces
+   (→ **LU-20606**).
 
 ## C. Ticket hygiene — cheap, and it unblocks the review
 
 Nothing here is hard; all of it is visible to the people whose review everything
 else waits on.
 
-- **Components** are empty on all four tickets: `llapi` for LU-20603 and
-  LU-20606, `utils` for LU-20605 and LU-20611.
+- **Components** are empty on all four tickets: `llapi` for **LU-20603** and
+  **LU-20606**, `utils` for **LU-20605** and **LU-20611**.
 - **LU-20611's description** is the older block and renders mangled; the
-  replacement is in [`tickets/lfind.md`](tickets/lfind.md).
-- **LU-20606's comment** has never been posted; it is in
+  replacement is in [`tickets/lfind.md`](tickets/lfind.md). → **LU-20611**
+- **The comment** has never been posted; it is in
   [`tickets/llapi-scan-device.md`](tickets/llapi-scan-device.md), and it is
-  where the HSM question (§A) can ride.
-- **LU-20462's own description is stale** — it still says "FlatBuffers /
-  MsgPack" when Andreas ruled MsgPack out on 2026-08-18 and added Cap'n Proto.
-  It is the document everyone reads.
+  where the HSM question (§A) can ride. → **LU-20606**
+- **The epic's description is stale** — it still says "FlatBuffers / MsgPack"
+  when Andreas ruled MsgPack out on 2026-08-18 and added Cap'n Proto. It is the
+  document everyone reads, and it is Artem's to edit, so this is a comment.
+  → **LU-20462**
 - Tell him the parent-FID-and-name item from his last round
-  (`docs/local/…` A3/B1) is **done** at the record level.
+  (`docs/local/…` A3/B1) is **done** at the record level. → **LU-20606**'s
+  comment, since that is the change that carries it.
 
 ## D. Then push, in this order
 
@@ -106,20 +119,72 @@ comment first and see.
 
 1. **Aggregate / histogram Filter Rules** (step 4). Andreas named the bounded
    histogram as a requirement for the Trash Can tool, so this is a consumer
-   blocker, not a reporting nicety.
+   blocker, not a reporting nicety. → **file a new Technical task** under
+   LU-20462, Components `llapi` and `utils`; it serves LU-19598.
 2. **ZFS backend behind `llapi_scan_device()`** (step 3b). The cheapest test
    that the backend ABI generalises, which is the whole claim of the plugin
-   split; the prototype's ZFS scanner already exists to port.
-3. **Named consumers** — PCC-RO and the Trash Can utility. Read the LU-19598
-   `ltrash_purge` patch first and see whether `lfind`'s output can back it.
-4. **Changelog Input Scanner** (step 5), if the window allows.
+   split; the prototype's ZFS scanner already exists to port. → **file a new
+   Technical task** under LU-20462, Components `utils`.
+3. **Named consumers.** The Trash Can already has a ticket and an owner —
+   **LU-19598**, "TCU: Clean up files from the Trash Can", Emoly Liu — so this
+   is coordination, not a filing: read the `ltrash_purge` patch and see whether
+   `lfind`'s output can back it. PCC-RO has no ticket of ours; **file one** if
+   the window allows.
+4. **Changelog Input Scanner** (step 5), if the window allows. → **file a new
+   Technical task** under LU-20462.
 5. **Object Stream encoder** in userspace. The format is Andreas's call and is
    between FlatBuffers and Cap'n Proto; the encoder is ours once it is chosen.
+   → **file when the format is settled**; the decision itself is LU-20462.
+
+**Tracked, not ours to schedule:** **LU-20602** (MDT-internal objects carry no
+LMA flag) is filed and assigned to us as an Improvement. Until it lands, three
+internal objects classify as visible, which `lfind(8)` documents. It does not
+block anything in this plan.
 
 ## F. Parked for 2.19
 
 The OSD API scanner and its `circ_buf` ring, the bulk RPC filter modules and
-`OBD_CONNECT2_LFU`. Both are already designed and partly prototyped here. The
-decisions they need — the wire format, the serializable filter, the resume
-protocol after `LFU_REC_GAP` — should be *settled* during 2.18 rather than
-implemented, so that 2.19 opens with them answered.
+`OBD_CONNECT2_LFU`. Both are already designed and partly prototyped here.
+
+**The kernel scanner has a ticket already, and it is not ours: LU-20591,
+"Support iterating OSD objects via llapi"** (New Feature, WC Triage, Jinshan's
+changes 68018/68019/68020). That is the same ground, and the measured comparison
+with their filter is in
+[`upstream/xiong-68020-filter-measured-2026-08-17.md`](upstream/xiong-68020-filter-measured-2026-08-17.md).
+When 2.19 opens, the move is to join LU-20591 rather than file a competing
+ticket. Bulk RPC and `OBD_CONNECT2_LFU` want a new ticket at that point.
+
+The decisions they need — the wire format (**LU-20462**), the serializable
+filter (with the aggregate ticket in §E, or LU-20462), and the resume protocol
+after `LFU_REC_GAP` (**LU-20591** territory) — should be *settled* during 2.18
+rather than implemented, so that 2.19 opens with them answered.
+
+---
+
+## Tickets at a glance
+
+**Exist, ours:**
+
+| Ticket | Carries |
+|---|---|
+| **LU-20603** · 68094 | the record and `llapi_scan_namespace()`; all of §A; `sanity` 157c |
+| **LU-20605** · 68095 | `lfs find` on the record |
+| **LU-20606** | `llapi_scan_device()`; the HSM read on the device side; conf-sanity 165's scanner half; the comment in §C |
+| **LU-20611** | `lfind(8)` and the two refactors; `sanity` 56\*; 165's lfind half |
+| **LU-20602** | internal objects carry no LMA flag — tracked, blocks nothing here |
+
+**Exist, other people's — coordinate rather than file:**
+
+| Ticket | Whose | Why it matters |
+|---|---|---|
+| **LU-19598** | Emoly Liu | the Trash Can consumer, already owned |
+| **LU-20591** | WC Triage / Jinshan | OSD object iteration via llapi — the 2.19 kernel ground |
+| **LU-20462** | Artem | the epic: format decision, stale description |
+
+**To file, in this order:**
+
+1. Aggregate / histogram Filter Rules — Technical task, parent LU-20462, `llapi` + `utils`
+2. ZFS backend behind `llapi_scan_device()` — Technical task, parent LU-20462, `utils`
+3. Changelog Input Scanner — Technical task, parent LU-20462
+4. PCC-RO consumer — only if the 2.18 window allows
+5. Object Stream encoder — once Andreas settles the format
