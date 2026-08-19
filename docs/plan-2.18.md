@@ -168,9 +168,23 @@ still stands). Test numbers checked for collisions first: upstream `sanity` has
 | [68159](https://review.whamcloud.com/c/fs/lustre-release/+/68159) | LU-20611 | `llapi_find_device()` |
 | [68160](https://review.whamcloud.com/c/fs/lustre-release/+/68160) | LU-20611 | `lfind(8)` |
 
-**Two nits to fix on the next patchset:** Gerrit warned that 68159's and
-68160's subjects run past 50 characters, and the `Verified+1` votes on 68094
-and 68095 were dropped, so all seven are queued for CI again.
+**CI found one real bug, patchset 2 fixes it.** The Janitor reported *"Compile
+failed"* on all five new changes: in a build without shared libraries — which
+is how the builder configures — `PLUGINS` is off, so the backend is linked in
+rather than dlopen'ed, and adding a plain `.a` to a *libtool* library's
+`LIBADD` leaves its objects out of the static `liblustreapi.a`. Every program
+linking that archive was short the backend's five symbols. The backend is now
+compiled into the library in that configuration, and the separate archive
+exists only where it becomes the plugin. Neither local build could catch it: a
+client build has `LDISKFS_ENABLED` off, and the lab had shared libraries on.
+
+**The "Merge Conflict" beside it is expected**, not a fault. This Gerrit has
+`submit_type=CHERRY_PICK`, so each change is cherry-picked onto master alone:
+68094 and 68095 apply cleanly, and everything above them edits regions those
+two create, so a standalone cherry-pick has no context. It clears as the stack
+lands from the bottom.
+
+**Still open:** Gerrit warns that three subjects run past 50 characters.
 
 ### The original order
 
