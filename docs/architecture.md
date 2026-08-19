@@ -500,6 +500,37 @@ suggests integrating with GUFI rather than rebuilding that ecosystem.
 
 Not stated as a phase list in the HLD; this is the ordering its dependencies imply.
 
+**Release split, from Andreas on 2026-08-19: userspace tools target 2.18, the
+in-kernel OSD scanner targets 2.19.** That is a cut across this table rather
+than a reordering of it — every step that needs no kernel change is in the 2.18
+window, and steps 6 and 7 move out of it. Master is `2.17.56`, the development
+series that becomes 2.18.0, so "2.18" is a *deadline*: whatever ships in it has
+to be reviewed and landed before that freeze, which is an argument for landing
+the pieces one at a time and against holding them back for a larger series.
+
+| Step | Release | Why |
+|---|---|---|
+| 1 · Object Stream format + Raw R/W | 2.18 for the userspace encoder | Encoding happens in userspace where the library exists (§5); only the kernel ring needs it frozen, and that is 2.19 |
+| 2 · Namespace scanner + `lfs find` | **2.18 — done**, LU-20603/LU-20605 | in review |
+| 3 · ldiskfs device scanner | **2.18 — written**, LU-20606/LU-20611 | userspace, libext2fs |
+| 3b · ZFS device scanner | 2.18 candidate | userspace, libzpool; the cheapest test that the backend ABI generalises |
+| 4 · Aggregate/histogram Filter Rules | 2.18 | userspace, and Dilger asked for a bounded histogram by name for the Trash Can tool |
+| 5 · Changelog Input Scanner | 2.18 candidate | userspace, reuses existing transport |
+| 6 · OSD API scanner + `circ_buf` | **2.19** | the kernel work |
+| 7 · Bulk RPC + `OBD_CONNECT2_LFU` | **2.19+** | server-side modules, kernel |
+| — · Named consumers (PCC-RO, Trash Can) | 2.18 if the window allows | userspace; the window closes when 2.18 ships |
+
+**What the split relaxes.** The awkward constraint on the record — that it holds
+pointers and file descriptors and so can never cross a kernel or wire boundary —
+belongs to steps 6 and 7 and is therefore a 2.19 question. Likewise a
+*serializable* filter, which pushdown needs only across those boundaries: an
+in-process consumer is served by the callback that exists. Both still want a
+sentence of stated intent before the API lands, not a design.
+
+**What it tightens.** The 2.18 consumers are the ones that reach the record, and
+they need what the record does not yet carry: HSM state, for PCC-RO and for
+tiering.
+
 | Step | Scope | Why here |
 |------|-------|----------|
 | 1 | Object Stream format + Raw Read/Write modules | Everything else is defined in terms of it; Raw R/W makes the rest testable |

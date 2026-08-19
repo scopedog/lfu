@@ -246,6 +246,9 @@ already say `lfind`; `lfsscan` is the alternative if a reviewer objects.
 - [x] `lfind(8)` — the consumer, built as three commits: the deciding half of
       `cb_find_init()` split out, the predicate parser shared into
       `lfs_find_parse.c`, and `llapi_find_device()` under it
+- [x] Man page said "since release 2.19.0"; master is 2.17.56, the series that
+      becomes **2.18.0**, and userspace tools target 2.18. Fixed in all three
+      pages, including the one already on Gerrit as 68094
 - [ ] Rebuild an ldiskfs lab (`tests/lab-scan/`, stages 01→04) and run both
       **`sanity` 56\*** (the refactor's proof) and **conf-sanity test_165**
       (the scanner's) before pushing. Neither has ever run
