@@ -345,6 +345,20 @@ Three consequences worth stating rather than discovering:
   result: the difference between "no matches" and "you are not root" is the
   whole point of §9.2's second rule.
 
+#### It runs on a server
+
+`--local` is a property of the *node*, not of a target: an MDS or an OSS, the
+machine that serves the disks. On a client there is no OSD, the parameter does
+not exist, and the flag must say **"no local Lustre targets"** and exit
+non-zero rather than report an empty scan — the same rule as everywhere else
+here. The client already has the command for its question: `lfs find /mnt/fs`,
+walking the namespace over RPCs.
+
+A node can be both, and often is in a test setup: a client mounted on an MDS.
+There `--local` still means *the targets this node serves*, not the filesystem
+it happens to have mounted. Two different questions from one machine, and the
+flag answers only one of them.
+
 #### What `--local` includes
 
 Every local target whose label names an MDT or an OST, and nothing else.
