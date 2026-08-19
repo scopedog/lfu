@@ -133,8 +133,20 @@ vocabulary is the one `lfs.c` already parses, which is the point — LFU replace
 `lfs find` rather than growing a second command with a second copy of the same
 predicate table.
 
-Three differences the mode has to make explicit, each a place behaviour is not
+The target is named three ways: `--device` for a block device, image or
+snapshot, which always works; `--target testfs-MDT0000` for a target mounted on
+this node, resolved through `osd-ldiskfs.<name>.mntdev`; and `--local` for every
+target the node holds. The name is the superblock label `mkfs.lustre` wrote, not
+a mountpoint — a path argument to `lfs find` already means *walk this
+namespace*.
+
+Four differences the mode has to make explicit, each a place behaviour is not
 preserved:
+
+- **One invocation covers one target.** Under DNE that is a fraction of the
+  namespace, with nothing to say so; the complete answer is a scan per target,
+  merged, and the merge is not this module's.
+
 
 - Output is the FID, because a device scan has no paths. A `-printf` format
   asking for one is refused at parse time rather than printing blank.

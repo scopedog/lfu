@@ -281,7 +281,38 @@ is the whole reason: `lfs.c` already parses every predicate LFU's prototype had
 to reimplement, and LFU's stated goal is to replace that command, not to sit
 beside it.
 
-Three things the mode must change, and each is a place a reviewer will look:
+### 9.1 Naming the target
+
+Three spellings, because a device path is the only handle that always exists
+and the worst one for the everyday case:
+
+| | Means | Works when |
+|---|---|---|
+| `--device /dev/vdb` | this block device, image or snapshot | always — nothing has to be mounted, no Lustre module loaded |
+| `--target testfs-MDT0000` | the target of that name on this node | it is mounted here: the name resolves through `osd-ldiskfs.<name>.mntdev` (`osd_lproc.c:161`), which only exists while the OSD is up |
+| `--local` | every Lustre target this node holds | same, and it is the real administrative command — an OSS with eight OSTs should not need eight invocations |
+
+The target name is the one `mkfs.lustre` wrote into the superblock label, not a
+mountpoint: `testfs-MDT0000`, never `/mnt/testfs-mdt0`. A path argument to
+`lfs find` already means *walk this namespace*, so a mountpoint is not accepted
+as a way of naming a target — one argument, one meaning.
+
+Whichever spelling is used, the scan reads the label anyway and reports the
+target it actually opened, so `--device` never leaves you guessing which MDT
+you got.
+
+**One invocation covers one target.** Under DNE the objects of a single MDT are
+a fraction of the namespace: a striped or remote directory puts its children on
+another MDT, and a scan of this one returns fewer results with no indication
+that anything is missing. The complete answer is a scan per target, merged —
+and cross-target merge is a server-side Filter Rule concern
+(`architecture.md` §1), deliberately not this module's. The man page has to say
+this plainly; it is the kind of limitation an operator should meet in
+documentation and not in a wrong answer.
+
+### 9.2 What the mode changes
+
+Three things, and each is a place a reviewer will look:
 
 1. **Output.** There are no paths, so the default is the FID. `-printf` keeps
    working for everything the record carries; a format asking for `%p` on a
