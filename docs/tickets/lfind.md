@@ -104,8 +104,8 @@ no asterisks, no braces, and triple backticks for the one place option names
 have to appear literally. Paste it whole; if the fence does not turn into a
 code block, select those three lines and press the code button.
 
-**LU-20611's description is currently the older block** and shows the damage
-(`-device-device`, en dashes). Replace it with this.
+**Posted 2026-08-19 and verified clean**: no en dashes, no escaped braces, no
+`--` in the prose, and the code block came through byte-exact. The recipe holds.
 
 ~~~
 lfind(8) is find for a Lustre target: it answers the questions lfs find
