@@ -259,69 +259,48 @@ already say `lfind`; `lfsscan` is the alternative if a reviewer objects.
 ## Comment to post on LU-20606
 
 The description is Dilger's and is fine. What the ticket does not say is what
-the change in progress does, and what it deliberately leaves out.
+the change does, what it deliberately leaves out, and that the acceptance
+criterion has now been met on a real MDT.
 
-Written for Atlassian's rich-text editor, which autoformats markdown as you
-paste: no `--` outside the code fence, no asterisks, no braces. That is what
-mangled LU-20611's description — `--x--` became strikethrough and `{{x}}`
-became inline code.
+Written for the rich-text editor: no double hyphens, no asterisks, no braces —
+the markup that mangled LU-20611's description twice.
 
 ~~~
-First change in progress: llapi_scan_device(), which reads an MDT's or
-OST's objects off the device with libext2fs and delivers the same
-per-object records llapi_scan_namespace() (LU-20603) does. Same record,
-same callback, same parameters: a device scan fills a different subset of
-one contract rather than inventing a second one, so the consumers queued
-behind LFU do not have to care which producer filled it.
+llapi_scan_device() reads an MDT's or OST's objects off the device with
+libext2fs and delivers the same per-object records llapi_scan_namespace()
+(LU-20603) does. One contract, two producers: a device scan fills a
+different subset of it rather than inventing a second record, so the
+consumers queued behind LFU need not care which producer filled it.
 
 h5. libext2fs stays off liblustreapi
 The backend builds as scan_ldiskfs.so and is dlopened on the first scan,
 the shape mount.lustre already uses for mount_osd_ldiskfs.so, so a client
-build has no plugin and the call answers ENOTSUP. Only a build with
-plugins disabled links it in, and that build already links libext2fs into
-mount.lustre. No configure work was needed: the tree already requires
-ext2fs 1.47.3-wc2 or newer when utils and ldiskfs are both enabled, which
-covers both dirdata and ext2fs_xattrs_read_inode().
-
-h5. What the record grows
-The object id, the LMA flags, the raw linkea with its first parent FID and
-name, an object class, and a project id, which both producers can answer
-for and neither did. sr_path stays NULL: a target holds names and parent
-FIDs, and turning those into a path is a walk of its own. A regular file
-with a layout reports no authoritative size, since the object's own size
-is not the file's, and trusted.som answers as the lazy size, which is what
-that bit already meant.
+build has no plugin and the call answers ENOTSUP. No configure work was
+needed: the tree already requires ext2fs 1.47.3-wc2 wherever utils and
+ldiskfs are both enabled.
 
 h5. Against the In scope list
 Enumeration, FID recovery and classification, mask driven attribute
 extraction and parallel scan within one device are in this change. Filter
-evaluation is pushed down as far as the ordering goes: the caller's filter
-runs on the object before any xattr is read, and rejects it for the cost
-of the inode alone. A compiled filter pushed into the scan is not there,
-and neither is checkpoint and restart; the record carries the object id a
-checkpoint would be expressed in, and no more. Both are follow on work
-rather than oversights.
+evaluation is pushed down as far as the ordering goes, the caller's filter
+running before any xattr is read, but a compiled filter is not there and
+neither is checkpoint and restart. The Object Stream is deliberately out:
+the record is in memory, and the serialization is still open.
 
-h5. The Object Stream is deliberately not in it
-The record is in memory. The serialization is still open between
-FlatBuffers and Cap'n Proto, and nothing in this change should freeze it.
+h5. Verified on a real MDT
+conf-sanity test_165: scanned 108 objects and found all 102 visible FIDs,
+zero misses. The six extras are the .lustre entries and the three internal
+objects of LU-20602. The contract tests pass 7 of 7 against an MDT and 7
+of 7 against an OST, and the same scan run at 1, 2, 4 and 8 threads
+delivers an identical object set.
 
-h5. Consistency, said out loud
-The scan takes no locks and replays no journal. On a target in service it
-finds objects caught mid update and skips them rather than reporting them
-wrong, measured at 0.05 per cent of allocated inodes under sustained
-creates and zero on a quiescent target, and the count comes back to the
-caller, because a scan that drops objects silently is not one a space
-accounting consumer can build on.
-
-h5. Where it is
-Validated end to end against a synthetic MDT image: same FID set and same
-class counts as the standalone prototype, identical at 1, 2, 4 and 8
-threads, seven contract tests passing. The acceptance test is conf-sanity
-test_165, which stops the filesystem and diffs the scanner's FID set
-against what the client saw, where misses must be zero. It has not run
-against a real MDT yet. It is not in sanity against a mounted MDT on
-purpose: the scan does not read the journal, so an object created seconds
-earlier is legitimately absent from the device and the test would be
-flaky.
+h5. One question
+The record now carries HSM state, sr_hsm_states and sr_hsm_archive_id,
+because PCC-RO and tiered storage need it and neither producer had it. It
+is in 68094 at patchset 3, so the shape is cheap to change now and an ABI
+event once that lands. Does it look right to you?
 ~~~
+
+The TLU-219 question — your earlier FlatBuffers analysis, which we cannot read
+from outside Whamcloud — belongs on **LU-20462** instead, where the format
+decision lives, rather than here.
