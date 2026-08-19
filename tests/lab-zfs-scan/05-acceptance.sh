@@ -16,6 +16,19 @@ MDT=lfu-mdt/mdt0
 OST=lfu-ost0/ost0
 export LUSTRE=$L/lustre
 
+# A failed earlier run aborts mid-script and leaves the pools exported, which
+# would turn the refusal check below into a scan of a legally exported pool.
+# Re-establish the served state first, so the stage is idempotent.
+echo "=== ensure pools are imported and targets mounted ==="
+for pool in lfu-mdt lfu-ost0 lfu-ost1; do
+	sudo zpool list $pool >/dev/null 2>&1 || \
+		sudo zpool import -f -o cachefile=none $pool
+done
+mountpoint -q /mnt/mdt0 || sudo mount -t lustre lfu-mdt/mdt0 /mnt/mdt0
+mountpoint -q /mnt/ost0 || sudo mount -t lustre lfu-ost0/ost0 /mnt/ost0
+mountpoint -q /mnt/ost1 || sudo mount -t lustre lfu-ost1/ost1 /mnt/ost1
+mountpoint -q /mnt/lfufs || { sleep 3; sudo mount -t lustre $(hostname -i)@tcp:/lfufs /mnt/lfufs; }
+
 echo "###############################################################"
 echo "# 4 first, while everything is still mounted and imported"
 echo "###############################################################"
