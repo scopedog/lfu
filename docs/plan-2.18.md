@@ -184,7 +184,17 @@ client build has `LDISKFS_ENABLED` off, and the lab had shared libraries on.
 two create, so a standalone cherry-pick has no context. It clears as the stack
 lands from the bottom.
 
-**Still open:** Gerrit warns that three subjects run past 50 characters.
+**Still open:** Gerrit warns that three subjects run past 50 characters. Left
+alone deliberately — `notes/reference/gerrit_err.txt` is explicit that a
+re-push costs ~30 sessions and ~150 hours of testing and risks an intermittent
+failure, so cosmetic fixes wait for a refresh that is happening anyway. The
+same reasoning rules out floating 68158 out of the stack to clear its conflict
+flag: it would rewrite three changes for a flag that blocks nothing.
+
+**When results arrive:** triage each failed session against other patches that
+week, associate an LU ticket, and retest *only* that session — within 3–4 days,
+before the cached build expires. `BUILD` as a patchset comment retriggers
+Jenkins with no new patchset; `RECHECK` does nothing here.
 
 ### The original order
 
