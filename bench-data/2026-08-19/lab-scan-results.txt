@@ -1,0 +1,32 @@
+### conf-sanity test_165 (the scanner oracle)
+scanned 108 objects; found all 102 visible FIDs
+lfind --type f found all 100 files
+PASS 165 (40s)
+
+### sanity 157c (the API contract)
+ test0 @1787166700: llapi_scan_namespace delivers every object once ............ pass
+ test1 @1787166700: llapi_scan_namespace is the same answer at any thread count  pass
+ test2 @1787166700: sp_max_depth limits the descent ............................ pass
+ test3 @1787166700: a consumer can stop the scan and hear its own value back ... pass
+ test4 @1787166700: sp_want holds back what the consumer did not ask for ....... pass
+ test5 @1787166700: sp_filter rejects an object before its attributes are read . pass
+ test6 @1787166700: bad arguments are refused, not crashed on .................. pass
+ test7 @1787166700: a project id is gathered only when it is asked for ......... pass
+ test8 @1787166700: HSM state is gathered only when it is asked for ............ pass
+PASS 157c (0s)
+
+### sanity 56* before vs after
+  before: llapi_scan_namespace symbols installed = 0
+  before: 75 pass, 2 fail, 9 skip
+  after: llapi_scan_namespace symbols installed = 1
+  after: 75 pass, 2 fail, 9 skip
+IDENTICAL
+FAIL 56Eaa
+FAIL 56xb
+
+### target and label handling on a real cluster
+never-mounted OST: Filesystem volume name:   testfs:OST0001
+
+### uname/e2fsprogs
+5.14.0-687.36.1.el9_8.x86_64
+e2fsprogs-1.47.3-wc2.el9.x86_64
