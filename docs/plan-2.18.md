@@ -149,7 +149,28 @@ else waits on.
   (`docs/local/…` A3/B1) is **done** at the record level. → **LU-20606**'s
   comment, since that is the change that carries it.
 
-## D. Then push, in this order
+## D. Pushed — **2026-08-19**
+
+All seven, rebased on `5afbab284e` (43 commits of master since the base, clean
+rebase, none of them touching the refactored code, so the `sanity` 56\* result
+still stands). Test numbers checked for collisions first: upstream `sanity` has
+157a and 157b, and `conf-sanity` stops at 164.
+
+| Change | Ticket | |
+|---|---|---|
+| [68094](https://review.whamcloud.com/c/fs/lustre-release/+/68094) | LU-20603 | patchset 3 — the contract work, the 2.18.0 man page, the re-wrapped message |
+| [68095](https://review.whamcloud.com/c/fs/lustre-release/+/68095) | LU-20605 | patchset 3 |
+| [68156](https://review.whamcloud.com/c/fs/lustre-release/+/68156) | LU-20606 | `llapi_scan_device()` |
+| [68157](https://review.whamcloud.com/c/fs/lustre-release/+/68157) | LU-20611 | the `cb_find_init()` split |
+| [68158](https://review.whamcloud.com/c/fs/lustre-release/+/68158) | LU-20611 | the shared parser |
+| [68159](https://review.whamcloud.com/c/fs/lustre-release/+/68159) | LU-20611 | `llapi_find_device()` |
+| [68160](https://review.whamcloud.com/c/fs/lustre-release/+/68160) | LU-20611 | `lfind(8)` |
+
+**Two nits to fix on the next patchset:** Gerrit warned that 68159's and
+68160's subjects run past 50 characters, and the `Verified+1` votes on 68094
+and 68095 were dropped, so all seven are queued for CI again.
+
+### The original order
 
 1. **68094 + 68095**, carrying §A and the four fixes already made. This is also
    what the re-wrapped commit messages have been waiting for.
