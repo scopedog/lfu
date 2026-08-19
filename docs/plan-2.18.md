@@ -210,14 +210,20 @@ comment first and see.
 
 ## E. The rest of 2.18, in priority order
 
-1. **Aggregate / histogram Filter Rules** (step 4). Andreas named the bounded
+1. **ZFS backend behind `llapi_scan_device()`** (step 3b). **Promoted to first
+   on 2026-08-19**, ahead of the histogram, because it is the only thing here
+   with a clock on it: the cheapest test that the backend ABI generalises is a
+   second backend, and running that test while LU-20606 is *in review* is what
+   makes an ABI change free. The prototype exists to port, and its work unit is
+   already object-ID ranges. → ticket drafted in
+   [`tickets/zfs-scan-backend.md`](tickets/zfs-scan-backend.md); **file it**
+   under LU-20462. One question first: every measured run exported the pool, and
+   `lfind --local` is the imported-pool case.
+2. **Aggregate / histogram Filter Rules** (step 4). Andreas named the bounded
    histogram as a requirement for the Trash Can tool, so this is a consumer
-   blocker, not a reporting nicety. → **file a new Technical task** under
-   LU-20462; it serves LU-19598.
-2. **ZFS backend behind `llapi_scan_device()`** (step 3b). The cheapest test
-   that the backend ABI generalises, which is the whole claim of the plugin
-   split; the prototype's ZFS scanner already exists to port. → **file a new
-   Technical task** under LU-20462.
+   blocker, not a reporting nicety. Nothing forces it to be first, though — no
+   review window closes on it. → **file a new Technical task** under LU-20462;
+   it serves LU-19598.
 3. **Named consumers.** The Trash Can already has a ticket and an owner —
    **LU-19598**, "TCU: Clean up files from the Trash Can", Emoly Liu — so this
    is coordination, not a filing: read the `ltrash_purge` patch and see whether
@@ -277,8 +283,8 @@ rather than implemented, so that 2.19 opens with them answered.
 
 **To file, in this order:**
 
-1. Aggregate / histogram Filter Rules — Technical task, parent LU-20462, `llapi` + `utils`
-2. ZFS backend behind `llapi_scan_device()` — Technical task, parent LU-20462, `utils`
+1. ZFS backend behind `llapi_scan_device()` — Technical task, parent LU-20462; **text drafted**
+2. Aggregate / histogram Filter Rules — Technical task, parent LU-20462, `llapi` + `utils`
 3. Changelog Input Scanner — Technical task, parent LU-20462
 4. PCC-RO consumer — only if the 2.18 window allows
 5. Object Stream encoder — once Andreas settles the format
