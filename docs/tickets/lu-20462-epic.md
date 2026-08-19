@@ -12,6 +12,10 @@ literally inside a code fence.
 
 ## Comment: status, one correction, and TLU-219
 
+**Posted 2026-08-19** by the ticket owner, trimmed before posting — the text
+below is the draft that went in, not necessarily what LU-20462 now reads. Kept
+as the record of what we asked to have said.
+
 ~~~
 Status of the first step, replacing lfs find on the client side, and of the
 server-side scanner that follows it. Seven changes are in review across the
