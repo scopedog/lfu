@@ -569,11 +569,29 @@ its own patch. Worth filing.
 | Check | Result |
 |---|---|
 | `llapi_scan_device_test`, 7 contract cases | pass, against a synthetic MDT image |
+| **Chunk partitioning across workers** | **150,152 objects over three chunks** (65,526 / 65,536 / 19,090, boundaries at inodes 65536 and 131072): identical object set and **zero duplicates** at 1, 2, 4, 8 and 16 threads |
 | Scanner vs the prototype `lfind-ldiskfs` on that image | same 18 FIDs, same class counts, identical at 1/2/4/8 threads |
 | `lfind` predicates on that image | `--type f` 17 + `--type d` 1 = 18; `--projid 1999`, `--name` (including a second linkea name), `--mdt-count 4`, `--stripe-count 60`, `--size +1G` via SOM all correct; `--internal` 27 |
 | Moved code, byte-compared | the deciding half and the 987-line parse loop are identical to what they replace, modulo the intended substitutions |
 | `lfs find` before and after the refactor | 14 deterministic argument cases identical; the rest differ *from themselves* between two runs of the same binary, because the traversal interleaves its threads' stderr |
 | **`sanity` 56\*, conf-sanity test_165** | **never run** — no lab; the workstation has no Lustre |
+
+**A gap worth remembering about local testing.** `tests/mkimage.sh`'s image is
+64 MB with a *single* block group, so it is one unit of work: every earlier
+"identical at 1/2/4/8 threads" result had worker 0 take the only chunk and the
+others exit immediately. The partitioning had never run. A multi-chunk image
+needs no Lustre and no root — `mke2fs -d <tree>` populates one at format time:
+
+```sh
+mke2fs -q -F -t ext4 -I 1024 -b 4096 -d <tree-of-150k-files> \
+       -O ea_inode,project,quota,huge_file,large_dir,flex_bg,64bit,dir_nlink \
+       spread.img 4G
+```
+
+The objects have no LMA, so they scan as `LLAPI_SCAN_CLS_NO_LMA` and need
+`LLAPI_SCAN_F_INTERNAL` to be delivered — which is fine for the property being
+tested, since it is about *which* objects reach the callback and not what they
+are.
 
 **Not built, in order:**
 
