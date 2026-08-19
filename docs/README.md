@@ -24,6 +24,7 @@ the reason a number changed is often more useful than the number.
 | [`design-zfs-scanner.md`](design-zfs-scanner.md) | The ZFS backend |
 | [`filter-levels.md`](filter-levels.md) | The filter vocabulary and its I/O cost tiers |
 | [`design-lfs-find-on-scan.md`](design-lfs-find-on-scan.md) | LU-20605: how `lfs find` splits onto the scanner API, and what that forced into the API |
+| [`design-llapi-scan-device.md`](design-llapi-scan-device.md) | Step 3 upstream: the device scanner behind `llapi_scan_device()`, the plugin, and what the record grows |
 
 ## Measurements — dated, frozen
 
@@ -59,6 +60,7 @@ later record says what it overturns.
 | [`tickets/lma-internal-objects.md`](tickets/lma-internal-objects.md) | **Filed as LU-20602.** Source text, evidence, and what is still open |
 | [`tickets/llapi-scan-api.md`](tickets/llapi-scan-api.md) | **LU-20603, Gerrit 68094.** Client-side namespace scanner API — the reusable half of LU-20462's first step |
 | [`tickets/lfs-find-on-llapi-scan.md`](tickets/lfs-find-on-llapi-scan.md) | **LU-20605, Gerrit 68095.** `lfs find` reimplemented on that API — its first consumer |
+| [`tickets/llapi-scan-device.md`](tickets/llapi-scan-device.md) | **Not filed.** The ldiskfs device scanner behind the same API — step 3, and its `lfs find --device` consumer |
 
 ## Superseded — kept for provenance
 
