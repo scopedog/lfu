@@ -3,7 +3,9 @@
 **Date:** 2026-08-19 · **Depends on:** LU-20603 (`llapi_scan_namespace()`) ·
 **Realizes:** [`architecture.md`](architecture.md) §12 step 3, whose mechanism
 is [`design-ldiskfs-scanner.md`](design-ldiskfs-scanner.md) ·
-**Ticket text:** [`tickets/llapi-scan-device.md`](tickets/llapi-scan-device.md)
+**Ticket:** **LU-20606** ([`tickets/llapi-scan-device.md`](tickets/llapi-scan-device.md)),
+filed 2026-08-18 by Andreas Dilger with `design-ldiskfs-scanner.md` §1 as its
+description
 
 Plan of record for landing the ldiskfs device scanner upstream. The scanner
 itself is designed and measured elsewhere; this document is only about the
@@ -31,8 +33,11 @@ Two stacked changes, as LU-20603/LU-20605 were:
 
 | | Change | Contents |
 |---|---|---|
-| P1 | `llapi_scan_device()` | the API, the ldiskfs plugin, `Documentation/man3/llapi_scan_device.3`, `llapi_scan_test --device` |
-| P2 | the consumer | `lfs find --device`, `Documentation/man1/lfs-find.1`, a `sanity.sh` oracle test |
+| P1 | `llapi_scan_device()` | the API, the ldiskfs plugin, `Documentation/man3/llapi_scan_device.3`, `llapi_scan_device_test`, the conf-sanity oracle |
+| P2 | the consumer | `lfs find --device`, `Documentation/man1/lfs-find.1` |
+
+Both under LU-20606, whose own description scopes the whole module rather than
+either change — §11 says which parts of that scope each one carries.
 
 **Why one record and not a second one.** `struct llapi_scan_rec` is already
 versioned by `sr_size` and carries `sr_valid`, so a field the producer could
