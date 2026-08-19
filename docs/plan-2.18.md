@@ -78,7 +78,38 @@ question in the LU-20606 comment (§C, which is being posted anyway) and
 implement in parallel. The field is small, and dropping one before landing costs
 nothing if he wants a different shape.
 
-## B. Verification, before pushing LU-20606 and LU-20611
+## B. Verification — **done 2026-08-19**, all three green
+
+Lab `lfu-scan-lab`, `c3-standard-8` in **us-east1-b** (every us-central1 zone
+was out of capacity), Rocky 9.8, kernel 5.14.0-687.36.1, e2fsprogs
+**1.47.3-wc2** — the version the scanner's build requires, straight from the
+repo. All seven patches applied clean, ldiskfs enabled, 105 s build. Raw output:
+[`bench-data/2026-08-19/lab-scan-results.txt`](../bench-data/2026-08-19/lab-scan-results.txt).
+
+| Run | Result |
+|---|---|
+| **conf-sanity test_165** | **PASS.** *"scanned 108 objects; found all 102 visible FIDs"* — zero misses, six extras, which is exactly the predicted three `.lustre` entries plus LU-20602's three. *"lfind --type f found all 100 files"*. 7/7 contract tests on the MDT and 7/7 on the OST |
+| **sanity 56\*** | **IDENTICAL** before and after: 75 pass, 2 fail, 9 skip both ways, and both failures (`56Eaa`, `56xb`) are present at the base commit. The parser move and the `cb_find_init()` split changed nothing |
+| **sanity 157c** | **PASS**, 9/9 — including the two written today, `projid` and **HSM state** |
+
+**What the build itself proved**, which no synthetic image can: `llapi_scan_device`
+and `llapi_find_device` exported, `scan_ldiskfs.so` installed to
+`/usr/lib64/lustre/` beside `mount_osd_ldiskfs.so`, `lfind` installed to
+`/usr/sbin` by the `if SERVER` gate — and **`liblustreapi` links libext2fs zero
+times**, which is the whole claim of the plugin design.
+
+`--local` found both targets and scanned them in turn, `--target
+testfs-MDT0000` resolved through `osd-ldiskfs.*.mntdev`, and a freshly
+formatted OST is labelled **`testfs:OST0001`** — with a colon, the form that
+before the review fix would have scanned as an MDT and returned nothing.
+
+**Three bugs the lab found**, all in tests and all now fixed: the directory FID
+in test_165 was read after `stopall`, when no client is left to answer; the
+`grep` matching it was not `-F`, so a FID's brackets read as a character class
+and matched every line; and `llapi_scan_test`'s test6 reused its counter after
+the short-`sp_size` check, which only passes where there is no Lustre to scan.
+
+### The original list
 
 Rebuild a lab: `tests/lab-scan/` stages 01→04, about 40 minutes.
 
