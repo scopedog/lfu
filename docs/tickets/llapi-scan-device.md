@@ -258,6 +258,12 @@ already say `lfind`; `lfsscan` is the alternative if a reviewer objects.
 
 ## Comment to post on LU-20606
 
+**Posted 2026-08-19** by the ticket owner, trimmed first, so the text below is
+what we asked to have said rather than what the ticket now reads. It asks
+whether the HSM fields in the record look right; that is the reply to watch for,
+since the shape is cheap to change while 68094 is in review and an ABI event
+after it lands.
+
 The description is Dilger's and is fine. What the ticket does not say is what
 the change does, what it deliberately leaves out, and that the acceptance
 criterion has now been met on a real MDT.
