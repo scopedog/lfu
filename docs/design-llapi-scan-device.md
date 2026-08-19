@@ -522,46 +522,62 @@ test calls.
 
 ## 11. What is built, and what is left
 
-**Built and validated 2026-08-19**, in `../lustre-lu20603` on top of the
+**Built 2026-08-19**, five commits in `../lustre-lu20603` on top of the
 LU-20603/LU-20605 series:
 
-| Piece | Where |
+| Commit | What |
 |---|---|
-| the call, classification, record fill, worker pool, plugin loading | `lustre/utils/liblustreapi_scan_device.c` |
-| the backend ABI | `lustre/utils/lustreapi_scan_backend.h` |
-| the ldiskfs backend, ported from `src/lfu_scan_ldiskfs.c` | `lustre/utils/libscan_ldiskfs.c` |
-| record and parameter additions | `include/lustre/lustreapi.h` |
-| plugin build, mirroring `mount_osd_ldiskfs.so` | `lustre/utils/Makefile.am` |
-| man page | `Documentation/man3/llapi_scan_device.3` |
-| contract test, FID listing | `lustre/tests/llapi_scan_device_test.c` |
-| the oracle | `lustre/tests/conf-sanity.sh` test_165 |
+| `llapi: scan an ldiskfs target directly` | the call, classification, record fill, worker pool, plugin loading, backend ABI, ldiskfs backend, man page, `llapi_scan_device_test`, conf-sanity test_165 |
+| `llapi: split the deciding half out of cb_find_init` | LU-20605's other half: the checks, the glimpse and the printing, behind `struct find_ctx` |
+| `lfs: share find's predicate parsing` | the option table, its loop and thirteen argument helpers into `lfs_find_parse.c`, compiled into both `lfs` and `lfind` |
+| `llapi: run find's predicates over a device scan` | `llapi_find_device()`: the record presented as an `lmd`, the LMV converted, the size rule |
+| `utils: lfind, find over a scan of a target` | `lfind(8)`, its three target spellings, `Documentation/man8/lfind.8`, the test_165 predicate check |
 
-Folded into LU-20603 while it is in review: `sr_projid` on both producers,
-the §3.2 `ALL_MASK` fix, and a `sp_size` rule that accepts a caller built
-against a *shorter* parameter struct — without which the struct cannot grow
-and `sp_stats` could not have been added at all.
+Folded into LU-20603 while it is in review: `sr_projid` on both producers, the
+§3.2 `ALL_MASK` fix, and a `sp_size` rule that accepts a caller built against a
+*shorter* parameter struct — without which the struct could not grow and
+`sp_stats` could not have been added at all.
 
-**Validated end to end on the workstation**, against a synthetic MDT image
-from the prototype's `tests/mkimage.sh` (`mke2fs` + `debugfs`, no root, no
-mount): the plugin loads through the `$LUSTRE` fallback, and the scan
-delivers **the same 18 visible objects, with the same FIDs and the same
-class counts, as the prototype `lfind-ldiskfs` reports for the same image**
-— 18 visible, 1 internal, 1 OST object, 1 agent, 4 no-LMA, 2 bad. All seven
-contract tests pass, and the record set is identical at 1, 2, 4 and 8
-threads. Two bugs the run found, both now fixed: a size claimed as
-authoritative for a striped file when the demand mask had not asked for one
-(so no layout had been read to know better), and `LLAPI_SCAN_PARENT` set for
-an all-zero parent FID.
+### What running it found
+
+Four bugs, each caught by an actual run rather than a reading:
+
+1. **A size claimed as authoritative for a striped file** when the demand mask
+   had not asked for one, so no layout had been read to know better.
+2. **`LLAPI_SCAN_PARENT` set for an all-zero parent FID.**
+3. **An OST scan would have returned nothing** — §5.
+4. **Every object after a 60-stripe file matched `--stripe-count 60`**,
+   including a directory with no layout at all: `fp_lmd` and `fp_lmv_md` are
+   one buffer each for the whole scan, and an object without a layout inherited
+   the last one's. The namespace producer never sees this because its gather
+   overwrites the buffer from the ioctl every time.
+
+And one in code that was already upstream: **`lfs find` exits 0 after a bad
+`--comp-flags` or `--mirror-state`**. Those failures leave `ret` at 0 and jump
+to the cleanup, so the error is printed and the command reports success. The
+refactor had to *preserve* it — hence the `stopped` flag out of
+`lfs_find_parse()` — because fixing it changes what the command returns and is
+its own patch. Worth filing.
+
+### How far it is verified
+
+| Check | Result |
+|---|---|
+| `llapi_scan_device_test`, 7 contract cases | pass, against a synthetic MDT image |
+| Scanner vs the prototype `lfind-ldiskfs` on that image | same 18 FIDs, same class counts, identical at 1/2/4/8 threads |
+| `lfind` predicates on that image | `--type f` 17 + `--type d` 1 = 18; `--projid 1999`, `--name` (including a second linkea name), `--mdt-count 4`, `--stripe-count 60`, `--size +1G` via SOM all correct; `--internal` 27 |
+| Moved code, byte-compared | the deciding half and the 987-line parse loop are identical to what they replace, modulo the intended substitutions |
+| `lfs find` before and after the refactor | 14 deterministic argument cases identical; the rest differ *from themselves* between two runs of the same binary, because the traversal interleaves its threads' stderr |
+| **`sanity` 56\*, conf-sanity test_165** | **never run** — no lab; the workstation has no Lustre |
 
 **Not built, in order:**
 
-1. `lfind(8)` (§9) — the consumer, and the second change in the series. Not
-   `lfs find --device`: that was this document's first answer and it is wrong,
-   for the reasons in §9.0.
-2. A real-MDT run: test_165 has never executed, because the lab was deleted
-   on 2026-08-18. Rebuilding is `tests/lab-scan/` stages 01→04, ~40 min.
-3. Checkpoint and restart, rate limiting, the ZFS backend behind the same
-   call, and the Object Stream serialization — each a ticket of its own.
+1. A real-MDT run: rebuild `tests/lab-scan/` stages 01→04, ~40 min, then
+   `sanity` 56\* for the refactor and conf-sanity test_165 for the scanner.
+2. Checkpoint and restart, rate limiting, the ZFS backend behind the same call,
+   and the Object Stream serialization — each a ticket of its own.
+3. `--target`/`--local` have never run against a mounted target, only against
+   the no-targets path on this workstation.
 
 ## 12. Open questions carried in
 
