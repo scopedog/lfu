@@ -33,8 +33,20 @@ advisory. What was decided in the code, beyond the ticket text:
 - **links=0 objects are delivered**, not dropped: osd-zfs's own hierarchy
   carries zero links while live (the 2026-08-07 real-MDT finding).
 - **Non-plugin builds** use a libtool convenience library, not a plain `.a`
-  (the CI lesson) and not bare sources (the ZFS include paths shadow
+  (the CI lesson) and not bare sources (the libzpool include paths shadow
   `<sys/stat.h>` for every other file).
+- **`ZFS_LIBZFS_INCLUDE` is not enough**, found on the lab and not findable
+  locally. It is aimed at `libzfs.h`, which is all `mount_osd_zfs.so` needs.
+  The DMU headers the scanner needs exist *twice* — the userspace set a devel
+  package installs, and the in-kernel set in a ZFS source tree, which cannot
+  be compiled in userspace at all (`sys/dmu.h` → `sys/mod.h` → `sys/mod_os.h`,
+  which only a configured build tree has). A **DKMS install offers only the
+  latter**, so configure picked it and the build died. Fixed with a real
+  compile test in `LB_ZFS_USER` that tries the detected path and then the
+  distro one, exporting `ZFS_LIBZPOOL_INCLUDE` and a separate
+  `ZFS_SCAN_ENABLED` conditional: where the headers are unusable, `--with-zfs`
+  still builds, just without a scan backend. The spec entry became
+  `@SCAN_ZFS_PLUGIN@` for the same reason.
 
 Verified locally: compiles `-Wall -Werror`, plugin links against libzpool
 with all five entry points resolving, nonexistent-dataset and reopen paths
