@@ -504,7 +504,7 @@ Not stated as a phase list in the HLD; this is the ordering its dependencies imp
 |------|-------|----------|
 | 1 | Object Stream format + Raw Read/Write modules | Everything else is defined in terms of it; Raw R/W makes the rest testable |
 | 2 | Lustre Namespace Input Scanner (from LU-17814) + `lfs find` Filter/Output | End-to-end pipeline on unmodified clients and servers; validates the API cheaply |
-| 3 | **ldiskfs Device Input Scanner (libext2fs)** — [detailed design](design-ldiskfs-scanner.md) | The first real performance win; works on old servers. **Measured 705k inodes/s** (throughput benchmark, 2026-08-06). Steps 2 and 3 together are Dilger's first wave — "enough to implement a variety of useful tools" |
+| 3 | **ldiskfs Device Input Scanner (libext2fs)** — [detailed design](design-ldiskfs-scanner.md), [upstream shape](design-llapi-scan-device.md) | The first real performance win; works on old servers. **Measured 705k inodes/s** (throughput benchmark, 2026-08-06). Steps 2 and 3 together are Dilger's first wave — "enough to implement a variety of useful tools" |
 | 3b | **ZFS Device Input Scanner (libzpool)** — [detailed design](design-zfs-scanner.md) | Same shape as step 3 behind a shared target-backend interface, so only the "get object id + attrs + LMA" layer is new. Brings ZFS coverage forward without waiting for step 6, and adds snapshot-consistent scanning, which no ldiskfs scanner can offer. Sketch only — two load-bearing facts unverified (§6c) |
 | 4 | Aggregate/histogram Filter Rules | Unlocks the reporting use case without new transport |
 | 5 | Changelog Input Scanner + Changelog Output Filter | Reuses existing transport; delivers attribute-filtered changelog |
