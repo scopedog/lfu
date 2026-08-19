@@ -20,11 +20,14 @@ Mechanism and measurements: [`design-ldiskfs-scanner.md`](../design-ldiskfs-scan
 **Components is empty**, as on LU-20603 and LU-20605. `llapi` fits the first
 change and `utils` the second.
 
-**Two changes under this one ticket**, pushed as a stacked series on top of
-68094/68095: `llapi_scan_device()` and its plugin, then `lfs find --device` as
-the consumer. A ticket per change was the earlier plan; it is not worth filing
-a second one when LU-20606's own description already covers both, and Gerrit is
-happy with two changes against one ticket.
+**One change under this ticket**, pushed on top of 68094/68095:
+`llapi_scan_device()` and its plugin. The consumer went the other way in the
+end — see [`lfind.md`](lfind.md). Putting both here was the earlier plan and
+building it settled the argument against: LU-20606's own *In scope* list is the
+module, "driven by a caller-supplied mask", and a command is a caller; two of
+the consumer's four changes touch `lfs` and the namespace side of
+`liblustreapi`, whose proof is `sanity` 56\* and has nothing to do with
+scanning a device.
 
 ---
 
@@ -118,6 +121,11 @@ format LU-20462 will send is still being chosen, and nothing here should
 freeze it.
 
 ---
+
+## The consumer, moved to its own ticket
+
+`lfind(8)` and the two refactors under it are drafted in
+[`lfind.md`](lfind.md). What follows is kept as the text that draft came from.
 
 ## Second change (`lfind(8)`)
 
