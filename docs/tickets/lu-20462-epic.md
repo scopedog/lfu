@@ -61,12 +61,8 @@ closer than the opening line reads. Second, c-capnproto is the first
 concrete answer anyone has offered to kernel-side encoding, which we had
 been carrying as a blocking unknown.
 
-What we would rather bring back than repeat: capnp-c and flatcc measured
-against the kernel constraints, no floating point, no allocation on the hot
-path, bounded stack and licence, and a bound on per-record encode cost
-against the rate the scanner sustains today. We also have three concerns
-about the kmap_local_page sketch, the LIFO unmapping rule, the page size
-cap on any single list or blob, and the extra round trip carrying the
-segment table, which we will write up with that evaluation rather than
-here.
+We also have three concerns about the kmap_local_page sketch in that
+ticket, the LIFO unmapping rule, the page size cap on any single list or
+blob, and the extra round trip carrying the segment table. They belong on
+TLU-219 rather than here, and can wait until the format is settled.
 ~~~
