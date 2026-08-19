@@ -61,11 +61,16 @@ echo "###############################################################"
 echo "# 2. identical object set at 1, 2, 4, 8, 16 threads"
 echo "###############################################################"
 # the contract test covers 1/2/4/8 internally; this is the external check and
-# it adds 16.  LFU_SCAN_THREADS is not a thing -- lfind takes -j.
+# it is what adds 16.  lfind has no thread option, so the lab has its own
+# one-file harness for it.
+gcc -o /tmp/dev_threads -I$L/include -I$L/include/uapi ~/dev_threads.c \
+	-L$L/lustre/utils/.libs -llustreapi || exit 1
 for j in 1 2 4 8 16; do
-	sudo -E LUSTRE=$LUSTRE lfind --device $MDT -j $j 2>/dev/null | sort > /tmp/zfs.j$j
+	sudo -E LUSTRE=$LUSTRE LD_LIBRARY_PATH=$L/lustre/utils/.libs \
+		/tmp/dev_threads $MDT $j 2>/dev/null | sort > /tmp/zfs.j$j
 	echo "  -j $j: $(wc -l < /tmp/zfs.j$j) objects"
 done
+[ -s /tmp/zfs.j1 ] || { echo "  !! -j 1 produced nothing"; exit 1; }
 fail=0
 for j in 2 4 8 16; do
 	if ! cmp -s /tmp/zfs.j1 /tmp/zfs.j$j; then
@@ -79,7 +84,7 @@ echo
 echo "###############################################################"
 echo "# 3. lfind predicates over the ZFS scan"
 echo "###############################################################"
-all=$(wc -l < /tmp/zfs.j1)
+all=$(wc -l < /tmp/zfs.j1)   # with --internal: the scan's full object set
 sudo -E LUSTRE=$LUSTRE lfind --device $MDT --type f 2>/dev/null | sort > /tmp/zfs.typef
 sudo -E LUSTRE=$LUSTRE lfind --device $MDT --type d 2>/dev/null | sort > /tmp/zfs.typed
 echo "  all=$all  --type f=$(wc -l < /tmp/zfs.typef)  --type d=$(wc -l < /tmp/zfs.typed)"
