@@ -34,10 +34,12 @@ Two stacked changes, as LU-20603/LU-20605 were:
 | | Change | Contents |
 |---|---|---|
 | P1 | `llapi_scan_device()` | the API, the ldiskfs plugin, `Documentation/man3/llapi_scan_device.3`, `llapi_scan_device_test`, the conf-sanity oracle |
-| P2 | the consumer | `lfind(8)`, the predicate parser factored out of `lfs.c`, `Documentation/man8/lfind.8` |
+| P2 | the consumer, **LU-20611** | `lfind(8)`, the predicate parser factored out of `lfs.c`, `Documentation/man8/lfind.8` |
 
-Both under LU-20606, whose own description scopes the whole module rather than
-either change — §11 says which parts of that scope each one carries.
+P1 is LU-20606, whose description scopes the whole module rather than the
+change — §11 says which parts of that scope it carries. P2 went to **LU-20611**
+of its own, because a command is a caller of that module and two of its four
+commits touch `lfs` and the namespace side of `liblustreapi`.
 
 **Why one record and not a second one.** `struct llapi_scan_rec` is already
 versioned by `sr_size` and carries `sr_valid`, so a field the producer could
