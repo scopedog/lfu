@@ -32,7 +32,22 @@ working, and the reason to keep 68094 unlanded a little longer.
 
 ---
 
-## A. The contract, before 68094 lands
+## A. The contract, before 68094 lands — **done 2026-08-19**
+
+All four items are in the local commits, awaiting the push in §D. What each
+turned out to be:
+
+| | Landed as |
+|---|---|
+| HSM state | `LLAPI_SCAN_HSM` (0x00080000), `sr_hsm_states` + `sr_hsm_archive_id`. The namespace producer calls `llapi_hsm_state_get_fd()` for regular files, demand-gated like the project id; the device producer reads `trusted.hsm`, whose `hsm_flags` are the same `HS_*` values the MDT returns and whose archive id narrows to 32 bits exactly as `mdt_hsm.c:262` does. Verified on a synthetic image carrying an archived and a released file |
+| What the record is not | A paragraph in the header: an in-process record, not a serialization; it holds pointers and descriptors, so the Object Stream is a separate flat encoding |
+| Filter intent | A paragraph on `sp_filter`: a callback is what an in-process consumer needs, and a filter crossing a process, network or kernel boundary is data rather than a function, expected beside it |
+| LMR replica bit | Stated rather than reserved: mirrors are not distinguishable yet, LU-16742 and LU-17820 are the tickets, and a flag appends like everything else |
+
+The device bits shifted up one to make room (`LLAPI_SCAN_INO` is now
+0x00100000), which costs nothing while nothing has landed.
+
+### The original list
 
 **The only work here with an irreversible deadline.** `struct llapi_scan_rec`
 and `struct llapi_scan_param` are exported: free to change now, an ABI event
