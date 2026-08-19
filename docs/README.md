@@ -60,7 +60,7 @@ later record says what it overturns.
 | [`tickets/lma-internal-objects.md`](tickets/lma-internal-objects.md) | **Filed as LU-20602.** Source text, evidence, and what is still open |
 | [`tickets/llapi-scan-api.md`](tickets/llapi-scan-api.md) | **LU-20603, Gerrit 68094.** Client-side namespace scanner API — the reusable half of LU-20462's first step |
 | [`tickets/lfs-find-on-llapi-scan.md`](tickets/lfs-find-on-llapi-scan.md) | **LU-20605, Gerrit 68095.** `lfs find` reimplemented on that API — its first consumer |
-| [`tickets/llapi-scan-device.md`](tickets/llapi-scan-device.md) | **Not filed; the API half is written and tested.** The ldiskfs device scanner behind the same API — step 3, and its `lfs find --device` consumer |
+| [`tickets/llapi-scan-device.md`](tickets/llapi-scan-device.md) | **LU-20606**, filed by Dilger; the API half is written and tested. The ldiskfs device scanner behind the same API — step 3, and its `lfs find --device` consumer |
 
 ## Superseded — kept for provenance
 
