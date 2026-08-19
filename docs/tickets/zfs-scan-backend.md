@@ -11,6 +11,39 @@ Step 3b of [`architecture.md`](../architecture.md) §12. Design of record:
 
 ---
 
+## Implemented 2026-08-19, held locally
+
+`lustre/utils/libscan_zfs.c` (589 lines) plus the loader, build and packaging
+changes, committed on the `lu-20603-scan-api` worktree as **`LU-20462 llapi:
+ZFS backend for llapi_scan_device()`** — renumber to this ticket once it is
+filed, then push on the user's check. Checkpatch clean bar the MAINTAINERS
+advisory. What was decided in the code, beyond the ticket text:
+
+- **Backend selection**: a device string naming a block device or existing
+  file is ldiskfs's; anything else is a `pool/dataset[@snap]` name, which
+  never names an existing file. The loader is now a two-entry table.
+- **The imported-pool question is answered conservatively in code**: an
+  ACTIVE pool is refused with `-EBUSY` and its own error message; `lfind.8`
+  says to scan a snapshot of an exported pool. If the lab later proves a
+  quiesced imported pool reads safely, the refusal is one condition to relax.
+- **The spill path exists**: an EA too large for the SA (wide layouts) is
+  followed from the DXATTR miss into the xattr directory znode, `so_external`
+  set — the analogue of ldiskfs's external EA block, which the prototype
+  never handled.
+- **links=0 objects are delivered**, not dropped: osd-zfs's own hierarchy
+  carries zero links while live (the 2026-08-07 real-MDT finding).
+- **Non-plugin builds** use a libtool convenience library, not a plain `.a`
+  (the CI lesson) and not bare sources (the ZFS include paths shadow
+  `<sys/stat.h>` for every other file).
+
+Verified locally: compiles `-Wall -Werror`, plugin links against libzpool
+with all five entry points resolving, nonexistent-dataset and reopen paths
+clean through the real `llapi_scan_device()`, and an ldiskfs image scan
+still delivers through the reworked loader. What needs the lab: everything
+in Acceptance.
+
+---
+
 ## Summary
 
 llapi: ZFS backend for `llapi_scan_device()`
