@@ -190,6 +190,10 @@ the more expensive; decide before starting.
 - [x] Validated against a synthetic MDT image: same 18 FIDs and the same
       class counts as the prototype scanner, all 7 contract tests passing,
       identical record set at 1/2/4/8 threads
+- [x] Default emission follows the target's role: an OST scan would have
+      returned nothing, since every object on an OST is a data object and
+      the policy emitted only the namespace-visible class. conf-sanity
+      test_165 now runs the contract against an OST as well
 - [x] The ticket exists: **LU-20606**, filed by Dilger on 2026-08-18. The
       local commit is re-tagged to it
 - [ ] Set **Components** on LU-20606 (`llapi`; `utils` too once the consumer

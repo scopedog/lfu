@@ -195,10 +195,19 @@ A device scan enumerates the whole inode table, so it finds what `lfs find`
 cannot: internal objects (OI files, the CATALOGS, quota files, `lost+found`),
 OST data objects on an OST, HSM agent inodes, and orphans with `nlink == 0`.
 
-`sr_class` reports which, and the default policy is the prototype's: **emit
-only namespace-visible objects** unless the caller asks otherwise, via a new
-`LLAPI_SCAN_F_INTERNAL` in `sp_flags`. A consumer that deletes things must not
+`sr_class` reports which, and the default is to emit **only the target's own
+subject matter** — everything else is counted and held back unless
+`LLAPI_SCAN_F_INTERNAL` says otherwise. A consumer that deletes things must not
 have to know the OI file layout to avoid eating it.
+
+**What that subject matter is depends on the target, and the first cut got it
+wrong.** The policy was "emit `LLAPI_SCAN_CLS_VISIBLE`", which is right on an
+MDT and empty on an OST: an OST has no namespace, every object on it is a data
+object, and the scan would have returned nothing at all while reporting
+success. The default now follows the target's role, which the backend reads
+from the label at open time — visible on an MDT, `CLS_OST_OBJ` on an OST.
+Found by asking what `--local` does on an OSS (§9.1); it would have been found
+otherwise by a very confused operator.
 
 Three internal objects still leak: LMA alone cannot identify them
 (`design-ldiskfs-scanner.md` §5.1b, filed upstream as **LU-20602** for the
