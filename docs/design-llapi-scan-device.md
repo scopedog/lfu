@@ -34,7 +34,7 @@ Two stacked changes, as LU-20603/LU-20605 were:
 | | Change | Contents |
 |---|---|---|
 | P1 | `llapi_scan_device()` | the API, the ldiskfs plugin, `Documentation/man3/llapi_scan_device.3`, `llapi_scan_device_test`, the conf-sanity oracle |
-| P2 | the consumer | `lfs find --device`, `Documentation/man1/lfs-find.1` |
+| P2 | the consumer | `lfind(8)`, the predicate parser factored out of `lfs.c`, `Documentation/man8/lfind.8` |
 
 Both under LU-20606, whose own description scopes the whole module rather than
 either change — §11 says which parts of that scope each one carries.
@@ -283,12 +283,77 @@ pass an errcode string out. Every other errcode below `EXT2_ET_BASE` is a
 plain errno and is returned as one, so a device that is not there says
 `ENOENT` instead of arriving as an I/O error.
 
-## 9. The consumer: `lfs find --device`
+## 9. The consumer: `lfind(8)`, and why not `lfs find --device`
 
-`lfs find` gains a device mode rather than a new binary. The filter vocabulary
-is the whole reason: `lfs.c` already parses every predicate LFU's prototype had
-to reimplement, and LFU's stated goal is to replace that command, not to sit
-beside it.
+**Decided 2026-08-19, against this document's first answer.** The device scan
+gets its own server-side command, and shares `lfs find`'s predicate vocabulary
+by compiling the parser into both rather than by copying it.
+
+### 9.0 Why not a mode on `lfs find`
+
+The first plan was `lfs find --device`, on the argument that `lfs.c` already
+parses every predicate and LFU is meant to replace that command rather than sit
+beside it. Two facts kill it.
+
+**`lfs find` is a client command by construction, not by convention.** It walks
+a client mount and upstream takes care that a server target mount does not look
+like one:
+
+```c
+/* Is this a lustre client fs? */
+int llapi_is_lustre_mnt(struct mntent *mnt)
+{
+	return (llapi_is_lustre_mnttype(mnt->mnt_type) &&
+		strstr(mnt->mnt_fsname, ":/") != NULL);
+}
+```
+— `liblustreapi.c:3955`, and `get_root_path()` skips everything that fails it
+(`liblustreapi_root.c:222`). An MDT mounted at `/mnt/testfs-mdt0` *is* fstype
+`lustre` in `/proc/mounts`, but its device is `/dev/vdb`, not
+`mgs@tcp:/testfs`, so it is deliberately excluded. On a server with no client
+mount, `lfs find` returns `-ENODEV`. Everything about the command is
+path-in/path-out, whole-filesystem, ordinary-user. A device scan is
+disk-reading, root-only, path-less, one-target and MDT-only: not a mode of that
+command, a different tool wearing its name.
+
+**And the flag would be dead where the command mostly lives.** `%{_bindir}/lfs`
+ships in the shared file list of a spec that builds either `lustre` or
+`lustre-client` (`lustre.spec.in:137`), so `lfs` is on every client. The scan
+plugin is not: a client build has no `scan_ldiskfs.so`. `lfs find --device`
+would be a documented flag that answers `-ENOTSUP` on every client install in
+existence.
+
+### 9.0b One vocabulary, two commands, no exported ABI
+
+The one good argument for the mode was avoiding a second copy of the predicate
+table — `lfs_find()` is ~1,077 lines, most of it the `getopt_long()` loop that
+fills `struct find_param`, and the prototype's own reimplementation of that
+vocabulary is exactly the drift risk to avoid.
+
+Sharing it needs no API and no ABI. `callvpe.c` is already compiled into both
+`lfs` and `lustre_rsync` (`Makefile.am:75,81`), and `lfs.c` already includes
+`lustreapi_internal.h`, where `struct find_param` lives. So the parser moves
+into a source file compiled into both binaries:
+
+```
+lustre/utils/lfs_find_parse.c   the option table and the getopt loop
+lustre/utils/lfs.c              lfs find      — behaviour unchanged
+lustre/utils/lfind.c            lfind(8)      — the same predicates, on a target
+```
+
+No new exported symbol, no internal structure leaking into the library's ABI,
+and one table to change when a predicate is added. **`sanity.sh` 56\* is the
+proof obligation**: the refactor must leave `lfs find` bit-identical.
+
+`lfind` is installed under `if SERVER`, beside `mkfs.lustre` and
+`tunefs.lustre`, so it exists only where it can run.
+
+**Name collision, flagged rather than settled.** glibc has `lfind(3)` — a
+linear-search function, documented on the `lsearch(3)` page — so `man lfind`
+resolves to that and ours needs `man 8 lfind`. The prototype, its man page
+(`Documentation/man8/lfind.8`, already written in upstream's style) and this
+project's documents all say `lfind`, which is why it stands; a reviewer who
+objects has a fair point, and `lfsscan` is the obvious alternative.
 
 ### 9.1 Naming the target
 
@@ -406,31 +471,29 @@ targets stay attributable once concatenated. FIDs are unique across the
 filesystem, so a merged FID list needs no deduplication — but a *count* does,
 and that is where the merge stops being concatenation.
 
-### 9.2 What the mode changes
+### 9.2 Where `lfind` differs from `lfs find`
 
-Three things, and each is a place a reviewer will look:
+Same predicates, three differences, and each is a place a reviewer will look:
 
 1. **Output.** There are no paths, so the default is the FID. `-printf` keeps
-   working for everything the record carries; a format asking for `%p` on a
-   device scan is refused at parse time, not silently blank.
-2. **Predicate refusal.** A predicate the device cannot answer is refused
+   working for everything the record carries; a format asking for `%p` is
+   refused at parse time, not silently blank. Being a separate command is what
+   makes this clean rather than a surprise: nobody expects `lfind` to print
+   what `lfs find` prints.
+2. **Predicate refusal.** A predicate the target cannot answer is refused
    *before the scan*, not answered "no matches" — the prototype's
    `can_supply` / `missing_fields` mechanism, which exists precisely because
    the two are indistinguishable to a user. Nothing in the current vocabulary
-   is actually unanswerable on an MDT device, so this is a guard for the ZFS
+   is actually unanswerable on an ldiskfs MDT, so this is a guard for the ZFS
    and kernel-ring backends that follow.
-3. **Privilege and semantics.** Root, an MDT-only view (so `--size` on a
-   striped file is SOM's answer or none), and no access control whatsoever —
-   the man page has to say that in those words.
+3. **Privilege and semantics.** Root, one target, an MDT-only view (so
+   `--size` on a striped file is SOM's answer or none, which is `--lazy`
+   semantics by construction), and no access control whatsoever. The man page
+   has to say that in those words.
 
-**The alternative considered:** a standalone `lfind(8)`, which is what the
-prototype ships and what e2scan and Lester both are. It keeps a server-side,
-root-only, path-less tool out of a client command that ordinary users run. It
-was not chosen because it duplicates the filter parser, and a duplicated
-predicate table is a table that drifts. Recorded here because the first
-reviewer to see `--device` on `lfs find` will ask.
-
----
+`lfs find` itself changes in exactly one way: its predicate parsing moves to a
+file also compiled into `lfind`. Behaviour identical, `sanity.sh` 56\* the
+proof.
 
 ## 10. Tests — and where the oracle can actually live
 
@@ -492,8 +555,9 @@ an all-zero parent FID.
 
 **Not built, in order:**
 
-1. `lfs find --device` (§9) — the consumer, and the second change in the
-   series.
+1. `lfind(8)` (§9) — the consumer, and the second change in the series. Not
+   `lfs find --device`: that was this document's first answer and it is wrong,
+   for the reasons in §9.0.
 2. A real-MDT run: test_165 has never executed, because the lab was deleted
    on 2026-08-18. Rebuilding is `tests/lab-scan/` stages 01→04, ~40 min.
 3. Checkpoint and restart, rate limiting, the ZFS backend behind the same

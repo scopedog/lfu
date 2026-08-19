@@ -119,19 +119,30 @@ freeze it.
 
 ---
 
-## Second change (`lfs find --device`)
+## Second change (`lfind(8)`)
 
 ### Summary
 
-lfs: find over a device scan
+utils: lfind, find over a scan of a target
 
 ### Description
 
-`lfs find` gains a device mode: given `--device`, it filters records from
-`llapi_scan_device()` instead of walking a mounted namespace. The predicate
-vocabulary is the one `lfs.c` already parses, which is the point — LFU replaces
-`lfs find` rather than growing a second command with a second copy of the same
-predicate table.
+`lfind(8)` runs `lfs find`'s predicates against `llapi_scan_device()` on a
+server: a target's own objects, read off the device, with no mount and no MDS.
+
+**Not a mode on `lfs find`**, which was the first plan. That command is a
+client command by construction — `llapi_is_lustre_mnt()` requires `":/"` in the
+mount's device name, so a server target mount is deliberately not recognised
+and `lfs find` answers `-ENODEV` on a server with no client mount. A device
+scan is disk-reading, root-only, path-less and one-target; that is a different
+tool, not a flag. And `lfs` ships in `lustre-client` while the scan plugin does
+not, so the flag would have answered `-ENOTSUP` on every client install.
+
+The predicate vocabulary is still shared, and with no new API: the option table
+and getopt loop move out of `lfs_find()` into a source file compiled into both
+binaries, the way `callvpe.c` is already compiled into both `lfs` and
+`lustre_rsync`. One table, two commands, nothing exported, no ABI touched.
+`lfind` installs under `if SERVER`, so it exists only where it can run.
 
 The target is named three ways: `--device` for a block device, image or
 snapshot, which always works; `--target testfs-MDT0000` for a target mounted on
@@ -164,8 +175,8 @@ preserved:
   file is `trusted.som`'s answer or none, which is `--lazy` semantics by
   construction.
 
-**Acceptance:** the `sanity.sh` 56\* series stays green — the device mode adds
-a path, it does not change the existing one.
+**Acceptance:** the `sanity.sh` 56\* series stays green. It is the whole proof
+that factoring the parser out of `lfs_find()` changed nothing.
 
 **Known cost, found while building the first change.** LU-20605 rebuilt only
 the *front* half of `cb_find_init()`. The deciding half still reads
@@ -175,6 +186,10 @@ record cannot simply be handed to it: either the record is presented as an
 swabbed one — or that half moves onto the record first, which is LU-20605's
 second half and a change of its own. The second option is the honest one and
 the more expensive; decide before starting.
+
+**Name:** glibc has `lfind(3)`, so `man lfind` finds that one and ours needs
+`man 8 lfind`. Kept because the prototype, its man page and every document here
+already say `lfind`; `lfsscan` is the alternative if a reviewer objects.
 
 ---
 
