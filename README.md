@@ -281,6 +281,6 @@ documents; all are analysis against them:
   attributes only — yet **xattr regexp** is an advertised filter dimension.
 - **Kernel-side encoding** — no kernel-space encoder exists for either candidate, and the
   format freezes long before the kernel scanner needs one. TLU-219 names `c-capnproto` as
-  a candidate to adapt; checking it, and `flatcc`, is ours to do.
+  a candidate to adapt. Held pending the format decision, which is not ours.
 - **Index priority** — requirements page ranks MDT indexes **High**; HLD defers them. LUG
   slide 22 sides with the HLD.

@@ -49,9 +49,14 @@ pre-allocated buffer maps to a single LNet MD, while Cap'n Proto's segments do
 not — is withdrawn in the same comment, because LNet **bulk** transport takes a
 `lnet_kiov_t` page vector and stitches the fragments in the HCA. LFU is a bulk
 workload by construction, so that argument does not reach it. On the ticket's
-own evidence the two are closer than its opening line reads. **Still open**, and
-the deciding work is ours: `capnp-c` and `flatcc` against kernel constraints,
-plus a bound on per-record encode cost.
+own evidence the two are closer than its opening line reads.
+
+**Held 2026-08-19.** The choice is being made off the 2026-08-18 meeting and is
+not ours to make. Nothing here is blocked by it: the record is explicitly not a
+serialization, and no landed or pushed change encodes anything. The evaluation
+that would inform it — `capnp-c` and `flatcc` against kernel constraints, plus a
+bound on per-record encode cost — is **not being started**, and is worth doing
+only if the decision leaves it open.
 
 ### Path resolution is an Output Format module, priced separately
 
@@ -378,6 +383,9 @@ encoding happens where the library exists. But the OSD API Input Scanner exports
 through `circ_buf` from *kernel* context, and neither candidate has a
 kernel-space encoder in-tree or upstream (`grep -rli` over `lustre-release`
 returns zero hits for either).
+
+Held with the format question above; the note below is what was learned before
+it was held, kept so the work is not repeated.
 
 **TLU-219 names one:** `c-capnproto`, the pure C89/C99 Cap'n Proto
 implementation with no C++ runtime, with `#ifdef __KERNEL__` allocation and a

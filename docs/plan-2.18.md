@@ -225,8 +225,9 @@ comment first and see.
    the window allows.
 4. **Changelog Input Scanner** (step 5), if the window allows. → **file a new
    Technical task** under LU-20462.
-5. **Object Stream encoder** in userspace. The format is Andreas's call and is
-   between FlatBuffers and Cap'n Proto; the encoder is ours once it is chosen.
+5. **Object Stream encoder** in userspace. The format is not our call and is
+   between FlatBuffers and Cap'n Proto; **held 2026-08-19**, being decided off
+   the 2026-08-18 meeting. The encoder is ours once it is chosen.
    → **file when the format is settled**; the decision itself is LU-20462.
 
 **Tracked, not ours to schedule:** **LU-20602** (MDT-internal objects carry no
