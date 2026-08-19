@@ -62,6 +62,7 @@ later record says what it overturns.
 | [`tickets/llapi-scan-api.md`](tickets/llapi-scan-api.md) | **LU-20603, Gerrit 68094.** Client-side namespace scanner API — the reusable half of LU-20462's first step |
 | [`tickets/lfs-find-on-llapi-scan.md`](tickets/lfs-find-on-llapi-scan.md) | **LU-20605, Gerrit 68095.** `lfs find` reimplemented on that API — its first consumer |
 | [`tickets/llapi-scan-device.md`](tickets/llapi-scan-device.md) | **LU-20606**, filed by Dilger; written and tested. The ldiskfs device scanner behind `llapi_scan_device()` — step 3 |
+| [`tickets/lu-20462-epic.md`](tickets/lu-20462-epic.md) | **LU-20462**, the epic — status comments for a ticket that is not ours to edit |
 | [`tickets/lfind.md`](tickets/lfind.md) | **LU-20611.** `lfind(8)`, the scanner's first consumer, and the two refactors it needs |
 
 ## Superseded — kept for provenance
