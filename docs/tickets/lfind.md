@@ -93,21 +93,21 @@ belongs in its own patch against `lfs`.
 
 ## Paste into Jira
 
-Jira's wiki markup has mangled three descriptions in three ways, so this
-version avoids every character that can do it:
+**What is actually happening:** the description is going through Atlassian's
+rich-text editor, which autoformats *markdown* as you paste. That explains all
+three manglings at once — `{{x}}` became inline code (stored as `\{{`), `--x--`
+became strikethrough, `--` became an en dash, and `h5.` became a real heading.
+It is not Jira wiki markup misfiring.
 
-| Markup | What it does | Avoided by |
-|---|---|---|
-| `{{x}}` | monospace | not used — all 26 were stored escaped as `\{{` on LU-20611 |
-| `-x-` | **strikethrough** — this is what struck `--uid` through | no hyphen pairs in the prose: option names appear only inside the code block, and nothing uses `--` as punctuation |
-| `*x*` | bold | no asterisks — "the 56 series", not `56*` |
-| `h5.` | heading | kept: it is the one thing that has survived every paste |
+So the block below is written for that editor: no `--` outside the code fence,
+no asterisks, no braces, and triple backticks for the one place option names
+have to appear literally. Paste it whole; if the fence does not turn into a
+code block, select those three lines and press the code button.
 
-If the `{code}` braces come back escaped as well, select those three lines in
-the editor and mark them as code from the toolbar; the prose will still be
-intact, which is the point of keeping the option names inside the block.
+**LU-20611's description is currently the older block** and shows the damage
+(`-device-device`, en dashes). Replace it with this.
 
-```
+~~~
 lfind(8) is find for a Lustre target: it answers the questions lfs find
 answers, about uid, mtime, size, type and project id, by reading a
 target's own objects off the device rather than walking a mounted
@@ -122,11 +122,11 @@ bypasses every access control a mount applies. The objects come from
 llapi_scan_device() (LU-20606).
 
 h5. Naming the target
-{code}
+```
 lfind --device /dev/vdb --uid 1000 --mtime +30
 lfind --target testfs-MDT0000 --type f --size +1G
 lfind --local --projid 1999
-{code}
+```
 A device always works, and needs nothing mounted. A target name resolves
 through osd-ldiskfs.NAME.mntdev, which exists only while that target is
 mounted here. The local form takes every target the node serves, skipping
@@ -155,4 +155,4 @@ The 56 series in sanity.sh stays green, which is the proof that moving the
 parser and splitting cb_find_init() changed nothing, and conf-sanity
 test_165 diffs a regular file scan against what the client saw on a
 stopped filesystem.
-```
+~~~

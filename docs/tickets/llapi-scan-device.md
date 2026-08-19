@@ -243,69 +243,72 @@ already say `lfind`; `lfsscan` is the alternative if a reviewer objects.
 
 ---
 
-## Comment to post on LU-20606 (wiki markup)
+## Comment to post on LU-20606
 
-The description is already there and is fine; what the ticket does not yet say
-is what the first change does, and what it deliberately leaves out. Jira
-renders wiki markup, not Markdown: {{{{monospace}}}} replaces backticks, and a
-line *starting* with an asterisk becomes a bullet, so a bold lead-in uses an
-{{h5.}} heading instead.
+The description is Dilger's and is fine. What the ticket does not say is what
+the change in progress does, and what it deliberately leaves out.
 
-```
-First change in progress: {{llapi_scan_device()}}, which reads an MDT's or
+Written for Atlassian's rich-text editor, which autoformats markdown as you
+paste: no `--` outside the code fence, no asterisks, no braces. That is what
+mangled LU-20611's description — `--x--` became strikethrough and `{{x}}`
+became inline code.
+
+~~~
+First change in progress: llapi_scan_device(), which reads an MDT's or
 OST's objects off the device with libext2fs and delivers the same
-per-object records {{llapi_scan_namespace()}} (LU-20603) does.  Same
-record, same callback, same parameters: a device scan fills a different
-subset of one contract rather than inventing a second one, and the
-consumers queued behind LFU do not have to care which producer filled it.
+per-object records llapi_scan_namespace() (LU-20603) does. Same record,
+same callback, same parameters: a device scan fills a different subset of
+one contract rather than inventing a second one, so the consumers queued
+behind LFU do not have to care which producer filled it.
 
 h5. libext2fs stays off liblustreapi
-The backend builds as {{scan_ldiskfs.so}} and is dlopen'ed on the first
-scan, the shape mount.lustre already uses for {{mount_osd_ldiskfs.so}}, so
-a client build has no plugin and the call answers -ENOTSUP.  Only a
-{{--disable-plugins}} server build links it in, and that build already
-links libext2fs into mount.lustre.  No configure work was needed: the tree
-already requires {{ext2fs >= 1.47.3-wc2}} when utils and ldiskfs are both
-enabled, which covers both dirdata and {{ext2fs_xattrs_read_inode()}}.
+The backend builds as scan_ldiskfs.so and is dlopened on the first scan,
+the shape mount.lustre already uses for mount_osd_ldiskfs.so, so a client
+build has no plugin and the call answers ENOTSUP. Only a build with
+plugins disabled links it in, and that build already links libext2fs into
+mount.lustre. No configure work was needed: the tree already requires
+ext2fs 1.47.3-wc2 or newer when utils and ldiskfs are both enabled, which
+covers both dirdata and ext2fs_xattrs_read_inode().
 
 h5. What the record grows
 The object id, the LMA flags, the raw linkea with its first parent FID and
-name, an object class, and a project id (which both producers can answer
-for and neither did).  {{sr_path}} stays NULL: a device holds names and
-parent FIDs, and turning those into a path is a walk of its own.  A
-regular file with a layout reports no {{LLAPI_SCAN_SIZE}} -- the object's
-own size is not the file's -- and {{trusted.som}} answers as
-{{LLAPI_SCAN_LAZY_SIZE}}, which is what that bit already meant.
+name, an object class, and a project id, which both producers can answer
+for and neither did. sr_path stays NULL: a target holds names and parent
+FIDs, and turning those into a path is a walk of its own. A regular file
+with a layout reports no authoritative size, since the object's own size
+is not the file's, and trusted.som answers as the lazy size, which is what
+that bit already meant.
 
 h5. Against the In scope list
-Enumeration, FID recovery and classification, mask-driven attribute
-extraction and parallel scan within one device are in this change.  Filter
-evaluation is pushed down as far as the ordering goes -- {{sp_filter}}
+Enumeration, FID recovery and classification, mask driven attribute
+extraction and parallel scan within one device are in this change. Filter
+evaluation is pushed down as far as the ordering goes: the caller's filter
 runs on the object before any xattr is read, and rejects it for the cost
-of the inode alone -- but a compiled filter pushed into the scan is not
-there.  Checkpoint and restart is not there either; the record carries the
-object id a checkpoint would be expressed in, and no more.  Both are
-follow-on work, not oversights.
+of the inode alone. A compiled filter pushed into the scan is not there,
+and neither is checkpoint and restart; the record carries the object id a
+checkpoint would be expressed in, and no more. Both are follow on work
+rather than oversights.
 
 h5. The Object Stream is deliberately not in it
-The record is in memory.  The serialization is still open between
+The record is in memory. The serialization is still open between
 FlatBuffers and Cap'n Proto, and nothing in this change should freeze it.
 
-h5. Consistency, and saying so out loud
-The scan takes no locks and replays no journal.  On a target in service it
-finds objects caught mid-update and skips them rather than reporting them
-wrong -- measured at 0.05% of allocated inodes under sustained creates,
-zero on a quiescent target -- and the count comes back to the caller,
-because a scan that drops objects silently is not one a space-accounting
-consumer can build on.
+h5. Consistency, said out loud
+The scan takes no locks and replays no journal. On a target in service it
+finds objects caught mid update and skips them rather than reporting them
+wrong, measured at 0.05 per cent of allocated inodes under sustained
+creates and zero on a quiescent target, and the count comes back to the
+caller, because a scan that drops objects silently is not one a space
+accounting consumer can build on.
 
 h5. Where it is
 Validated end to end against a synthetic MDT image: same FID set and same
-class counts as the standalone prototype, identical at 1/2/4/8 threads,
-seven contract tests passing.  The acceptance test is conf-sanity
+class counts as the standalone prototype, identical at 1, 2, 4 and 8
+threads, seven contract tests passing. The acceptance test is conf-sanity
 test_165, which stops the filesystem and diffs the scanner's FID set
-against what the client saw -- misses must be zero.  It has not run
-against a real MDT yet.  Not in sanity against a mounted MDT on purpose:
-the scan does not read the journal, so an object created seconds earlier
-is legitimately absent from the device and the test would be flaky.
-```
+against what the client saw, where misses must be zero. It has not run
+against a real MDT yet. It is not in sanity against a mounted MDT on
+purpose: the scan does not read the journal, so an object created seconds
+earlier is legitimately absent from the device and the test would be
+flaky.
+~~~
