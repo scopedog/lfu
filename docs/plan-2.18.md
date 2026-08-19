@@ -80,7 +80,7 @@ nothing if he wants a different shape.
 
 ## B. Verification — **done 2026-08-19**, all three green
 
-Lab `lfu-scan-lab`, `c3-standard-8` in **us-east1-b** (every us-central1 zone
+Lab `lfu-scan-lab` (deleted when it finished), `c3-standard-8` in **us-east1-b** (every us-central1 zone
 was out of capacity), Rocky 9.8, kernel 5.14.0-687.36.1, e2fsprogs
 **1.47.3-wc2** — the version the scanner's build requires, straight from the
 repo. All seven patches applied clean, ldiskfs enabled, 105 s build. Raw output:
