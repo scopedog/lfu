@@ -14,6 +14,7 @@ the reason a number changed is often more useful than the number.
 
 | Document | What it covers |
 |---|---|
+| [`plan-2.18.md`](plan-2.18.md) | What happens next and in what order, under the 2.18 userspace / 2.19 kernel split |
 | [`architecture.md`](architecture.md) | The whole pipeline: module types, Object Stream, server and client sides, release context |
 | [`open-questions.md`](open-questions.md) | Every open and resolved question, by name; the tracking record |
 | [`option-comparison.md`](option-comparison.md) | Option 1 (userspace device scanner) vs Option 2 (OSD API), with provenance |
