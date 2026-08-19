@@ -10,7 +10,7 @@ literally inside a code fence.
 
 ---
 
-## Comment: status, one correction, one request
+## Comment: status, one correction, and TLU-219
 
 ~~~
 Status of the first step, replacing lfs find on the client side, and of the
@@ -50,10 +50,23 @@ fills from trusted.link and the namespace scanner leaves clear. Whether
 shipping full pathnames as well is cheaper than regenerating them is still
 open, and still wants measuring rather than deciding.
 
-h5. A request
-Could we see the TLU-219 analysis comparing FlatBuffers and MsgPack? It is
-on the Whamcloud tracker and not readable from outside. Evaluating capnp-c
-and flatcc for kernel portability, which is the open half of the format
-question, is on the critical path for the in-kernel scanner, and starting
-from that comparison would save repeating it.
+h5. On TLU-219, which we have now read
+Thank you for pointing at it. Two things we took from it. The FlatBuffers
+recommendation rests on a message being built inside one pre-allocated
+buffer that maps to a single LNet MD, and the same comment then withdraws
+that argument for bulk transport, where an MD is backed by a lnet_kiov_t
+page vector and Cap'n Proto segments map onto it directly. LFU is a bulk
+workload by construction, so on that evidence the two candidates look
+closer than the opening line reads. Second, c-capnproto is the first
+concrete answer anyone has offered to kernel-side encoding, which we had
+been carrying as a blocking unknown.
+
+What we would rather bring back than repeat: capnp-c and flatcc measured
+against the kernel constraints, no floating point, no allocation on the hot
+path, bounded stack and licence, and a bound on per-record encode cost
+against the rate the scanner sustains today. We also have three concerns
+about the kmap_local_page sketch, the LIFO unmapping rule, the page size
+cap on any single list or blob, and the extra round trip carrying the
+segment table, which we will write up with that evaluation rather than
+here.
 ~~~

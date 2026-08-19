@@ -155,7 +155,7 @@ object MDT scan, excluding pathname generation.
 |---|---|---|
 | **Highest** | No efficient server-side namespace scanner | Read inodes at the OSD layer; send only matching/requested attributes |
 | **Highest** | No unified scan pipeline | One modular pipeline, pluggable backends, common stream format, merge operator |
-| **High** | No structured binary Object Stream | FlatBuffers or MsgPack — schema evolution, language-neutral |
+| **High** | No structured binary Object Stream | FlatBuffers or Cap'n Proto — zero copy, LNet bulk, kernel-usable |
 | **High** | No MDT-side indexes for common queries | atime / file size / mirror status indexes → `O(result-set)`, not `O(namespace)` |
 | **High** | No parallel multi-MDT scan with merge | Per-MDT scanners + Merge operator that combines and optionally sorts |
 | **Medium** | No zero-copy kernel→userspace export | Lockless ring buffer, no copies on the hot path |
@@ -279,7 +279,8 @@ documents; all are analysis against them:
   but doesn't address *torn* reads.
 - **Does the target survive real filters** — the 1M obj/s/MDT target implies ~1 KiB/object, covering inline
   attributes only — yet **xattr regexp** is an advertised filter dimension.
-- **Kernel-side encoding** — no kernel-space FlatBuffers/MessagePack encoder exists, and the
-  format freezes long before the kernel scanner needs one.
+- **Kernel-side encoding** — no kernel-space encoder exists for either candidate, and the
+  format freezes long before the kernel scanner needs one. TLU-219 names `c-capnproto` as
+  a candidate to adapt; checking it, and `flatcc`, is ours to do.
 - **Index priority** — requirements page ranks MDT indexes **High**; HLD defers them. LUG
   slide 22 sides with the HLD.

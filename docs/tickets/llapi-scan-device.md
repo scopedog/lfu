@@ -301,6 +301,7 @@ is in 68094 at patchset 3, so the shape is cheap to change now and an ABI
 event once that lands. Does it look right to you?
 ~~~
 
-The TLU-219 question — your earlier FlatBuffers analysis, which we cannot read
-from outside Whamcloud — belongs on **LU-20462** instead, where the format
+The TLU-219 question is answered: the ticket owner supplied the export on
+2026-08-19, and the read-up sits in `docs/local/` since it is TLC tracker
+material. What we say back about it belongs on **LU-20462**, where the format
 decision lives, rather than here.
