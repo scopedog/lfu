@@ -243,27 +243,31 @@ because the device saturates first.
 
 ---
 
-## 8. What libext2fs has to be
+## 8. What libext2fs has to be — already settled upstream
 
-Two requirements, and only one is testable at configure time.
+Two requirements, and the tree already carries both:
 
-- **`ext2fs_xattrs_read_inode()`** — e2fsprogs ≥ 1.47. Rocky's stock 1.46.5
-  lacks it. `AC_CHECK_LIB` in `config/lustre-core.m4` beside the existing
-  `EXT2FS_DEVEL` conditional (`lustre-core.m4:4495`, a header-presence test
-  today); without it the plugin is not built and the client build is unaffected.
-- **`EXT4_FEATURE_INCOMPAT_DIRDATA` in the library's
-  `EXT2_LIB_FEATURE_INCOMPAT_SUPP`** — the WhamCloud fork. This is compiled
-  into the installed library, not visible in a header, so it cannot be
-  configure-tested. Stock libext2fs fails `ext2fs_open()` on a real MDT with
-  `EXT2_ET_UNSUPP_FEATURE`.
+```m4
+# config/lustre-core.m4:4341 — lustre/utils/llverfs.c libmount_utils_ldiskfs.c
+AS_IF([test "x$enable_utils" = xyes -a "x$enable_ldiskfs" = xyes], [
+	PKG_CHECK_MODULES([EXT2FS], [ext2fs >= 1.47.3-wc2])
+])
+```
 
-The second one is a support question, not a build one: an operator with stock
-e2fsprogs gets an error, and it has to name the cause. Map that one errcode to
-"target uses dirdata; e2fsprogs from the Lustre repository is required" instead
-of passing `error_message()` through. Lustre already requires that fork to
-build ldiskfs at all, so on a server this is a packaging note, not a barrier.
+`1.47` is where `ext2fs_xattrs_read_inode()` appears, and **`-wc2` is the
+WhamCloud fork**, whose `EXT2_LIB_FEATURE_INCOMPAT_SUPP` includes
+`EXT4_FEATURE_INCOMPAT_DIRDATA`. A build that can build ldiskfs utils can
+therefore build and run this scanner, and **no new configure check is
+needed** — `if LDISKFS_ENABLED` is the whole condition. This replaces the
+`AC_CHECK_LIB` this document planned; the check was already there, one layer
+up.
 
----
+What survives is the *runtime* case: a build machine with the fork and a
+scan host without it. `ext2fs_open()` fails `EXT2_ET_UNSUPP_FEATURE`, which
+the backend maps to `-ENOTSUP` so the library can name the cause rather than
+pass an errcode string out. Every other errcode below `EXT2_ET_BASE` is a
+plain errno and is returned as one, so a device that is not there says
+`ENOENT` instead of arriving as an I/O error.
 
 ## 9. The consumer: `lfs find --device`
 
@@ -296,46 +300,72 @@ reviewer to see `--device` on `lfs find` will ask.
 
 ---
 
-## 10. Tests
+## 10. Tests — and where the oracle can actually live
 
-- **`llapi_scan_test --device`** — the P1 unit consumer, in
-  `lustre/tests/llapi_scan_test.c` beside the namespace cases: `sr_size`
-  versioning, `sp_want` honoured, `sp_filter` skipping, valid-bit discipline,
-  `-ENOTSUP` on a build without the plugin.
-- **The oracle, and it is the test that matters.** `sanity.sh`, ldiskfs-only,
-  gated on a server-side build: scan `$(mdsdevname 1)` on the MDS while it is
-  mounted and serving, and compare the FID set against `lfs find` +
-  `lfs path2fid` from the client. **Misses must be zero.** Extras are expected
-  and bounded: `.lustre` pseudo-directories plus §5's three. This is exactly
-  the check the lab ran on 2026-08-05 (`design-ldiskfs-scanner.md` §17), which
-  found zero misses at 173 and 509 objects; in the suite it becomes a
-  regression test instead of a one-off.
-- **A synthetic image** for the classification ladder, from the prototype's
-  `tests/mkimage.sh`, so the branches no live MDT exercises (agent inodes,
-  IGIF, `LMAI_*` combinations) are covered without a cluster.
+- **`llapi_scan_device_test`** (`lustre/tests/`) — the contract against a
+  real target: record versioning, `sp_want` holding back both xattrs *and*
+  the size, the pre-filter seeing nothing an xattr paid for, the same object
+  digest at 1, 2, 4 and 8 threads, a consumer's stop value coming back,
+  internal objects held back by default, bad arguments refused.
+- **The oracle: `conf-sanity` test_165, not `sanity`.** The plan was a
+  `sanity` test against the mounted MDT. That test would be flaky, and the
+  reason is §8.3 of the scanner design: the scan does not read the journal.
+  Objects created seconds earlier are in the journal and not yet checkpointed
+  to the inode table, so a client-visible FID can legitimately be absent from
+  the device — a miss that is the timing's, not the scanner's. `stopall`
+  makes it deterministic: the client FID set is gathered first, the
+  filesystem is stopped, the scan runs against a quiet device, and misses
+  must be zero. `conf-sanity` is where stopping targets is routine.
+- **A synthetic image** for the classification ladder — the prototype's
+  `tests/mkimage.sh` builds one with `mke2fs` and `debugfs` alone, no root
+  and no mount. Used to validate this patch (§13); not yet in tree.
 
----
+The shared test harness needed one change: `run_tests()` insists its subject
+is a directory on a Lustre mount, which a device is not. It now does its
+Lustre checks and hands off to `run_test_tbl()`, which is what the device
+test calls.
 
-## 11. Order of work
+## 11. What is built, and what is left
 
-1. `sr_projid` and the §3.2 `ALL_MASK` fix, folded into the LU-20603 commit —
-   both are corrections to what is in review, and both are additive. This is
-   also what the held-back re-wrapped commit messages ride in on.
-2. `libscan_ldiskfs.c`: the prototype's `lfu_scan_ldiskfs.c` and the parts of
-   `lfu_core.c` it needs (classification ladder, chunk dispatcher, worker
-   pool), ported to upstream style — `llapi_err()` not `fprintf`, no
-   `lfu_` namespace, the tree's error conventions.
-3. `liblustreapi_scan_device.c`: the ops table, the `dlopen`, the record fill,
-   `-ENOTSUP` when there is no backend.
-4. Build: `Makefile.am` plugin rules mirroring `mount_osd_ldiskfs.so`, the
-   `AC_CHECK_LIB` in `lustre-core.m4`.
-5. `Documentation/man3/llapi_scan_device.3`.
-6. P2: `lfs find --device`, its man page, the oracle test.
+**Built and validated 2026-08-19**, in `../lustre-lu20603` on top of the
+LU-20603/LU-20605 series:
 
-**Not in this series**, and each is a ticket of its own: checkpoint and restart
-(§9.2 of the scanner design), rate limiting (§9.3), the ZFS backend behind the
-same call, and the Object Stream serialization — which stays out on purpose,
-since the record is in-memory and the wire format is still open.
+| Piece | Where |
+|---|---|
+| the call, classification, record fill, worker pool, plugin loading | `lustre/utils/liblustreapi_scan_device.c` |
+| the backend ABI | `lustre/utils/lustreapi_scan_backend.h` |
+| the ldiskfs backend, ported from `src/lfu_scan_ldiskfs.c` | `lustre/utils/libscan_ldiskfs.c` |
+| record and parameter additions | `include/lustre/lustreapi.h` |
+| plugin build, mirroring `mount_osd_ldiskfs.so` | `lustre/utils/Makefile.am` |
+| man page | `Documentation/man3/llapi_scan_device.3` |
+| contract test, FID listing | `lustre/tests/llapi_scan_device_test.c` |
+| the oracle | `lustre/tests/conf-sanity.sh` test_165 |
+
+Folded into LU-20603 while it is in review: `sr_projid` on both producers,
+the §3.2 `ALL_MASK` fix, and a `sp_size` rule that accepts a caller built
+against a *shorter* parameter struct — without which the struct cannot grow
+and `sp_stats` could not have been added at all.
+
+**Validated end to end on the workstation**, against a synthetic MDT image
+from the prototype's `tests/mkimage.sh` (`mke2fs` + `debugfs`, no root, no
+mount): the plugin loads through the `$LUSTRE` fallback, and the scan
+delivers **the same 18 visible objects, with the same FIDs and the same
+class counts, as the prototype `lfind-ldiskfs` reports for the same image**
+— 18 visible, 1 internal, 1 OST object, 1 agent, 4 no-LMA, 2 bad. All seven
+contract tests pass, and the record set is identical at 1, 2, 4 and 8
+threads. Two bugs the run found, both now fixed: a size claimed as
+authoritative for a striped file when the demand mask had not asked for one
+(so no layout had been read to know better), and `LLAPI_SCAN_PARENT` set for
+an all-zero parent FID.
+
+**Not built, in order:**
+
+1. `lfs find --device` (§9) — the consumer, and the second change in the
+   series.
+2. A real-MDT run: test_165 has never executed, because the lab was deleted
+   on 2026-08-18. Rebuilding is `tests/lab-scan/` stages 01→04, ~40 min.
+3. Checkpoint and restart, rate limiting, the ZFS backend behind the same
+   call, and the Object Stream serialization — each a ticket of its own.
 
 ## 12. Open questions carried in
 
