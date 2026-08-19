@@ -286,8 +286,11 @@ plain errno and is returned as one, so a device that is not there says
 ## 9. The consumer: `lfind(8)`, and why not `lfs find --device`
 
 **Decided 2026-08-19, against this document's first answer.** The device scan
-gets its own server-side command, and shares `lfs find`'s predicate vocabulary
-by compiling the parser into both rather than by copying it.
+gets its own **server-side** command — one that runs on the MDS or OSS holding
+the target, is installed by the server package alone (`sbin_PROGRAMS` under
+`if SERVER`), and shares `lfs find`'s predicate vocabulary by compiling the
+parser into both rather than by copying it. A client has no target to read and
+does not get the command; `lfs find` is what a client uses, unchanged.
 
 ### 9.0 Why not a mode on `lfs find`
 

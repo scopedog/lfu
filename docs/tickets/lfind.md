@@ -1,4 +1,4 @@
-# LU-XXXXX: `lfind(8)`, find over a scan of a target
+# LU-XXXXX: `lfind(8)`, a server-side find over a target scan
 
 **Not yet filed.** Technical task, parent **LU-20462**, related to **LU-20606**
 (the scanner it consumes) and **LU-20605** (the front half of the split it
@@ -19,14 +19,26 @@ has nothing to do with scanning a device.
 
 ## Summary
 
-utils: lfind, find over a scan of a target
+utils: lfind, server-side find over a target scan
 
 ## Description
 
-`lfind(8)` runs `lfs find`'s predicates against a Lustre target's own objects,
-read straight off the device through `llapi_scan_device()` (LU-20606). No
-mount, no MDS, no client: an unmounted target, a snapshot or a failover
+**`lfind(8)` is a server-side command, and only that.** It runs on the MDS or
+OSS whose disks hold the target, is installed by the server package alone, and
+is built under `SERVER` so that a client package does not carry a command with
+nothing to read. A Lustre client has no target to read; `lfs find` is the
+command there, and stays the way to search a filesystem rather than a target.
+The man page, the usage text and the build all say so.
+
+It runs `lfs find`'s predicates against a Lustre target's own objects, read
+straight off the device through `llapi_scan_device()` (LU-20606). No mount, no
+MDS process and no client: an unmounted target, a snapshot or a failover
 partner's LUN is as scannable as a serving one.
+
+It is also **root-only in practice**: reading the device exposes the metadata
+of every object on the target with none of the access control a mounted
+filesystem applies, which is why it belongs in `sbin` on a server and nowhere
+near an unprivileged user.
 
 **Not a mode on `lfs find`.** That command is a client command by
 construction, not by convention: `llapi_is_lustre_mnt()` requires `":/"` in the
@@ -101,10 +113,19 @@ and a line *starting* with an asterisk becomes a bullet, so a bold lead-in uses
 an {{h5.}} heading instead.
 
 ```
-{{lfind(8)}} runs {{lfs find}}'s predicates against a Lustre target's own
-objects, read straight off the device through {{llapi_scan_device()}}
-(LU-20606).  No mount, no MDS, no client: an unmounted target, a snapshot
-or a failover partner's LUN is as scannable as a serving one.
+h5. A server-side command, and only that
+{{lfind(8)}} runs on the MDS or OSS whose disks hold the target, is
+installed by the server package alone, and is built under SERVER so that a
+client package does not carry a command with nothing to read.  A Lustre
+client has no target to read: {{lfs find}} is the command there, and stays
+the way to search a filesystem rather than a target.  It is root-only in
+practice too -- reading the device exposes every object's metadata with
+none of the access control a mounted filesystem applies.
+
+It runs {{lfs find}}'s predicates against a Lustre target's own objects,
+read straight off the device through {{llapi_scan_device()}} (LU-20606).
+No mount, no MDS process and no client: an unmounted target, a snapshot or
+a failover partner's LUN is as scannable as a serving one.
 
 h5. Not a mode on lfs find
 That command is a client command by construction, not by convention:
