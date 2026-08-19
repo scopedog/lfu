@@ -135,10 +135,18 @@ predicate table.
 
 The target is named three ways: `--device` for a block device, image or
 snapshot, which always works; `--target testfs-MDT0000` for a target mounted on
-this node, resolved through `osd-ldiskfs.<name>.mntdev`; and `--local` for every
-target the node holds. The name is the superblock label `mkfs.lustre` wrote, not
-a mountpoint — a path argument to `lfs find` already means *walk this
-namespace*.
+this node; and `--local` for every target the node serves. The name is the
+superblock label `mkfs.lustre` wrote, not a mountpoint — a path argument to
+`lfs find` already means *walk this namespace*.
+
+`--target` and `--local` both resolve through `osd-*/*/mntdev`, a read-only
+attribute of a mounted OSD, so they see what is mounted here and nothing else;
+an unmounted target, a snapshot or an image has no name to look up and needs
+`--device`. `--local` takes the MDTs and OSTs and skips the MGS, which holds
+configuration llogs and no FID-bearing objects; it scans one target at a time,
+since one scan already runs at the device's bandwidth; and a target that fails
+is reported and the sweep continues, with a non-zero exit if any failed, so a
+partial sweep cannot be mistaken for a complete one.
 
 Four differences the mode has to make explicit, each a place behaviour is not
 preserved:

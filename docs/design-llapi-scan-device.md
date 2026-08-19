@@ -298,26 +298,99 @@ and the worst one for the everyday case:
 | | Means | Works when |
 |---|---|---|
 | `--device /dev/vdb` | this block device, image or snapshot | always — nothing has to be mounted, no Lustre module loaded |
-| `--target testfs-MDT0000` | the target of that name on this node | it is mounted here: the name resolves through `osd-ldiskfs.<name>.mntdev` (`osd_lproc.c:161`), which only exists while the OSD is up |
-| `--local` | every Lustre target this node holds | same, and it is the real administrative command — an OSS with eight OSTs should not need eight invocations |
+| `--target testfs-MDT0000` | the target of that name on this node | it is mounted here (see below) |
+| `--local` | every Lustre target this node serves | same, and it is the real administrative command |
 
 The target name is the one `mkfs.lustre` wrote into the superblock label, not a
 mountpoint: `testfs-MDT0000`, never `/mnt/testfs-mdt0`. A path argument to
 `lfs find` already means *walk this namespace*, so a mountpoint is not accepted
-as a way of naming a target — one argument, one meaning.
+as a way of naming a target — one argument, one meaning. `--device`,
+`--target`, `--local` and a path are mutually exclusive; two of them is a usage
+error, not a merge.
 
 Whichever spelling is used, the scan reads the label anyway and reports the
 target it actually opened, so `--device` never leaves you guessing which MDT
 you got.
 
-**One invocation covers one target.** Under DNE the objects of a single MDT are
-a fraction of the namespace: a striped or remote directory puts its children on
-another MDT, and a scan of this one returns fewer results with no indication
-that anything is missing. The complete answer is a scan per target, merged —
-and cross-target merge is a server-side Filter Rule concern
-(`architecture.md` §1), deliberately not this module's. The man page has to say
-this plainly; it is the kind of limitation an operator should meet in
-documentation and not in a wrong answer.
+#### How the name resolves
+
+`osd-ldiskfs.<target>.mntdev` is a read-only attribute of a mounted OSD
+(`lustre/osd-ldiskfs/osd_lproc.c:161`), and `osd-zfs` publishes the same. So
+the lookup is a parameter read, not a `/proc/mounts` parse and not a forked
+`lctl`:
+
+```c
+llapi_param_get_paths("osd-*/*/mntdev", &paths, 0);   /* every local target */
+llapi_param_get_value(paths.gl_pathv[i], &buf, &len); /* its device */
+```
+
+The target's name is the path component before `mntdev`, which is what makes
+one call serve both flags: `--target` filters the glob, `--local` takes all of
+it.
+
+Three consequences worth stating rather than discovering:
+
+- **`--target` needs the target mounted here.** The attribute exists only while
+  the OSD is up. An unmounted target, a snapshot, a failover partner's LUN and
+  an image have no name to look up, and `--device` is the only way in. The
+  error for a name that does not resolve says so, rather than reporting the
+  target as missing.
+- **`--local` sees what is mounted, and nothing else.** A target this node
+  could serve but currently does not is invisible to it, by construction. That
+  is the right behaviour — but it means `--local` is not "everything on this
+  machine's disks", and the man page should not let anyone read it that way.
+- **The parameters are world-readable and the devices are not.** A non-root
+  `--local` therefore resolves every target and then fails to open each one.
+  It must report that per target, loudly, and never quietly deliver an empty
+  result: the difference between "no matches" and "you are not root" is the
+  whole point of §9.2's second rule.
+
+#### What `--local` includes
+
+Every local target whose label names an MDT or an OST, and nothing else.
+
+- **The MGS is skipped.** A standalone MGS is an OSD device too and answers the
+  same parameter, but it holds configuration llogs, not FID-bearing objects.
+  Scanning it would produce a page of internal objects and no useful records.
+- **A combined MGS/MDT is scanned once.** It is one device with one label
+  (`testfs-MDT0000`); if two parameters ever resolve to the same device, the
+  device is scanned once.
+- **A ZFS target resolves and then refuses, by name.** `osd-zfs` publishes
+  `mntdev` as well, so `--local` on a ZFS server finds its targets and has no
+  backend for them yet: the honest answer is `-ENOTSUP` naming the target, not
+  a silent omission from the sweep. When the ZFS backend lands behind the same
+  call, `--local` picks it up with no change here.
+
+#### One target at a time
+
+`--local` scans its targets **sequentially**, and `sp_thread_count` parallelism
+stays *within* a target. A single scan already runs at the device's bandwidth —
+1.44M objects/s, 94% of an NVMe stripe, flat in thread count — so scanning
+eight OSTs at once would divide the same CPU and thrash whatever cache the
+underlying storage shares. Sequential also keeps the failure story simple: a
+target that fails is one line in the output at the point it failed.
+
+**A failed target does not end the sweep.** It is reported, the scan continues
+with the next one, and the exit status is non-zero if any target failed — so a
+script that checks the status cannot mistake a partial sweep for a complete
+one. This is the same rule as §6: an answer that quietly omits things is worse
+than an error.
+
+#### One invocation, one filesystem's worth of one node
+
+Under DNE the objects of a single MDT are a fraction of the namespace: a
+striped or remote directory puts its children on another MDT, and a scan of
+this one returns fewer results with no indication that anything is missing.
+`--local` narrows that gap on a node holding several MDTs and does not close
+it — the complete answer is a scan per target across every server, merged, and
+cross-target merge is a server-side Filter Rule concern (`architecture.md` §1),
+deliberately not this module's.
+
+What makes the merge possible at all is that every record already carries
+`sr_mdt_index`, read from the label at open time, so records from several
+targets stay attributable once concatenated. FIDs are unique across the
+filesystem, so a merged FID list needs no deduplication — but a *count* does,
+and that is where the merge stops being concatenation.
 
 ### 9.2 What the mode changes
 
