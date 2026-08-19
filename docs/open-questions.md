@@ -29,13 +29,29 @@ Merge is a property of Filter Rule modules ("merge the output from multiple Inpu
 Scanner modules into a single object stream"), with sorting optional. Not a
 special transport layer, not a guarantee of the scan.
 
-### Object Stream format: FlatBuffers preferred
+### Object Stream format: FlatBuffers or Cap'n Proto
 
-The HLD names FlatBuffers as front-runner (ProtoBuf and MessagePack also to be
+The HLD named FlatBuffers as front-runner (ProtoBuf and MessagePack also to be
 investigated), for **field-offset access without parsing every object** — the
 right reason given billions of near-identical records. A custom binary protocol
 is the explicit fallback, not the goal. Extensibility via protocol flags, not
 version numbers.
+
+**Narrowed 2026-08-18 in review:** MessagePack is out; the contenders are
+**FlatBuffers and Cap'n Proto**, and the criterion is zero-copy access, LNet
+bulk RDMA integration and kernel portability — not encoded size or schema
+ergonomics.
+
+**TLU-219, read 2026-08-19** (the ticket owner supplied the export; it is TLC
+tracker material, so the read-up stays in `docs/local/`): its one architectural
+argument for FlatBuffers — a message built inside a single
+pre-allocated buffer maps to a single LNet MD, while Cap'n Proto's segments do
+not — is withdrawn in the same comment, because LNet **bulk** transport takes a
+`lnet_kiov_t` page vector and stitches the fragments in the HCA. LFU is a bulk
+workload by construction, so that argument does not reach it. On the ticket's
+own evidence the two are closer than its opening line reads. **Still open**, and
+the deciding work is ours: `capnp-c` and `flatcc` against kernel constraints,
+plus a bound on per-record encode cost.
 
 ### Path resolution is an Output Format module, priced separately
 
@@ -355,13 +371,22 @@ xattr is in an inode-table block the scan was already paying for. Tier 1 is a CP
 cost, visible when the scan is CPU-bound and invisible when it is device-bound —
 which is the tier model seen from the other side.
 
-### Kernel-side Object Stream encoding **[new]**
+### Kernel-side Object Stream encoding **[a candidate named, 2026-08-19]**
 
 Deferred rather than avoided. The initial ldiskfs scanner runs in userspace, so
-FlatBuffers encoding happens where the library exists. But the OSD API Input
-Scanner exports through `circ_buf` from *kernel* context, and neither FlatBuffers
-nor MessagePack has a kernel-space encoder in-tree or upstream (`grep -rli` over
-`lustre-release` returns zero hits for both).
+encoding happens where the library exists. But the OSD API Input Scanner exports
+through `circ_buf` from *kernel* context, and neither candidate has a
+kernel-space encoder in-tree or upstream (`grep -rli` over `lustre-release`
+returns zero hits for either).
+
+**TLU-219 names one:** `c-capnproto`, the pure C89/C99 Cap'n Proto
+implementation with no C++ runtime, with `#ifdef __KERNEL__` allocation and a
+segment allocator that builds directly inside pinned LNet pages. That is a
+candidate to check, not a closed question — the ticket carries no measurement,
+no licence check, and nothing at all for `flatcc` on the FlatBuffers side.
+Three problems with its `kmap_local_page()` sketch — LIFO unmapping, the
+`PAGE_SIZE` cap on a single list or blob, and the extra round trip carrying the
+segment table — are written up with the read-up in `docs/local/`.
 
 The HLD also notes the OSD path "might require at least basic attribute filtering
 to be implemented in the kernel" — so kernel-side filter evaluation lands

@@ -92,7 +92,7 @@ shape.
 
 ## 2. Object Stream format
 
-FlatBuffers is the current front-runner, with ProtoBuf and MessagePack also to be
+FlatBuffers is the HLD's front-runner, with ProtoBuf and MessagePack also to be
 investigated. The stated reason is specific and worth preserving: **field-offset
 access without parsing or decoding every object**. With billions of near-identical
 records, per-object decode cost dominates, which is also why JSON is rejected for
@@ -104,6 +104,15 @@ The HLD prefers a cross-platform interchange format over a custom binary protoco
 Extensibility is explicit: the protocol must allow new attributes without breaking
 interop with existing modules, and feature availability is negotiated by
 **protocol flags, not version numbers**.
+
+**Narrowed since.** In review on 2026-08-18 MessagePack was ruled out and Cap'n
+Proto added, on the criterion of zero-copy access, LNet bulk RDMA integration and
+kernel portability — not encoded size or schema ergonomics. TLU-219, read
+2026-08-19, states that requirement directly and names a kernel path for the
+Cap'n Proto side; the argument that FlatBuffers suits LNet better because it
+builds inside a single buffer does not survive bulk transport, where the MD is a
+`lnet_kiov_t` page vector that Cap'n Proto's segments map straight onto. The
+read-up is TLC tracker material and stays in `docs/local/`.
 
 > **Analysis.** The kernel-encoder problem I previously raised largely evaporates
 > under the HLD's staging: the initial ldiskfs scanner runs *in userspace*, so
