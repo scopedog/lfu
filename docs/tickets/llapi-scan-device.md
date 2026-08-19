@@ -120,17 +120,30 @@ runs the scan against the mounted MDT and diffs its FID set against `lfs find`.
 
 ## Checklist
 
-- [ ] `sr_projid` and the `LLAPI_SCAN_ALL_MASK` fix folded into LU-20603 while
-      it is still in review (both additive; carries the re-wrapped commit
-      messages that are held back)
-- [ ] File the two tickets, Components set: llapi, utils
-- [ ] `libscan_ldiskfs.c` — prototype ported to upstream style
-- [ ] `liblustreapi_scan_device.c` — ops table, dlopen, -ENOTSUP path
-- [ ] `Makefile.am` plugin rules, `AC_CHECK_LIB` for `ext2fs_xattrs_read_inode`
-- [ ] `Documentation/man3/llapi_scan_device.3`
-- [ ] `llapi_scan_test --device`, and the `sanity.sh` oracle test
-- [ ] Rebuild an ldiskfs lab (`tests/lab-scan/`, stages 01→04) and run the
-      oracle before pushing
+- [x] `sr_projid`, the `LLAPI_SCAN_ALL_MASK` fix and a `sp_size` rule that
+      lets the parameter struct grow, folded into LU-20603 while it is still
+      in review (all three additive; they carry the re-wrapped commit
+      messages that were held back)
+- [x] `libscan_ldiskfs.c` — prototype ported to upstream style
+- [x] `liblustreapi_scan_device.c` — ops table, dlopen, -ENOTSUP path
+- [x] `Makefile.am` plugin rules. **No configure work was needed**: the tree
+      already requires `ext2fs >= 1.47.3-wc2` when utils and ldiskfs are both
+      enabled, which is the WhamCloud fork and covers both `dirdata` and
+      `ext2fs_xattrs_read_inode()`
+- [x] `Documentation/man3/llapi_scan_device.3`
+- [x] `llapi_scan_device_test`, and the oracle as **conf-sanity test_165**
+      rather than a `sanity` test — a mounted MDT has objects still in the
+      journal, so a client-visible FID can be legitimately absent from the
+      device and the test would be flaky
+- [x] Validated against a synthetic MDT image: same 18 FIDs and the same
+      class counts as the prototype scanner, all 7 contract tests passing,
+      identical record set at 1/2/4/8 threads
+- [ ] **File the two tickets, Components set: llapi, utils.** The local
+      commit is tagged **LU-20462**, the epic, because the technical task
+      does not exist yet; re-tag it before pushing
+- [ ] `lfs find --device` — the consumer, second change of the series
+- [ ] Rebuild an ldiskfs lab (`tests/lab-scan/`, stages 01→04) and run
+      test_165 against a real MDT before pushing
 
 ---
 
