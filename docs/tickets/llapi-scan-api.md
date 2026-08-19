@@ -88,7 +88,7 @@ ride along with the next real change rather than a wrapping-only round trip.
       168-byte record, minus what only a device scanner can know.
 - [ ] Whether `libhsm_scanner.c` folds into this rather than remaining a second
       in-tree scanner.
-- [ ] Components field is empty on the ticket; set it to llapi. Same on
+- [ ] (Components: not applicable — the LU project defines none.) Same on
       LU-20605, which wants utils.
 - [ ] The filed description is Markdown and shows stray asterisks around bold
       lead-ins; replace it with the wiki-markup block below.

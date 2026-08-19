@@ -11,8 +11,8 @@ first step, *replacing `lfs find` on the client side*.
 
 Two edits still wanted on the ticket: the description was pasted as Markdown
 and carries stray asterisks around every bold lead-in, which the wiki-markup
-block at the end of this file replaces; and Components is empty, which should
-say utils.
+block at the end of this file replaces. (Components: not applicable — the LU
+project defines none, which is why every ticket in it has that field empty.)
 
 ---
 
