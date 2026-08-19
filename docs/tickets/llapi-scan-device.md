@@ -221,6 +221,17 @@ already say `lfind`; `lfsscan` is the alternative if a reviewer objects.
 - [x] Validated against a synthetic MDT image: same 18 FIDs and the same
       class counts as the prototype scanner, all 7 contract tests passing,
       identical record set at 1/2/4/8 threads
+- [x] Multi-agent review (2026-08-19): eight findings, all fixed in place —
+      `scan_ldiskfs.so` packaged in `lustre.spec.in`; the label parser now
+      takes `-`, `:` and `=` (a writeconf'd or never-mounted OST scanned as
+      an MDT and returned nothing); xattr read failures now skip and count
+      the object instead of misclassifying it or passing the MDT size as
+      authoritative; `sr_attr_flags` masked to the five bits that really
+      are `STATX_ATTR_*` (htree dirs reported AUTOMOUNT); `sr_mdt_index`
+      gated on a parsed MDT label, not any label; a `pthread_create`
+      failure degrades to fewer workers instead of returning an error after
+      a complete scan; the `sp_stats` header comment scoped to the device
+      scan; test_165 checks the scanner's exit status, not `sort`'s
 - [x] Default emission follows the target's role: an OST scan would have
       returned nothing, since every object on an OST is a data object and
       the policy emitted only the namespace-visible class. conf-sanity
