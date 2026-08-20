@@ -1,0 +1,185 @@
+# The post-review series on a lab, 2026-08-20
+#
+# The eight commits as they stand after the AI review fixes were squashed in
+# (branch lu-20603-scan-api, base 5afbab284e).  The earlier run in
+# lab-aireview-results.txt predates those fixes: different tree, different
+# binary.  Instance lfu-aireview-lab, c3-standard-8, us-central1-a, RHEL 9.8.
+#
+# Stage 12 failed its first attempt on a harness bug -- the script distcleans,
+# reconfigures --disable-shared and then builds only lustre/utils, so
+# libcfs.la did not exist for liblustreapi.la to link against.  Every source
+# file, libscan_ldiskfs.c included, had already compiled.  It builds the whole
+# tree now and the log below is the second attempt.
+
+########## s2 (rc=0)
+=== applying the LU-20603 patch ===
+Applying: LU-20603 llapi: namespace scanner API for per-object records
+Applying: LU-20605 llapi: build find on the scanner record
+Applying: LU-20606 llapi: scan an ldiskfs target directly
+Applying: LU-20611 llapi: split the deciding half out of cb_find_init
+Applying: LU-20611 lfs: share find's predicate parsing
+Applying: LU-20611 llapi: run find's predicates over a device scan
+Applying: LU-20611 utils: lfind, server-side find over a target
+Applying: LU-20613 llapi: ZFS backend for llapi_scan_device()
+=== autogen ===
+=== configure ===
+ldiskfs: enabled
+=== make -j8 ===
+build took 105s
+=== the symbol we came for ===
+000000000002c660 T llapi_scan_namespace
+STAGE2 OK
+########## s03 (rc=0)
+
+   Permanent disk data:
+Device:     /home/nishida/img/mdt.img
+Target:     testfs:MDT0000
+Index:      0
+Lustre FS:  testfs
+Mount type: ldiskfs
+Flags:      0x65
+              (MDT MGS first_time update )
+Persistent mount opts: user_xattr,errors=remount-ro
+Parameters:
+
+formatting backing filesystem ldiskfs on /dev/loop0
+	target name   testfs:MDT0000
+	kilobytes     8388608
+	options       -I 1024 -J size=327 -i 1536 -q -O uninit_bg,extents,dirdata,dir_nlink,quota,project,huge_file,ea_inode,large_dir,^fast_commit,flex_bg -E lazy_journal_init,lazy_itable_init="0",packed_meta_blocks -F
+mkfs_cmd = mke2fs -j -b 4096 -L testfs:MDT0000 -I 1024 -J size=327 -i 1536 -q -O uninit_bg,extents,dirdata,dir_nlink,quota,project,huge_file,ea_inode,large_dir,^fast_commit,flex_bg -E lazy_journal_init,lazy_itable_init="0",packed_meta_blocks -F /dev/loop0 8388608k
+
+   Permanent disk data:
+Device:     /home/nishida/img/ost0.img
+Target:     testfs:OST0000
+Index:      0
+Lustre FS:  testfs
+Mount type: ldiskfs
+Flags:      0x62
+              (OST first_time update )
+Persistent mount opts: errors=remount-ro
+Parameters: mgsnode=10.128.15.214@tcp
+
+formatting backing filesystem ldiskfs on /dev/loop0
+	target name   testfs:OST0000
+	kilobytes     8388608
+	options        -J size=327 -I 512 -q -O uninit_bg,extents,dir_nlink,quota,project,huge_file,large_dir,^fast_commit,flex_bg -G 256 -E resize="4290772992",lazy_journal_init,lazy_itable_init="0",packed_meta_blocks -F
+mkfs_cmd = mke2fs -j -b 4096 -L testfs:OST0000  -J size=327 -I 512 -q -O uninit_bg,extents,dir_nlink,quota,project,huge_file,large_dir,^fast_commit,flex_bg -G 256 -E resize="4290772992",lazy_journal_init,lazy_itable_init="0",packed_meta_blocks -F /dev/loop0 8388608k
+Filesystem                 Size  Used Avail Use% Mounted on
+/dev/loop0                 2.3G  1.6M  1.9G   1% /mnt/mdt0
+/dev/loop1                 7.4G  1.4M  7.0G   1% /mnt/ost0
+10.128.15.214@tcp:/testfs  7.4G  1.4M  7.0G   1% /mnt/testfs
+STAGE3 OK
+########## s04 (rc=0)
+--- tree:
+/mnt/testfs
+/mnt/testfs/0many
+/mnt/testfs/0many/f1
+/mnt/testfs/0many/f10
+/mnt/testfs/0many/f100
+/mnt/testfs/0many/f101
+/mnt/testfs/0many/f102
+/mnt/testfs/0many/f103
+/mnt/testfs/0many/f104
+/mnt/testfs/0many/f105
+/mnt/testfs/0many/f106
+/mnt/testfs/0many/f107
+/mnt/testfs/0many/f108
+/mnt/testfs/0many/f109
+/mnt/testfs/0many/f11
+/mnt/testfs/0many/f110
+/mnt/testfs/0many/f111
+/mnt/testfs/0many/f112
+/mnt/testfs/0many/f113
+/mnt/testfs/0many/f114
+/mnt/testfs/0many/f115
+/mnt/testfs/0many/f116
+/mnt/testfs/0many/f117
+/mnt/testfs/0many/f118
+/mnt/testfs/0many/f119
+/mnt/testfs/0many/f12
+/mnt/testfs/0many/f120
+/mnt/testfs/0many/f121
+/mnt/testfs/0many/f122
+/mnt/testfs/0many/f123
+--- object count: 312
+STAGE4 OK
+########## s05 (rc=0)
+=== built
+=== 1. one record per object, and what is in it
+=== 2. FID set vs lfs find + lfs path2fid
+  PASS  no objects missed
+  PASS  no extra objects
+=== 3. thread count does not change the answer
+  PASS  -j 2 identical to -j 1
+  PASS  -j 4 identical to -j 1
+  PASS  -j 8 identical to -j 1
+=== 4. max_depth limits the descent
+  PASS  depth 1 < depth 2
+  PASS  depth 2 < unlimited
+=== 5. a callback that stops the scan
+  PASS  callback return reaches the caller
+  PASS  stopped at the third record
+=== 6. the validity mask is populated, not blank
+  PASS  no record with an empty valid mask
+=== 7. bad arguments are refused
+  PASS  a missing path is an error, not a crash
+=== 8. the demand mask: TYPE-only asks for no ioctl
+  PASS  TYPE-only records carry only TYPE
+  PASS  TYPE-only still sees every object
+  PASS  no FID fetched under TYPE-only
+=== 9. the pre-filter: name glob before any I/O
+  PASS  pre-filter delivers exactly the *.txt objects
+  PASS  delivered records are fully gathered (FID present)
+  PASS  pre-filter never saw a gathered field
+  PASS  everything else was filtered, not lost
+=== 10. a stop really stops, including with threads and work left
+  PASS  -j 1: consumer's value returned
+  PASS  -j 1: at most 5+threads records after a stop-after-5 (of 312)
+  PASS  -j 4: consumer's value returned
+  PASS  -j 4: at most 5+threads records after a stop-after-5 (of 312)
+STAGE5 OK
+########## s10 (rc=0)
+useradd warning: runas's uid 500 outside of the UID_MIN 1000 and UID_MAX 60000 range.
+=== BEFORE: 5afbab284e9cc45b2635213d99d23364e1abbc05
+  before: llapi_scan_namespace symbols installed = 0
+  before: 75 pass, 2 fail, 9 skip
+=== AFTER: base + all seven patches
+f53f2399b9 LU-20613 llapi: ZFS backend for llapi_scan_device()
+4bc843ef74 LU-20611 utils: lfind, server-side find over a target
+2d75c2f8bb LU-20611 llapi: run find's predicates over a device scan
+  after: llapi_scan_namespace symbols installed = 1
+  after: 75 pass, 2 fail, 9 skip
+=== DIFF (before vs after)
+IDENTICAL
+=== failures after, if any
+FAIL 56Eaa
+FAIL 56xb
+STAGE7 DONE
+########## s09 (rc=0)
+=== lfind and the test binary must be where the test looks ===
+/sbin/lfind
+-rwxr-xr-x. 1 root root 8008 Aug 20 15:32 /home/nishida/lustre-release/lustre/tests/llapi_scan_device_test
+=== result ===
+PASS 165 (38s)
+=== what it printed ===
+STAGE9 DONE
+########## s12 (rc=0)
+ENABLE_LDISKFS='yes'
+=== PLUGIN_DIR in config.h:
+  not defined -- backend is linked in
+=== building
+=== the symbol the Janitor missed last time
+0
+1
+=== warnings, if any
+1:config/Makefile.codetags:29: warning: overriding recipe for target 'cscope'
+2:autoMakefile:821: warning: ignoring old recipe for target 'cscope'
+386:Makefile:1508: warning: overriding recipe for target 'libmount_utils_zfs.la'
+387:Makefile:1502: warning: ignoring old recipe for target 'libmount_utils_zfs.la'
+388:Makefile:1526: warning: overriding recipe for target 'libscan_zfs.la'
+389:Makefile:1520: warning: ignoring old recipe for target 'libscan_zfs.la'
+392:Makefile:1508: warning: overriding recipe for target 'libmount_utils_zfs.la'
+393:Makefile:1502: warning: ignoring old recipe for target 'libmount_utils_zfs.la'
+394:Makefile:1526: warning: overriding recipe for target 'libscan_zfs.la'
+395:Makefile:1520: warning: ignoring old recipe for target 'libscan_zfs.la'
+STAGE12 OK
