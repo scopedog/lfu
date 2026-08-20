@@ -48,11 +48,46 @@ advisory. What was decided in the code, beyond the ticket text:
   still builds, just without a scan backend. The spec entry became
   `@SCAN_ZFS_PLUGIN@` for the same reason.
 
-Verified locally: compiles `-Wall -Werror`, plugin links against libzpool
-with all five entry points resolving, nonexistent-dataset and reopen paths
-clean through the real `llapi_scan_device()`, and an ldiskfs image scan
-still delivers through the reworked loader. What needs the lab: everything
-in Acceptance.
+**Lab-verified 2026-08-19** on `lfu-zfs-scan` (us-east1-b, Rocky 9.8, OpenZFS
+2.2.10 DKMS, pools on real block devices): the **whole acceptance list
+passes** —
+
+- contract tests **7/7 unmodified** against a ZFS MDT and **7/7** against a
+  ZFS OST; **7/7 against a snapshot**, whose FID set is byte-identical to the
+  live dataset's (20,016 FIDs);
+- 20,336 objects **identical at 1, 2, 4, 8 and 16 threads**;
+- `lfind` predicates correct (`--type f`/`--type d` disjoint, `--projid 1999`
+  and `--uid 65534` each find exactly their one file);
+- **conf-sanity test_165 PASS (78s) with `FSTYPE=zfs`**;
+- an imported pool is **refused with EBUSY**, and an exported one scans.
+
+**What the lab forced into the patch** — five things no workstation could
+show, each now in the commit:
+
+1. `ZFS_LIBZFS_INCLUDE` reaches `libzfs.h` only; the DMU headers need the
+   libzpool recipe (`include/os/linux/zfs` + `-DLIB_ZPOOL_BUILD`), found by a
+   configure **compile test** (`ZFS_SCAN_ENABLED`), not a directory test.
+2. Lustre defines `_KERNEL` globally on `--with-zfs` builds; the file
+   `#undef`s it, being the tree's first userspace consumer of headers that
+   change meaning under it.
+3. `-Werror` vs `abd_os.h`'s undeclared `struct page`/`struct bio`: forward
+   declarations, not a weaker `-Werror`.
+4. **Link `-lzpool -lnvpair`, never `-lzfs`**: libzfs carries its own fletcher
+   copy, and with two in the lookup scope the one `kernel_init()` initializes
+   need not be the one the read path asserts on (SIGABRT in
+   `fletcher_4_impl_get`).
+5. **`sp_search`** in the versioned param (with `-p` in the test binary,
+   `--search` in lfind): a pool on file vdevs — conf-sanity's own ZFS mode —
+   is invisible to a `/dev` label scan. And a locally imported pool is
+   *skipped* by the label scan, so without the `/proc/spl/kstat/zfs/<pool>`
+   check it reads as ENOENT rather than EBUSY.
+
+**Review 2026-08-19** (after the lab pass): two defects found and fixed, then
+revalidated green — `SO_BTIME` was claimed valid even when the `ZPL_CRTIME`
+lookup failed, and a dead `zw_nbufs` field. Flagged without action: the plugin
+ABI has no version handshake (a stale installed plugin SIGSEGVs on skew;
+`mount_osd_*` has the same exposure and the tree accepts it — but this ABI is
+private and could take a versioned symbol cheaply).
 
 ---
 
