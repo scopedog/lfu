@@ -64,7 +64,7 @@ later record says what it overturns.
 | [`tickets/llapi-scan-device.md`](tickets/llapi-scan-device.md) | **LU-20606**, filed by Dilger; written and tested. The ldiskfs device scanner behind `llapi_scan_device()` — step 3 |
 | [`tickets/lu-20462-epic.md`](tickets/lu-20462-epic.md) | **LU-20462**, the epic — status comments for a ticket that is not ours to edit |
 | [`tickets/lfind.md`](tickets/lfind.md) | **LU-20611.** `lfind(8)`, the scanner's first consumer, and the two refactors it needs |
-| [`tickets/zfs-scan-backend.md`](tickets/zfs-scan-backend.md) | **To file.** The ZFS backend behind `llapi_scan_device()` — step 3b, and the test that the plugin ABI generalises |
+| [`tickets/zfs-scan-backend.md`](tickets/zfs-scan-backend.md) | **LU-20613.** The ZFS backend behind `llapi_scan_device()` — step 3b, written, lab-verified and the proof that the plugin ABI generalises |
 
 ## Superseded — kept for provenance
 

@@ -1,6 +1,6 @@
-# ZFS backend behind `llapi_scan_device()` — ticket to file
+# LU-20613: ZFS backend behind `llapi_scan_device()`
 
-**Not filed yet.** Technical task, **parent LU-20462**, related to **LU-20606**
+**Filed 2026-08-19 as LU-20613.** Technical task, **parent LU-20462**, related to **LU-20606**
 (the ldiskfs backend it mirrors) and **LU-20611** (`lfind(8)`, its consumer).
 Assignee Hiroshi Nishida, Affects Version **2.18.0**. The LU project defines no
 components, so that field stays empty as it does on every other ticket there.
@@ -14,9 +14,9 @@ Step 3b of [`architecture.md`](../architecture.md) §12. Design of record:
 ## Implemented 2026-08-19, held locally
 
 `lustre/utils/libscan_zfs.c` (589 lines) plus the loader, build and packaging
-changes, committed on the `lu-20603-scan-api` worktree as **`LU-20462 llapi:
-ZFS backend for llapi_scan_device()`** — renumber to this ticket once it is
-filed, then push on the user's check. Checkpatch clean bar the MAINTAINERS
+changes, committed on the `lu-20603-scan-api` worktree as **`LU-20613 llapi:
+ZFS backend for llapi_scan_device()`**, held for the ticket owner's check
+before any push. Checkpatch clean bar the MAINTAINERS
 advisory. What was decided in the code, beyond the ticket text:
 
 - **Backend selection**: a device string naming a block device or existing
