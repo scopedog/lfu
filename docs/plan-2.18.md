@@ -215,10 +215,11 @@ comment first and see.
    with a clock on it: the cheapest test that the backend ABI generalises is a
    second backend, and running that test while LU-20606 is *in review* is what
    makes an ABI change free. The prototype exists to port, and its work unit is
-   already object-ID ranges. → ticket drafted in
-   [`tickets/zfs-scan-backend.md`](tickets/zfs-scan-backend.md); **file it**
-   under LU-20462. One question first: every measured run exported the pool, and
-   `lfind --local` is the imported-pool case.
+   already object-ID ranges. → **filed as LU-20613** and **written**, see
+   [`tickets/zfs-scan-backend.md`](tickets/zfs-scan-backend.md); lab-verified
+   2026-08-19, held for review before pushing. The open question is answered
+   conservatively in code: an imported pool is refused with EBUSY, so
+   `lfind --local` on a serving ZFS MDS says so rather than guessing.
 2. **Aggregate / histogram Filter Rules** (step 4). Andreas named the bounded
    histogram as a requirement for the Trash Can tool, so this is a consumer
    blocker, not a reporting nicety. Nothing forces it to be first, though — no
@@ -283,7 +284,7 @@ rather than implemented, so that 2.19 opens with them answered.
 
 **To file, in this order:**
 
-1. ZFS backend behind `llapi_scan_device()` — Technical task, parent LU-20462; **text drafted**
+1. ~~ZFS backend behind `llapi_scan_device()`~~ — **filed as LU-20613**, written and lab-verified
 2. Aggregate / histogram Filter Rules — Technical task, parent LU-20462, `llapi` + `utils`
 3. Changelog Input Scanner — Technical task, parent LU-20462
 4. PCC-RO consumer — only if the 2.18 window allows
