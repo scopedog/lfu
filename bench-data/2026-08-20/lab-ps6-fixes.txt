@@ -1,0 +1,67 @@
+# The review fixes verified, 2026-08-20
+
+The amended series (patchset 6 material, unpushed) on lfu-aireview-lab.
+
+########## the ZFS backend still works, with the fixes in
+
+  02-build      scan_zfs.so present, all five entry points exported,
+                liblustreapi links neither libzpool nor libext2fs
+  03-fs/04      pools and client up, 20k objects
+  05-acceptance MDT contract 7/7, OST contract 7/7,
+                20346 objects identical at 1, 2, 4, 8, 16 threads,
+                lfind: all=20346 --type f=20016 --type d=9, disjoint,
+                imported pool refused with EBUSY before any export
+  06-confsanity conf-sanity 165, FSTYPE=zfs: PASS (81s)
+
+########## the autotest failure, reproduced and fixed
+
+Three sessions on 68163 PS3 failed `165(scanning lustre-mdt1/mdt1 failed)`.
+The cause is on the builder, console line 187:
+
+  checking zfs libzpool headers usable from userspace... no: llapi_scan_device
+  will have no zfs backend
+
+so no scan_zfs.so is built, and llapi_scan_device() answers ENOTSUP -- which
+test_165 called an error instead of a reason to skip.
+
+BEFORE the fix, on autotest:   FAIL: scanning lustre-mdt1/mdt1 failed
+AFTER the fix, on this lab:    SKIP: conf-sanity test_165 no zfs scan
+                               backend in this build
+                               SKIP 165 (24s)
+
+########## three attempts at reproducing it, and what each taught
+
+1. Hid /usr/include/{libzpool,libzfs,libspl}.  configure found the headers
+   anyway, in the DKMS source tree at /var/lib/dkms/zfs/2.2.10/source -- the
+   second of the three candidates the m4 tries.  The plugin built.
+
+2. Also hid /usr/src/zfs-2.2.10 and the DKMS source.  configure then refused
+   outright: "Required zfs osd cannot be built due to missing zfs development
+   headers."  The kernel osd needs that tree; only its lib/libspl half is what
+   the scan backend's compile test reads.
+
+3. Hid just lib/libspl.  configure still refused, for the same reason: on this
+   box osd-zfs wants the userspace headers too.
+
+The builder's condition is not "the headers are absent" but "they are present
+and do not compile from userspace" -- a ZFS version difference, which is why
+the m4 compiles a program rather than testing for directories.  So the OUTCOME
+was reproduced instead: an osd-zfs install with no scan_zfs.so anywhere.
+
+Removing /usr/lib64/lustre/scan_zfs.so alone was not enough either.  The test
+still passed, scanning 107 objects, because the loader has a second path:
+
+  /* $LUSTRE is how test-framework points at a build tree */
+  handle = dlopen("$LUSTRE/utils/scan_zfs.so")
+
+which conf-sanity sets.  A manual run of the same binary did answer ENOTSUP,
+because root's environment has no $LUSTRE -- the difference that hid it.  With
+BOTH copies moved aside the test skips, which is the line above.
+
+########## the MDT_INDEX fix
+
+Before: a non-root scan of a tree holding one root-owned mode-000 file
+delivered 5 of 6 objects with LLAPI_SCAN_MDT_INDEX in the mask, rc 0.
+After: the open failure leaves fp_file_mdt_index at OBD_NOT_FOUND and clears
+rc, so the bit stays unset and the object is still delivered -- what projid
+and HSM already did.
