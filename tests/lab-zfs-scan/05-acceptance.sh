@@ -16,6 +16,16 @@ MDT=lfu-mdt/mdt0
 OST=lfu-ost0/ost0
 export LUSTRE=$L/lustre
 
+# The installed tree must match the build: PLUGIN_DIR is searched before the
+# $LUSTRE fallback, so a stale installed scan_zfs.so is what actually loads,
+# and an ABI-skewed plugin dies inside sb_open.  Install with everything
+# unmounted -- a busy /sbin/mount.lustre kills install after a good build.
+echo "=== sync the installed tree with the build ==="
+sudo umount /mnt/lfufs 2>/dev/null || true
+sudo umount /mnt/ost0 /mnt/ost1 /mnt/mdt0 2>/dev/null || true
+sudo make -C ~/lustre-release install > /tmp/install5.log 2>&1 || {
+	tail -5 /tmp/install5.log; exit 1; }
+
 # A failed earlier run aborts mid-script and leaves the pools exported, which
 # would turn the refusal check below into a scan of a legally exported pool.
 # Re-establish the served state first, so the stage is idempotent.
@@ -40,8 +50,13 @@ echo "$out" | tail -5
 if [ $rc -eq 0 ]; then
 	echo "!! a scan of an IMPORTED pool SUCCEEDED -- the refusal is wrong,"
 	echo "!! or the pool was not actually imported"
+	exit 1
+elif echo "$out" | grep -q "Device or resource busy"; then
+	echo "OK: refused while imported, and says EBUSY"
 else
-	echo "OK: refused while imported (rc=$rc)"
+	echo "!! refused, but not with EBUSY -- the caller cannot tell"
+	echo "!! 'in service' from 'does not exist'"
+	exit 1
 fi
 
 echo
