@@ -1,0 +1,152 @@
+# The ZFS backend and the MDT_INDEX drop, 2026-08-20
+
+The eight commits as pushed in patchset 5.  The ldiskfs run earlier the same
+day configured --disable-zfs, so this is the first exercise of the ZFS path
+since the review round changed the dispatch both backends share: the
+scan_linkea_entry() return contract (an error path returned the index it
+stopped at, now 0), the reccount clamp, and ss_size going from a silent clamp
+to -EINVAL.  Instance lfu-aireview-lab with three 20 GB disks attached, so the
+pools sit under /dev where an exported pool's vdev labels are found.
+
+########## z1 (rc=0)
+/usr/include/libspl/sys/stat.h
+/usr/include/libzfs/sys/dmu.h
+/usr/lib64/libzpool.so
+/usr/lib64/libzpool.so.5
+/usr/lib64/libzpool.so.5.0.0
+STAGE1 OK
+########## z02 (rc=0)
+=== applying the LFU series ===
+=== autogen ===
+=== configure ===
+=== make -j8 ===
+=== the ZFS scan plugin must have been built and must link libzpool ===
+  present  scan_zfs_open
+  present  scan_zfs_close
+  present  scan_zfs_worker_init
+  present  scan_zfs_worker_fini
+  present  scan_zfs_scan_chunk
+=== and liblustreapi itself must link NEITHER backend library ===
+  liblustreapi links neither libzpool nor libext2fs
+  (no warnings from libscan_zfs.c)
+########## z03 (rc=0)
+=== zpools on real devices ===
+NAME       SIZE  ALLOC   FREE  CKPOINT  EXPANDSZ   FRAG    CAP  DEDUP    HEALTH  ALTROOT
+lfu-mdt   19.5G   134K  19.5G        -         -     0%     0%  1.00x    ONLINE  -
+lfu-ost0  19.5G   132K  19.5G        -         -     0%     0%  1.00x    ONLINE  -
+lfu-ost1  19.5G  95.5K  19.5G        -         -     0%     0%  1.00x    ONLINE  -
+=== mkfs.lustre ===
+  MDT created
+  OST0 created
+  OST1 created
+=== the svname property the backend reads its label from ===
+lustre:svname	lfufs:MDT0000
+lustre:svname	lfufs:OST0000
+lfu-mdt/mdt0	xattr	sa	local
+lfu-mdt/mdt0	dnodesize	auto	local
+=== mount ===
+10.128.15.214@tcp:/lfufs   38G  4.0M   38G   1% /mnt/lfufs
+STAGE3 OK
+########## z04 (rc=0)
+=== what the client sees ===
+UUID                      Inodes       IUsed       IFree IUse%  Mounted on
+lfufs-MDT0000_UUID       4753640         332     4753308   1%  /mnt/lfufs[MDT:0] 
+lfufs-OST0000_UUID        614473         393      614080   1%  /mnt/lfufs[OST:0] 
+files under /mnt/lfufs: 20013
+STAGE4 OK
+########## z05 (rc=0)
+=== sync the installed tree with the build ===
+=== ensure pools are imported and targets mounted ===
+###############################################################
+# 4 first, while everything is still mounted and imported
+###############################################################
+lt-llapi_scan_device_test: lfu-mdt/mdt0: its pool is ACTIVE; export it first
+lt-llapi_scan_device_test: llapi_scan_device_test.c:98: test0: assertion 'rc == 0' failed: llapi_scan_device(lfu-mdt/mdt0) failed: Device or resource busy
+ test0 @1787243179: llapi_scan_device delivers records off the target .......... fail (exit status 1)
+OK: refused while imported, and says EBUSY
+
+=== unmount Lustre and hand the pools over ===
+no pools available
+
+###############################################################
+# 1. the contract tests, unmodified, against the ZFS MDT
+###############################################################
+ test0 @1787243194: llapi_scan_device delivers records off the target .......... pass
+WARNING: sha2 _init: crypto_register_provider() failed (0x5)
+ test1 @1787243202: llapi_scan_device is the same answer at any thread count ... pass
+ test2 @1787243204: sp_want holds back what the consumer did not ask for ....... pass
+ test3 @1787243206: sp_filter rejects an object before its xattrs are read ..... pass
+ test4 @1787243209: a consumer can stop the scan and hear its own value back ... pass
+ test5 @1787243214: the objects a namespace never shows are held back by default  pass
+ test6 @1787243215: bad arguments are refused, not crashed on .................. pass
+MDT CONTRACT OK
+
+###############################################################
+# 1b. and against a ZFS OST
+###############################################################
+ test0 @1787243216: llapi_scan_device delivers records off the target .......... pass
+WARNING: sha2 _init: crypto_register_provider() failed (0x5)
+ test1 @1787243222: llapi_scan_device is the same answer at any thread count ... pass
+ test2 @1787243223: sp_want holds back what the consumer did not ask for ....... pass
+ test3 @1787243225: sp_filter rejects an object before its xattrs are read ..... pass
+ test4 @1787243227: a consumer can stop the scan and hear its own value back ... pass
+ test5 @1787243230: the objects a namespace never shows are held back by default  pass
+ test6 @1787243232: bad arguments are refused, not crashed on .................. pass
+OST CONTRACT OK
+
+###############################################################
+# 2. identical object set at 1, 2, 4, 8, 16 threads
+###############################################################
+  -j 1: 20336 objects
+  -j 2: 20336 objects
+  -j 4: 20336 objects
+  -j 8: 20336 objects
+  -j 16: 20336 objects
+THREAD IDENTITY OK: all five thread counts identical
+
+###############################################################
+# 3. lfind predicates over the ZFS scan
+###############################################################
+  all=20336  --type f=20008  --type d=7
+  files and dirs are disjoint
+  --uid 65534 (nobody): 1
+  --projid 1999: 1
+LFIND OK
+
+=== put the pools back ===
+10.128.15.214@tcp:/lfufs   38G   16M   38G   1% /mnt/lfufs
+STAGE5 OK
+########## z06 (rc=0)
+=== result ===
+PASS 165 (78s)
+=== what it printed ===
+
+########## the MDT_INDEX drop, measured (mdtidx_probe.c)
+
+The open comment on liblustreapi_scan.c:317 asks whether an object the caller
+cannot open drops out of a scan.  It does, when the demand mask names
+LLAPI_SCAN_MDT_INDEX.  Same tree, two scans, counting delivered records:
+
+  probe2, every file readable, as non-root
+    TYPE only         4 objects (rc 0)
+    TYPE | MDT_INDEX  4 objects (rc 0)      no drop
+
+  probe, one root-owned mode-000 file, as non-root
+    TYPE only         6 objects (rc 0)
+    TYPE | MDT_INDEX  5 objects (rc 0)      ONE DROPPED, rc still 0
+
+  the same tree as root
+    TYPE only         6 objects (rc 0)
+    TYPE | MDT_INDEX  6 objects (rc 0)      no drop
+
+The object is not reported and no error reaches the caller: scan_rec_gather()
+returns -EACCES from the open, llapi_scan_cb_init() takes goto out, and the
+scan ends 0.  PROJID and HSM no longer behave this way -- they test the call
+and leave the bit clear -- so 68094's message, "An object the caller cannot
+open leaves the bit clear rather than dropping out of the scan", is true for
+two of the three bits and false for MDT_INDEX.
+
+A first attempt at this probe measured "all 6 objects dropped" and was wrong:
+conf-sanity 165's cleanup had torn down the client, /mnt/lfufs was xfs on the
+boot disk, and every Lustre ioctl answered ENOTTY as it should.  stat -f -c %T
+says lustre before the numbers above.
