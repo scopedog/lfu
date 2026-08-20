@@ -1,0 +1,54 @@
+### stage 2 (build, 8 patches)
+Applying: LU-20611 utils: lfind, server-side find over a target
+Applying: LU-20613 llapi: ZFS backend for llapi_scan_device()
+4d595b28fc LU-20613 llapi: ZFS backend for llapi_scan_device()
+=== autogen ===
+=== configure ===
+ENABLE_LDISKFS='yes'
+ldiskfs: enabled
+=== make -j8 ===
+build took 105s
+=== the symbol we came for ===
+000000000002c630 T llapi_scan_namespace
+STAGE2 OK
+
+### stage 10 (sanity 56* before/after)
+=== AFTER: base + all seven patches
+06cffbf613 LU-20613 llapi: ZFS backend for llapi_scan_device()
+038040efa5 LU-20611 utils: lfind, server-side find over a target
+dae707bfc9 LU-20611 llapi: run find's predicates over a device scan
+  after: llapi_scan_namespace symbols installed = 1
+  after: 75 pass, 2 fail, 9 skip
+=== DIFF (before vs after)
+IDENTICAL
+=== failures after, if any
+FAIL 56Eaa
+FAIL 56xb
+STAGE7 DONE
+
+### 56od
+/tmp/res-before.txt:PASS 56od
+/tmp/res-after.txt:PASS 56od
+
+### stage 11 (demand-mask syscall cost)
+=== with the fix (PROJID|HSM stripped)
+  fixed: found 204 objects
+    ioctl    218
+    openat   305
+    close    211
+=== without it (the mask as pushed in patchset 3)
+  unfixed: found 204 objects
+    openat   708
+    ioctl    651
+    close    536
+=== restoring
+Updated 1 path from the index
+STAGE11 DONE
+
+### stage 9 (conf-sanity 165)
+/sbin/lfind
+-rwxr-xr-x. 1 root root 8008 Aug 20 13:40 /home/nishida/lustre-release/lustre/tests/llapi_scan_device_test
+=== result ===
+PASS 165 (41s)
+=== what it printed ===
+STAGE9 DONE
