@@ -1,0 +1,59 @@
+Shared inode bitmap -- lab results
+==================================
+lfu-bitmap-lab, c3-standard-8, Rocky 9.8 (5.14.0-687.36.1.el9_8), us-central1-a.
+e2fsprogs 1.47.3-wc2.  Base 5afbab284e plus all eight patches of the series
+with the 2026-08-21 review round applied.  MDT and OST on 8G loop files,
+MDT formatted -I 1024; 200k objects via createmany plus the shaped tree.
+
+The change: the target reads the inode bitmap once in scan_ldiskfs_open() and
+every worker tests that one copy, instead of each worker reading its own.
+
+
+1. Contract tests -- 7/7 on the MDT, 7/7 on the OST
+   including test1, "llapi_scan_device is the same answer at any thread count".
+
+2. Thread identity -- 200573 objects, sets identical at 1, 2, 4, 8, 16 threads
+   Compared object for object (sorted, cmp), not by count.  Every thread tests
+   the one shared bitmap concurrently, and the inode scan tests every slot in
+   a 5592384-entry table, so this is millions of concurrent tests per run.
+
+3. Peak RSS, same box, same target, same binary, only libscan_ldiskfs.c
+   differing; both arms deliver the identical 200572 objects (unmounted, so
+   one fewer than the mounted run above):
+
+     threads   shared bitmap   one per worker
+        1         4096 KB          4096 KB
+        2         4224 KB          4992 KB
+        4         4352 KB          6400 KB
+        8         4608 KB          9600 KB
+       16         4992 KB         15360 KB
+
+   The old arm grows 751 KB per extra worker.  The bitmap is 682 KB on this
+   target (s_inodes_count 5592384 / 8), so 682 KB of that is bitmap and ~60 KB
+   is stack and scan buffer -- which is all the new arm grows by.  Predicted
+   arithmetic and measurement agree; 3.1x less memory at 16 threads, and it
+   scales with s_inodes_count (~125 MB per worker per billion inodes).
+
+4. conf-sanity test_165 -- PASS (39s)
+   "scanned 108 objects; found all 102 visible FIDs", zero misses, the six
+   expected extras.  Identical to the pre-round result.
+   "lfind --type f found all 100 files".
+
+
+What this lab cannot say
+------------------------
+It cannot prove the rbtree bitmap hazard is absent, only that our
+configuration does not reach it.  ext2fs_open() leaves default_bitmap_type at
+EXT2FS_BMAP64_BITARRAY, whose ba_test_bmap() is a plain ext2fs_test_bit64();
+e2fsck's EXT2FS_BMAP64_RBTREE would not be safe, because rb_test_bit() writes
+bp->rcursor and bp->rcursor_next on a read.  That is a code-reading result the
+lab can only fail to contradict.
+
+Two harness bugs found the hard way, both now guarded in 13-bitmap.sh:
+  - 'mount -o loop' owns its loop device and destroys it on umount, so an
+    A/B run that unmounts first scanned a /dev/loop0 that no longer existed
+    and measured process baseline in both arms.  Attach your own.
+  - /usr/bin/time was not installed; its error text landed in the RSS field
+    and the stage still printed "ALL BITMAP CHECKS PASSED".  An unchecked
+    field reads as a pass, and an empty scan compares equal to another empty
+    scan.
