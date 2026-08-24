@@ -1,0 +1,79 @@
+lfind --fid2path -- the FID->pathname Output Format, on a lab
+==============================================================
+Lab: lfu-t166, GCP c3-standard-8, Rocky 9.8, us-central1-a, ldiskfs.
+Ten patches applied on base 5afbab284e (the nine on Gerrit plus the new
+LU-20462 commit).  Deleted when this finished.
+
+RESULT
+------
+  PASS 165 (41s)     the existing oracle, unaffected by the new print path
+  PASS 166 (0s)      the new test
+    client sees 21 names over 20 objects
+    --fid2path resolved 20 objects from 21 names, hardlink once
+
+166 also passes standalone (PASS 166, 24s -- the difference is setup:
+run after 165 the filesystem is already up).
+
+THE FEATURE WORKS, shown directly before the test was right
+------------------------------------------------------------
+  # lfind --device /dev/mapper/mds1_flakey --fid2path /mnt/lustre --type f
+  lfind: 2 matching objects have no pathname and were not printed
+  /mnt/lustre/dbg/a
+
+  # and without --fid2path, for contrast
+  [0xe:0x0:0x0]
+  [0x200000400:0x1:0x0]
+  [0x200000401:0x2:0x0]
+
+Three objects: one file, which resolves, and two of the target's own,
+which have no pathname and are counted rather than printed.  That is the
+designed behaviour of both halves in one command.
+
+FOUR FAILURES, ALL IN THE TEST OR THE HARNESS, NONE IN THE CODE
+----------------------------------------------------------------
+1. The runner ran 02-build.sh as root because its root-detection matched
+   "make install".  02-build.sh sudoes that itself and otherwise runs as
+   the login user, so ~ became /root and `cat ~/base.txt` failed.  This
+   trap is already in lfu-gcp-lab memory and the heuristic reintroduced
+   it; the pattern is now useradd|llmountcleanup|llmount.sh|lustre_rmmod.
+
+2. NO FILESYSTEM WAS MOUNTED.  conf-sanity starts from a stopped
+   filesystem and test_165 calls setup_noconfig; mine did not.  So
+   mkdir/createmany wrote to the ROOT filesystem and `lfs find` walked a
+   plain directory and reported "client sees 21 files" -- a completely
+   convincing number about nothing.  Only --fid2path's own error
+   (ENODEV on the client mount) exposed it.
+   Fixed with setup_noconfig, AND an assertion that the client sees
+   exactly 21 names, so a stopped filesystem now fails at that line
+   instead of proceeding to compare nothing.
+
+3. THE HARDLINK EXPECTATION WAS WRONG.  21 names, 20 objects: f0 and
+   hardlink are one inode.  A scan of a target enumerates OBJECTS and
+   names each once, so exactly one of that pair comes back -- which is
+   what the man page promises.  The test demanded every name and failed
+   "--fid2path lost 1 paths".  Now it compares the 19 unambiguous names,
+   asserts exactly 20 paths for 20 objects, and checks the pair
+   separately.  The test is stronger for encoding the distinction.
+
+4. TEARDOWN FAILED AFTER EVERY ASSERTION PASSED.  `stack_trap cleanup`
+   unloads modules; run after 165 -- which ends with the filesystem UP --
+   that raced whatever still held mdd:
+       lustre_rmmod: OBD devices after 60s:
+       rmmod: ERROR: Module mdd is in use
+       test_166 returned 203
+   Green standalone, red in sequence, which is the shape that would have
+   landed in CI.  Now: bring the filesystem up only if the previous test
+   did not leave one, remove only $MOUNT/$tdir, leave the rest as found.
+
+VERIFICATION OF THE SERIES
+---------------------------
+All ten commits build individually, rc=0, no -Wall -Werror diagnostics.
+checkpatch --strict: 0 ERRORS on all ten.  Change-Ids 10/10.
+checkpatch-man clean on llapi_scan_rec_path.3 and lfind.8.
+
+STILL OWED
+----------
+* A real LU ticket.  The commit is tagged LU-20462 (the epic, a real
+  ticket that covers this) because no Technical task exists yet.  Retag
+  before pushing.
+* Nothing pushed.

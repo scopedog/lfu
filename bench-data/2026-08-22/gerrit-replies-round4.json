@@ -1,0 +1,160 @@
+{
+  "68094": [
+    {
+      "path": "/COMMIT_MSG",
+      "line": 43,
+      "id": "65552395_647e8724",
+      "msg": "Done."
+    },
+    {
+      "path": "Documentation/man3/llapi_scan_namespace.3",
+      "line": 193,
+      "id": "a485bab8_2c1289ec",
+      "msg": "Done."
+    },
+    {
+      "path": "include/lustre/lustreapi.h",
+      "line": 609,
+      "id": "2be03e6c_65c3ba34",
+      "msg": "Not changing it. sp_size, ss_size and sr_size are one convention across the three structs this API defines, and sr_size_bytes is already the explicit name for the object's size."
+    },
+    {
+      "path": "include/lustre/lustreapi.h",
+      "line": 683,
+      "id": "8f83d670_5aeac9fa",
+      "msg": "Done, both entry points. The known-flag mask is internal, not a public constant."
+    },
+    {
+      "path": "lustre/utils/liblustreapi_scan.c",
+      "line": 251,
+      "id": "7bce0593_bdd45063",
+      "msg": "Done. Worth knowing it reached lfs find too, through 68095; sanity 56* is all on Lustre and does not cover it."
+    },
+    {
+      "path": "lustre/utils/liblustreapi_scan.c",
+      "line": 293,
+      "id": "23024d9e_125cd47e",
+      "msg": "Done, with the memset you suggest."
+    },
+    {
+      "path": "lustre/utils/liblustreapi_scan.c",
+      "line": 303,
+      "id": "42f04b34_003dc234",
+      "msg": "Done. Chasing this turned up the same defect one level up: the traversal keeps its own copy of that descriptor, so it descended on a closed number and closed it twice. Filed as LU-20624 and fixed in the new change at the bottom of this stack."
+    }
+  ],
+  "68095": [
+    {
+      "path": "/COMMIT_MSG",
+      "line": 15,
+      "id": "bb3ce005_b4962864",
+      "msg": "Done."
+    },
+    {
+      "path": "lustre/utils/liblustreapi_pfind.c",
+      "line": 2547,
+      "id": "79d4251e_a1978da3",
+      "msg": "Done. The message now lists it as the third delta, naming both cases."
+    },
+    {
+      "path": "lustre/utils/liblustreapi_pfind.c",
+      "line": 2548,
+      "id": "377dafe5_85f75522",
+      "msg": "Done."
+    }
+  ],
+  "68156": [
+    {
+      "path": "Documentation/man3/llapi_scan_device.3",
+      "line": 188,
+      "id": "bb380c84_f88048bf",
+      "msg": "Done."
+    },
+    {
+      "path": "lustre/tests/conf-sanity.sh",
+      "line": 12868,
+      "id": "52d823c8_5bd37562",
+      "msg": "Second half done: stack_trap setupall EXIT after stopall, and ost1's export gets the trap mds1 had.\n\nFirst half is not right. The guard three lines up is ldiskfs || zfs, and the block just above is an if, not a requirement, so a ZFS run does reach here. An osd-zfs build without libzpool's userspace headers is exactly the case this hits: it is what the build hosts produce, and what failed test_165 on three ZFS sessions before the skip existed."
+    },
+    {
+      "path": "lustre/utils/liblustreapi_scan_device.c",
+      "line": 150,
+      "id": "a09b1021_b1f70257",
+      "msg": "Done."
+    },
+    {
+      "path": "lustre/utils/liblustreapi_scan_device.c",
+      "line": 329,
+      "id": "2029238c_8d15bfa5",
+      "msg": "Done, ss_seen is counted in the skip path too."
+    },
+    {
+      "path": "lustre/utils/liblustreapi_scan_device.c",
+      "line": 650,
+      "id": "dbbf27b6_f568bfc7",
+      "msg": "Documented in llapi_scan_device.3 rather than honoured. A device scan skips what it cannot trust and reports the count in ss_skipped by design, so there is no error left for the flag to stop on."
+    },
+    {
+      "path": "lustre/utils/liblustreapi_scan_device.c",
+      "line": 664,
+      "id": "d2ebe8d1_0c034433",
+      "msg": "Done, in the common layer so both backends get it. EINVAL and not ENOTSUP, because conf-sanity 165 keys its skip off ENOTSUP."
+    },
+    {
+      "path": "lustre/utils/libscan_ldiskfs.c",
+      "line": 326,
+      "id": "2f72fd41_b221deeb",
+      "msg": "Done. Each field needed its own i_extra_isize test: i_crtime_extra sits after i_crtime."
+    },
+    {
+      "path": "lustre/utils/libscan_ldiskfs.c",
+      "line": 484,
+      "id": "0515d288_707caaa5",
+      "msg": "Done, the test is removed. To your question, no, it was not buying anything: the kernel's own iterator does not consult i_dtime either."
+    }
+  ],
+  "68163": [
+    {
+      "path": "/COMMIT_MSG",
+      "line": 19,
+      "id": "46666b6a_b7513a85",
+      "msg": "Done."
+    },
+    {
+      "path": "Documentation/man8/lfind.8",
+      "line": 41,
+      "id": "36bc2730_9afae6a3",
+      "msg": "Done, man page and usage()."
+    },
+    {
+      "path": "config/lustre-build-zfs.m4",
+      "line": 248,
+      "id": "52727cb3_dd4bfbd1",
+      "msg": "Partly done: the probe now includes what libscan_zfs.c includes and names the libzpool functions it calls, and the third candidate honours $zfsdevel.\n\nLeft as AC_COMPILE_IFELSE. This probe answering no is what makes conf-sanity 165 skip rather than fail on the build hosts, and a link test would change that answer on hosts we cannot test from here. Worth doing separately with a build-host result to check against."
+    },
+    {
+      "path": "lustre.spec.in",
+      "line": 1076,
+      "id": "303ee3da_c4a7298a",
+      "msg": "Done, built at %install time like lustre-tests.files. The m4 substitution is gone."
+    },
+    {
+      "path": "lustre/tests/conf-sanity.sh",
+      "line": 12915,
+      "id": "028476bf_dc5071fb",
+      "msg": "Done."
+    },
+    {
+      "path": "lustre/utils/libscan_zfs.c",
+      "line": 248,
+      "id": "6279624f_48840f56",
+      "msg": "Done, an empty pool name is refused with ENOENT up front. Your last point is why the not-a-Lustre-target refusal on 68156 answers EINVAL and not ENOTSUP."
+    },
+    {
+      "path": "lustre/utils/libscan_zfs.c",
+      "line": 634,
+      "id": "e2e5e2fd_aecf35d0",
+      "msg": "Done, as written."
+    }
+  ]
+}

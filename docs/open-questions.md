@@ -188,6 +188,19 @@ and a validation run against a live write-heavy filesystem.
 
 **Blocks:** confidence in the primary initial deliverable.
 
+**A way round it, 2026-08-24 — [`design-snapshot-scan.md`](design-snapshot-scan.md).**
+`lctl barrier_freeze` already gives cluster-wide, on-disk, quiesced
+consistency: two-phase, all MDTs, `dt_sync()` three times, and on ldiskfs that
+reaches `osd_sync()` → `sync_fs(s, 1)`, so the journal is committed. Snapshot
+inside that window and the scanner reads a device nothing is writing — no torn
+blocks, and no journal to replay, which matters because the scanner replays
+none. It needs no kernel change: the barrier is shipped and was built for
+`lctl snapshot_create`, which is ZFS-only today only because `lsnapshot.c`
+shells out to `zfs`. This does not answer the question above, it avoids it —
+but the validation run wanted above becomes cheap to state: `ss_skipped` should
+be 0 on a snapshot scan and non-zero on a live one under load, and that number
+settles the entry either way.
+
 **Widened 2026-08-16 — this is no longer only an Option 1 question.** The OSD
 scanner's exemption rested on reading in-memory inodes. Block parsing does not:
 on the `DOIF_PARALLEL` ldiskfs path it reads inode-table blocks through the

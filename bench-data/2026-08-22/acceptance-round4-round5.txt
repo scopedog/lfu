@@ -1,0 +1,178 @@
+LFU rounds 4 and 5 -- acceptance results
+========================================
+Date:  2026-08-22
+Hosts: lfu-r4-ldiskfs, lfu-r4-zfs (GCP us-central1-a, c3-standard-8, Rocky 9)
+       three 20GB pd-balanced disks on the ZFS host for the pools
+Tree:  base 5afbab284e + 9 patches, tree hash 4d972d9c8b3a8980423149b0308a3aefd9b9c54e
+       (verified identical to the local branch tip, so these results are for
+       the code on lu-20603-scan-api and not an approximation of it)
+
+SUMMARY
+-------
+  sanity 56* before/after ....... IDENTICAL, 75 pass / 2 fail / 9 skip both ways
+                                  (56Eaa and 56xb fail at the base commit too)
+  conf-sanity 165 (ldiskfs) ..... PASS (40s)
+  stage 14 round-4 ldiskfs ...... 6/6 PASS
+  stage 15 non-Lustre directory . PASS
+  ZFS acceptance ................ contract 7/7 on MDT and OST
+  ZFS stage 7 round-4/5 ......... PASS (20016 objects)
+  build ......................... clean, -Wall -Werror, all 9 patches, 107s
+  checkpatch .................... nothing new; alignment 13 -> 10
+
+  NOT verified: the lustre.spec.in %files change. make rpms needs
+  kmod-zfs-devel, which does not exist for a DKMS zfs install, and every ZFS
+  lab recipe we have is DKMS. Needs a kABI-kmod host.
+
+=== sanity 56* and conf-sanity 165 (ldiskfs) ===
+=== conf-sanity 165 ===
+PASS 165 (40s)
+=== sanity 56* ===
+=== BEFORE: 5afbab284e9cc45b2635213d99d23364e1abbc05
+  before: llapi_scan_namespace symbols installed = 0
+  before: 75 pass, 2 fail, 9 skip
+=== AFTER: base + all seven patches
+a9a865ff8d LU-20613 llapi: ZFS backend for llapi_scan_device()
+6fc426dd12 LU-20611 utils: lfind, server-side find over a target
+88c30eda40 LU-20611 llapi: run find's predicates over a device scan
+  after: llapi_scan_namespace symbols installed = 1
+  after: 75 pass, 2 fail, 9 skip
+=== DIFF (before vs after)
+IDENTICAL
+=== failures after, if any
+FAIL 56Eaa
+FAIL 56xb
+STAGE7 DONE
+
+[exited with code 0]
+
+=== stages 15 and 14 (ldiskfs, round 4 + 5) ===
+RC=0
+--- stage 15 ---
+  lfs getdirstripe -r: 0 close(s) returned EBADF
+  PASS  lfs getdirstripe -r closes no descriptor twice
+  lfs getstripe -D -r: 0 close(s) returned EBADF
+  PASS  lfs getstripe -D -r closes no descriptor twice
+
+STAGE15 OK -- THE NON-LUSTRE DIRECTORY CASE IS COVERED
+--- stage 14 ---
+  PASS  a known flag is accepted
+  PASS  an unknown flag is -EINVAL
+
+=== 6. the object set did not shrink when i_dtime stopped being consulted
+  313 client FIDs, 0 missing from the device scan
+  PASS  no client FID is missing from the device
+
+STAGE14 OK -- ALL ROUND 4 LDISKFS CHECKS PASSED
+
+[exited with code 0]
+
+=== stage 15 full, earlier run on the same code ===
+relaunched
+  tmpfs on /mnt/testfs/nonlustre type tmpfs (rw,relatime,seclabel,size=16384k,inode64)
+
+=== 1. lfs find still walks into it and reports what is there
+  rc=0, 4 paths
+    /mnt/testfs/nonlustre
+    /mnt/testfs/nonlustre/plain.txt
+    /mnt/testfs/nonlustre/sub
+    /mnt/testfs/nonlustre/sub/deeper.txt
+  PASS  lfs find exits 0 over a non-Lustre directory
+  PASS  plain.txt is reported
+  PASS  sub is reported
+  PASS  sub/deeper.txt is reported
+
+=== 2. and a predicate over it still answers
+  PASS  lfs find -type f exits 0
+  PASS  lfs find -size +1c exits 0
+  -type f found 2 file(s)
+  PASS  both regular files came back
+  PASS  -size matched the non-empty file, so the stat fallback ran
+
+=== 3. the namespace scanner delivers those objects rather than
+===    dropping them, and the whole walk does not stop
+    nonlustre: /mnt/testfs/nonlustre valid=0x43ff
+    nonlustre: /mnt/testfs/nonlustre/plain.txt valid=0x43ff
+    nonlustre: /mnt/testfs/nonlustre/sub valid=0x43ff
+    nonlustre: /mnt/testfs/nonlustre/sub/deeper.txt valid=0x43ff
+  rc=0 total=316 nonlustre=4
+  PASS  the scan succeeds with STOP_ON_ERROR set
+  PASS  the whole tree was walked (316 objects)
+  PASS  the non-Lustre directory and its contents were delivered (4)
+
+STAGE15 OK -- THE NON-LUSTRE DIRECTORY CASE IS COVERED
+=== 0. the target under test
+  MDT is /dev/loop0
+  built r4_dump
+
+=== 1. a filesystem that is not a Lustre target is refused (EINVAL),
+===    not scanned to nothing and reported as success
+  plain ext4 on /dev/loop2
+  rc=6
+lt-llapi_scan_device_test: /dev/loop2: label '' names no MDT or OST
+lt-llapi_scan_device_test: llapi_scan_device_test.c:98: test0: assertion 'rc == 0' failed: llapi_scan_device(/dev/loop2) failed: Invalid argument
+lt-llapi_scan_device_test: /dev/loop2: label '' names no MDT or OST
+lt-llapi_scan_device_test: llapi_scan_device_test.c:139: test1: assertion 'rc == 0' failed: scan with 1 threads failed: Invalid argument
+  PASS  a plain ext4 device does not scan successfully
+  PASS  the error says why
+  PASS  not ENOTSUP, so a missing backend stays distinguishable
+
+=== 2. a real MDT still scans, so check 1 refused the right thing
+  316 objects
+  PASS  the MDT scan is not empty
+
+=== 3. LAST_ID is the target's own object, not its subject matter
+  LAST_ID objects: 0 in the default set, 4 under --internal
+  PASS  no LAST_ID reaches the default set
+  PASS  4 of them do appear under --internal
+  PASS  no LAST_ID is classed visible
+  classes seen:
+          2 class=1
+          1 class=2
+          1 class=4
+  oid-0 non-LAST_ID (IGIF) objects still delivered: 1
+
+=== 4. a pre-1970 timestamp survives as a negative time
+  [0x200000401:0x13a:0x0] client mtime=-301233600
+  scan mtime=-301233600
+  PASS  the device scan agrees with the client
+  PASS  and it is not the 2106 wraparound
+
+=== 5. an sp_flags bit the library does not define is refused
+known=0
+unknown=-22
+  PASS  a known flag is accepted
+  PASS  an unknown flag is -EINVAL
+
+=== 6. the object set did not shrink when i_dtime stopped being consulted
+  313 client FIDs, 0 missing from the device scan
+  PASS  no client FID is missing from the device
+
+STAGE14 OK -- ALL ROUND 4 LDISKFS CHECKS PASSED
+
+[exited with code 0]
+
+=== ZFS stage 7 ===
+RC=0
+=== 2. a real dataset still scans, so check 1 refused the right thing
+  20016 objects from lfu-mdt/mdt0
+  PASS  the ZFS scan is not empty
+
+=== 3. LAST_ID is classed internal here too
+  oid-0 FIDs in the ZFS default set: 0 (see stage 14 for the assertion)
+
+=== 4. the spec's osd-zfs-mount file list is built from what was built
+  is the plugin built here?
+-rwxr-xr-x. 1 root root 70136 Aug 22 16:00 lustre/utils/scan_zfs.so
+  PASS  %files osd-zfs-mount takes a generated list
+  PASS  no unsubstituted @TOKEN@ in lustre.spec
+  building rpms (the only real test of the %files change)
+  SKIP  make rpms needs build deps this host has not:
+        error: Failed build dependencies:
+        	kmod-zfs-devel is needed by lustre-2.17.57_52_gfca8081-1.el9.x86_64
+        make: *** [config/Makefile.pkg-rpm:25: rpms] Error 1
+        the %files change is unverified by rpmbuild; it needs a
+        kABI-kmod zfs host rather than a DKMS one
+
+STAGE7 OK -- ALL ROUND 4 ZFS CHECKS PASSED
+
+[exited with code 0]

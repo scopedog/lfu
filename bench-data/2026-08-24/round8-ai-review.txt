@@ -1,0 +1,382 @@
+Round 8 - the 2026-08-24 AI reviews across six changes
+======================================================
+The bot posted 31 inline comments overnight, 16-27 min after each change's
+Maloo verdict vote (the trigger is now 12 for 12).  68157 came back "Looks
+good to me."  Counts: 68095 x2, 68156 x4, 68158 x5, 68159 x8, 68160 x7,
+68231 x5.
+
+All 31 verified against the tree before acting.
+
+MALOO: EIGHT Verified-1, NONE OF THEM OURS
+------------------------------------------
+68094, 68095, 68156, 68157, 68158, 68159, 68160 and 68231 all voted -1
+between 01:11 and 04:21.  68163 alone is +1, because `trivial` gives it 8
+sessions instead of 64-66.
+
+Every one of the eight carries the SAME enforced failure: sanity-sec in
+review-dne-selinux-ssk-part-2 on RHEL 8.10 = LU-20598, already established
+as tree-wide (26/37).  The discriminator this time is sharper than the
+2026-08-21 sweep's: 68231 carries it too, and 68231 is a two-line unrelated
+upstream fd fix that touches none of the series.
+
+The rest of the enforced set is the three already on the annotate list
+(sanity-quota @zfs-part-4, sanityn @zfs-part-5 session-crashed, sanity
+@zfs-part-1) plus one new one: 68157 review-dne-zfs-part-2 failed
+`lustre-initialization` -- the cluster never came up, so zero of its code
+ran.
+
+FIXED - FOUR REAL CODE DEFECTS
+------------------------------
+[68156] libscan_ldiskfs.c:98  THE LABEL PARSER TOOK THREE SEPARATORS, NOT
+        FOUR.  mkfs_lustre.c:261 writes '+' for LDD_F_NO_LOCAL_LOGS and both
+        mount_lustre.c:550 and mkfs_lustre.c:891 parse it.  A `lustre+MDT0000`
+        label left tt_flags 0 and llapi_scan_device() answered -EINVAL,
+        "names no MDT or OST", for a good MDT -- and '+' is on disk exactly
+        while the target is stopped, which is when this scanner is for.
+        CONFIRMED upstream.  Fixed in BOTH backends: libscan_zfs.c:210 had
+        the identical three-separator test.
+        Sub-point also confirmed: strtol("ffff", ., 16) was accepted, so an
+        --index-less target reported sr_mdt_index 65535 with the valid bit
+        set.  Now a new LLAPI_SCAN_TGT_INDEX flag gates it: the target is
+        still an MDT or OST, only its number is unknown.
+
+[68156] lustreapi_internal.h:306  LLAPI_SCAN_F_KNOWN carried the device-only
+        LLAPI_SCAN_F_INTERNAL, and liblustreapi_scan.c:561 validates
+        llapi_scan_namespace() against that same mask.  A namespace scan
+        setting F_INTERNAL was accepted and the flag silently ignored --
+        exactly what llapi_scan_namespace.3 promises cannot happen.
+        CONFIRMED.  Split into LLAPI_SCAN_F_KNOWN_NS (in 68094, at the root)
+        and LLAPI_SCAN_F_KNOWN_DEV, one mask per scanner.
+
+[68159] liblustreapi_pfind.c:2818  BEST OF THE 31.  --btime STOPPED THE SCAN.
+        Round 5 gave the project-id path an undecided carve-out for scan
+        mode; fp_btime four lines below returned -EOPNOTSUPP unconditionally.
+        Both fields hang off the SAME i_extra_isize gate --
+        libscan_ldiskfs.c:386 and :393, seven lines apart.  So on a target
+        whose inodes carry no i_crtime the first object returned -EOPNOTSUPP,
+        sd_stop_rc latched, and the scan halted AFTER matches had printed.
+        find_newerxy_check() (line 646) had it too.  CONFIRMED by reading
+        both ends.  Both now go undecided when path == NULL.
+
+[68160] lfind.c:242  A NAMED DEVICE DISAPPEARED.  `if (device == NULL &&
+        pathstart != -1)`, so `lfind --device /dev/vda /dev/vdb --type f`
+        dropped /dev/vdb without a word, the exclusivity count still read 1,
+        and it exited 0 having scanned the wrong target.  --target and
+        --local escaped only by accident (device still NULL there).
+        CONFIRMED by reading.  Replaced with a `named` count that every way
+        of naming a target adds to, so two is refused however they are
+        spelled.
+
+FIXED - 68231's COMMIT MESSAGE WAS WRONG, AND THE BOT WAS RIGHT
+---------------------------------------------------------------
+[68231] x2  Traced the whole path in the base tree.  On the ENOTTY-twice
+        case cb_find_init() hits `else { return ret; }`
+        (liblustreapi_pfind.c:2528 in the parent) and
+        llapi_semantic_traverse() does `ret = sem_init(...); if (ret) goto
+        err;` BEFORE fdopendir().  So the traversal never fdopendir()s the
+        closed number and the skip is not silent -- the error propagates.
+        Our message's headline ("fdopendir()s a closed descriptor and skips
+        every object below that directory in silence", and the claim that
+        the patch restores the subtree) described something that does not
+        happen on the reproducer.  The tmpfs case still prints one error
+        line after the fix.
+        The descriptor half stands: `err:` still close(d)s the stale number,
+        which is the lab's getdirstripe -r EBADF 1->0.
+        Message rescoped to the double close and the leak, and it now says
+        which case DOES reach fdopendir() (a foreign directory, where the
+        retry succeeds).
+
+[68231] Fixes: tag.  VERIFIED EXACTLY: 15d44e787e17 ("LU-12682 llite: fake
+        symlink type of foreign file/dir") is the commit that changed
+        cb_get_dirstripe() to `int *d` AND changed both callers to pass &d
+        of a local copy, in the same patch.  Added.
+
+DESIGN POINTS TAKEN
+-------------------
+[68231] dup2 instead of the caller-side fix (the user's call).  The reopen
+        now lands on the number the caller already holds:
+            if (dup2(fd, *d) < 0) { close(fd); errno = ENOTTY; return ret; }
+            close(fd);
+        Both caller hunks dropped -- 68231 is now ONE hunk in ONE file
+        (13/4) instead of two files.  It also dissolved three stale sites
+        the round then had to clean up (below).
+
+[68156] sr_gen added.  CLS_NO_LMA is documented as "an IGIF candidate", but
+        lu_igif_build() needs the inode number AND the generation, and the
+        record carried only sr_ino.  Both backends already READ the
+        generation (libscan_ldiskfs.c so_gen from i_generation, libscan_zfs.c
+        from ZPL_GEN) and dropped it.  New LLAPI_SCAN_GEN / LLAPI_SCAN_SO_GEN,
+        so the class is now actionable.
+
+[68158] lfs_find_parse_fini().  A successful parse can leave heap in four
+        find_param fields, one owning compiled regexes, and the only teardown
+        was the block at the end of lfs_find().  VERIFIED lfind.c freed NONE
+        of them.  Now a function next to the parser; lfs_find() and lfind
+        both call it.  xattr_match_info_free() and _append() lose their
+        extern with it -- neither has a caller outside the file any more.
+
+FOUND BY REVIEWING MY OWN DIFF (not by the bot)
+-----------------------------------------------
+1. The dup2 fix made three comments FALSE that the round had to chase:
+   liblustreapi_scan.c:320 and :456 ("the record's copy has to follow it"),
+   liblustreapi_pfind.c:3516 ("the traversal fdopendir()s its own copy
+   next"), plus the paragraph in 68094's message and the one in 68095's.
+   All five removed or rewritten; cb_find_init() is back to upstream's shape,
+   reading *dp and never writing it.
+2. I reintroduced in lfind.c the EXACT defect the bot flagged on 68159:
+   lfind_opt_is() was inserted under the block comment describing
+   lfind_parse_target(), stacking two comments.  Moved.
+3. `*store = (char *)val;` cast away const for no reason -- lfind_opt_is()
+   now takes char * throughout, since every source is an argv string.
+4. usage()'s Usage: line still omitted --internal after lfind(8)'s synopsis
+   gained it.  Added.
+5. The progname fix did not apply the first time (a failed assertion aborted
+   the whole script before its write).  THE BUILD CAUGHT IT: `conflicting
+   types for 'progname'`.  A per-commit build, not just a tip build, is what
+   this round was worth.
+
+DECLINED
+--------
+[68158] lfs_find_parse.h:30  splitting the 48-value option enum so lfind does
+        not carry `lfs setquota`'s numbering.  Fair, but it is one numbering
+        space shared by lfs's option tables and moving 33 values risks value
+        drift for no behaviour gain; the unused enumerators cost nothing in
+        a file that compiles into both.  LFS_MIN_FREE_OPT/LFS_MAX_FREE_OPT
+        do have no users at all -- but they are unused in the BASE lfs.c
+        too, so removing them is an unrelated cleanup, not this move's.
+[68159] liblustreapi_pfind.c:3040  treating fp_max_depth 0 and (unsigned)-1
+        alike.  Cannot: 0 is a real restriction (-maxdepth 0).  Documented
+        instead, in llapi_find_device.3's new NOTES paragraph.
+[68160] lfind.c:174  the pre-pass not knowing which predicates take an
+        argument, so a value spelling one of lfind's options is consumed.
+        --opt=VALUE is now handled; the rest needs the predicate table, and
+        both readings of `--name --internal` are an error either way.
+
+ALSO IN THIS ROUND
+------------------
+* The `trivial` tag is off 68163 (the standing rule: this round touches its
+  code).  Both Test-Parameters lines kept.
+* conf-sanity 165 no longer wraps its lfind half in `if [[ -n "$lfind" ]]`:
+  a build without the binary now SKIPS rather than passing having run none
+  of it.  Four new checks: the plain-argument form and --device=VALUE answer
+  identically to --device, naming a target twice is refused, --help exits 0.
+* llapi_find_device.3 gains the missing -ENOTSUP entries (--maxdepth,
+  --mindepth, --threads), the fp_max_depth note, and an EXAMPLES section.
+* llapi_scan_device.3's EXAMPLES took a lock: it asked for four threads while
+  count_cb() did an unsynchronised (*n)++, three lines under the NOTES
+  paragraph saying the callback must be thread-safe.
+* lfind.8: the bare-device form is in the SYNOPSIS, --internal is out of
+  "Naming the target" and under its own heading.
+* 68158's message counts corrected -- VERIFIED against the base lfs.c:
+  xattr_match_info_free() and _append() were ALREADY non-static there, so
+  eight helpers lose static and not nine, and _append() gains it.
+* 68159's message reflowed at 70 columns (it had one- and two-word lines:
+  "that", "meets", "EA" twice, "from").
+
+VERIFICATION
+------------
+* All 9 commits BUILD, each checked out in turn: make liblustreapi.la lfs
+  lfind, rc=0, zero diagnostics under -Wall -Werror.
+* checkpatch --strict: 0 ERRORS on all 9.  Findings vs pre-round-8: 0001
+  2->0, 0002 15->14, 0005 5->4, 0007 29->31 (two more "Comparison to NULL",
+  matching the two already there), rest flat.
+* checkpatch-man: clean on llapi_find_device.3; lfind.8 has the same two
+  pre-existing CHECKs as before the round and no new ones.
+* Change-Ids 9/9 identical, base still 5afbab284e.
+* lfind exercised locally: --help rc=0 on stdout, a bad command line rc=1 on
+  stderr, two targets refused, --device=VALUE reaches the scan.
+
+LAB, 2026-08-24 (lfu-r8-ldiskfs and lfu-r8-zfs, us-central1-a)
+---------------------------------------------------------------
+Both backends, full cluster.  Rounds 6, 7 and 8 had never run anywhere.
+
+ZFS -- complete, green:
+  05-acceptance   20336 objects; IDENTICAL at -j 1/2/4/8/16; lfind
+                  predicates over the ZFS scan (--type f=20008, --type d=7,
+                  --uid 65534=1, --projid 1999=1).  This is ROUND 6's
+                  sp_search re-plumbing, verified on a real ZFS target.
+  06-confsanity165  PASS (78s).  "scanned 107 objects; found all 102 visible
+                  FIDs", "lfind --type f found all 100 files", plus round 8's
+                  new checks.  Note: 165 has always SKIPPED on ZFS in
+                  autotest because the build hosts install no scan_zfs.so.
+                  Here it is built, so the ZFS backend actually ran.
+  07-round4       8 PASS, 1 SKIP (make rpms needs kmod-zfs-devel, which a
+                  DKMS host has not), 0 FAIL.
+
+ldiskfs -- green:
+  05-scantest     all checks, including "pre-filter never saw a gathered
+                  field" and the stop-after-5 at -j 1 and -j 4
+  09-confsanity165  PASS (43s), "scanned 108 objects; found all 102 visible
+                  FIDs"; the two-targets refusal and the new usage line with
+                  --internal both visible in the suite log
+  08-sanity157c   PASS (1s)
+  15-nonlustre    getdirstripe -r and getstripe -D -r both 0 EBADF; whole
+                  tree walked (316 = 312 + the 4 non-Lustre)
+  16-dup2         foreign dir created, walked, reported; 0 EBADF
+  17-ab-wide      THE ONE THAT MATTERED.  ONLY=0e,17h,17i,27z,51c,51d,56,
+                  60h,65n,160d,162b,300 -- every sanity test that calls
+                  getdirstripe, which stage 10's ONLY=56 never reaches.
+                    before: 80 pass, 2 fail, 45 skip (127)
+                    after:  80 pass, 2 fail, 45 skip (127)
+                    DIFF:   IDENTICAL
+                  The 2 failures are 56Eaa and 56xb, PROVEN pre-existing --
+                  the before run has them too.
+
+THE DESCRIPTOR A/B (stage 17, both halves, MAIN PROCESS ONLY)
+--------------------------------------------------------------
+                          before      after
+  lfs getdirstripe -r     EBADF=1     EBADF=0     <-- LU-20624 demonstrated
+  lfs find --printf       EBADF=0     EBADF=0
+  foreign walk            0, paths=2  0, paths=6
+
+Row 1 is the fix.  Row 2 reproduces the 2026-08-22 finding exactly: lfs find
+shows zero not because it is safe but because the stale number has already
+been reissued and the close lands silently on whatever now holds it.
+
+Row 3: the walk recovers 4 paths.  NOT attributed to 68231.  The A/B is base
+vs base+ALL NINE, and the probe tree holds both a tmpfs mount and a foreign
+directory, so the likeliest cause is 68095's ENOTTY delta (the subtree is
+seeded unstriped and walked instead of erroring out) rather than the dup2.
+Attribution needs the two path lists, still on the instance.
+
+THE '+' LABEL, DEMONSTRATED (not merely not-broken)
+----------------------------------------------------
+The other three defects were proven by their own tests; this one at first was
+only "normal labels still scan", which shows the fix is harmless, not that it
+works.  So: tunefs.lustre --nolocallogs on the stopped MDT really does rewrite
+the label, confirmed by dumpe2fs -- testfs-MDT0000 becomes testfs+MDT0000 --
+and then a three-arm A/B with ONE clause as the only variable:
+
+  A  sep[0] != '-' && ':' && '=' && '+'   rc=0  objects=307
+  B  sep[0] != '-' && ':' && '='          rc=1  objects=0
+       lfind: /dev/loop0: label 'testfs+MDT0000' names no MDT or OST
+  C  restored                             rc=0  objects=307
+
+B's error text is verbatim what 68156's commit message describes.  A->B->C
+rules out drift between builds.
+
+FIRST ATTEMPT AT THAT A/B PROVED NOTHING, AND WHY: libscan_ldiskfs.c is
+compiled BOTH into scan_ldiskfs.so and into liblustreapi itself
+(liblustreapi_la_SOURCES += libscan_ldiskfs.c).  Rebuilding only the plugin
+left the library's copy in charge, so B scanned 307 objects exactly like A.
+The whole utils directory has to be rebuilt and installed for each arm.
+Worth remembering for any future backend A/B.
+
+STAGE 14 (ldiskfs, round 4's checks -- three of them cover round 8's code)
+---------------------------------------------------------------------------
+  1. a non-Lustre filesystem is refused EINVAL, and NOT ENOTSUP (which
+     conf-sanity 165 keys its skip off)            PASS x3
+  2. a real MDT still scans, so check 1 refused the right thing   PASS
+  3. LAST_ID is the target's own object                          PASS x3
+  4. a pre-1970 timestamp survives as a negative time            PASS x2
+  5. an undefined sp_flags bit is refused, a known one accepted  PASS x2
+     ^ this is round 8's LLAPI_SCAN_F_KNOWN_NS/_DEV split
+  6. the object set did not shrink                               PASS
+  STAGE14 OK -- ALL ROUND 4 LDISKFS CHECKS PASSED
+
+THE FOREIGN WALK, ATTRIBUTED
+-----------------------------
+Stage 17's probe showed paths 2 -> 6.  The path lists settle which patch:
+
+  before: /mnt/lustre/probe
+          /mnt/lustre/probe/foreign
+  after:  + /mnt/lustre/probe/tmpfs
+          + /mnt/lustre/probe/tmpfs/a
+          + /mnt/lustre/probe/tmpfs/sub
+          + /mnt/lustre/probe/tmpfs/sub/b
+
+All four recovered paths are the TMPFS subtree, and probe/foreign is reported
+IDENTICALLY in both.  So the 2->6 is 68095's ENOTTY delta -- the non-Lustre
+directory seeded unstriped and walked instead of erroring out -- and the
+foreign case is unchanged.  That is direct evidence for 68095's documented
+"fourth behaviour delta", and it independently confirms that cutting the
+foreign-case sentence from 68231 was right: 68231 is the descriptor fix and
+nothing more.
+
+WHAT THE LAB CHANGED IN THE SERIES
+-----------------------------------
+1. sr_gen was missing from SCAN_TIER0_MASK in llapi_scan_device_test.c, so
+   the test's own tier-0 filter returned -EIO on every object and test3
+   failed -- against a STOPPED target too, so not a live-target artefact.
+   Nine clean builds and a clean checkpatch had nothing to say about it.
+   Fixed in 68156, which owns both the field and the mask.
+2. 68231's message lost its last unverified sentence, "It is when the
+   reopened ioctl succeeds, for a foreign directory, that the traversal goes
+   on to fdopendir() the number it kept."  Flagged as inference BEFORE the
+   lab ran; the lab did not support it, so it is gone.  68231 now asserts no
+   mechanism the lab has not shown -- which was the substance of both
+   (defect) comments against it.
+
+HARNESS TRAPS THIS ROUND (all mine, all instant failures)
+----------------------------------------------------------
+* the ZFS lab wants patches in ~/patches/, the ldiskfs one in ~/
+* 04-populate is not idempotent: it dies on the previous run's tree
+* stages needing root cannot be picked by NUMBER -- the two labs number
+  differently.  Decide by reading the script for useradd|llmount|
+  lustre_rmmod|make install.
+* llmount.sh mounts at /mnt/$FSNAME (default /mnt/lustre), NOT the lab's own
+  /mnt/testfs.  A probe that checked the wrong path reported "no client
+  mount" and returned WITHOUT cleaning up, which then killed the next
+  make install on the busy /sbin/mount.lustre trap.
+* git clean -fdx removes config.status; the tracked top-level Makefile
+  survives, so it proves nothing.  Re-autogen and re-configure.
+* THIS SERIES ADDS AN AM_CONDITIONAL (ZFS_SCAN_ENABLED), so an A/B must
+  autogen+configure PER HALF.  A tree configured before the patches fails
+  the after build with "does not appear in AM_CONDITIONAL".
+* a stale lab client retrying against an unmounted MDT ("not available for
+  connect ... (no target)") HANGS the first test needing an OST rather than
+  failing it.  Verify lsmod after lustre_rmmod; do not assume.
+
+A WRONG CALL WORTH KEEPING
+---------------------------
+I read 27 minutes of console silence as "the after half failed early" and
+staged a VM reset to recover the logs.  Stage 17 had in fact COMPLETED at
+15:11:30, before the diagnosis began: the markers I attributed to the before
+half were the after half's, as the probe file timestamps showed
+(wprobe-before-* 15:00, wprobe-after-* 15:10).  Silence on a console that
+only carries Lustre markers is not evidence about a build.
+
+STILL OWED
+----------
+* SSH to the labs: GCP disabled ssh to public IPs mid-session.  IAP is the
+  replacement and the command is right, but nishidafmly@gmail.com is not in
+  roles/iap.tunnelResourceAccessor, so it answers 4033 'not authorized'.
+  An owner must grant it; editor cannot setIamPolicy.  Firewall is already
+  correct (allow-ssh, 35.235.240.0/20, tcp:22, default network).
+* The Maloo annotate list (four enforced failures, LU-20598 plus three
+  unlooked-up) still needs the user's login.
+
+PUSHED 2026-08-24
+------------------
+All nine, new patchsets: 68094 PS8, 68095 PS8, 68156 PS7, 68157 PS7,
+68158 PS7, 68159 PS7, 68160 PS8, 68163 PS6, 68231 PS2.  Revisions match the
+local shas; Change-Ids 9/9; base still 5afbab284e.
+
+Commit messages were trimmed at the user's request from 30-100 lines to
+13-26 -- a few short paragraphs each.  Kept because they are load-bearing
+rather than narrative: 68231's "not fixed here" paragraph and the measured
+getdirstripe -r result, 68156's EINVAL-vs-ENOTSUP distinction (conf-sanity
+165 keys its skip off it), 68163's note that its own autotest cannot
+exercise it (which is why the Test-Parameters lines exist), and 68095's
+four behaviour deltas.  Tree byte-identical across the rewrite; safety
+branch backup-pre-msgtrim-20260824.
+
+REPLIES: 43, not 31.  Verifying before posting turned up TWELVE threads
+never answered -- 68163's 8 from round 6 and 68094's 4 from round 7 -- because
+those rounds were fixed locally but never pushed, so the answer-and-resolve
+step never ran for them.  They would have sat open indefinitely.  All twelve
+fixes were re-verified against the pushed tree before being claimed.
+  38 Done. / 3 declined with reasons / 2 partial.
+  Unresolved threads afterwards: 0 on eight of nine changes.
+
+ONE THREAD CANNOT BE CLOSED: 68231's comment on liblustreapi.c:3572.  The
+dup2() rewrite removed that hunk, so the file is not in the change and
+Gerrit refuses an inline reply ("file ... not found in revision 68231,2").
+Answered as a change-level message instead; only an inline reply can mark a
+thread resolved, so it stays open until the bot re-reviews or a human clears
+it.  Worth knowing for any future round that deletes a commented-on file.
+
+LABS DELETED: both instances and all three disks; instances, disks, images
+and snapshots filtered on 'lfu' all return zero.  The disks again did NOT
+auto-delete with the instance -- they were READY and billing after
+'instances delete' returned.

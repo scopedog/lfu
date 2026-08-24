@@ -1,0 +1,168 @@
+Round 6 - the 2026-08-23 AI review of 68163 (PS5)
+=================================================
+The bot posted 8 comments at 21:59 UTC, 20 min after 68163's Maloo verdict
+vote at 21:39 -- inside the established 16-27 min window.
+
+All 8 verified against the tree before acting.  5 confirmed, 1 design point
+taken, 2 declined.
+
+FIXED
+-----
+[1] /COMMIT_MSG:59   message said "the contract tests pass unmodified" while
+                     the patch changes llapi_scan_device_test.c in 32 lines
+                     (9x .sp_search, a -p option, 2 usage lines).  CONFIRMED
+                     by git show --stat.  Message rewritten; it now says no
+                     assertion changed and names -p and lfind.8's "# ".
+[2] llapi_scan_device.3:190  ERRORS listed EINVAL/ENOTSUP/EBUSY/EACCES but
+                     the ZFS backend also returns -ENOENT (libscan_zfs.c:167,
+                     260) and -ENAMETOOLONG (243).  CONFIRMED.  Both added,
+                     with the ENOENT-vs-EBUSY distinction spelled out.
+[3] lustreapi.h:538  llapi_find_device() grew a positional `const char *search`
+                     while the same knob rides struct llapi_scan_param (which
+                     has sp_size precisely so knobs cost no prototype).  The
+                     inconsistency was INTERNAL TO ONE COMMIT.  Taken, and
+                     fixed at the root: 68159 now introduces the function
+                     taking `const struct llapi_scan_param *sp`, so 68163
+                     changes no prototype at all.  Touches 68159/68160/68163.
+[5] liblustreapi_scan_device.c:588  scan_backend_once[] initialized by
+                     position while scan_backend_name[] (596) and
+                     scan_backend_loader[] (684) use designated initializers.
+                     CONFIRMED.  A third backend would zero-fill silently;
+                     POSIX does not promise PTHREAD_ONCE_INIT == 0.
+[7] libscan_zfs.c:366  sa_get_u64/sa_get_time were the only 2 of 13 statics
+                     not named scan_zfs_*, squatting on the prefix <sys/sa.h>
+                     owns, in the file whose job is absorbing libzpool churn.
+                     CONFIRMED.  Renamed scan_zfs_sa_get_*; both now answer
+                     in sa_lookup()'s currency (was: 0/errno vs 0/-1).
+[8] libscan_zfs.c:547  BEST OF THE EIGHT.  Comment said "master node, SA
+                     registry, ZAPs, the delete queue: not objects" guarding
+                     doi_bonus_type != DMU_OT_SA.  Verified upstream:
+                     osd_zap_create_flags() (osd_internal.h:874-877) passes
+                     DMU_OT_SA as the bonus type, so every osd-zfs directory,
+                     OI file and index PASSES that test and is delivered --
+                     the opposite of what the comment says, on the MDT scan's
+                     core path.  Rewritten to name what is actually dropped.
+
+DECLINED
+--------
+[4] lfind.c:61   --search -> --vdev-dir.  Naming complaint is fair, but the
+                 field is deliberately backend-neutral ("a target found by
+                 label rather than by path ... Today that is the ZFS
+                 backend").  --vdev-dir bakes ZFS into a name chosen to
+                 outlast it.  Left as is pending a better third name.
+[6] liblustreapi_scan_device.c:693  scan_backend_kind is both enum tag and
+                 function name.  Legal, separate namespaces, and renaming the
+                 enum ripples.  Taste; skipped.
+
+FOUND BY REVIEWING MY OWN DIFF (not by the bot)
+-----------------------------------------------
+After the [3] rewrite, the kdoc block still carried two orphaned lines
+describing "@search", a parameter that no longer exists.  They sat below the
+hunk that was replaced, so only re-reading the whole diff caught them.
+Removed from 68163.
+
+VERIFICATION
+------------
+  Change-Ids   9/9 identical to the pre-round branch; base still 5afbab284e.
+  Stack        bottom SIX shas UNCHANGED (68231/68094/68095/68156/68157/68158)
+               -- only 68159/68160/68163 moved, so only three changes would
+               get a new patchset.
+  checkpatch   0 errors on all three amended patches.
+               0007  26 -> 28 checks (two new `!= NULL`, the file's own style)
+               0008  13 -> 13 checks (unchanged)
+               0009  28 -> 28 checks (unchanged)
+  build        autogen + configure --disable-server --disable-modules
+               --disable-tests --disable-iokit, then
+               make liblustreapi.la lfind lfs  -> rc=0, ZERO diagnostics
+               under -Wall -Werror.  lfind and lfs both linked.
+               (The tree had to be re-autogen'd: it was configured 08-18,
+               before this patch added the ZFS_SCAN_ENABLED conditional.)
+  bisect       68160's own lfind.c compiles clean under -Wall -Werror.  It
+               names only sp_size and sp_flags, never sp_search (which
+               arrives in 68163), so no intermediate commit is broken.
+
+NOT DONE -- the gap to close before pushing
+-------------------------------------------
+No lab run.  This round changes an API shape and re-plumbs lfind's --search
+through sp_search, which is behavioural, and the ZFS path is exactly what a
+local build cannot exercise.  The GCP labs are deleted.  Nothing here has
+been run against a real target since the rewrite.
+
+
+================================================================
+Round 7 - the 2026-08-24 AI review of 68094 (PS7)
+================================================================
+Posted 01:34 UTC, 23 min after Maloo's verdict vote at 01:11 -- the trigger
+is now 6 for 6 in the 16-27 min window.  Cover text: "Some concerns."
+4 comments, all 4 verified against the tree, all 4 acted on.
+
+NOTE: that verdict vote was **Verified-1**, not +1.  68094 PS7 is the first
+change in the series to go negative this round.
+
+[defect] liblustreapi_scan.c:306 -- lmd_fid is never reset, and nothing
+writes it on the lstat() fallback.  CONFIRMED end to end:
+  1. scan_rec_gather() memset lmd_stx only, never lmd_fid
+  2. get_lmd_info_fd() on ENOTTY -> lstat_f() + convert_lmd_statx()
+     (liblustreapi_pfind.c:400-416)
+  3. convert_lmd_statx() (pfind.c:237-261) writes lmd_stx and lmd_flags
+     and NEVER lmd_fid
+  4. llapi_scan_get_lmv() lets ENOTTY through on purpose -- the object
+     KEEPS its record ("the lstat() fallback ... is there for exactly this")
+  5. scan_rec_mdt():132-134 does rec->sr_fid = lmd->lmd_fid and sets
+     LLAPI_SCAN_FID when fid_is_sane() accepts it
+  6. fp_lmd is one buffer for the whole walk
+  => on any scan crossing onto a non-Lustre subtree, the previous Lustre
+     object's FID is reported as this object's, with the valid bit set.
+  The worker claim checks out too: copy_find_param() NULLs dst->fp_lmd
+  after the struct memcpy, then deep-copies the BUFFER CONTENTS
+  (malloc + memcpy(dst->fp_lmd, src->fp_lmd, lmd_size)), so every work
+  unit inherits whatever stale FID was in the parent buffer.
+  FIX: memset(&lmd->lmd_fid, 0, sizeof(lmd->lmd_fid)) beside the lmd_stx
+  one, and the comment above it rewritten to say why.
+
+[typo]  liblustreapi_scan.c:13 -- header comment said "falling back to
+        statx()"; it is lstat_f() (lstat64).  CONFIRMED, fixed.
+
+[style] liblustreapi_scan.c:126 -- scan_rec_mdt()'s continuation lines sat
+        6 columns past the open paren (3 tabs + 7 spaces = col 31; the
+        paren is at col 25).  CONFIRMED, realigned.
+
+[minor] llapi_scan_test.c:460 -- nothing exercised sr_lmm/sr_lmmsize.
+        CONFIRMED: both strings appear ZERO times in the test file.
+        Added test9, "sr_lmm decodes to a layout a consumer can read":
+        scans with LLAPI_SCAN_MODE|LLAPI_SCAN_LAYOUT and, per regular
+        file, copies sr_lmm and runs llapi_layout_get_by_xattr() +
+        llapi_layout_stripe_count_get().
+        The copy is deliberate and commented: the record contract says
+        sr_lmm is scanner-owned, and llapi_layout_get_by_xattr() takes a
+        NON-CONST pointer because it may swab in place -- doing that to
+        the scanner's live buffer would corrupt the walk.
+        HONEST LIMIT: llapi_scan_lmm_size() is still uncovered.  It is
+        static, and only reached when lmd_lmmsize == 0, i.e. behind a
+        V1-ioctl client module the test cannot force.  The bot's claim
+        that this case "would cover both" is optimistic; say so in the
+        reply rather than claiming the coverage.
+        The test asserts the stripe count is READABLE, not non-zero:
+        make_tree()'s files are creat()'d empty, so whether that means
+        OST objects, a DoM component or nothing yet is the filesystem
+        default's business.  Asserting non-zero would have been a CI
+        failure this lab cannot reproduce.
+
+VERIFICATION
+------------
+  Change-Ids   9/9 identical; base still 5afbab284e.
+  Stack        only 68094 changed content; the eight above are pure
+               rebases (68231 below it untouched).
+  checkpatch   0 ERRORS on all nine.  68094: 10 -> 13 checks, all three
+               from the new test (a uint64_t the layout API's own
+               signature requires, and two `== NULL` in the file's style).
+  build        make liblustreapi.la lfind lfs -> rc=0, ZERO diagnostics
+               under -Wall -Werror.
+               llapi_scan_test.c compiled separately (the tree is
+               configured --disable-tests) -> clean, object produced.
+
+STILL NOT DONE
+--------------
+No lab run, for round 6 or round 7.  The lmd_fid fix in particular wants a
+scan that crosses onto a non-Lustre subtree -- exactly the case that
+produced the bug -- and nothing here has been run against a real target.

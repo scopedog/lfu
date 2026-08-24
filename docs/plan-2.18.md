@@ -1,8 +1,9 @@
 # The plan to 2.18
 
-**Date:** 2026-08-19 · **Constraint:** userspace tools target Lustre 2.18, the
-in-kernel OSD scanner targets 2.19 (Andreas, 2026-08-19) ·
-**Build order:** [`architecture.md`](architecture.md) §12
+**Date:** 2026-08-19, **revised 2026-08-24** · **Constraint:** userspace tools
+target Lustre 2.18, the in-kernel OSD scanner targets 2.19 (Andreas, 2026-08-19,
+reaffirmed 2026-08-24) · **Build order:**
+[`architecture.md`](architecture.md) §12 · **Gap analysis against the HLD:** §E
 
 Master is `2.17.56`, the development series that becomes 2.18.0. So 2.18 is a
 **deadline**, not a sequence: anything that ships in it has to be reviewed and
@@ -13,22 +14,26 @@ time, and against holding them for a larger series.
 
 ## Where it stands
 
-| | State |
-|---|---|
-| LU-20603 · [68094](https://review.whamcloud.com/c/fs/lustre-release/+/68094) | patchset 2, `Verified+1`, **no human review**. Local commit ahead of it |
-| LU-20605 · [68095](https://review.whamcloud.com/c/fs/lustre-release/+/68095) | patchset 2, `Verified+1`, no human review |
-| LU-20606 · scanner | written, one commit, **unpushed** |
-| LU-20611 · `lfind` | written, four commits, **unpushed** |
+**As of 2026-08-24**, nine changes on Gerrit, all current, all with zero
+unresolved comment threads:
 
-Seven local commits on `lu-20603-scan-api`. Everything is verified against
-synthetic images and byte-comparison; **nothing has run on a real MDT**, and the
-lab was deleted on 2026-08-18.
+| Change | Ticket | PS | Carries |
+|---|---|---|---|
+| [68231](https://review.whamcloud.com/c/fs/lustre-release/+/68231) | LU-20624 | 2 | the upstream `cb_get_dirstripe()` fd fix, found while building this |
+| [68094](https://review.whamcloud.com/c/fs/lustre-release/+/68094) | LU-20603 | 8 | the record and `llapi_scan_namespace()` |
+| [68095](https://review.whamcloud.com/c/fs/lustre-release/+/68095) | LU-20605 | 8 | `lfs find` on the record |
+| [68156](https://review.whamcloud.com/c/fs/lustre-release/+/68156) | LU-20606 | 7 | `llapi_scan_device()` + the ldiskfs backend |
+| [68157](https://review.whamcloud.com/c/fs/lustre-release/+/68157) | LU-20611 | 7 | the `cb_find_init()` split |
+| [68158](https://review.whamcloud.com/c/fs/lustre-release/+/68158) | LU-20611 | 7 | the shared predicate parser |
+| [68159](https://review.whamcloud.com/c/fs/lustre-release/+/68159) | LU-20611 | 7 | `llapi_find_device()` |
+| [68160](https://review.whamcloud.com/c/fs/lustre-release/+/68160) | LU-20611 | 8 | `lfind(8)` |
+| [68163](https://review.whamcloud.com/c/fs/lustre-release/+/68163) | LU-20613 | 6 | the ZFS backend |
 
-The local LU-20603 commit is ahead of what Gerrit has by four things, each
-found by building the next piece: `sr_projid` on both producers, an explicit
-`LLAPI_SCAN_MDT_MASK`, a `sp_size` rule that lets the parameter struct grow, and
-the man page's release (2.19.0 → 2.18.0). That is the incremental method
-working, and the reason to keep 68094 unlanded a little longer.
+Base `5afbab284e`. Eight rounds of AI review answered, 43 replies posted.
+**Verified on a two-backend lab 2026-08-24** — conf-sanity 165 PASS on both
+ldiskfs and ZFS, `sanity` identical before and after across every test that
+touches `lfs find` or `lfs getdirstripe`, and `lfs getdirstripe -r` measured at
+EBADF 1 → 0. Still **no human review**.
 
 ---
 
@@ -208,9 +213,128 @@ changes nobody has looked at. The counter-argument is that the scanner is the
 piece with the performance story, and it may be what prompts a review. Post §C's
 comment first and see.
 
-## E. The rest of 2.18, in priority order
+## E. What the HLD still wants — gap analysis, 2026-08-24
 
-1. **ZFS backend behind `llapi_scan_device()`** (step 3b). **Promoted to first
+Read against `Lustre_Find_Utility-High_Level_Design.pdf` (Andreas v0.1
+2026-04-03, Artem's module diagram v0.2 2026-08-08). The diagram marks nine
+boxes **mandatory (initial)**; everything dashed is Optional/Future and out of
+scope for 2.18 by Andreas's decision to hold the OSD path to 2.19.
+
+### Done
+
+| HLD module | Ours |
+|---|---|
+| ldiskfs Device Input Scanner | 68156 |
+| Lustre Namespace Input Scanner | 68094 |
+| `lfs find` Filter Rule + its Output Format | 68095, 68157, 68158, 68159 |
+| *(beyond the HLD's ldiskfs box)* | 68163 ZFS backend, 68160 `lfind(8)` |
+
+### Not done, and mandatory-initial
+
+| # | Module | Note |
+|---|---|---|
+| 1 | **Object Stream binary format** | FlatBuffers or Cap'n Proto. **Blocks 3, 4 and every cross-node use.** Decided off the 2026-08-18 meeting, not ours, **evaluation not started** |
+| 2 | **Changelog Input Scanner** | The HLD names *three* initial input scanners — client mountpoint, ldiskfs, **Changelogs consumer**. We have two |
+| 3 | **Changelog Output Filter** | Filter changelog events by attribute. *"There is currently no mechanism to filter Changelog events based on specific attributes"* |
+| 4 | **Merge / Split Filter Rule** | Merge several input streams into one; split one into several. **This is what covers a DNE filesystem** — without it `lfind` does one target per invocation and nothing assembles the whole namespace |
+| 5 | **Raw Write / Raw Read** | Persist the stream and read it back. *"facilitates testing, transferring scan results to other nodes, and asynchronous or post-processing"* — and it is how multi-node merge works before any RPC exists |
+| 6 | **FID → pathname Output Format** | `fid2path()`. Verified absent from `lfind.c` and the scanner sources: `lfind` prints bare FIDs with **no way to get a path** |
+
+### Not done, and not modules
+
+**7. The performance target is met — with exclusive access to the device.**
+*(Corrected 2026-08-24: an earlier revision of this section said the target had
+never been tested. It was, on 2026-08-16.)* The HLD asks for *1M obj/s/MDT
+assuming at least 1GiB/s read rate on the MDT device, exclusive of pathname
+generation*.
+[`measurements/cold-on-fast-storage-2026-08-16.md`](measurements/cold-on-fast-storage-2026-08-16.md)
+ran exactly that, on a 1,406 MB/s NVMe stripe with 20M objects:
+
+| | rate | 4e9 objects |
+|---|---|---|
+| **Option 1 — our userspace scanner** | **1,435,080 obj/s** at 1,313 MB/s | **0.78 h — meets it** |
+
+That is **93% of the raw device**, reached with a single thread, because
+`ext2fs_inode_scan` walks a block group's itable in large sequential runs.
+
+**The condition attached to that number is the important part.** 93% of the
+device means the scanner effectively has the device to itself — an unmounted
+target, a snapshot, or a failover partner's LUN. On a serving MDT the scan
+shares bandwidth with the MDT's own I/O and gets proportionally less; with a
+snapshot it pays COW indirection on top
+([`design-snapshot-scan.md`](design-snapshot-scan.md) §8).
+
+**2.19 does not fix this.** After block parsing the in-kernel scanner also
+reaches 99% of the same device
+([`measurements/blockparse-2026-08-16.md`](measurements/blockparse-2026-08-16.md)),
+so both scanners are device-bound and neither creates bandwidth. The OSD path
+buys correctness on a live target, not throughput. **The HLD's 1M obj/s/MDT and
+its ~1h/4B-object figure are offline numbers for any implementation** — worth
+stating plainly, because they are easy to read as live-filesystem figures.
+
+**8. The HLD's own test matrix**, from *Testing New Functionality*: Object
+Stream encode/decode/structure tests, Output Format structure tests, and
+*"Pathname generation from FIDs should be verified"*. Blocked on 1 and 6.
+
+### Two risks, not tasks
+
+- **The Object Stream is unowned and blocks three of the six.** It is the most
+  likely thing to stall 2.18, and it is not something we can start.
+- **2.18 has no story for scanning a live ZFS target.** 68163 handles exported
+  pools only (`POOL_STATE_ACTIVE` → `EBUSY`), and the HLD's answer for ZFS was
+  always the OSD scanner, now 2.19. Worth confirming this is understood as the
+  shape of 2.18 rather than a gap someone expects us to close. See
+  [`design-snapshot-scan.md`](design-snapshot-scan.md) for the one workaround,
+  and why it is a poor one on ldiskfs and unavailable on ZFS.
+- **What 2.18 actually delivers, stated so nobody infers more:** a scanner that
+  meets the HLD's throughput target **on a target not in service** — unmounted,
+  a snapshot, or a failover partner's copy — plus a client-side namespace
+  scanner at ordinary `lfs find` speed. It does not deliver a fast scan of a
+  serving filesystem, on either backend, and per §7 neither does 2.19 by
+  itself: that needs bandwidth the MDT is not using.
+
+## F. The rest of 2.18, in priority order — **revised 2026-08-24**
+
+Derived from §E. The ordering rule is unchanged: what has a clock on it first,
+what blocks other work next, what is merely wanted last.
+
+1. **Object Stream format decision** — not ours to make, but **ours to chase**.
+   It blocks Merge/Split, Raw Write/Read and the whole test matrix, and nothing
+   else in this list can be sequenced around it. Escalate rather than wait.
+2. ~~**FID → pathname Output Format.**~~ **Written and lab-verified
+   2026-08-24**, held locally: `llapi_scan_rec_path()` plus
+   `lfind --fid2path MOUNT`, conf-sanity 166 PASS on ldiskfs alongside 165.
+   **Filed as LU-20637, pushed as
+   [68288](https://review.whamcloud.com/c/fs/lustre-release/+/68288)**; see
+   [`tickets/fid2path-output-format.md`](tickets/fid2path-output-format.md).
+3. **Merge / Split Filter Rule.** What makes a DNE filesystem scannable as a
+   whole. Needs the format for the on-disk case, but an in-process merge across
+   several `llapi_scan_device()` calls is useful before that and is a smaller
+   piece. → **file a Technical task**, parent LU-20462.
+4. **Changelog Input Scanner** + **Changelog Output Filter.** Named in the HLD
+   as one of three initial input scanners, and the output filter has no
+   equivalent anywhere in Lustre today. → **file one Technical task for both**,
+   parent LU-20462.
+5. **Raw Write / Raw Read.** Blocked on the format. Cheap once it exists, and it
+   is what makes cross-node merge possible without any RPC.
+6. ~~**The 1 GiB/s performance run.**~~ **Already done, 2026-08-16** —
+   1,435,080 obj/s at 93% of a 1,406 MB/s stripe, 0.78 h for 4B objects. What
+   remains is not a measurement but a statement: the HLD's target is an
+   *exclusive-access* number, and our docs should say so wherever a reader
+   would otherwise take it for a live-filesystem figure.
+7. **Aggregate / histogram Filter Rules.** Andreas named the bounded histogram
+   as a Trash Can requirement, so it is a consumer blocker rather than a
+   reporting nicety — but the HLD's diagram marks Advanced Operators
+   Optional/Future, so it sits below the mandatory set. → **file a Technical
+   task**, parent LU-20462; serves LU-19598.
+8. **Named consumers.** LU-19598 (Trash Can, Emoly Liu) already has an owner —
+   coordination, not filing. PCC-RO has no ticket of ours; file only if the
+   window allows.
+
+### The original order, 2026-08-19 — superseded
+
+1. **ZFS backend behind `llapi_scan_device()`** (step 3b). **Done**, LU-20613 /
+   68163. **Promoted to first
    on 2026-08-19**, ahead of the histogram, because it is the only thing here
    with a clock on it: the cheapest test that the backend ABI generalises is a
    second backend, and running that test while LU-20606 is *in review* is what
@@ -242,7 +366,7 @@ LMA flag) is filed and assigned to us as an Improvement. Until it lands, three
 internal objects classify as visible, which `lfind(8)` documents. It does not
 block anything in this plan.
 
-## F. Parked for 2.19
+## G. Parked for 2.19
 
 The OSD API scanner and its `circ_buf` ring, the bulk RPC filter modules and
 `OBD_CONNECT2_LFU`. Both are already designed and partly prototyped here.
@@ -282,10 +406,15 @@ rather than implemented, so that 2.19 opens with them answered.
 | **LU-20591** | WC Triage / Jinshan | OSD object iteration via llapi — the 2.19 kernel ground |
 | **LU-20462** | Artem | the epic: format decision, stale description |
 
-**To file, in this order:**
+**To file, in this order — revised 2026-08-24 to match §F:**
 
-1. ~~ZFS backend behind `llapi_scan_device()`~~ — **filed as LU-20613**, written and lab-verified
-2. Aggregate / histogram Filter Rules — Technical task, parent LU-20462, `llapi` + `utils`
-3. Changelog Input Scanner — Technical task, parent LU-20462
-4. PCC-RO consumer — only if the 2.18 window allows
-5. Object Stream encoder — once Andreas settles the format
+1. ~~ZFS backend behind `llapi_scan_device()`~~ — **filed as LU-20613**, pushed as 68163, lab-verified on both backends 2026-08-24
+2. ~~**FID → pathname Output Format**~~ — **LU-20637 / 68288**, pushed 2026-08-24, lab-verified
+3. **Merge / Split Filter Rule** — Technical task, parent LU-20462. The DNE story
+4. **Changelog Input Scanner + Changelog Output Filter** — one Technical task, parent LU-20462
+5. Aggregate / histogram Filter Rules — Technical task, parent LU-20462, `llapi` + `utils`; serves LU-19598
+6. PCC-RO consumer — only if the 2.18 window allows
+7. Object Stream encoder + Raw Write/Read — once Andreas settles the format
+
+**Chase, do not file:** the Object Stream format decision itself (LU-20462). It
+blocks items 3, 7 and the HLD's test matrix, and it has no owner working it.

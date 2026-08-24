@@ -1,0 +1,95 @@
+Upstream bug reproduction: cb_get_dirstripe() reopen leaves the caller's fd stale
+=================================================================================
+Date:   2026-08-22
+Host:   lfu-r4-ldiskfs (GCP, us-central1-a, c3-standard-8, Rocky 9)
+Tree:   unpatched master at 5afbab284e, built in /home/nishida/base-tree
+Setup:  tmpfs mounted at /mnt/testfs/nl inside the Lustre mount point,
+        containing a.txt and sub/b.txt
+
+1. No predicate: cb_get_dirstripe() is never called, and the walk is correct
+--------------------------------------------------------------------------
+$ lfs find /mnt/testfs/nl
+/mnt/testfs/nl
+/mnt/testfs/nl/a.txt
+/mnt/testfs/nl/sub
+/mnt/testfs/nl/sub/b.txt
+rc=0
+
+2. Any predicate needing the directory stripe: the subtree is lost
+------------------------------------------------------------------
+$ lfs find /mnt/testfs/nl --printf '%p\n'
+lt-lfs: failed for '/mnt/testfs/nl': Operation not permitted
+rc=1
+                        ^ errno is wrong too: cb_get_dirstripe() returns the
+                          ioctl's -1, which is then rendered as an errno.
+                          The real error was ENOTTY.
+
+Each of these reproduces identically:
+    --printf '%p\n'      (gather_all)
+    --links 1            (fp_nlink)
+    --mdt-count +0       (fp_check_mdt_count)
+    --mdt-hash all_char  (fp_hash_type)
+
+A bind mount of a directory that is NOT on Lustre fails the same way:
+$ mount --bind /tmp/plainsrc /mnt/testfs/bind
+$ lfs find /mnt/testfs/bind --printf '%p\n'
+lt-lfs: failed for '/mnt/testfs/bind': Operation not permitted
+
+A bind mount of a LUSTRE directory is unaffected:
+$ mount --bind /mnt/testfs/a /mnt/testfs/bind2
+$ lfs find /mnt/testfs/bind2 --printf '%p\n'
+/mnt/testfs/bind2
+/mnt/testfs/bind2/striped.bin
+/mnt/testfs/bind2/big.bin
+
+3. strace: the descriptor is closed, reissued, and closed again
+---------------------------------------------------------------
+Shown on lfs getdirstripe -r, where the two runs are identical until the
+final close.  Main process only: an earlier measurement used strace -f and
+counted closes belonging to other processes, which was wrong.
+
+$ strace -e trace=openat,close lfs getdirstripe -r /mnt/testfs/nl2
+
+openat(AT_FDCWD, "/mnt/testfs/nl2", O_RDONLY|O_NONBLOCK|O_DIRECTORY) = 3
+openat(AT_FDCWD, "/mnt/testfs/nl2", O_RDONLY|O_NONBLOCK|O_NOFOLLOW)  = 4
+close(3)                                = 0
+openat(AT_FDCWD, "/mnt/testfs/nl2", O_RDONLY|O_NONBLOCK|O_NOFOLLOW)  = 3
+close(4)                                = 0
+close(4)                                = -1 EBADF     <- unpatched
+close(3)                                = 0            <- patched
+
+  fd 3 is the traversal's directory descriptor.
+  fd 4 is cb_get_dirstripe()'s O_NOFOLLOW reopen.
+  close(3) is cb_get_dirstripe() closing the original; the caller kept a copy
+    of the OLD number, so llapi_semantic_traverse() still believes it owns 3.
+  the next openat takes 3 straight back -- with --threads N that number can
+    belong to another worker.
+  close(4) twice: the second is the double close.
+
+Measured, main process only:
+    lfs getdirstripe -r   unpatched EBADF=1   patched EBADF=0
+    lfs getstripe -D -r   unpatched EBADF=1   patched EBADF=0
+    lfs getstripe -r      unpatched EBADF=0   (never reaches the call)
+    lfs find --printf     unpatched EBADF=0   (the stale number has already
+                                               been reissued, so the close
+                                               silently succeeds -- which is
+                                               the dangerous outcome, not the
+                                               harmless one)
+
+4. lfs getstripe / lfs getdirstripe reach it through cb_getstripe()
+--------------------------------------------------------------------
+$ lfs getdirstripe -r /mnt/testfs/nl
+lt-lfs getdirstripe: cb_getstripe: '/mnt/testfs/nl' not on a Lustre fs?: Inappropriate ioctl for device (25)
+  These stop at the ENOTTY with or without the fix, so what they get from it
+  is the correct close, not a restored walk.
+
+5. The same commands with the LFU series applied
+-------------------------------------------------
+$ lfs find /mnt/testfs/nl --printf '%p\n'
+/mnt/testfs/nl
+/mnt/testfs/nl/a.txt
+/mnt/testfs/nl/sub
+/mnt/testfs/nl/sub/b.txt
+rc=0
+
+cb_getstripe() is NOT fixed by the series and is left for the upstream ticket.
