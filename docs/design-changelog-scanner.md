@@ -11,7 +11,9 @@ and are **[verified]** where the line was read.
 **What v0.2 settled**, all of it in §0: the CLI is two flags rather than one,
 the record is the truth for what an event said, the command coalesces, an
 approximate size is `--lazy` and a real one is a glimpse on the consumer, and
-a server-side size filter is refused on soundness rather than on cost.
+a server-side size filter is refused on soundness rather than on cost. All 83
+`lfs find` options were then swept against the changelog (§13.4), which is
+what turned the refusals into four stated reasons rather than a list.
 
 ---
 
@@ -19,7 +21,7 @@ a server-side size filter is refused on soundness rather than on cost.
 
 **Build the changelog as a delta source with two faces, not as a third
 scanner.** A changelog answers *what happened*; the Object Stream is about
-*what is*. Every contradiction §12.3 found came from that seam, so the seam
+*what is*. Every contradiction §13.3 found came from that seam, so the seam
 goes in the interface:
 
 | | `lfs find --since` | `lfs find --changelog` |
@@ -43,7 +45,7 @@ Both sit on one module, `llapi_scan_changelog()` (§3), which emits the record
 3. Resolution through a client mount, gated by the demand mask.
 4. `lfs find --since`. Nearly free: candidates from 2, verification from the
    gather `llapi_scan_namespace()` already does.
-5. `lfs find --changelog`, with the three refusal rules of §12.1.
+5. `lfs find --changelog`, with the three refusal rules of §13.1.
 6. The Changelog Output Filter — **last**, and smaller than the HLD implies.
 
 **What to refuse, and why:**
@@ -56,7 +58,22 @@ Both sit on one module, `llapi_scan_changelog()` (§3), which emits the record
   consuming is how an MDT fills up.
 - **Persistent state inside the module** (§4.3), except the `--since-cookie`
   of per-MDT indexes, which exists because a bare index means nothing under
-  DNE (§12.2).
+  DNE (§13.2).
+
+**The rule that decides every flag** (§13.4, §13.5):
+
+> A predicate is answered from what the source actually has, or refused. It is
+> never approximated, and never reinterpreted.
+
+Four things make a predicate refusable under `--changelog`: it needs object
+state and `--resolve` was not given; it describes a walk; it needs the mounted
+filesystem's target list; or **the record carries something that is not what
+the option means** — which is why `-name` is answered from the event and
+`--mdt` is refused outright.
+
+The same rule is why a flag can differ between `lfs find` and `lfind` and that
+is not a defect: `-name` already does, in shipped code. §13.5 has the
+provenance table.
 
 **What is still open:** two questions, both in §12, and both now narrow enough
 to answer in a sentence.
@@ -90,7 +107,7 @@ is where it is stated plainly.
   type-mask drop plus the predicates the record already carries, and §7.2.2
   refuses to extend to size
 - The two `lfs find` spellings this reaches a user through, and the rules that
-  keep them from meaning each other (§12.1)
+  keep them from meaning each other (§13.1)
 
 ### Out of scope
 
@@ -587,7 +604,7 @@ attribute. That is the whole of what this module adds over them.
 | 2 | Object mode — the FID hash, ageing, eviction, both keys | small–medium | §5.2; `llsom_sync` has the shape already |
 | 3 | Resolution through a client mount, gated by the demand mask | medium | §6, and the per-object cost centre |
 | 4 | `lfs find --since` | **nearly free** | candidates from 2, verification from the gather `llapi_scan_namespace()` already does |
-| 5 | `lfs find --changelog` and the three refusal rules | small | §12.1; mostly argument validation |
+| 5 | `lfs find --changelog` and the three refusal rules | small | §13.1; mostly argument validation |
 | 6 | Changelog Output Filter: the type-mask drop moved server-side, plus tier-1 and tier-2 predicates | separate ticket | a wire-protocol change (§7.3), and worth doing only after 1–5 show which predicates are pushed in practice |
 
 Steps 1–5 are the "Changelog Input Scanner" task; step 6 is the "Changelog
@@ -611,18 +628,27 @@ settle in a sentence, which is the point of having worked the rest out first.
 | **Was "files over 1TB" meant as an MDS-side filter?** | §7.2.2 shows the MDS does not have the size to filter on: SOM is exact only for FLR and DoM files, and dropping against a stale-low value loses big files. Meanwhile the consumer can already choose real (`-size`) or approximate (`--lazy`) | Did you mean a **conservative** prune over `SOM_FL_STRICT` only, or was size an illustration and the check belongs on the consumer? This decides the size of step 6 |
 | **`--since <time>` under DNE, and who owns the cookie** | `cr_time` is a wall clock on each MDS, so a time is comparable across MDTs only as far as the clocks are (§8.3). The `--since-cookie` of per-MDT indexes is exact, and is state | Approximate by clock, or refuse beyond a skew margin? And is the cookie ours, or does it belong with whatever the Merge/Split Filter Rule uses for multi-target state? |
 
-**Settled in v0.2, and recorded where it was decided:** the CLI is `--since`
-plus `--changelog` (§12.1); the record is the truth for what an event said and
-resolution only fills what is missing (§12.1); the command always coalesces
-(§12.1); a bare index is refused under DNE (§12.2); an approximate size is
-`--lazy` (§7.2.2); registration stays the caller's (§4.2).
+**Settled in v0.2, and argued in §13:** the CLI is `--since` plus
+`--changelog` (§13.1); the record is the truth for what an event said and
+resolution only fills what is missing (§13.1); the command always coalesces
+(§13.1); a bare index is refused under DNE (§13.2); `--mdt` is refused under
+`--changelog` (§13.4); a flag may mean different things from different sources
+(§13.5). Elsewhere: an approximate size is `--lazy` (§7.2.2) and registration
+stays the caller's (§4.2).
 
 **Smaller things to settle with a lab rather than a meeting:** the default
 `scp_min_age` — start at `llsom_sync`'s 600 s and measure; and whether the
 pre-filter earns its place in event mode, where there is no I/O to save unless
 resolution is on.
 
-### 12.1 Source replacement, or accelerator
+## 13. The command line
+
+How this reaches a user, and the rules that keep two sources from being
+mistaken for each other. §13.1 settles the shape, §13.2 the anchor, §13.3 and
+§13.4 test the rules against every invocation and every option, and §13.5
+states what a flag is allowed to mean when the source changes.
+
+### 13.1 Source replacement, or accelerator
 
 The first draft of this design proposed `lfs find --changelog MDT`, meaning
 *take the source from the changelog instead of a walk*. Working through what
@@ -676,7 +702,7 @@ lfs find /mnt/lustre --changelog all --since 4200 -type f   # see rule 1
 ```
 
 **Three rules keep the two apart.** Without them `--changelog` is the silent
-meaning-shift §12.1 opened with; with them the difference is enforced at the
+meaning-shift §13.1 opened with; with them the difference is enforced at the
 command line rather than explained in a man page.
 
 1. **A predicate the changelog cannot answer is refused, not approximated.**
@@ -733,7 +759,7 @@ same per-object price as §6 resolution — so the two share an implementation:
 the candidate set is `llapi_scan_changelog()` in object mode, and the
 verification is the gather `llapi_scan_namespace()` already does.
 
-### 12.2 What `--since` takes, and why a bare index is not enough
+### 13.2 What `--since` takes, and why a bare index is not enough
 
 `lfs find /mnt/lustre --since 4200 -type f` reads the changelogs of the
 filesystem holding that path from index 4200, coalesces to candidate FIDs,
@@ -765,7 +791,7 @@ where the stale-anchor check belongs: if an MDT's recorded index is older than
 its oldest surviving record, the run refuses rather than quietly returning a
 short answer.
 
-### 12.3 Worked examples, and what they exposed
+### 13.3 Worked examples, and what they exposed
 
 Fourteen invocations, run against the rules above on paper. The first block
 behaves; the second block is where the rules had to change.
@@ -776,7 +802,7 @@ behaves; the second block is where the rules had to change.
 | `lfs find /mnt/lustre/proj --since-cookie ck -uid 1000` | same, restricted to the subtree by prefix-matching the resolved pathname, resuming from the cookie's per-MDT indexes |
 | `lfs find /mnt/lustre --changelog testfs-MDT0000 --since 4200` | every object with an event at or after 4200 on that MDT, one line each |
 | `lfs find /mnt/lustre --changelog all -type f` | matches creations (§2.2); every other event counts undecided |
-| `lfs find /mnt/lustre --changelog all --mdt 1` | **refused** — two readings, and the source selector already spells one of them (§12.4) |
+| `lfs find /mnt/lustre --changelog all --mdt 1` | **refused** — two readings, and the source selector already spells one of them (§13.4) |
 | `lfs find /mnt/lustre --changelog all --skip 90` | sampling applies to matches, as it does today |
 | `lfs find /mnt/lustre --changelog all -size +1G --resolve` | size comes from the lookup, glimpsed from the OSTs; objects since deleted are undecided, not dropped |
 | `lfs find /mnt/lustre --changelog all -size +1G --resolve --lazy` | the same, from the MDT's SOM value and no OST RPC; `UNKNOWN` SOM counts undecided |
@@ -785,12 +811,12 @@ behaves; the second block is where the rules had to change.
 
 | # | Command | The problem | The rule it forced |
 |---|---|---|---|
-| 1 | `--changelog all -uid 1000` | a file written 50 times would print 50 times, and `find` prints a path once | the CLI always coalesces; the event view is the API's (§12.1) |
+| 1 | `--changelog all -uid 1000` | a file written 50 times would print 50 times, and `find` prints a path once | the CLI always coalesces; the event view is the API's (§13.1) |
 | 2 | `--changelog all -size +1G --resolve` | rule 1 said deleted objects are "counted and reported", so adding `--resolve` **shrank** the answer | resolution fills, never removes; undecided is the answer for what it could not fill |
 | 3 | `--changelog all -name '*.log'` | the record's name is the name **at the event**; after a rename, an old record carries the old name, and `find` means the current name | `--changelog` answers as-recorded, `--since` as-now — stated as the difference between the flags |
 | 4 | `--changelog all -mtime -1` | the record has an event time, not an mtime, and the user means "changed in the last day" | refused, with a message naming `--since 1d` as the way to say it |
 | 5 | `--changelog all --maxdepth 2` | a target scan refuses `--maxdepth` because there is no walk — but under `--since` the resolved pathname makes depth answerable | refused under `--changelog`; honoured under `--since` |
-| 5b | `--changelog all --mdt 1` | called free at first, and it is not: the changelog an event arrived in is not always the object's MDT, so the flag has two readings | refused outright under `--changelog`; available under `--since` (§12.4) |
+| 5b | `--changelog all --mdt 1` | called free at first, and it is not: the changelog an event arrived in is not always the object's MDT, so the flag has two readings | refused outright under `--changelog`; available under `--since` (§13.4) |
 | 6 | `lfs find /mnt/a /mnt/b --changelog all` | under `--changelog` the path is the mount, so two paths are two filesystems | one path per invocation with `--changelog`; `--since` may take several, as `lfs find` does today |
 | 7 | `--changelog all -printf '%p %s\n'` | every `-printf` conversion reads object state — path, size, mode, nlink, uid (`liblustreapi_pfind.c:2013-2030`) **[verified]** | refused without `--resolve`, as a target scan already refuses it |
 
@@ -803,7 +829,7 @@ Two more that needed no rule, but need saying in the man page:
   which after a long gap without clearing is the whole log. Allowed, and
   worth a word in the man page rather than a refusal.
 
-### 12.4 The whole option table, swept
+### 13.4 The whole option table, swept
 
 `lfs_find_parse.c` defines **83 live options** (the commented-out entries in
 that table are other commands' letters, kept for reference). Classified
@@ -821,7 +847,7 @@ three things the fourteen examples did not.
 
 **Three findings.**
 
-1. **`--mdt` is refused outright, and §12.3 said it was free.** The reasoning
+1. **`--mdt` is refused outright, and §13.3 said it was free.** The reasoning
    there was that a record's MDT is the changelog it arrived in — but §8.3
    already says a rename that moves an object between MDTs appears in *both*
    changelogs, so the changelog an event arrived in is not always the MDT the
@@ -863,7 +889,7 @@ Nothing else in the 83 conflicts. The three groups that refuse do so for the
 same three reasons throughout — no object state, no walk, no mounted target
 list — which is the property that makes the rule explainable in a man page.
 
-### 12.5 The same flag, different sources — accepted, and stated
+### 13.5 The same flag, different sources — accepted, and stated
 
 `--xattr` is refused by `lfind` because a target scan has no mount, and
 answerable under `lfs find --changelog --resolve` because that one does. The
@@ -897,7 +923,7 @@ What the difference obliges us to do instead:
 | `-size` | glimpse, or SOM with `--lazy` | SOM only — `fp_lazy` is forced | glimpse or SOM, the caller's choice (§7.2.2) |
 | `--xattr` | read through the path | refused: no mount | refused without `--resolve` |
 | `-printf` | full | refused: no path | refused without `--resolve` |
-| `--mdt` | the object's MDT | refused | refused (§12.4) |
+| `--mdt` | the object's MDT | refused | refused (§13.4) |
 | `--maxdepth` | the walk's depth | refused: no walk | refused; honoured under `--since` |
 
 1. **Every refusal names its reason, not just the option.**
@@ -911,7 +937,7 @@ What the difference obliges us to do instead:
 
 ---
 
-## 13. Validation
+## 14. Validation
 
 What a lab has to show before this is believable, in the order it should be
 run:
@@ -937,7 +963,7 @@ run:
 
 ---
 
-## 14. References
+## 15. References
 
 - `lustre/utils/liblustreapi_chlg.c` — `chlg_dev_path()` `:32`, the reader,
   `llapi_changelog_start()`, `_start_user()`, `_clear()`
