@@ -1,0 +1,25 @@
+# conf-sanity test_166 on a two-node lab, 2026-08-25
+#
+# GCP us-central1-a, two c3-standard-8 (rocky-linux-9): lfu-166-srv holds
+# MGS+MDT+OST, lfu-166-cli is the client and the test runner.  Both built
+# from 5afbab284e + the ten-patch series.  This is the layout autotest has
+# and the single-node lab does not: $MOUNT exists on the runner, not the MDS.
+
+
+=== CONTROL: test_166 as it stood, two-node layout ===
+=== facets ===
+runner  : lfu-166-cli
+mds_HOST: lfu-166-srv
+FAIL 166 (13s)
+ conf-sanity test_166: @@@@@@ FAIL: lfind --fid2path on /dev/mapper/mds1_flakey failed: lfind: cannot open '/mnt/lustre' to resolve FIDs; it has to be a client mount of the same filesystem: No such device (19)
+FAIL 166 (13s)
+
+=== FIXED: same lab, amended test ===
+=== facets ===
+runner  : lfu-166-cli
+mds_HOST: lfu-166-srv
+PASS 166 (16s)
+
+Starting client: lfu-166-srv:  -o user_xattr,flock 10.128.15.219@tcp:/lustre /mnt/lustre-fid2path
+client sees 21 names over 20 objects
+--fid2path resolved 20 objects from 21 names, hardlink once
