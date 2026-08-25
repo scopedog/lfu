@@ -1,0 +1,35 @@
+# ZFS lab for round 9, 2026-08-25 -- lfu-zfs-r9, c3-standard-8, us-central1-a
+#
+# Built from 5afbab284e + the ten-patch series carrying the round-9 fixes:
+# the sr_lmv conversion (68156), the two SA-handle leak paths, the unlinked-set
+# gate and the search-path cap (68163), plus the capability-based test gates.
+# Instance deleted after the run.
+
+=== 05-acceptance.sh, all four items ===
+  refused while imported, and says EBUSY          OK
+  MDT contract, test0..test6                      pass (7/7)
+  OST contract, test0..test6                      pass (7/7)
+  identical object set at -j 1/2/4/8/16           20336 objects, all five equal
+  lfind predicates over the scan                  all=20336 --type f=20008 --type d=7
+                                                  --uid 65534: 1  --projid 1999: 1
+
+=== conf-sanity test_165, FSTYPE=zfs ===
+  PASS 165 (77s)
+  (the first run SKIPped: the 2.17.58 version gate could not be satisfied while
+   master reports 2.17.57, which is what moved these tests to capability gates)
+
+=== the sr_lmv conversion, against a real striped directory ===
+# A second MDT was added on nvme0n4 so that a directory could actually be
+# striped; with one MDT, lfs setdirstripe -c 1 leaves lmv_stripe_count 0 and
+# the conversion is never exercised.
+  client:  lfs getdirstripe /mnt/lfufs/striped2
+           lmv_stripe_count: 2 lmv_stripe_offset: 0 lmv_hash_type: fnv_1a_64
+           master FID [0x200002342:0x1:0x0], shards on MDT0 and MDT1
+  scan:    lfind --device lfu-mdt/mdt0 --type d --mdt-count 2
+           [0x200002342:0x1:0x0]          <- the master, and only it
+           --mdt-count 1                  -> 0
+           --mdt-hash fnv_1a_64           -> [0x200002342:0x1:0x0]
+  shard:   lfind --device lfu-mdt1/mdt1 --type d           -> 1 dir
+           lfind --device lfu-mdt1/mdt1 --type d --mdt-count 2 -> 0
+           (a shard's own LMV_MAGIC_STRIPE has no user form and is reported
+            as no stripe, which is what scan_lmv_to_user() returns 0 for)
