@@ -549,6 +549,38 @@ same per-object price as §6 resolution — so the two share an implementation:
 the candidate set is `llapi_scan_changelog()` in object mode, and the
 verification is the gather `llapi_scan_namespace()` already does.
 
+### 12.2 What `--since` takes, and why a bare index is not enough
+
+`lfs find /mnt/lustre --since 4200 -type f` reads the changelogs of the
+filesystem holding that path from index 4200, coalesces to candidate FIDs,
+resolves and gathers each one through the mount, and prints the pathnames of
+those that are regular files. The answer is
+
+> objects with an event at or after 4200 ∩ regular files ∩ still existing
+
+and it excludes, by construction, a matching file that has not changed since
+4200 and anything that has been deleted.
+
+**`cr_index` is per-MDT**, so on a DNE filesystem 4200 names a different
+instant on each MDT and a bare index across all of them means nothing. That is
+the common case for `--since`, which reads every MDT by default. Prior art
+agrees: `lustre_rsync` stores one `ls_last_recno` beside one `ls_mdt_device`
+(`lustre/utils/lustre_rsync.h:23-33`) **[verified]** — an index is only
+meaningful paired with the MDT it came from.
+
+So `--since` takes one of three things:
+
+| Spelling | Meaning | When |
+|---|---|---|
+| `--since <index>` | that index | **only** with an explicit single `--changelog MDT`, or on a single-MDT filesystem; refused otherwise |
+| `--since <time>` | the first record at or after it, per MDT | the human spelling, and the only one that means the same thing on every MDT — subject to §8.3's clock caveat |
+| `--since-cookie <file>` | per-MDT indexes written by a previous run | the machine spelling: exact on every MDT, and what a repeated job should use. The run rewrites it at the end |
+
+A cookie is the honest form of "where I got to" under DNE, and it is also
+where the stale-anchor check belongs: if an MDT's recorded index is older than
+its oldest surviving record, the run refuses rather than quietly returning a
+short answer.
+
 ---
 
 ## 13. Validation
