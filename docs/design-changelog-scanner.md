@@ -346,7 +346,7 @@ The same cost tiering the device scanner uses, applied to a different source:
 | 0 | record type | already pushed; move the drop to the **server** so it saves transfer too | free |
 | 1 | uid, gid, NID, jobid, open flags, xattr name | **server-side, from the record itself** — these are in the extensions of §2 | a mask test per record |
 | 2 | name (`--name`), parent FID, rename source | server-side, from the record | a `fnmatch` per record |
-| 3 | size, blocks, mode, layout, HSM state, project id | **cannot be pushed**: the record does not carry them, and evaluating them on the MDS means a per-record object lookup on the metadata server's hot path | an open per record, on the MDS |
+| 3 | size, blocks, mode, layout, HSM state, project id | **cannot be pushed** — see §7.2.2, which is a soundness argument and not only a cost one | an open per record on the MDS, and a wrong answer |
 
 **The recommendation is that tiers 0–2 are the Changelog Output Filter and
 tier 3 is refused there.** "Files over 1 TB" — the HLD's own example — is a
@@ -356,6 +356,51 @@ resolution (§6), on the consumer, where the object is already open.
 
 That refusal should be explicit in the API rather than silent, exactly as
 `find_device_supported()` refuses `--ost`/`--mdt` on a target scan today.
+
+### 7.2.2 A server-side size filter cannot answer for size
+
+The question "is a server-side filter necessary if a user wants the real file
+size" has a sharper answer than the cost one: **the MDS does not have the real
+size, so the filter is neither necessary nor sufficient.**
+
+A file's size lives on its OSTs. What an MDT holds is size-on-MDT, and its own
+header says what that is worth (`lustre_user.h:542-555`) **[verified]**:
+
+| SOM state | What it promises |
+|---|---|
+| `SOM_FL_UNKNOWN` | *"Unknow or no SoM data, must get size from OSTs"* |
+| `SOM_FL_STRICT` | *"Known strictly correct, FLR or DoM file (SoM guaranteed)"* |
+| `SOM_FL_STALE` | *"was right at some point in the past, but it is known (or likely) to be incorrect now (e.g. opened for write)"* |
+| `SOM_FL_LAZY` | *"Approximate, may never have been strictly correct"* |
+
+So an MDS-side `-size +1T` would be evaluated against a value that is exact
+only for FLR and DoM files and approximate or stale for everything else. The
+authoritative answer needs a glimpse to the OSTs, and a glimpse is a client
+operation: asking the metadata server to issue OST RPCs per recorded event is
+not a filter, it is a second workload.
+
+**That makes tier-3 dropping unsound, not merely expensive.** A file whose
+SOM reads 4 GB while it is open for write may be 2 TB on disk; dropping its
+record loses it from the answer, and a search that silently misses is the
+failure mode this project keeps refusing everywhere else — skipped objects
+counted on the device scanner, a stale `--since` anchor refused, `--ost` and
+`--mdt` refused on a target scan.
+
+Two consequences, and they are the recommendation:
+
+1. **A real size belongs on the consumer, after resolution.** That is
+   `statx()` through the mount, which is what `lfs find -size` does today, and
+   what `--resolve` gives a changelog consumer.
+2. **If the goal is volume** — the HLD's stated one, *"reduce the number of
+   unnecessary Changelog records"* — then a size pre-filter is admissible only
+   as a **conservative** one: drop a record only when the value is
+   `SOM_FL_STRICT` and definitively fails the predicate, and pass everything
+   else through for exact evaluation downstream. Sound, and worth little,
+   because STRICT is the minority case.
+
+The same distinction is already in our shipped code: 68156 sets
+`LLAPI_SCAN_SIZE` for `SOM_FL_STRICT` and the `LAZY_*` bits otherwise,
+precisely so an approximate size is never reported as an exact one.
 
 ### 7.2.1 The filter is smaller than the HLD implies
 
