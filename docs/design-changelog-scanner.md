@@ -863,6 +863,52 @@ Nothing else in the 83 conflicts. The three groups that refuse do so for the
 same three reasons throughout — no object state, no walk, no mounted target
 list — which is the property that makes the rule explainable in a man page.
 
+### 12.5 The same flag, different sources — accepted, and stated
+
+`--xattr` is refused by `lfind` because a target scan has no mount, and
+answerable under `lfs find --changelog --resolve` because that one does. The
+question is whether to level it down for symmetry. **No — accept it, and say
+so in both man pages.**
+
+The precedent is already shipped. `lfind --name` matches *"from the link
+extended attribute, matching against every name a hardlinked object has"*
+(`Documentation/man8/lfind.8`) **[verified]**, while `lfs find --name` matches
+the name the walk arrived by. Same flag, different provenance, reviewed and
+on Gerrit. `--xattr` is the fourth instance of an axis this project has
+already taken.
+
+**The invariant worth promising is not "the same flags behave identically
+everywhere".** It is:
+
+> A predicate is answered from what this source actually has, or refused. It
+> is never approximated, and never reinterpreted.
+
+Those two promises conflict, and the second is the one that keeps answers
+true. Levelling `--xattr` down would make `lfs find` worse at something it can
+do correctly, in exchange for a symmetry no user can act on: nobody runs the
+same command against two sources and diffs the flag tables — they run one and
+get an answer or an error.
+
+What the difference obliges us to do instead:
+
+| Flag | Namespace walk | Device scan (`lfind`) | Changelog (`--changelog`) |
+|---|---|---|---|
+| `-name` | the name the walk arrived by | every linkea name | the name recorded with the event |
+| `-size` | glimpse, or SOM with `--lazy` | SOM only — `fp_lazy` is forced | glimpse or SOM, the caller's choice (§7.2.2) |
+| `--xattr` | read through the path | refused: no mount | refused without `--resolve` |
+| `-printf` | full | refused: no path | refused without `--resolve` |
+| `--mdt` | the object's MDT | refused | refused (§12.4) |
+| `--maxdepth` | the walk's depth | refused: no walk | refused; honoured under `--since` |
+
+1. **Every refusal names its reason, not just the option.**
+   `find_device_supported()` already does this — *"--xattr needs a mounted
+   filesystem"*, *"-printf needs a path, which a target scan has not"* — so a
+   user who hits one learns the rule rather than the exception.
+2. **Each man page states what its source can answer**, in the shape of the
+   table above, so the difference is discoverable before it is surprising.
+   `lfind(8)` already has a "Differences from lfs find" section; this is the
+   same section from the other side.
+
 ---
 
 ## 13. Validation
