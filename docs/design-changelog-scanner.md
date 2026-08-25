@@ -427,12 +427,62 @@ argues they are two, because 5 is a wire-protocol change and 1–3 are not.
 
 | Question | Why it matters | Proposed answer |
 |---|---|---|
-| **Which command exposes it** | `lfind` is documented as a server command; the changelog reader is client-side | Extend `lfs find` with `--changelog MDT --since N`, and leave `lfind` alone |
+| **Which command exposes it** | `lfind` is documented as a server command; the changelog reader is client-side | See §12.1: `lfs find --since` as an accelerator, and source-replacement only in the API |
 | **Who registers the user** | registration is an MDS ioctl; the scanner is a client | The caller supplies `scp_user`; the module refuses rather than registering for you |
 | **Default `scp_min_age`** | too low and objects emit repeatedly; too high and "recent" is stale | Start at `llsom_sync`'s 600 s and measure |
 | **Event mode and the pre-filter** | `sp_filter` on the other scanners runs before I/O; here there is no I/O to save unless resolution is on | Run it anyway, for symmetry, and document that it saves work only with `_RESOLVE` |
 | **Merged-stream ordering under DNE** | §8.3 gives approximate time order | Decide with the Merge/Split Filter Rule, not here |
 | **Whether tier-3 pushdown is ever wanted** | §7.2 refuses it on MDS-cost grounds | Ask the HLD's author; the example in the HLD is a tier-3 predicate |
+
+### 12.1 Source replacement, or accelerator
+
+The first draft of this design proposed `lfs find --changelog MDT`, meaning
+*take the source from the changelog instead of a walk*. Working through what
+the path argument would then mean says that is the wrong default for
+`lfs find`, and the question is worth stating properly because it decides what
+the command promises.
+
+`lfs find` requires at least one path and loops over the paths it is given
+(`lustre/utils/lfs.c`, `pathstart == -1` is *"no filename|pathname"*)
+**[verified]**. Under source replacement that argument stops meaning *search
+here* and starts meaning *the mount to resolve through*, so
+
+```
+lfs find /mnt/lustre/project42 --changelog testfs-MDT0000 -uid 1000
+```
+
+answers for the whole MDT, not the subtree, unless every candidate's pathname
+is resolved and prefix-matched at one ioctl each. Three further shifts, all
+silent: a predicate the changelog cannot answer becomes undecided rather than
+false; one `--changelog MDT` covers one MDT, so a DNE answer is partial; and
+the question changes from *what matches* to *what has an event since N and
+matches*.
+
+**The alternative is to use the changelog as a candidate set.**
+
+```
+lfs find /mnt/lustre/project42 --since <index|time> -uid 1000 -size +1G
+```
+
+The changelog supplies FIDs with events since the anchor; each is then
+verified through the ordinary path — `statx`, layout, the rest — so every
+predicate keeps the meaning it has today, the subtree restriction is
+enforceable against the resolved pathname, and the output is pathnames. The
+result is a strict subset of what a full `lfs find` would return: narrowed,
+never wrong. What is given up is exactly what the flag names — an object that
+matches but has not changed since the anchor does not appear.
+
+**Recommendation.** `--since` on `lfs find`, as an accelerator with unchanged
+semantics. Source replacement stays in `llapi_scan_changelog()` and whatever
+event-oriented consumer wants it, where "one record per event, attributes
+absent unless asked for" is the contract and nobody is expecting find
+semantics. The two are different questions and should not share a command
+name.
+
+The cost of the accelerator is one verification per candidate, which is the
+same per-object price as §6 resolution — so the two share an implementation:
+the candidate set is `llapi_scan_changelog()` in object mode, and the
+verification is the gather `llapi_scan_namespace()` already does.
 
 ---
 
