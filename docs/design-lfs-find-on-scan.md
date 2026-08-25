@@ -1,11 +1,13 @@
 # `lfs find` on the scanner API — the split (LU-20605)
 
-**Date:** 2026-08-18 · **Depends on:** LU-20603 (`llapi_scan_namespace()`) ·
+**Date:** 2026-08-18 · **Revised:** 2026-08-25, to match the landed code ·
+**Depends on:** LU-20603 (the scan record) ·
 **Ticket text:** [`tickets/lfs-find-on-llapi-scan.md`](tickets/lfs-find-on-llapi-scan.md)
 
-Plan of record for rebuilding `lfs find` on the scanner API without changing
-what it prints. Written before the patch, from a read of `cb_find_init()`
-(`lustre/utils/liblustreapi_pfind.c:2419-3000` at `4322543e7e`).
+How `lfs find` was rebuilt on the scanner's record without changing what it
+prints. §1 was written before the patch, from a read of `cb_find_init()`
+(`lustre/utils/liblustreapi_pfind.c:2419-3000` at `4322543e7e`); §2 and §5 have
+been rewritten against what shipped.
 
 ## 1. What `cb_find_init()` actually does
 
@@ -28,24 +30,84 @@ name. That is the same tier model LFU built for the device scanners, and it is
 load-bearing: any split that gathers everything first makes `--name` an
 ioctl-per-object scan.
 
-## 2. The split
+## 2. The split — as landed
 
-**Reimplement `llapi_find()` on `llapi_scan_namespace()`, and leave `lfs.c`
-alone.** `lfs find` keeps calling `llapi_find()`; underneath, phases 1–3 and 8
-belong to the scanner and phases 4–7 become the consumer callback.
+> **Revised 2026-08-25 to match the code.** §2 and §5 described a plan that was
+> not what shipped: `llapi_find()` was *not* re-hosted on
+> `llapi_scan_namespace()`. The goal — one implementation of find's predicates,
+> several sources of objects — was reached by splitting the deciding half out
+> of `cb_find_init()` instead. §1, §3 and §4 stand as written. Code below is
+> `../lustre-lu20603` @ `1e706d95f9`.
+
+### 2.1 Why not `llapi_scan_namespace()`
+
+`llapi_scan_namespace()` has no traversal of its own. It ends at
+`llapi_find_with_cb(buf, &param, llapi_scan_cb_init, cb_common_fini)`
+(`liblustreapi_scan.c:575`) — the same walk `llapi_find()` uses, with a
+different callback. The two callbacks are siblings, not layers:
 
 ```
-llapi_find(path, param)
-  └─ llapi_scan_namespace(path, &sp, find_consume, param)
-        sp.sp_want   = what param's predicates need (from phase 2's test)
-        sp.sp_filter = find_prefilter          -- phase 1, on the dirent
-        find_consume(rec, param)               -- phases 4-7 on the record
+llapi_find_with_cb()  ->  parallel_find() / param_callback()
+      |- cb_find_init()        <- lfs find
+      \- llapi_scan_cb_init()  <- llapi_scan_namespace()
 ```
 
-Why here and not in `lfs.c`: LU-20605's purpose is to prove the record is
-sufficient for a real consumer, and that is proved just as well one layer down
-— with a diff confined to `liblustreapi_pfind.c`, `sanity.sh` 56\* still an
-oracle, and no library logic dragged into a utility.
+Routing `llapi_find()` through `llapi_scan_namespace()` would re-enter that
+walk one level down and materialise a record per object on the way, to share a
+traversal both callbacks already share. Two things also do not fit:
+
+- **Gather shape.** `llapi_scan_cb_init()` gathers once, from `ss_want`, then
+  delivers. `cb_find_init()` gathers twice by design — the MDT ioctl at phase
+  3, filter, then the glimpse on survivors at phase 5. The generic record has
+  no phase-5 hook; adding one would exist only for find.
+- **Find-only state.** `gather_all` for `-printf`, the per-invocation
+  `fp_get_lmv` reset, the depth bookkeeping at `decided:`, and presenting the
+  record as an `lmd` for the printing path.
+
+### 2.2 What shipped instead
+
+`cb_find_init()` keeps its place as the traversal callback and is rebuilt
+around the record in situ (`liblustreapi_pfind.c:3565`):
+
+```
+cb_find_init(path, p, dp, param, de)
+  scan_rec_dirent(&rec, path, p, d, de)     -- phase 1 input, shared
+  find_prefilter(&rec, param, &checked_type)-- phase 1
+  want = find_want(param, checked_type, gather_all)  -- phase 2
+  scan_rec_gather(param, path, p, &d, &fd, want, &rec)  -- phase 3, shared
+  find_decide(&fc, param)                   -- phases 4-7, behind struct find_ctx
+  decided:                                  -- phase 8
+```
+
+`scan_rec_dirent()` and `scan_rec_gather()` (`liblustreapi_scan.c:53`, `:287`)
+are the same functions `llapi_scan_cb_init()` calls. So `lfs find` does run on
+the record and on the scanner's gather — it just enters the walk at the same
+level `llapi_scan_namespace()` does, rather than underneath it.
+
+`struct find_ctx` (`:2525`) is what carries the deciding half's inputs, and it
+is the piece that made the second consumer possible: `fc_path == NULL` means no
+namespace was walked, `fc_p`/`fc_d`/`fc_fdp` are `-1`/`NULL` when there are no
+descriptors, and `fc_mnt_fd` is a client mount to resolve a FID against or `-1`
+to print the FID.
+
+### 2.3 The second consumer
+
+`llapi_find_device()` (`:3465`) runs the same predicates over
+`llapi_scan_device()` — *"the objects come from `llapi_scan_device()` instead
+of a namespace walk, so this reads a target directly and does not need it
+mounted, or its server running, or a client anywhere."* Three consequences it
+handles rather than hides:
+
+- **It prints FIDs.** A target holds names and parent FIDs, not paths;
+  `fc_mnt_fd` turns them into pathnames when a mount is available.
+- **A predicate answerable only in the mounted filesystem is refused before
+  the scan starts** (`find_device_supported()`), rather than silently matching
+  nothing.
+- **A scan cannot glimpse**, so `fp_lazy` is forced for the duration and
+  `trusted.som` is the only answer a size can have.
+
+That is the debt argument settled: one set of predicates, two sources of
+objects, and `lfind(8)` is the third caller on top.
 
 ## 3. What this forced into the API (folded into LU-20603 before push)
 
@@ -68,6 +130,12 @@ Three things the record as first written could not do. All are additive.
      in `sr_size_bytes` is a lazy one, which is what `--lazy` consumes. This is
      the size finding from the LU-20603 lab, made usable.
 
+`sp_want` and `sp_filter` are `llapi_scan_namespace()`'s spelling of phases 2
+and 1. `lfs find` reaches the same two phases through `find_want()` and
+`find_prefilter()` directly (§2.2), so these remain the API's, not find's —
+but they were designed by asking what find needed, which is what the exercise
+was for.
+
 ## 4. Where the risk is
 
 Not a crash. A subtle change in which objects match for one flag combination.
@@ -76,12 +144,20 @@ stat), skip-percent sampling, `-printf` format strings, and the striped-
 directory nlink rule. `sanity.sh` 56\* covers a lot of this and not all of it;
 anything it does not cover gets a targeted before/after on the lab.
 
-## 5. Order of work
+## 5. Order of work — as landed
 
-1. Fold §3 into LU-20603, rerun the lab's seven checks plus two new ones
-   (`sp_want` skips the ioctl; `sp_filter` skips objects).
-2. `find_prefilter()` and `find_consume()` in `liblustreapi_pfind.c`, moving
-   phases out of `cb_find_init()` rather than copying them.
-3. `llapi_find()` over the scanner. `cb_find_init()` stays exported for the
-   `llapi_find_with_cb()` callers that pass it explicitly.
-4. `sanity.sh` 56\* on the lab, before and after, diffed.
+Four changes, stacked, plus the `lfind(8)` utility:
+
+| | Change | Proof |
+|---|---|---|
+| 1 | `llapi: split the deciding half out of cb_find_init` — the checks, the glimpse and the printing behind `struct find_ctx` | `sanity` 56\* |
+| 2 | `lfs: share find's predicate parsing` — the option table, its loop and thirteen argument helpers into `lfs_find_parse.c`, compiled into both `lfs` and `lfind` | `sanity` 56\* |
+| 3 | `llapi: run find's predicates over a device scan` — `llapi_find_device()`: the record as an `lmd`, the LMV conversion, the size rule | conf-sanity test_165 |
+| 4 | `utils: lfind, find over a scan of a target` — `lfind(8)`, its three target spellings, the man page | conf-sanity test_165 |
+
+`llapi_find()` still calls `llapi_find_with_cb(path, param, cb_find_init,
+cb_common_fini)` (`liblustreapi.c:3468`), and `cb_find_init()` stays exported
+for the callers that pass it explicitly. The walk and the gather order are
+byte-identical to before the split, which is what makes `sanity.sh` 56\* a
+usable oracle for a change whose stated risk (§4) is a silent difference in
+which objects match.

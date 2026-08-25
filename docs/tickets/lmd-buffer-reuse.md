@@ -1,15 +1,17 @@
-# LU-XXXXX — a reused lmd buffer is read as this object's attributes
+# LU-20643 — a reused lmd buffer is read as this object's attributes
 
-**Status:** written, not filed. The fix is one commit on branch
-`stale-lmd-buffer` in `~/projects/lustre/lustre-lu20603`, based on the LU-20624
-commit. Its subject says `LU-XXXXX` so it cannot be pushed by accident.
+**Status:** filed as LU-20643 on 2026-08-25. The fix is one commit on branch
+`stale-lmd-buffer` in `~/projects/lustre/lustre-lu20603`, rebased onto the
+series base (`5afbab284e`) so it stands alone rather than behind LU-20624.
+Not pushed yet.
 
+**Jira:** [LU-20643](https://jira.whamcloud.com/browse/LU-20643) ·
 **Type:** Bug · **Component:** none (the LU project defines none) ·
 **Affects:** master, and every release with `liblustreapi_pfind.c`
 
 ---
 
-## Summary (the Jira field, under 80 characters)
+## Summary (as filed)
 
 ```
 lfs find can answer -btime and -attrs from a stale buffer
