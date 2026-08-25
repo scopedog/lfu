@@ -40,8 +40,8 @@ Both sit on one module, `llapi_scan_changelog()` (§3), which emits the record
 **What to build, in order** — §11 has the detail:
 
 1. `llapi_scan_changelog()`, event mode. Small; proves the appended fields.
-2. Object mode: the FID hash, aged, keyed on the target FID **or the parent
-   FID** (§5.2 — the second is what an Aggregate maintainer consumes).
+2. Object mode: the FID hash, aged, keyed on the target FID. Grouping by
+   parent is an aggregate Filter Rule, not a second key (§5.2).
 3. Resolution through a client mount, gated by the demand mask.
 4. `lfs find --since`. Nearly free: candidates from 2, verification from the
    gather `llapi_scan_namespace()` already does.
@@ -330,14 +330,36 @@ policy triggers.
 emitted once per object, carrying the union of what its events said plus the
 latest event's index and time.
 
-**The key is a parameter, not always the target FID.** The HLD's Aggregates
-section asks for *"efficient (e.g. Changelog-driven) bottom-up updates"* and
-observes that *"it is sufficient to track the parent directory FID once for
-any number of files created, written, deleted in that directory"*. That is the
-same hash with `cr_pfid` as the key, so `scp_coalesce_by` takes
-`LLAPI_SCAN_CL_KEY_FID` (one record per object) or `LLAPI_SCAN_CL_KEY_PARENT`
-(one record per directory that had activity). The second is a fraction of the
-first's volume and is exactly what an Aggregate maintainer consumes.
+**The key is always the target FID.** An earlier draft made it a parameter,
+so that a caller could coalesce on `cr_pfid` instead and get one record per
+directory that had activity — which is what the HLD's Aggregates section asks
+for when it observes that *"it is sufficient to track the parent directory FID
+once for any number of files created, written, deleted in that directory"*.
+
+That belongs somewhere else. By this project's own taxonomy a **Filter Rule**
+is what *"consume[s] one or more Object Streams, produce[s] another; matching,
+merging, aggregation"* (`architecture.md:25`), and grouping records by a field
+is aggregation. Making it a scanner mode would mean one module emitting
+records that describe two different kinds of thing, which is the defect
+§13.4 finding 3 caught in the CLI and the same defect one layer down.
+
+So: **grouping by parent FID is an aggregate Filter Rule — `group by
+sr_parent_fid` — and it applies to any Object Stream**, not only this one.
+Over a device scan it answers "which directories contain objects matching X",
+which is the same question a different way.
+
+**The efficiency argument survives, as pushdown.** Grouping downstream costs
+the full stream: the scanner holds a hash of objects and delivers one record
+each, and on a filesystem with millions of files in few directories that is
+two orders of magnitude more records than the consumer wants. So the rule is
+*expressed* once as a Filter Rule and *applied* by the scanner inline when it
+can — the same pushdown this design already does for predicates (§7.2) and the
+device scanner already does for filters. The scanner's hash then holds
+directories rather than objects, and the volume is paid once.
+
+Until that Filter Rule exists, a consumer that wants this does it in a few
+lines: every emitted record carries `sr_parent_fid`, so the grouping needs no
+extra I/O — only the volume the pushdown would have saved.
 
 An object leaves the cache when:
 
@@ -601,7 +623,7 @@ attribute. That is the whole of what this module adds over them.
 | # | Step | Size | Notes |
 |---|---|---|---|
 | 1 | `llapi_scan_changelog()`, event mode, no resolution | small | delivers records from a real changelog into the existing consumer contract, and proves the appended fields of §3.2 |
-| 2 | Object mode — the FID hash, ageing, eviction, both keys | small–medium | §5.2; `llsom_sync` has the shape already |
+| 2 | Object mode — the FID hash, ageing, eviction | small–medium | §5.2; `llsom_sync` has the shape already |
 | 3 | Resolution through a client mount, gated by the demand mask | medium | §6, and the per-object cost centre |
 | 4 | `lfs find --since` | **nearly free** | candidates from 2, verification from the gather `llapi_scan_namespace()` already does |
 | 5 | `lfs find --changelog` and the three refusal rules | small | §13.1; mostly argument validation |
@@ -879,11 +901,14 @@ three things the fourteen examples did not.
    `lfind` and accepted on `lfs find --changelog --resolve`, which is correct
    but needs saying, because it looks like an inconsistency between two
    commands that share their predicate parser.
-3. **The parent-FID coalescing key stays out of the CLI.** §5.2 offers it for
-   Aggregate maintainers, but under it a record describes *a directory that
-   had activity*, so `-type`, `-name` and `-uid` would silently start
-   describing the parent rather than the object. `lfs find` always coalesces
-   on the target FID; the parent key is `llapi_scan_changelog()`'s alone.
+3. **Grouping by parent FID is not a mode of this scanner at all.** An
+   earlier draft made it a second coalescing key, and under it a record
+   describes *a directory that had activity*, so `-type`, `-name` and `-uid`
+   would silently start describing the parent rather than the object. The fix
+   is not to hide the key from the CLI but to put it where aggregation
+   belongs: a Filter Rule (§5.2). A flag that says `group by parent` may
+   honestly emit directory records, because that is what it asked for; a
+   coalescing key that quietly changes what a record describes may not.
 
 Nothing else in the 83 conflicts. The three groups that refuse do so for the
 same three reasons throughout — no object state, no walk, no mounted target
