@@ -101,6 +101,27 @@ Everything else in `struct llapi_scan_rec` is either absent — with its
   (`lustre_user.h:1914`) **[verified]**, so "the file was written" arrives as
   a close only when the write actually changed something.
 
+### 2.2 The one attribute an event implies
+
+A creation's event type is chosen from the mode
+(`lustre/mdd/mdd_dir.c:2812-2814`) **[verified]**:
+
+```
+S_ISDIR  -> CL_MKDIR      S_ISREG -> CL_CREATE
+S_ISLNK  -> CL_SOFTLINK   else    -> CL_MKNOD
+```
+
+So `CL_CREATE` means a regular file, `CL_MKDIR` and `CL_RMDIR` a directory,
+`CL_SOFTLINK` a symlink — and `CL_MKNOD` narrows only to "one of block,
+character, fifo or socket", which is not an `S_IFMT`.
+
+This is the changelog's version of what `LLAPI_SCAN_TYPE` already means for a
+namespace walk: *"only the S_IFMT of sr_mode, from the dirent; no I/O behind
+it"* (`lustreapi.h:576-577`) **[verified]**. The module sets `LLAPI_SCAN_TYPE`
+from the event where the event decides it, and leaves it clear otherwise —
+so `-type f` is answerable for free on a creation and needs a lookup on a
+`CL_SETATTR`. Nothing else in the record implies an attribute this way.
+
 ---
 
 ## 3. Interface contract
@@ -513,7 +534,7 @@ and it needs its own flag rather than a subtly different `--since`.
 
 ```
 lfs find /mnt/lustre --changelog testfs-MDT0000 --since 4200 -uid 1000
-lfs find /mnt/lustre --changelog all --since 4200 -type f
+lfs find /mnt/lustre --changelog all --since 4200 -type f   # see rule 1
 ```
 
 **Three rules keep the two apart.** Without them `--changelog` is the silent
@@ -526,6 +547,10 @@ command line rather than explained in a man page.
    given, in which case each surviving candidate is looked up through the
    mount and the ones that no longer exist are counted and reported. This is
    the model `find_device_supported()` already ships for a target scan.
+   `-type` is the one predicate that straddles the line: §2.2 answers it for
+   a creation and not for anything else, so without `--resolve` it matches
+   the creations and counts the rest undecided rather than refusing outright.
+   The second example below is that case.
 2. **The path argument means the mount, and says so.** Under `--changelog` the
    path is what FIDs are resolved against, not a subtree restriction — a
    changelog is per-MDT and knows nothing about where in the namespace an
