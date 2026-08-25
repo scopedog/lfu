@@ -544,9 +544,17 @@ command line rather than explained in a man page.
 1. **A predicate the changelog cannot answer is refused, not approximated.**
    `-size`, `-blocks`, `-layout`, `-projid`, `--hsm-state` and the rest of
    tier 3 exit with an error naming the predicate, unless `--resolve` is
-   given, in which case each surviving candidate is looked up through the
-   mount and the ones that no longer exist are counted and reported. This is
-   the model `find_device_supported()` already ships for a target scan.
+   given. This is the model `find_device_supported()` already ships for a
+   target scan. `-type` is the one predicate that straddles the line: §2.2
+   answers it for a creation and not for anything else, so without
+   `--resolve` it matches the creations and counts the rest undecided rather
+   than refusing outright.
+
+   **Resolution fills; it never removes and never overrides.** An object that
+   no longer exists is still delivered, with the fields the stream gave it and
+   the rest absent; a predicate that cannot then be evaluated counts the
+   object undecided and says so at the end, exactly as `llapi_find_device()`
+   does. Adding `--resolve` must not make the answer smaller.
    `-type` is the one predicate that straddles the line: §2.2 answers it for
    a creation and not for anything else, so without `--resolve` it matches
    the creations and counts the rest undecided rather than refusing outright.
@@ -559,6 +567,19 @@ command line rather than explained in a man page.
 3. **Output is a pathname where one exists and a FID where one does not.**
    An unlinked object has no pathname; printing the FID is the whole point of
    asking. `lfind(8)` already prints FIDs for the same reason.
+
+**The one-line difference between the two flags:** `--since` answers *as it
+is now* — every candidate is verified against the live object — and
+`--changelog` answers *as it was recorded*. That is why `-name` under
+`--changelog` matches the name in the event and not the object's current
+name, and why `-uid` matches the uid the event recorded even when `--resolve`
+is given. Resolution adds fields the stream lacks; it does not restate the
+ones it has.
+
+**The CLI always coalesces.** `find` prints a path once, and an event stream
+has many events per object, so `lfs find --changelog` runs the module in
+object mode (§5.2) and emits one record per object. The per-event view is
+`llapi_scan_changelog()`'s and `lfs changelog`'s, not `lfs find`'s.
 
 `--changelog` takes an MDT name or `all`; the argument is required rather than
 optional, because `getopt_long()` accepts an optional argument only in the
@@ -605,6 +626,42 @@ A cookie is the honest form of "where I got to" under DNE, and it is also
 where the stale-anchor check belongs: if an MDT's recorded index is older than
 its oldest surviving record, the run refuses rather than quietly returning a
 short answer.
+
+### 12.3 Worked examples, and what they exposed
+
+Fourteen invocations, run against the rules above on paper. The first block
+behaves; the second block is where the rules had to change.
+
+| Command | What it does |
+|---|---|
+| `lfs find /mnt/lustre --since 2h -type f` | candidates from every MDT's changelog since that time, each verified; prints pathnames of regular files |
+| `lfs find /mnt/lustre/proj --since-cookie ck -uid 1000` | same, restricted to the subtree by prefix-matching the resolved pathname, resuming from the cookie's per-MDT indexes |
+| `lfs find /mnt/lustre --changelog testfs-MDT0000 --since 4200` | every object with an event at or after 4200 on that MDT, one line each |
+| `lfs find /mnt/lustre --changelog all -type f` | matches creations (§2.2); every other event counts undecided |
+| `lfs find /mnt/lustre --changelog all --mdt 1` | allowed, and free: the record's MDT is the changelog it came from |
+| `lfs find /mnt/lustre --changelog all --skip 90` | sampling applies to matches, as it does today |
+| `lfs find /mnt/lustre --changelog all -size +1G --resolve` | size comes from the lookup; objects since deleted are undecided, not dropped |
+
+**The seven that changed something:**
+
+| # | Command | The problem | The rule it forced |
+|---|---|---|---|
+| 1 | `--changelog all -uid 1000` | a file written 50 times would print 50 times, and `find` prints a path once | the CLI always coalesces; the event view is the API's (§12.1) |
+| 2 | `--changelog all -size +1G --resolve` | rule 1 said deleted objects are "counted and reported", so adding `--resolve` **shrank** the answer | resolution fills, never removes; undecided is the answer for what it could not fill |
+| 3 | `--changelog all -name '*.log'` | the record's name is the name **at the event**; after a rename, an old record carries the old name, and `find` means the current name | `--changelog` answers as-recorded, `--since` as-now — stated as the difference between the flags |
+| 4 | `--changelog all -mtime -1` | the record has an event time, not an mtime, and the user means "changed in the last day" | refused, with a message naming `--since 1d` as the way to say it |
+| 5 | `--changelog all --maxdepth 2` | a target scan refuses `--maxdepth` because there is no walk — but under `--since` the resolved pathname makes depth answerable | refused under `--changelog`; honoured under `--since` |
+| 6 | `lfs find /mnt/a /mnt/b --changelog all` | under `--changelog` the path is the mount, so two paths are two filesystems | one path per invocation with `--changelog`; `--since` may take several, as `lfs find` does today |
+| 7 | `--changelog all -printf '%p %s\n'` | every `-printf` conversion reads object state — path, size, mode, nlink, uid (`liblustreapi_pfind.c:2013-2030`) **[verified]** | refused without `--resolve`, as a target scan already refuses it |
+
+Two more that needed no rule, but need saying in the man page:
+
+- `--changelog all -H archived` is refused: HSM *state* is not in the record.
+  What is there is the HSM *event*, as a record type — so "objects with an
+  HSM event" is a type filter and "objects that are archived" is not.
+- `--changelog all` with no `--since` starts at the oldest surviving record,
+  which after a long gap without clearing is the whole log. Allowed, and
+  worth a word in the man page rather than a refusal.
 
 ---
 
