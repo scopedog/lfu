@@ -29,6 +29,7 @@ goes in the interface:
 | result | a strict subset of an ordinary `find` | events, coalesced to one line per object |
 | sees deletions | no — they cannot be verified | yes |
 | a predicate it cannot answer | none; it verifies | refused, or counted undecided |
+| a predicate that would mean something else | — | refused, not reinterpreted (`--mdt`) |
 | an approximate size | `--lazy`, as today | `--resolve --lazy` |
 
 Both sit on one module, `llapi_scan_changelog()` (§3), which emits the record
@@ -775,7 +776,7 @@ behaves; the second block is where the rules had to change.
 | `lfs find /mnt/lustre/proj --since-cookie ck -uid 1000` | same, restricted to the subtree by prefix-matching the resolved pathname, resuming from the cookie's per-MDT indexes |
 | `lfs find /mnt/lustre --changelog testfs-MDT0000 --since 4200` | every object with an event at or after 4200 on that MDT, one line each |
 | `lfs find /mnt/lustre --changelog all -type f` | matches creations (§2.2); every other event counts undecided |
-| `lfs find /mnt/lustre --changelog all --mdt 1 --resolve` | the object's MDT, from the gather — **not** free, see §12.4 |
+| `lfs find /mnt/lustre --changelog all --mdt 1` | **refused** — two readings, and the source selector already spells one of them (§12.4) |
 | `lfs find /mnt/lustre --changelog all --skip 90` | sampling applies to matches, as it does today |
 | `lfs find /mnt/lustre --changelog all -size +1G --resolve` | size comes from the lookup, glimpsed from the OSTs; objects since deleted are undecided, not dropped |
 | `lfs find /mnt/lustre --changelog all -size +1G --resolve --lazy` | the same, from the MDT's SOM value and no OST RPC; `UNKNOWN` SOM counts undecided |
@@ -789,7 +790,7 @@ behaves; the second block is where the rules had to change.
 | 3 | `--changelog all -name '*.log'` | the record's name is the name **at the event**; after a rename, an old record carries the old name, and `find` means the current name | `--changelog` answers as-recorded, `--since` as-now — stated as the difference between the flags |
 | 4 | `--changelog all -mtime -1` | the record has an event time, not an mtime, and the user means "changed in the last day" | refused, with a message naming `--since 1d` as the way to say it |
 | 5 | `--changelog all --maxdepth 2` | a target scan refuses `--maxdepth` because there is no walk — but under `--since` the resolved pathname makes depth answerable | refused under `--changelog`; honoured under `--since` |
-| 5b | `--changelog all --mdt 1` | §12.3 first called this free, and it is not: the changelog an event arrived in is not always the object's MDT | refused without `--resolve`; see §12.4 |
+| 5b | `--changelog all --mdt 1` | called free at first, and it is not: the changelog an event arrived in is not always the object's MDT, so the flag has two readings | refused outright under `--changelog`; available under `--since` (§12.4) |
 | 6 | `lfs find /mnt/a /mnt/b --changelog all` | under `--changelog` the path is the mount, so two paths are two filesystems | one path per invocation with `--changelog`; `--since` may take several, as `lfs find` does today |
 | 7 | `--changelog all -printf '%p %s\n'` | every `-printf` conversion reads object state — path, size, mode, nlink, uid (`liblustreapi_pfind.c:2013-2030`) **[verified]** | refused without `--resolve`, as a target scan already refuses it |
 
@@ -813,19 +814,38 @@ three things the fourteen examples did not.
 |---|---|---|
 | **Answerable from the record** | `uid`/`user`, `gid`/`group` (`CLFE_UIDGID`), `name`, `type` (creations only, §2.2) | allowed, **as recorded** |
 | **Modifiers, no object state** | `print`, `print0`, `skip`, `help`, `lazy` | allowed; `lazy` does nothing without `--resolve` |
-| **Object state — refused without `--resolve`** | `size`, `blocks`, `links`, `perm`, `projid`, `attrs`, `atime`, `mtime`, `ctime`, `btime`/`crtime`, `newer` and the 24 `newerXY`, `layout`, `pool`, `stripe-count`/`-index`/`-size`, the `comp-*`/`component-*` four, `mirror-count`, `mirror-state`, `extension-size`/`ext-size`, `foreign`, `mdt-count`, `mdt-hash`, `ls`, `printf`, `xattr`, `mdt`/`mdt-index` | refused, with the predicate named; answered from the lookup when `--resolve` is given |
+| **Object state — refused without `--resolve`** | `size`, `blocks`, `links`, `perm`, `projid`, `attrs`, `atime`, `mtime`, `ctime`, `btime`/`crtime`, `newer` and the 24 `newerXY`, `layout`, `pool`, `stripe-count`/`-index`/`-size`, the `comp-*`/`component-*` four, `mirror-count`, `mirror-state`, `extension-size`/`ext-size`, `foreign`, `mdt-count`, `mdt-hash`, `ls`, `printf`, `xattr` | refused, with the predicate named; answered from the lookup when `--resolve` is given |
 | **Describe a walk** | `maxdepth`, `mindepth`, `threads` | refused always, as a target scan already refuses them |
 | **Need the mounted filesystem's target list** | `obd`/`ost` | refused always: the record has no layout, so which OSTs hold the file is not a changelog question |
+| **Ambiguous under this source** | `mdt`/`mdt-index` | **refused always** — see the fourth reason below |
 
 **Three findings.**
 
-1. **`--mdt` is not free, and §12.3 said it was.** The reasoning was that a
-   record's MDT is the changelog it arrived in — but §8.3 already says a
-   rename that moves an object between MDTs appears in *both* changelogs, so
-   the changelog an event arrived in is not always the MDT the object lives
-   on. `lfs find --mdt` means the object's MDT. So it joins the
-   object-state group: refused without `--resolve`, and answered from
-   `sr_mdt_index` in the gather when resolution is on.
+1. **`--mdt` is refused outright, and §12.3 said it was free.** The reasoning
+   there was that a record's MDT is the changelog it arrived in — but §8.3
+   already says a rename that moves an object between MDTs appears in *both*
+   changelogs, so the changelog an event arrived in is not always the MDT the
+   object lives on.
+
+   That leaves two readings of `--mdt 1` under `--changelog`: *events from
+   MDT0001's log*, and *objects that live on MDT0001*. The first already has
+   a spelling — it is the source selector, `--changelog testfs-MDT0001` — and
+   the second is what `lfs find --mdt` means everywhere else. An option with
+   two plausible readings is what these rules exist to prevent, so it is
+   **refused under `--changelog`, with or without `--resolve`**.
+
+   Nothing is lost: `--mdt` works normally under `--since`, where the answer
+   is verified and the meaning is the usual one, and `--changelog MDT` selects
+   a log. It also puts `lfs find --changelog` and `lfind` back in agreement,
+   since a target scan refuses `--mdt` too.
+
+   **This is a fourth reason to refuse**, beside no object state, no walk and
+   no target list: *the record carries something that is not what the option
+   means*. It is why `-name` is allowed and `--mdt` is not — the record's name
+   **is** a name, recorded at the event, whereas the record's MDT is the
+   identity of a log and not of an object. Under `--changelog` a predicate is
+   answered from what the record carries, or refused; it is never
+   reinterpreted into a neighbouring question.
 2. **`--xattr` is allowed here, and refused on a target scan.**
    `find_device_supported()` refuses it because *"--xattr needs a mounted
    filesystem"* (`liblustreapi_pfind.c`) **[verified]** — and a changelog
