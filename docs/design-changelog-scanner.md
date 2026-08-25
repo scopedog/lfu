@@ -235,6 +235,15 @@ policy triggers.
 emitted once per object, carrying the union of what its events said plus the
 latest event's index and time.
 
+**The key is a parameter, not always the target FID.** The HLD's Aggregates
+section asks for *"efficient (e.g. Changelog-driven) bottom-up updates"* and
+observes that *"it is sufficient to track the parent directory FID once for
+any number of files created, written, deleted in that directory"*. That is the
+same hash with `cr_pfid` as the key, so `scp_coalesce_by` takes
+`LLAPI_SCAN_CL_KEY_FID` (one record per object) or `LLAPI_SCAN_CL_KEY_PARENT`
+(one record per directory that had activity). The second is a fraction of the
+first's volume and is exactly what an Aggregate maintainer consumes.
+
 An object leaves the cache when:
 
 - it has been quiet for `scp_min_age` seconds, or
@@ -326,6 +335,26 @@ resolution (§6), on the consumer, where the object is already open.
 
 That refusal should be explicit in the API rather than silent, exactly as
 `find_device_supported()` refuses `--ost`/`--mdt` on a target scan today.
+
+### 7.2.1 The filter is smaller than the HLD implies
+
+The HLD gives three examples of what an attribute filter would be for:
+*"objects created by UID 1000"*, *"files over 1TB in size"*, and consumers
+interested in *"whether a redundant file layout is stale"*. Checked against
+the tree, they land in three different places:
+
+| HLD example | Where it actually belongs |
+|---|---|
+| created by UID 1000 | **tier 1** — `CLFE_UIDGID` puts uid in the record already |
+| a redundant layout is stale | **tier 0, and it already works** — `CL_FLRW` is recorded when a mirrored file is first written, with the comment *"record a changelog for data mover to consume"* (`mdd/mdd_object.c:3263`) **[verified]**, and `CL_RESYNC` when it is resynced (`:3470`). Subscribing to those two types is the existing per-user mask; no new filter is needed |
+| over 1TB in size | **tier 3** — not in the record at any setting, so the MDS would have to open the object per event |
+
+So two of the three motivating examples need no attribute filter at all, and
+the third is the one that costs the MDS. **What remains for the Output Filter
+is: move the existing type mask's drop from the client to the server, and add
+the in-record predicates of tiers 1 and 2.** That is a much smaller module
+than the section implies, and a much easier one to defend on the metadata
+server's hot path.
 
 ### 7.3 Where the server-side drop would live
 
