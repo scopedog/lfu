@@ -3,7 +3,7 @@
 **Status:** filed as LU-20643 on 2026-08-25. The fix is one commit on branch
 `stale-lmd-buffer` in `~/projects/lustre/lustre-lu20603`, rebased onto the
 series base (`5afbab284e`) so it stands alone rather than behind LU-20624.
-Not pushed yet.
+Pushed 2026-08-25 as [68340](https://review.whamcloud.com/c/fs/lustre-release/+/68340).
 
 **Jira:** [LU-20643](https://jira.whamcloud.com/browse/LU-20643) ·
 **Type:** Bug · **Component:** none (the LU project defines none) ·

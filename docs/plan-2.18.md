@@ -28,6 +28,7 @@ unresolved comment threads:
 | [68159](https://review.whamcloud.com/c/fs/lustre-release/+/68159) | LU-20611 | 7 | `llapi_find_device()` |
 | [68160](https://review.whamcloud.com/c/fs/lustre-release/+/68160) | LU-20611 | 8 | `lfind(8)` |
 | [68163](https://review.whamcloud.com/c/fs/lustre-release/+/68163) | LU-20613 | 6 | the ZFS backend |
+| [68340](https://review.whamcloud.com/c/fs/lustre-release/+/68340) | LU-20643 | 1 | the reused-lmd-buffer fix, found by the round-9 review |
 
 Base `5afbab284e`. Eight rounds of AI review answered, 43 replies posted.
 **Verified on a two-backend lab 2026-08-24** — conf-sanity 165 PASS on both
