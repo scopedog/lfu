@@ -1,0 +1,30 @@
+LU-20613 llapi: ZFS backend for llapi_scan_device
+
+Add scan_zfs.so, the ZFS half of llapi_scan_device(), which reads
+objects out of a pool through libzpool the way zdb does, behind the
+same llapi_scan_sink the ldiskfs backend is behind.
+
+A pool that is still imported answers EBUSY rather than being read
+underneath its server: reading an imported pool from outside is not
+supported, so scan a snapshot, an exported pool or a failover
+partner's copy.  sp_search names the directories to look in for a
+pool's vdevs, since a pool on file vdevs is invisible to a scan of
+/dev.
+
+Its own autotest cannot exercise it: the build hosts answer no to "zfs
+libzpool headers usable from userspace", so they install no
+scan_zfs.so and conf-sanity 165 skips there.  The Test-Parameters
+lines below ask for the two sessions that can say something.
+
+lustre.spec.in changes with it: %files osd-zfs-mount becomes a
+generated lustre-osd-zfs-mount.files, carrying its %dir and zed.d
+entries over, because the plugin is built only when configure found
+libzpool and a static file list cannot say that.
+
+Test-Parameters: testlist=sanity env=ONLY=157c
+Test-Parameters: fstype=zfs testlist=conf-sanity env=ONLY=165
+Signed-off-by: Hiroshi Nishida <hnishida@thelustrecollective.com>
+Assisted-by: ClaudeCode:Fable-5 llm_code_and_review_tools
+Assisted-by: ClaudeCode:Opus-5 llm_code_and_review_tools
+Change-Id: I97a6d8815924b2671c818152f42d66cc580a609d
+

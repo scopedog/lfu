@@ -1,0 +1,118 @@
+diff --git a/Documentation/man3/llapi_scan_namespace.3 b/Documentation/man3/llapi_scan_namespace.3
+index a25fc0c821..f9f52a6cd6 100644
+--- a/Documentation/man3/llapi_scan_namespace.3
++++ b/Documentation/man3/llapi_scan_namespace.3
+@@ -103,6 +103,14 @@ and
+ .I sr_name
+ are there so it can do so with
+ .BR fstatat (2).
++.I sr_parent_fd
++is the parent's descriptor only while
++.I sp_thread_count
++is 1: above that each subdirectory is a work unit of its own and the walk
++enters it with no parent open, so a directory's record carries \-1. A
++consumer that needs the parent above one thread opens
++.I sr_path
++itself.
+ .LP
+ The layout is delivered raw, as
+ .I sr_lmm
+diff --git a/lustre/utils/lfs_find_parse.c b/lustre/utils/lfs_find_parse.c
+index 8a0d79fd00..1cf53c4d3d 100644
+--- a/lustre/utils/lfs_find_parse.c
++++ b/lustre/utils/lfs_find_parse.c
+@@ -1044,6 +1044,13 @@ int lfs_find_parse(int argc, char **argv, struct find_param *param,
+ 
+ 	time(&t);
+ 
++	/* all three are out-parameters, so none of them reads back whatever
++	 * the caller happened to leave there when the parse stops early
++	 */
++	*pathstartp = -1;
++	*pathendp = -1;
++	*stopped = false;
++
+ 	/* when getopt_long_only() hits '!' it returns 1, puts "!" in optarg */
+ 	while ((c = getopt_long_only(argc, argv,
+ 		"-0A:b:B:c:C:d:D:E:g:G:hH:i:k:lL:m:M:n:N:O:Ppqrs:S:t:T:u:U:z:",
+diff --git a/lustre/utils/lfs_find_parse.h b/lustre/utils/lfs_find_parse.h
+index d1401edee8..85578b9a33 100644
+--- a/lustre/utils/lfs_find_parse.h
++++ b/lustre/utils/lfs_find_parse.h
+@@ -87,10 +87,10 @@ enum {
+ 
+ /*
+  * Parse lfs find's predicates into @param.  @pathstartp and @pathendp come
+- * back as the range of argv that is not an option, and are written only on
+- * the success path; @stopped is set when the parse gave up, which the return
+- * value alone does not always say, and is written only when it does.  So the
+- * caller initialises all three, as lfs_find() does.
++ * back as the range of argv that is not an option, or -1 if there is none.
++ * @stopped is set when the parse gave up, which the return value alone does
++ * not always say.  All three are written at entry, so none of them reads
++ * back what the caller left there.
+  *
+  * A parse that got as far as an argument may have left heap in @param
+  * whether it succeeded or not, so lfs_find_parse_fini() is owed either way.
+diff --git a/lustre/utils/liblustreapi_pfind.c b/lustre/utils/liblustreapi_pfind.c
+index a48a18857d..9b557e98a2 100644
+--- a/lustre/utils/liblustreapi_pfind.c
++++ b/lustre/utils/liblustreapi_pfind.c
+@@ -2519,8 +2519,8 @@ static __u64 find_want(struct find_param *param, int checked_type,
+ /*
+  * What find_decide() needs beyond struct find_param: where the object came
+  * from, and what the gather settled.  A scan of a target fills it with
+- * fc_path NULL and no descriptors.  Every caller sets fc_p and fc_d: 0 is
+- * a descriptor, so zero-initialising them is not "none".
++ * fc_path NULL and no descriptors.  Every caller sets fc_p, fc_d and
++ * fc_mnt_fd: 0 is a descriptor, so zero-initialising them is not "none".
+  */
+ struct find_ctx {
+ 	const struct llapi_scan_rec *fc_rec;
+diff --git a/lustre/utils/liblustreapi_scan_device.c b/lustre/utils/liblustreapi_scan_device.c
+index 9cf7442779..34c648f500 100644
+--- a/lustre/utils/liblustreapi_scan_device.c
++++ b/lustre/utils/liblustreapi_scan_device.c
+@@ -403,7 +403,19 @@ static void scan_size(const struct llapi_scan_obj *obj, __u64 want,
+ 
+ 	rec->sr_size_bytes = __le64_to_cpu(som->lsa_size);
+ 	rec->sr_blocks = __le64_to_cpu(som->lsa_blocks);
+-	rec->sr_valid |= LLAPI_SCAN_LAZY_SIZE | LLAPI_SCAN_LAZY_BLOCKS;
++	/*
++	 * SOM_FL_STRICT is "known strictly correct", and the MDT hands that
++	 * one to a client as a real size: mdt_pack_attr2body() sets
++	 * OBD_MD_FLSIZE and OBD_MD_FLBLOCKS for it while
++	 * mdt_enable_strict_som is on, which it is by default.  Collapsing
++	 * all three states to lazy would report the same file as approximate
++	 * from a target and exact from a namespace, which is the difference
++	 * the two bits exist to carry.
++	 */
++	if (valid & SOM_FL_STRICT)
++		rec->sr_valid |= LLAPI_SCAN_SIZE | LLAPI_SCAN_BLOCKS;
++	else
++		rec->sr_valid |= LLAPI_SCAN_LAZY_SIZE | LLAPI_SCAN_LAZY_BLOCKS;
+ }
+ 
+ /* The attributes the object carries itself, before any xattr is read. */
+diff --git a/lustre/utils/libscan_ldiskfs.c b/lustre/utils/libscan_ldiskfs.c
+index ec5e20f404..d84b484f86 100644
+--- a/lustre/utils/libscan_ldiskfs.c
++++ b/lustre/utils/libscan_ldiskfs.c
+@@ -380,9 +380,14 @@ static void scan_inode_attrs(const struct ext2_inode_large *inode,
+ 
+ 	/*
+ 	 * The epoch bits, btime and projid all live past i_extra_isize, and
+-	 * each field needs its own test: they are laid out ctime_extra,
+-	 * mtime_extra, atime_extra, crtime, crtime_extra, projid, so a
+-	 * reader that clears one has not earned the next.
++	 * a field is readable only if i_extra_isize reaches it: they are laid
++	 * out ctime_extra, mtime_extra, atime_extra, crtime, crtime_extra,
++	 * projid, so a reader that clears one has not earned the next.
++	 *
++	 * The three timestamps are gated together on i_atime_extra, the last
++	 * of them: an inode reaching only i_ctime_extra loses the epoch bits
++	 * it does carry, which errs towards the 1970 window rather than
++	 * towards reading a field that is not there.
+ 	 */
+ 	if (inode_size > EXT2_GOOD_OLD_INODE_SIZE)
+ 		have = EXT2_GOOD_OLD_INODE_SIZE + inode->i_extra_isize;

@@ -1,0 +1,19 @@
+LU-20611 llapi: split cb_find_init's decider out
+
+Move the deciding half of cb_find_init() into find_decide(), taking a
+context struct instead of the traversal's locals, so a caller holding
+a record and no path can reach the same predicates.
+
+No behaviour change: the checks, their order and their early exits are
+the ones that were there.
+
+One line goes rather than moves: the write-back of the directory
+descriptor after the gather.  Since LU-20624, cb_get_dirstripe()
+dup2()s its reopen onto the descriptor it was handed rather than
+assigning through the pointer, so nothing on that path writes it any
+more and the store had become a self-assignment.
+
+Signed-off-by: Hiroshi Nishida <hnishida@thelustrecollective.com>
+Assisted-by: ClaudeCode:Opus-5 llm_code_and_review_tools
+Change-Id: I6c1550b715bb505a3160c21bb68a0521c7a399da
+

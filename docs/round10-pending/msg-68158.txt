@@ -1,0 +1,25 @@
+LU-20611 lfs: share find's predicate parsing
+
+Move lfs find's option table, the loop that reads it and the argument
+helpers it calls into lfs_find_parse.c, arranged so lfind can compile
+it the way callvpe.c is already shared between lfs and lustre_rsync.
+A second copy of that vocabulary would be a second copy that drifts.
+Nothing is exported from the library and no ABI is touched.
+
+The moved loop is byte-identical to what it replaces apart from
+param. becoming param->, and the helpers move verbatim.  One
+exception: in the --foreign arm the two returns of CMD_HELP become a
+goto out, which is what makes the stopped flag reliable there and
+routes the path through lfs_find_parse_fini().
+
+Two things come with it.  Several failures in that loop give up
+without setting ret, so lfs find has always exited 0 after a bad
+--comp-flags; the parser now says so through a stopped flag, preserved
+rather than fixed.  And lfs_find_parse_fini() frees the four
+find_param fields a parse can leave on the heap, so a second caller
+does not have to copy the cleanup block out of lfs_find().
+
+Signed-off-by: Hiroshi Nishida <hnishida@thelustrecollective.com>
+Assisted-by: ClaudeCode:Opus-5 llm_code_and_review_tools
+Change-Id: Ifa24de52c0b688f5c107a9efc96ad5274c7ec39a
+
