@@ -391,6 +391,28 @@ Two consequences, and they are the recommendation:
 1. **A real size belongs on the consumer, after resolution.** That is
    `statx()` through the mount, which is what `lfs find -size` does today, and
    what `--resolve` gives a changelog consumer.
+
+   **And the approximate size has a flag already: `--lazy`.** It is documented
+   as *"Use file size and blocks from MDT, if available, to avoid extra
+   RPCs"*, and in the code it is the gate that lets `OBD_MD_FLLAZYSIZE`
+   satisfy `-size` where `OBD_MD_FLSIZE` would otherwise be needed
+   (`liblustreapi_pfind.c:2887-2893`) **[verified]**. So the two questions a
+   user might be asking already have two spellings, and neither needs a
+   server-side filter:
+
+   | Command | Size it uses | Cost |
+   |---|---|---|
+   | `--resolve -size +1T` | the real one, glimpsed from the OSTs | an open and a glimpse per candidate |
+   | `--resolve --lazy -size +1T` | the MDT's SOM value | an open per candidate, no OST RPC |
+
+   With `--lazy`, an object whose SOM is `UNKNOWN` — never closed since SOM
+   data began — is still not answerable, and counts undecided rather than
+   matching as zero. That is the same rule as everywhere else in this design.
+
+   Note the contrast with `llapi_find_device()`, which *forces* `fp_lazy = 1`
+   (`liblustreapi_pfind.c:3537-3538`) **[verified]** because a target scan has
+   no mount to glimpse through. A changelog consumer has one, so here `--lazy`
+   is the caller's choice rather than a constraint.
 2. **If the goal is volume** — the HLD's stated one, *"reduce the number of
    unnecessary Changelog records"* — then a size pre-filter is admissible only
    as a **conservative** one: drop a record only when the value is
@@ -685,7 +707,8 @@ behaves; the second block is where the rules had to change.
 | `lfs find /mnt/lustre --changelog all -type f` | matches creations (§2.2); every other event counts undecided |
 | `lfs find /mnt/lustre --changelog all --mdt 1` | allowed, and free: the record's MDT is the changelog it came from |
 | `lfs find /mnt/lustre --changelog all --skip 90` | sampling applies to matches, as it does today |
-| `lfs find /mnt/lustre --changelog all -size +1G --resolve` | size comes from the lookup; objects since deleted are undecided, not dropped |
+| `lfs find /mnt/lustre --changelog all -size +1G --resolve` | size comes from the lookup, glimpsed from the OSTs; objects since deleted are undecided, not dropped |
+| `lfs find /mnt/lustre --changelog all -size +1G --resolve --lazy` | the same, from the MDT's SOM value and no OST RPC; `UNKNOWN` SOM counts undecided |
 
 **The seven that changed something:**
 
