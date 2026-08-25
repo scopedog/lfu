@@ -1,0 +1,88 @@
+# llapi_scan_changelog() against a real changelog, 2026-08-25
+#
+# lfu-chlog, c3-standard-8, us-central1-c (us-central1-a was STOCKOUT).
+# One node: MGS+MDT+OST on loop files plus a client, built from 5afbab284e +
+# the ten-patch series + the changelog scanner.  Instance deleted after.
+#
+# Scripts: tests/lab-changelog/.  This is the first time the module ran.
+
+=== register a changelog user
+  registered: cl7
+=== the mask the server records
+MARK 
+=== make events
+=== what lfs changelog says is there
+177 11CLOSE 22:27:34.886739602 2026.08.25 0x442 t=[0x200000401:0x3a:0x0] ef=0x13 u=1005:1010 nid=0@lo
+178 11CLOSE 22:27:34.890457487 2026.08.25 0x442 t=[0x200000401:0x3a:0x0] ef=0x13 u=1005:1010 nid=0@lo
+179 08RENME 22:27:34.895077565 2026.08.25 0x0 t=[0:0x0:0x0] ef=0x13 u=1005:1010 nid=0@lo p=[0x200000401:0x39:0x0] renamed s=[0x200000401:0x3b:0x0] sp=[0x200000401:0x39:0x0] f2
+180 06UNLNK 22:27:34.896148992 2026.08.25 0x1 t=[0x200000401:0x3c:0x0] ef=0x13 u=1005:1010 nid=0@lo p=[0x200000401:0x39:0x0] f3
+181 02MKDIR 22:27:34.897265855 2026.08.25 0x0 t=[0x200000401:0x6b:0x0] ef=0x13 u=1005:1010 nid=0@lo p=[0x200000401:0x39:0x0] subdir
+  total records: 95
+=== the test binary
+=== run it
+test0: the stream delivers records that describe events
+  99 records, 97 with a FID, 48 with a name, last index 185
+test1: object mode collapses a burst into one record
+  99 events collapse to 45 objects
+test2: the demand mask keeps a lookup from happening
+  no size when unasked; 69 of 99 resolved when asked
+test3: a consumer can stop the scan and hear its value back
+  stopped after 1 record, -ESHUTDOWN came back
+test4: bad arguments are refused, not crashed on
+  seven bad calls refused with -EINVAL
+all tests passed
+=== and the same events through lfs changelog, for the counts
+      1 22:27:36.992016559
+      1 22:27:36.991682676
+      1 22:27:36.991459364
+      1 22:27:36.943729281
+      1 22:27:34.897265855
+      1 22:27:34.896148992
+      1 22:27:34.895077565
+      1 22:27:34.890457487
+      1 22:27:34.886739602
+      1 22:27:34.882956468
+STAGE4 DONE
+testfs-MDT0000: Deregistered changelog user #7
+
+=== What the run settled
+
+  test0  99 records, 97 with a FID, 48 with a name, last index 185
+         The two without a FID are the rename pair, whose cr_tfid is zero.
+  test1  99 events collapse to 45 objects -- coalescing is real, and the
+         30-write burst on one file is one record
+  test2  0 resolved when unasked, 69 of 99 when asked -- the demand mask
+         suppresses the lookup, which is what it is for
+  test3  -ESHUTDOWN came back unchanged after one record
+  test4  seven bad calls refused with -EINVAL
+
+=== Three bugs the lab found that reading did not
+
+1. UPSTREAM, not ours.  lfs changelog --user fails -ENOENT for a user
+   registered plainly:
+
+     mdd_device.c:1789-1791  registration writes CHANGELOG_USER_REC unless
+                             --mask or --user NAME is given, which write REC2
+     mdd_changelog.c:45      the lookup callback matches only REC2
+     mdd_device.c:248, :333  every other MDD walker accepts both
+
+   Proven: cl5 (plain) fails, cl6 (registered with -m) works.  This breaks
+   the shipped lfs changelog --user, not only llapi_changelog_start_user().
+
+2. Not a bug at all: an earlier run read an empty changelog because the lab
+   script's own trap deregistered the user, and deregistering the last user
+   purges the log.  The raw llapi_changelog_recv() loop read zero too, which
+   is what separated the library from our code.
+
+3. -Wformat-truncation in the test program, caught by the lab's build flags
+   and not by the local ones.
+
+=== Two bugs review found before the run
+
+  Coalescing aged on the reader's wall clock rather than the stream's, so a
+  catch-up would have flushed every object at once and delivered a record per
+  event -- object mode silently degrading to event mode.
+
+  Symlinks did not resolve: O_NOFOLLOW returns ELOOP.  Retried with O_PATH,
+  and a symlink's size is left absent rather than reporting the MDT's number
+  as a strict one.
