@@ -456,7 +456,7 @@ argues they are two, because 5 is a wire-protocol change and 1–3 are not.
 
 | Question | Why it matters | Proposed answer |
 |---|---|---|
-| **Which command exposes it** | `lfind` is documented as a server command; the changelog reader is client-side | See §12.1: `lfs find --since` as an accelerator, and source-replacement only in the API |
+| **Which command exposes it** | `lfind` is documented as a server command; the changelog reader is client-side | See §12.1: `lfs find --since` accelerates an ordinary find; `lfs find --changelog` reads the changelog and nothing else, under three refusal rules |
 | **Who registers the user** | registration is an MDS ioctl; the scanner is a client | The caller supplies `scp_user`; the module refuses rather than registering for you |
 | **Default `scp_min_age`** | too low and objects emit repeatedly; too high and "recent" is stale | Start at `llsom_sync`'s 600 s and measure |
 | **Event mode and the pre-filter** | `sp_filter` on the other scanners runs before I/O; here there is no I/O to save unless resolution is on | Run it anyway, for symmetry, and document that it saves work only with `_RESOLVE` |
@@ -501,12 +501,48 @@ result is a strict subset of what a full `lfs find` would return: narrowed,
 never wrong. What is given up is exactly what the flag names — an object that
 matches but has not changed since the anchor does not appear.
 
-**Recommendation.** `--since` on `lfs find`, as an accelerator with unchanged
-semantics. Source replacement stays in `llapi_scan_changelog()` and whatever
-event-oriented consumer wants it, where "one record per event, attributes
-absent unless asked for" is the contract and nobody is expecting find
-semantics. The two are different questions and should not share a command
-name.
+**Both, under two names.** `--since` is the accelerator above. `--changelog`
+is source replacement: it scans the changelog and nothing else.
+
+They are not redundant, and the case that proves it is the unlinked object.
+`--since` verifies each candidate through the mount, so an object that has
+been removed cannot be verified and drops out of the answer. A consumer
+asking *what happened* — deletions, renames, events on objects that no longer
+exist — cannot get that from the accelerator at all. That is the event view,
+and it needs its own flag rather than a subtly different `--since`.
+
+```
+lfs find /mnt/lustre --changelog testfs-MDT0000 --since 4200 -uid 1000
+lfs find /mnt/lustre --changelog all --since 4200 -type f
+```
+
+**Three rules keep the two apart.** Without them `--changelog` is the silent
+meaning-shift §12.1 opened with; with them the difference is enforced at the
+command line rather than explained in a man page.
+
+1. **A predicate the changelog cannot answer is refused, not approximated.**
+   `-size`, `-blocks`, `-layout`, `-projid`, `--hsm-state` and the rest of
+   tier 3 exit with an error naming the predicate, unless `--resolve` is
+   given, in which case each surviving candidate is looked up through the
+   mount and the ones that no longer exist are counted and reported. This is
+   the model `find_device_supported()` already ships for a target scan.
+2. **The path argument means the mount, and says so.** Under `--changelog` the
+   path is what FIDs are resolved against, not a subtree restriction — a
+   changelog is per-MDT and knows nothing about where in the namespace an
+   object sits. A path below the mount point is refused unless `--resolve` is
+   given, because only then can a pathname be produced and prefix-matched.
+3. **Output is a pathname where one exists and a FID where one does not.**
+   An unlinked object has no pathname; printing the FID is the whole point of
+   asking. `lfind(8)` already prints FIDs for the same reason.
+
+`--changelog` takes an MDT name or `all`; the argument is required rather than
+optional, because `getopt_long()` accepts an optional argument only in the
+`--changelog=VALUE` form and a required one accepts both spellings, as
+`lfind`'s `--device` already does.
+
+The two flags compose: `--changelog` picks the source, `--since` picks where
+in it to start. On its own, `--since` starts the accelerator at that index;
+on its own, `--changelog` reads from the oldest surviving record.
 
 The cost of the accelerator is one verification per candidate, which is the
 same per-object price as §6 resolution — so the two share an implementation:
