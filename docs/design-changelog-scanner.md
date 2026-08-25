@@ -1,12 +1,64 @@
 # LFU Changelog Input Scanner — Detailed Design
 
-**Date:** 2026-08-25 · **Status:** design proposal, v0.1, no code yet ·
+**Date:** 2026-08-25 · **Status:** design proposal, **v0.2**, no code yet ·
 **Parent architecture:** [`architecture.md`](architecture.md) §"Changelog: an
 input, not a casualty" · **Plan slot:** [`plan-2.18.md`](plan-2.18.md) gap 2
-and 3, one Technical task under LU-20462.
+and 3, **two** Technical tasks under LU-20462 (§11).
 
 Code references are to `../lustre-lu20603` @ `5afbab284e` (upstream master),
 and are **[verified]** where the line was read.
+
+**What v0.2 settled**, all of it in §0: the CLI is two flags rather than one,
+the record is the truth for what an event said, the command coalesces, an
+approximate size is `--lazy` and a real one is a glimpse on the consumer, and
+a server-side size filter is refused on soundness rather than on cost.
+
+---
+
+## 0. The recommendation, in one page
+
+**Build the changelog as a delta source with two faces, not as a third
+scanner.** A changelog answers *what happened*; the Object Stream is about
+*what is*. Every contradiction §12.3 found came from that seam, so the seam
+goes in the interface:
+
+| | `lfs find --since` | `lfs find --changelog` |
+|---|---|---|
+| answers | **as it is now** | **as it was recorded** |
+| the changelog's role | a candidate set; every hit verified | the whole source |
+| result | a strict subset of an ordinary `find` | events, coalesced to one line per object |
+| sees deletions | no — they cannot be verified | yes |
+| a predicate it cannot answer | none; it verifies | refused, or counted undecided |
+| an approximate size | `--lazy`, as today | `--resolve --lazy` |
+
+Both sit on one module, `llapi_scan_changelog()` (§3), which emits the record
+`llapi_scan_namespace()` and `llapi_scan_device()` already emit.
+
+**What to build, in order** — §11 has the detail:
+
+1. `llapi_scan_changelog()`, event mode. Small; proves the appended fields.
+2. Object mode: the FID hash, aged, keyed on the target FID **or the parent
+   FID** (§5.2 — the second is what an Aggregate maintainer consumes).
+3. Resolution through a client mount, gated by the demand mask.
+4. `lfs find --since`. Nearly free: candidates from 2, verification from the
+   gather `llapi_scan_namespace()` already does.
+5. `lfs find --changelog`, with the three refusal rules of §12.1.
+6. The Changelog Output Filter — **last**, and smaller than the HLD implies.
+
+**What to refuse, and why:**
+
+- **Tier-3 predicates pushed to the MDS** (§7.2.2). Not because they are
+  expensive, but because the MDS does not have the answer: size lives on the
+  OSTs, and SOM is exact only for FLR and DoM files. Dropping records against
+  a stale-low value loses big files from the answer.
+- **Registering a changelog user for the caller** (§4.2). Registering without
+  consuming is how an MDT fills up.
+- **Persistent state inside the module** (§4.3), except the `--since-cookie`
+  of per-MDT indexes, which exists because a bare index means nothing under
+  DNE (§12.2).
+
+**What is still open:** two questions, both in §12, and both now narrow enough
+to answer in a sentence.
 
 ---
 
@@ -33,7 +85,11 @@ is where it is stated plainly.
 - Checkpoint and restart on the changelog index; the registration and
   clearing contract that makes that safe
 - The **Changelog Output Filter**: pushing predicates to the server so records
-  are dropped before they cross the wire (§7)
+  are dropped before they cross the wire (§7) — which §7.2.1 shrinks to the
+  type-mask drop plus the predicates the record already carries, and §7.2.2
+  refuses to extend to size
+- The two `lfs find` spellings this reaches a user through, and the rules that
+  keep them from meaning each other (§12.1)
 
 ### Out of scope
 
@@ -357,6 +413,26 @@ resolution (§6), on the consumer, where the object is already open.
 That refusal should be explicit in the API rather than silent, exactly as
 `find_device_supported()` refuses `--ost`/`--mdt` on a target scan today.
 
+### 7.2.1 The filter is smaller than the HLD implies
+
+The HLD gives three examples of what an attribute filter would be for:
+*"objects created by UID 1000"*, *"files over 1TB in size"*, and consumers
+interested in *"whether a redundant file layout is stale"*. Checked against
+the tree, they land in three different places:
+
+| HLD example | Where it actually belongs |
+|---|---|
+| created by UID 1000 | **tier 1** — `CLFE_UIDGID` puts uid in the record already |
+| a redundant layout is stale | **tier 0, and it already works** — `CL_FLRW` is recorded when a mirrored file is first written, with the comment *"record a changelog for data mover to consume"* (`mdd/mdd_object.c:3263`) **[verified]**, and `CL_RESYNC` when it is resynced (`:3470`). Subscribing to those two types is the existing per-user mask; no new filter is needed |
+| over 1TB in size | **tier 3** — not in the record at any setting, so the MDS would have to open the object per event |
+
+So two of the three motivating examples need no attribute filter at all, and
+the third is the one that costs the MDS. **What remains for the Output Filter
+is: move the existing type mask's drop from the client to the server, and add
+the in-record predicates of tiers 1 and 2.** That is a much smaller module
+than the section implies, and a much easier one to defend on the metadata
+server's hot path.
+
 ### 7.2.2 A server-side size filter cannot answer for size
 
 The question "is a server-side filter necessary if a user wants the real file
@@ -423,26 +499,6 @@ Two consequences, and they are the recommendation:
 The same distinction is already in our shipped code: 68156 sets
 `LLAPI_SCAN_SIZE` for `SOM_FL_STRICT` and the `LAZY_*` bits otherwise,
 precisely so an approximate size is never reported as an exact one.
-
-### 7.2.1 The filter is smaller than the HLD implies
-
-The HLD gives three examples of what an attribute filter would be for:
-*"objects created by UID 1000"*, *"files over 1TB in size"*, and consumers
-interested in *"whether a redundant file layout is stale"*. Checked against
-the tree, they land in three different places:
-
-| HLD example | Where it actually belongs |
-|---|---|
-| created by UID 1000 | **tier 1** — `CLFE_UIDGID` puts uid in the record already |
-| a redundant layout is stale | **tier 0, and it already works** — `CL_FLRW` is recorded when a mirrored file is first written, with the comment *"record a changelog for data mover to consume"* (`mdd/mdd_object.c:3263`) **[verified]**, and `CL_RESYNC` when it is resynced (`:3470`). Subscribing to those two types is the existing per-user mask; no new filter is needed |
-| over 1TB in size | **tier 3** — not in the record at any setting, so the MDS would have to open the object per event |
-
-So two of the three motivating examples need no attribute filter at all, and
-the third is the one that costs the MDS. **What remains for the Output Filter
-is: move the existing type mask's drop from the client to the server, and add
-the in-record predicates of tiers 1 and 2.** That is a much smaller module
-than the section implies, and a much easier one to defend on the metadata
-server's hot path.
 
 ### 7.3 Where the server-side drop would live
 
@@ -524,32 +580,46 @@ attribute. That is the whole of what this module adds over them.
 
 ## 11. Sequencing
 
-1. **`llapi_scan_changelog()`, event mode, no resolution.** Delivers records
-   from a real changelog into the existing consumer contract. Small, and it
-   proves the record's new fields.
-2. **Object mode** — the FID hash, ageing and eviction.
-3. **Resolution** through a client mount, gated by the demand mask.
-4. **`lfs find --changelog`** or equivalent CLI. `lfind(8)` is a server-side
-   command and this scanner is client-side, so the CLI question is open (§12).
-5. **Changelog Output Filter** — tiers 0–2 pushed to the server. Protocol
-   change; separate ticket, after 1–3 have shown what predicates matter.
+| # | Step | Size | Notes |
+|---|---|---|---|
+| 1 | `llapi_scan_changelog()`, event mode, no resolution | small | delivers records from a real changelog into the existing consumer contract, and proves the appended fields of §3.2 |
+| 2 | Object mode — the FID hash, ageing, eviction, both keys | small–medium | §5.2; `llsom_sync` has the shape already |
+| 3 | Resolution through a client mount, gated by the demand mask | medium | §6, and the per-object cost centre |
+| 4 | `lfs find --since` | **nearly free** | candidates from 2, verification from the gather `llapi_scan_namespace()` already does |
+| 5 | `lfs find --changelog` and the three refusal rules | small | §12.1; mostly argument validation |
+| 6 | Changelog Output Filter: the type-mask drop moved server-side, plus tier-1 and tier-2 predicates | separate ticket | a wire-protocol change (§7.3), and worth doing only after 1–5 show which predicates are pushed in practice |
 
-Items 1–3 are the "Changelog Input Scanner" task; item 5 is the "Changelog
-Output Filter" task. `plan-2.18.md` currently files them as one — this design
-argues they are two, because 5 is a wire-protocol change and 1–3 are not.
+Steps 1–5 are the "Changelog Input Scanner" task; step 6 is the "Changelog
+Output Filter" task. `plan-2.18.md` files them as one — this design argues
+they are two, because 6 changes the protocol and 1–5 do not, and because
+§7.2.1 shrinks 6 to something much smaller than the HLD's paragraph implies.
+
+Step 4 is the argument for this ordering. It is the piece a user sees, and it
+costs almost nothing once 2 and 3 exist, because the verification half is code
+that shipped this month.
 
 ---
 
 ## 12. Open questions
 
-| Question | Why it matters | Proposed answer |
+**Two questions need someone else to answer.** Both are narrow enough to
+settle in a sentence, which is the point of having worked the rest out first.
+
+| Question | Why it matters | What to ask |
 |---|---|---|
-| **Which command exposes it** | `lfind` is documented as a server command; the changelog reader is client-side | See §12.1: `lfs find --since` accelerates an ordinary find; `lfs find --changelog` reads the changelog and nothing else, under three refusal rules |
-| **Who registers the user** | registration is an MDS ioctl; the scanner is a client | The caller supplies `scp_user`; the module refuses rather than registering for you |
-| **Default `scp_min_age`** | too low and objects emit repeatedly; too high and "recent" is stale | Start at `llsom_sync`'s 600 s and measure |
-| **Event mode and the pre-filter** | `sp_filter` on the other scanners runs before I/O; here there is no I/O to save unless resolution is on | Run it anyway, for symmetry, and document that it saves work only with `_RESOLVE` |
-| **Merged-stream ordering under DNE** | §8.3 gives approximate time order | Decide with the Merge/Split Filter Rule, not here |
-| **Whether tier-3 pushdown is ever wanted** | §7.2 refuses it on MDS-cost grounds | Ask the HLD's author; the example in the HLD is a tier-3 predicate |
+| **Was "files over 1TB" meant as an MDS-side filter?** | §7.2.2 shows the MDS does not have the size to filter on: SOM is exact only for FLR and DoM files, and dropping against a stale-low value loses big files. Meanwhile the consumer can already choose real (`-size`) or approximate (`--lazy`) | Did you mean a **conservative** prune over `SOM_FL_STRICT` only, or was size an illustration and the check belongs on the consumer? This decides the size of step 6 |
+| **`--since <time>` under DNE, and who owns the cookie** | `cr_time` is a wall clock on each MDS, so a time is comparable across MDTs only as far as the clocks are (§8.3). The `--since-cookie` of per-MDT indexes is exact, and is state | Approximate by clock, or refuse beyond a skew margin? And is the cookie ours, or does it belong with whatever the Merge/Split Filter Rule uses for multi-target state? |
+
+**Settled in v0.2, and recorded where it was decided:** the CLI is `--since`
+plus `--changelog` (§12.1); the record is the truth for what an event said and
+resolution only fills what is missing (§12.1); the command always coalesces
+(§12.1); a bare index is refused under DNE (§12.2); an approximate size is
+`--lazy` (§7.2.2); registration stays the caller's (§4.2).
+
+**Smaller things to settle with a lab rather than a meeting:** the default
+`scp_min_age` — start at `llsom_sync`'s 600 s and measure; and whether the
+pre-filter earns its place in event mode, where there is no I/O to save unless
+resolution is on.
 
 ### 12.1 Source replacement, or accelerator
 
