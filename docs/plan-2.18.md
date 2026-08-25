@@ -216,7 +216,7 @@ comment first and see.
 
 ## E. What the HLD still wants — gap analysis, 2026-08-24
 
-Read against `Lustre_Find_Utility-High_Level_Design.pdf` (Andreas v0.1
+Read against the LFU HLD, not in this repo (Andreas v0.1
 2026-04-03, Artem's module diagram v0.2 2026-08-08). The diagram marks nine
 boxes **mandatory (initial)**; everything dashed is Optional/Future and out of
 scope for 2.18 by Andreas's decision to hold the OSD path to 2.19.

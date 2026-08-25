@@ -324,4 +324,4 @@ option rather than the only one.
 - `lustre/utils/libscan_ldiskfs.c:29-36` — the scanner's open flags and why
 - `lustre/utils/libscan_zfs.c:105-174` — the `EBUSY` refusal and its rationale
 - `docs/open-questions.md` — *Torn metadata when scanning a live ldiskfs device*
-- `docs/Lustre_Find_Utility-High_Level_Design.pdf` — OSD API scanner, §Server-Side Changes
+- the LFU HLD (Whamcloud, not in this repo) — OSD API scanner, §Server-Side Changes

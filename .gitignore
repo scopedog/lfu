@@ -17,3 +17,6 @@ docs/local/
 *.swp
 *.swo
 *~
+
+# the HLD is Whamcloud's document, not ours to publish: keep it local
+docs/*.pdf
