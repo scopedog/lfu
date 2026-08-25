@@ -23,6 +23,7 @@ the reason a number changed is often more useful than the number.
 | [`design-ldiskfs-scanner.md`](design-ldiskfs-scanner.md) | Option 1: libext2fs device scanner |
 | [`design-osd-scanner.md`](design-osd-scanner.md) | Option 2: in-kernel OSD API scanner and the ring |
 | [`design-zfs-scanner.md`](design-zfs-scanner.md) | The ZFS backend |
+| [`design-changelog-scanner.md`](design-changelog-scanner.md) | The Changelog Input Scanner: an event stream in the Object Stream's record, what the changelog does not carry, the clearing hazard, and where an attribute filter can and cannot be pushed |
 | [`filter-levels.md`](filter-levels.md) | The filter vocabulary and its I/O cost tiers |
 | [`design-lfs-find-on-scan.md`](design-lfs-find-on-scan.md) | LU-20605: how `lfs find`'s deciding half was split out and reused by the device scan, and what that forced into the API |
 | [`design-llapi-scan-device.md`](design-llapi-scan-device.md) | Step 3 upstream: the device scanner behind `llapi_scan_device()`, the plugin, and what the record grows |
