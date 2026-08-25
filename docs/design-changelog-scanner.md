@@ -813,6 +813,24 @@ where the stale-anchor check belongs: if an MDT's recorded index is older than
 its oldest surviving record, the run refuses rather than quietly returning a
 short answer.
 
+**Telling an index from a time is the parser's problem, and guessing is not
+allowed.** `--since 1787674596` could be an index or an epoch second, and the
+two answers are wildly different. The rule:
+
+| Written as | Read as |
+|---|---|
+| a bare integer — `4200` | an **index**, matching `lfs changelog <mdtname> <startrec>`, which takes its start record as a bare number (`lustre/utils/lfs.c:10591`) **[verified]** |
+| a duration with a unit — `30m`, `2h`, `7d` | a time, that far back from now |
+| a timestamp — `2026-08-25`, `2026-08-25T18:00` | that time |
+| `@1787674596` | that epoch second, said explicitly |
+| anything else | refused, rather than guessed |
+
+A bare integer therefore means an index, which is also the spelling that is
+refused under DNE — so `--since 4200` on a two-MDT filesystem is an error
+naming the ambiguity, and `--since @1787674596` on the same filesystem works.
+That asymmetry is deliberate: the form that cannot mean one thing everywhere
+is the one that has to be qualified.
+
 ### 13.3 Worked examples, and what they exposed
 
 Fourteen invocations, run against the rules above on paper. The first block
