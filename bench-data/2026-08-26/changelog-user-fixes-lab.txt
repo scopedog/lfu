@@ -1,0 +1,64 @@
+# LU-20647 and LU-20648, verified on the local KVM cluster, 2026-08-26
+#
+# rhel9.7-server-mgs-mds-clone (192.168.122.10)  MGS+MDT0, /dev/vdb
+# rhel9.7-server-oss-clone     (192.168.122.20)  OST0 /dev/vdb, OST1 /dev/vdc
+# rhel9.7-client-clone         (192.168.122.101) client, /mnt/testfs
+# kernel 5.14.0-611.42.1.el9_7 on all three; Lustre 2.17.52_464_g1bd7453,
+# source trees in ~/lustre-release on each node, rebuilt in place.
+#
+# Server tree f0978607c5, configured --enable-server --enable-ldiskfs.
+# Client tree 9ec0025282, configured --disable-server --enable-modules --enable-utils.
+# Both fix hunks applied with `git apply` -- clean on both trees, which are
+# months apart from the series base 5afbab284e.
+
+=== the three user shapes, straight from changelog_users
+
+  cl1                               0 (0)                          <- plain: CHANGELOG_USER_REC
+  cl2-named1                        0 (0)                          <- named, no mask: REC2, cur_mask 0
+  cl3-masked1                       0 (0) mask=MARK,CREAT,MKDIR    <- REC2 with a mask
+
+The middle row is LU-20648's premise on the record: a rec2 carrying no mask.
+Registration writes a rec2 when either a mask or a name is given, but assigns
+cur_mask only when a mask is.
+
+=== events (client): mkdir cltest, touch cltest/f1, mkdir cltest/d1
+    5 records: MKDIR, CREAT, OPEN, CLOSE, MKDIR
+
+=== BEFORE, both unpatched
+
+  LU-20647   lfs changelog --user cl1 testfs-MDT0000
+             -> cannot set changelog filter: No such file or directory (2)
+                cannot start changelog: No such file or directory
+             the predicted ENOENT, from the shipped command
+
+  LU-20648   lfs changelog --user cl2-named1 --mask creat testfs-MDT0000
+             -> CREAT 1, MKDIR 2      the --mask was dropped; OPEN and CLOSE
+                                      came back too.  Should be CREAT 1, MKDIR 0
+
+=== AFTER client patched only (LU-20648), server still unpatched
+
+  cl2-named1 --mask creat        -> CREAT 1, MKDIR 0    fixed
+  cl2-named1 no --mask           -> CREAT 1, MKDIR 2, 5 lines
+                                      the guard: "no mask" did not become
+                                      "no records"
+  cl3-masked1 --mask creat       -> CREAT 1, MKDIR 0    intersection intact
+  cl1 (LU-20647)                 -> still ENOENT        the two are independent
+
+=== AFTER both patched
+
+  cl1                            -> 5 lines, CREAT 1, MKDIR 2   was ENOENT
+  --user 1   (bare ID form)      -> works
+  --user named1 (by name)        -> works, the name path is not broken
+  cl3-masked1                    -> CREAT 1, MKDIR 2, OPEN 0    unchanged
+  cl1 --mask creat               -> CREAT 1, MKDIR 0, OPEN 0
+                                      the combination only both fixes reach:
+                                      LU-20647 makes the user findable,
+                                      LU-20648 makes its --mask count
+  cl3-masked1 --mask mkdir       -> CREAT 0, MKDIR 2   intersection still narrows
+
+=== other
+
+  Both trees built clean, EXIT=0.  This is also the first compile of the MDD
+  change: the local box runs kernel 7.0 and cannot build Lustre server modules.
+  No LBUG, assertion, call trace or WARNING in dmesg on either node.
+  The three test users were deregistered afterwards.
