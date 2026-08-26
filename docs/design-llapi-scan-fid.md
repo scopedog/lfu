@@ -1,6 +1,7 @@
 # `llapi_scan_fid()` — filling a record for one FID
 
-**Date:** 2026-08-26 · **Status:** design, **v0.1**, no code yet ·
+**Date:** 2026-08-26 · **Status:** design **v0.2**, and *implemented* —
+`c3cf4c1073` on branch `lu-20649-scan-fid`, lab-verified ·
 **Parent architecture:** [`architecture.md`](architecture.md) ·
 **Blocks:** `lfs find --since` and `lfs find --changelog --resolve`, steps 4–5
 of [`design-changelog-scanner.md`](design-changelog-scanner.md).
@@ -17,7 +18,7 @@ them, and make it resolve through `fid2path` and gather at the resulting path
 rather than gathering from a descriptor opened by FID.**
 
 ```c
-int llapi_scan_fid(int mnt_fd, const struct lu_fid *fid,
+int llapi_scan_fid(int mnt_fd, const char *mnt_path, const struct lu_fid *fid,
 		   const struct llapi_scan_param *sp,
 		   llapi_scan_cb_t cb, void *data);
 ```
@@ -129,12 +130,19 @@ returning fewer objects.
 ## 3. The signature, field by field
 
 ```c
-int llapi_scan_fid(int mnt_fd, const struct lu_fid *fid,
+int llapi_scan_fid(int mnt_fd, const char *mnt_path, const struct lu_fid *fid,
 		   const struct llapi_scan_param *sp,
 		   llapi_scan_cb_t cb, void *data);
 ```
 
-**`mnt_fd`, not a path.** `llapi_scan_rec_path()` already takes `int mnt_fd`
+**`mnt_path` as well as `mnt_fd`, corrected in v0.2.** v0.1 proposed `mnt_fd`
+alone. Writing it showed why that cannot work: `fid2path` answers *relative to
+the filesystem root*, and `scan_rec_gather()` needs a pathname it can
+`open()` — `get_projid()` and the HSM and MDT-index branches all open the path
+themselves. So the mount's own path has to come in too, and the first two
+arguments are now exactly `llapi_scan_rec_path()`'s **[verified]**.
+
+**`mnt_fd`, not a path alone.** `llapi_scan_rec_path()` already takes `int mnt_fd`
 **[verified]**, and `--since` calls this once per candidate in a loop of
 thousands. Opening the mount per FID would be absurd; the caller opens it once.
 
@@ -204,3 +212,34 @@ pieces are already there apart from the middle one.
 - **Version.** `llapi_scan_fid()` is new public API and needs the same
   `sp_size`-style discipline the others have; it takes the existing
   `llapi_scan_param`, so nothing new is versioned.
+
+---
+
+## 7. What ran
+
+Built and run against the local three-node cluster on 2026-08-26, from a
+worktree of this branch on the client, with a two-stripe file carrying project
+id 42. The test asks the *same object* through both entry points with
+`sp_want = ~0ULL`:
+
+```
+	FID [0x200007161:0x7:0x0]
+	--- llapi_scan_namespace(), the reference:
+	  walk      valid=0xf7f9f  LAYOUT=yes (lmmsize=80 stripe_count=2)
+	            PROJID=yes(42)  HSM=yes  MDT_INDEX=yes(0)  parent_fd=5
+	--- llapi_scan_fid():
+	  scan_fid  valid=0xf7f9f  LAYOUT=yes (lmmsize=80 stripe_count=2)
+	            PROJID=yes(42)  HSM=yes  MDT_INDEX=yes(0)  parent_fd=5
+```
+
+**The valid masks are identical**, which is the claim §0 rests on: the record
+is filled the way the walk fills it, layout and project id and HSM state
+included, and not from an `fstat()` that would leave all three clear. The two
+refusals behave as designed as well: a FID that does not resolve comes back
+`-ENOENT`, and `sp_thread_count = 2` comes back `-EINVAL`.
+
+One thing both agree on that is worth not misreading: `LLAPI_SCAN_SIZE` is
+**clear on both**, for a striped regular file whose size is not the MDT's to
+give. That is the walk's existing behaviour and the reason the validity mask
+exists; `lfs find -size` stats the file, which is why `sr_parent_fd` and
+`sr_name` are in the record.
