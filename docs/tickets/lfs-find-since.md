@@ -8,7 +8,7 @@ written and a second one now is, both on branch `lu-20650-since` in
 |---|---|---|
 | `llapi_scan_fid()` | `f1e4165425` | built, reviewed, lab-verified |
 | `lfs find --since` | `5bbf8f6318` | built, reviewed, lab-verified |
-| `lfs find --changelog` | — | not started |
+| `lfs find --changelog` | `7d3a02579f` | built, reviewed, lab-verified except `-type` |
 
 Neither is pushed.
 
@@ -140,3 +140,36 @@ enumeration was walking 64 phantom targets and failing at `testfs-MDT0001`,
 so the command printed the right answer and then exited non-zero. Hiding
 stderr in a test hides the half of the result that says whether to believe the
 other half.
+
+### `--changelog`, and the one thing left in it
+
+Verified on the cluster 2026-08-26. Everything below behaved as §13.1 says:
+
+| | |
+|---|---|
+| `--changelog all --since 2m` | prints the objects with events, and reports *"7 objects have no pathname and are named by FID"* — rule 3 |
+| `-size` without `--resolve` | refused, naming itself and `--resolve` |
+| `-mtime -1` | refused: *"a changelog records an event time, not an object time; say `--since 1d`"* |
+| a subtree path | refused, naming the mount and `--resolve` — rule 2 |
+| `--maxdepth` | refused, noting `--since` honours it |
+| an MDT that does not exist | refused, naming the filesystem |
+| `--resolve -size` | let through, and answers |
+
+**The gap: `-type` under `--changelog` returns nothing** where the design says
+it should match the creations and count the rest undecided. It is not the
+`find_decide()` type check — a fix there never fired, so it was reverted rather
+than left in shared code unverified. The skip happens earlier, in
+`find_prefilter()`: when a coalesced record carries `LLAPI_SCAN_TYPE` at all,
+the prefilter compares it and returns "skip" on a mismatch, and when it does
+not carry it the record reaches `find_decide()` with `stx_mode` zero. Which of
+those two is happening here is the next thing to find out — instrument the
+callback and print `sr_valid` per record.
+
+Everything else in `--changelog` is independent of it and works.
+
+### Also still open
+
+- `--since-cookie`, and the stale-anchor check that belongs with it.
+- No man page or `sanity` case for either flag yet.
+- `--changelog` with `--resolve` merges correctly by construction but has no
+  test that a recorded uid survives the lookup — worth one before push.
