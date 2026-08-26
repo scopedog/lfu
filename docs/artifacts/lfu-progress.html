@@ -1,0 +1,427 @@
+<title>LFU Phase 1 Progress</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap">
+
+<style>
+:root {
+  --paper:      #f6f7f9;
+  --surface:    #ffffff;
+  --surface-2:  #eef1f4;
+  --ink:        #171c22;
+  --ink-soft:   #333c46;
+  --muted:      #5c6672;
+  --rule:       #dde2e8;
+  --rule-soft:  #e8ecf0;
+  --accent:     #0f6f60;
+  --accent-ink: #0a4f44;
+  --accent-bg:  #e4f0ed;
+  --cost:       #8a6320;
+  --cost-bg:    #f6efe1;
+  --old:        #6b7480;
+  --stop:       #8c3227;
+  --stop-bg:    #f7e8e6;
+
+  --f-display: "Archivo", "Helvetica Neue", Arial, sans-serif;
+  --f-body:    "Source Serif 4", Georgia, "Times New Roman", serif;
+  --f-mono:    "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+
+  --measure: 68ch;
+  --s1: .35rem; --s2: .7rem; --s3: 1.15rem; --s4: 1.9rem;
+  --s5: 3rem;   --s6: 4.5rem;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #12161a; --surface: #191e24; --surface-2: #212832;
+    --ink: #e6eaef; --ink-soft: #c3cbd4; --muted: #8e99a6;
+    --rule: #2b333d; --rule-soft: #232a33;
+    --accent: #4fbfa8; --accent-ink: #7fd6c3; --accent-bg: #14312c;
+    --cost: #d2a555; --cost-bg: #322815; --old: #8b95a2;
+    --stop: #e08b7f; --stop-bg: #33201d;
+  }
+}
+:root[data-theme="dark"] {
+  --paper: #12161a; --surface: #191e24; --surface-2: #212832;
+  --ink: #e6eaef; --ink-soft: #c3cbd4; --muted: #8e99a6;
+  --rule: #2b333d; --rule-soft: #232a33;
+  --accent: #4fbfa8; --accent-ink: #7fd6c3; --accent-bg: #14312c;
+  --cost: #d2a555; --cost-bg: #322815; --old: #8b95a2;
+  --stop: #e08b7f; --stop-bg: #33201d;
+}
+
+* { box-sizing: border-box; }
+body {
+  background: var(--paper); color: var(--ink); font-family: var(--f-body);
+  font-size: 17px; line-height: 1.62; margin: 0;
+  -webkit-font-smoothing: antialiased;
+}
+.page {
+  max-width: 1180px; margin: 0 auto; padding: var(--s5) var(--s3) var(--s6);
+  display: grid; grid-template-columns: 1fr; gap: var(--s4);
+}
+@media (min-width: 1000px) {
+  .page { grid-template-columns: 200px minmax(0, 1fr); gap: var(--s5); padding-top: var(--s6); }
+}
+.rail { font-family: var(--f-display); font-size: .8rem; }
+@media (min-width: 1000px) { .rail { position: sticky; top: var(--s4); align-self: start; } }
+.rail-title {
+  font-size: .68rem; letter-spacing: .13em; text-transform: uppercase;
+  color: var(--muted); font-weight: 600;
+  padding-bottom: var(--s2); border-bottom: 1px solid var(--rule); margin-bottom: var(--s2);
+}
+.rail ol { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: .28rem; }
+.rail a {
+  color: var(--muted); text-decoration: none; display: block;
+  padding: .22rem 0; border-left: 2px solid transparent; padding-left: .6rem;
+  transition: color .15s, border-color .15s;
+}
+.rail a:hover, .rail a:focus-visible { color: var(--accent); border-left-color: var(--accent); }
+
+.masthead { border-bottom: 2px solid var(--ink); padding-bottom: var(--s3); margin-bottom: var(--s4); }
+.eyebrow {
+  font-family: var(--f-display); font-size: .7rem; font-weight: 600;
+  letter-spacing: .15em; text-transform: uppercase; color: var(--accent); margin: 0 0 var(--s2);
+}
+h1 {
+  font-family: var(--f-display); font-weight: 700;
+  font-size: clamp(2rem, 5vw, 3.1rem); line-height: 1.04;
+  letter-spacing: -.022em; margin: 0 0 var(--s2); text-wrap: balance;
+}
+.standfirst { font-size: 1.16rem; color: var(--ink-soft); max-width: var(--measure); margin: 0; text-wrap: pretty; }
+.byline {
+  font-family: var(--f-mono); font-size: .76rem; color: var(--muted);
+  margin-top: var(--s3); display: flex; flex-wrap: wrap; gap: var(--s3);
+}
+
+section { margin-bottom: var(--s5); scroll-margin-top: var(--s3); }
+h2 {
+  font-family: var(--f-display); font-weight: 600; font-size: 1.55rem;
+  letter-spacing: -.012em; line-height: 1.15; margin: 0 0 var(--s3);
+  padding-bottom: var(--s2); border-bottom: 1px solid var(--rule); text-wrap: balance;
+}
+h3 {
+  font-family: var(--f-display); font-weight: 600; font-size: 1.02rem;
+  letter-spacing: .005em; margin: var(--s4) 0 var(--s2); color: var(--ink);
+}
+p { max-width: var(--measure); margin: 0 0 var(--s3); text-wrap: pretty; }
+ul { max-width: var(--measure); padding-left: 1.2rem; margin: 0 0 var(--s3); }
+li { margin-bottom: var(--s1); }
+a { color: var(--accent); text-underline-offset: 2px; }
+strong { font-weight: 600; color: var(--ink); }
+code { font-family: var(--f-mono); font-size: .87em; background: var(--surface-2); padding: .1em .34em; border-radius: 3px; }
+
+.scores { display: grid; gap: var(--s2); grid-template-columns: repeat(2, 1fr); margin: 0 0 var(--s4); }
+@media (min-width: 760px) { .scores { grid-template-columns: repeat(4, 1fr); } }
+.score { background: var(--surface); border: 1px solid var(--rule); border-top: 3px solid var(--accent); border-radius: 4px; padding: var(--s3) var(--s2); }
+.score .n { font-family: var(--f-mono); font-size: 1.9rem; font-weight: 600; color: var(--accent-ink); display: block; line-height: 1; font-variant-numeric: tabular-nums; }
+.score .l { font-size: .78rem; color: var(--muted); display: block; margin-top: var(--s1); line-height: 1.35; }
+.score.q { border-top-color: var(--old); }
+.score.q .n { color: var(--old); }
+
+.tw { overflow-x: auto; margin: 0 0 var(--s3); border: 1px solid var(--rule); border-radius: 5px; background: var(--surface); }
+table { border-collapse: collapse; width: 100%; font-size: .87rem; }
+th, td { text-align: left; padding: .62rem var(--s3); border-bottom: 1px solid var(--rule-soft); vertical-align: top; }
+th {
+  font-family: var(--f-display); font-size: .7rem; font-weight: 600;
+  letter-spacing: .1em; text-transform: uppercase; color: var(--muted);
+  background: var(--surface-2); white-space: nowrap;
+}
+tbody tr:last-child td { border-bottom: none; }
+td.num { font-family: var(--f-mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.tw code { background: none; padding: 0; }
+tr.grp td {
+  background: var(--surface-2); font-family: var(--f-display); font-size: .7rem;
+  font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--muted);
+}
+
+.chip {
+  font-family: var(--f-display); font-size: .66rem; font-weight: 600;
+  letter-spacing: .07em; text-transform: uppercase; white-space: nowrap;
+  padding: .16rem .45rem; border-radius: 3px; display: inline-block;
+}
+.chip.rev  { background: var(--accent-bg); color: var(--accent-ink); }
+.chip.none { background: var(--surface-2); color: var(--muted); }
+.chip.p2   { background: var(--cost-bg);   color: var(--cost); }
+.chip.ext  { background: var(--stop-bg);   color: var(--stop); }
+
+.note {
+  border-left: 3px solid var(--accent); background: var(--accent-bg);
+  padding: var(--s3); border-radius: 0 4px 4px 0; margin: 0 0 var(--s3); max-width: var(--measure);
+}
+.note.cost { border-left-color: var(--cost); background: var(--cost-bg); }
+.note p:last-child { margin-bottom: 0; }
+.note .lbl {
+  font-family: var(--f-display); font-size: .68rem; font-weight: 600;
+  letter-spacing: .12em; text-transform: uppercase; color: var(--accent-ink);
+  display: block; margin-bottom: var(--s1);
+}
+.note.cost .lbl { color: var(--cost); }
+
+footer { border-top: 1px solid var(--rule); padding-top: var(--s3); font-family: var(--f-mono); font-size: .74rem; color: var(--muted); }
+footer p { max-width: none; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+</style>
+
+<div class="page">
+
+<nav class="rail" aria-label="Sections">
+  <div class="rail-title">Contents</div>
+  <ol>
+    <li><a href="#state">Where it stands</a></li>
+    <li><a href="#modules">The HLD modules</a></li>
+    <li><a href="#perf">The performance target</a></li>
+    <li><a href="#extra">Beyond the HLD</a></li>
+    <li><a href="#left">What Phase 1 still owes</a></li>
+    <li><a href="#p2">Phase 2</a></li>
+    <li><a href="#risks">What could go wrong</a></li>
+  </ol>
+</nav>
+
+<main>
+
+<header class="masthead">
+  <p class="eyebrow">LU-20462 &middot; progress against the HLD &middot; 2026-08-26</p>
+  <h1>LFU Phase 1</h1>
+  <p class="standfirst">
+    Every module the HLD names as initial and client- or device-side is written
+    and in review. What is left in Phase 1 is the stream format, the modules
+    that depend on it, and the indexes &mdash; and the format decision is not
+    ours to make.
+  </p>
+  <p class="byline">
+    <span>Phase 1 &mdash; userspace &mdash; Lustre 2.18</span>
+    <span>19 changes on Gerrit</span>
+  </p>
+</header>
+
+<section id="state">
+  <h2>Where it stands</h2>
+  <div class="scores">
+    <div class="score"><span class="n">19</span><span class="l">changes in review</span></div>
+    <div class="score"><span class="n">8</span><span class="l">LU tickets, all In&nbsp;Progress</span></div>
+    <div class="score"><span class="n">4</span><span class="l">upstream bugs found and fixed on the way</span></div>
+    <div class="score q"><span class="n">0</span><span class="l">landed &mdash; none has been merged yet</span></div>
+  </div>
+  <p>
+    The number that matters is the last one. Everything below is <em>written,
+    built, lab-verified and posted for review</em>; nothing has been merged.
+    Fifteen of the nineteen changes are LFU feature work, and four are
+    pre-existing upstream defects found while building on the code and fixed
+    separately rather than folded in.
+  </p>
+  <div class="note">
+    <span class="lbl">The four bugs are worth counting as output</span>
+    <p>
+      LU-20624 (a stale descriptor in <code>cb_get_dirstripe</code>), LU-20643
+      (<code>lfs find</code> answering <code>-btime</code> from a reused
+      buffer), LU-20647 (a plainly registered changelog user could not be
+      looked up at all) and LU-20648 (<code>--mask</code> silently dropped for
+      a user who has none). None was introduced by this work. Three of the four
+      were found by reading the code the scanner was being built on; the fourth
+      by the first lab run of the changelog module.
+    </p>
+  </div>
+</section>
+
+<section id="modules">
+  <h2>The HLD modules, one by one</h2>
+  <p>
+    The HLD names three core module types and then lists the specific modules
+    under Server-Side and Client-Side changes. This is all of them.
+  </p>
+  <div class="tw">
+    <table>
+      <thead><tr><th>Module</th><th>Status</th><th>Where</th></tr></thead>
+      <tbody>
+        <tr class="grp"><td colspan="3">Base requirements</td></tr>
+        <tr><td>Modular architecture &mdash; Input Scanner / Filter Rule / Output Format</td><td><span class="chip rev">in review</span></td><td>the three types are real and separable: four input scanners, <code>find_decide()</code> as the filter, the output half of <code>lfs find</code></td></tr>
+        <tr><td>Efficient binary data exchange &mdash; the Object Stream format</td><td><span class="chip ext">not ours</span></td><td>FlatBuffers vs Cap'n Proto, taken off our plate 2026-08-19; evaluation not started</td></tr>
+        <tr><td>Scanning and filtering performance &mdash; 1M obj/s/MDT</td><td><span class="chip rev">met</span></td><td>1,435,080 obj/s measured; see below for the condition</td></tr>
+        <tr><td>No dependence on an external database</td><td><span class="chip rev">held</span></td><td>nothing in the design or the code introduces one</td></tr>
+
+        <tr class="grp"><td colspan="3">Server-side changes</td></tr>
+        <tr><td>ldiskfs Device Input Scanner</td><td><span class="chip rev">in review</span></td><td>68156 &mdash; LU-20606</td></tr>
+        <tr><td>Changelog Input Scanner</td><td><span class="chip rev">in review</span></td><td>68415 &mdash; LU-20649</td></tr>
+        <tr><td>Changelog Output Filter</td><td><span class="chip none">not started</span></td><td>designed and partly <em>refused</em>: the MDS has only SOM, so a size filter there would drop big files</td></tr>
+        <tr><td>Index Input Scanner &mdash; OST object index, oldest atime, largest file</td><td><span class="chip none">not started</span></td><td>&mdash;</td></tr>
+        <tr><td>Binary Object Stream format</td><td><span class="chip ext">not ours</span></td><td>blocks the RPC modules and every cross-node use</td></tr>
+        <tr><td>OSD API Input Scanner</td><td><span class="chip p2">Phase 2</span></td><td>prototyped and measured, not submitted</td></tr>
+        <tr><td>Kernel API for Object Stream &mdash; the <code>circ_buf</code> ring</td><td><span class="chip p2">Phase 2</span></td><td>designed against <code>ofd_access_log.c</code> as precedent</td></tr>
+        <tr><td>Server Bulk RPC Filter Rule</td><td><span class="chip p2">Phase 2</span></td><td>needs the format first</td></tr>
+
+        <tr class="grp"><td colspan="3">Client-side changes</td></tr>
+        <tr><td>Lustre Namespace Input Scanner</td><td><span class="chip rev">in review</span></td><td>68094 &mdash; LU-20603</td></tr>
+        <tr><td><code>lfs find</code> Filter Rule and Output Format</td><td><span class="chip rev">in review</span></td><td>68095, 68157, 68158, 68159 &mdash; LU-20605, LU-20611</td></tr>
+        <tr><td>FID &rarr; pathname Output Format</td><td><span class="chip rev">in review</span></td><td>68288 &mdash; LU-20637</td></tr>
+        <tr><td>POSIX Input Scanner</td><td><span class="chip none">not started</span></td><td>the namespace walk now survives crossing onto non-Lustre, which is not the same thing</td></tr>
+        <tr><td>Client Bulk RPC Filter Rule</td><td><span class="chip p2">Phase 2</span></td><td>needs the format first</td></tr>
+
+        <tr class="grp"><td colspan="3">Future improvements, per the HLD</td></tr>
+        <tr><td>Structured output formats &mdash; JSON, BSON, Parquet</td><td><span class="chip none">not started</span></td><td>&mdash;</td></tr>
+        <tr><td>Internal indexes, maintained by the MDS</td><td><span class="chip none">not started</span></td><td>&mdash;</td></tr>
+        <tr><td>Persistent aggregates</td><td><span class="chip none">not started</span></td><td>the HLD itself suggests integrating with GUFI instead</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section id="perf">
+  <h2>The performance target, and the condition on it</h2>
+  <p>
+    The HLD asks for <strong>1M objects/s per MDT, assuming at least 1&nbsp;GiB/s
+    read on the MDT device, exclusive of pathname generation</strong>. Measured
+    on 2026-08-16 against exactly that, on a 1,406&nbsp;MB/s NVMe stripe with
+    20M objects:
+  </p>
+  <div class="tw">
+    <table>
+      <thead><tr><th>&nbsp;</th><th>Rate</th><th>4&times;10<sup>9</sup> objects</th></tr></thead>
+      <tbody>
+        <tr><td>The userspace device scanner</td><td class="num">1,435,080 obj/s</td><td class="num">0.78 h</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>
+    That is <strong>93% of the raw device</strong>, from a single thread,
+    because <code>ext2fs_inode_scan</code> reads a block group's inode table in
+    long sequential runs.
+  </p>
+  <div class="note cost">
+    <span class="lbl">The condition is the part to carry forward</span>
+    <p>
+      93% of the device means the scanner effectively <em>has</em> the device.
+      That holds for an unmounted target, a snapshot, or a failover partner's
+      LUN. On a serving MDT the scan shares bandwidth with the MDT's own I/O
+      and gets proportionally less; on a snapshot it pays copy-on-write
+      indirection on top. Phase 2 does not fix this &mdash; the in-kernel
+      scanner reaches 99% of the same device, and the device is the ceiling
+      either way.
+    </p>
+  </div>
+</section>
+
+<section id="extra">
+  <h2>Built beyond what the HLD asked for</h2>
+  <p>
+    Three pieces exist that the HLD does not name, each because building the
+    named ones made the gap obvious.
+  </p>
+  <div class="tw">
+    <table>
+      <thead><tr><th>&nbsp;</th><th>Why</th><th>Where</th></tr></thead>
+      <tbody>
+        <tr><td><code>lfind(8)</code></td><td>the HLD names a device scanner but no command to drive it</td><td>68160</td></tr>
+        <tr><td>ZFS backend for the device scanner</td><td>the HLD's device scanner is ldiskfs only; a ZFS site would have had nothing</td><td>68163 &mdash; LU-20613</td></tr>
+        <tr><td><code>lfs find --since</code>, <code>--changelog</code>, <code>--since-cookie</code></td><td>the Changelog Input Scanner has no user without them</td><td>68416&ndash;68420 &mdash; LU-20650</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>
+    The last of those is the one worth explaining. A changelog answers <em>what
+    happened</em>, never what exists, so it reaches a user two ways:
+    <code>--since</code> treats the log as a candidate set and verifies each hit
+    against the live object, and <code>--changelog</code> reads the log and
+    nothing else. The first answers <em>as it is now</em>, the second <em>as it
+    was recorded</em> &mdash; which is why an object deleted during the window
+    appears under one and cannot under the other.
+  </p>
+</section>
+
+<section id="left">
+  <h2>What Phase 1 still owes</h2>
+  <p>
+    Four things, in the order they block each other.
+  </p>
+  <div class="tw">
+    <table>
+      <thead><tr><th>#</th><th>Item</th><th>Blocked by</th></tr></thead>
+      <tbody>
+        <tr><td class="num">1</td><td><strong>Object Stream binary format</strong></td><td>a decision that is not ours; evaluation not started. Blocks 2 and every cross-node use</td></tr>
+        <tr><td class="num">2</td><td><strong>Merge / Split Filter Rule</strong> &mdash; this is what covers a DNE filesystem</td><td>partly the format. Without it <code>lfind</code> does one target per invocation and nothing assembles the whole namespace</td></tr>
+        <tr><td class="num">3</td><td><strong>Raw Write / Raw Read</strong> &mdash; persist the stream and read it back</td><td>the format. It is also how multi-node merge works before any RPC exists</td></tr>
+        <tr><td class="num">4</td><td><strong>Changelog Output Filter</strong>, and the three indexes</td><td>nothing external &mdash; simply not started</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>
+    Also open on the epic and untouched: <strong>LU-20602</strong>, MDT-internal
+    objects carrying no LMA flag to mark them internal &mdash; which is why a
+    target scan cannot cleanly tell a user's object from the filesystem's own.
+  </p>
+</section>
+
+<section id="p2">
+  <h2>Phase 2, deliberately untouched</h2>
+  <p>
+    Phase 2 is the in-kernel half, for 2.19: the OSD API Input Scanner, the
+    <code>circ_buf</code> kernel&rarr;userspace ring, and the bulk RPC modules
+    on both sides. None of it is submitted, and that is the plan rather than a
+    slip.
+  </p>
+  <p>
+    Two things about it are already known rather than assumed. The OSD scanner
+    has been <strong>prototyped and measured</strong> &mdash; 2.03M obj/s on
+    ldiskfs with private per-shard iterators, against 705k for the userspace
+    scanner on the same warm cache. And the ring has a working precedent in
+    tree: <code>lustre/ofd/ofd_access_log.c</code> already exports the OST
+    access log kernel&rarr;userspace with exactly the
+    <code>circ_buf</code> plus <code>.read</code> plus <code>.poll</code>
+    structure the HLD asks for, so it is a pattern to copy rather than invent.
+  </p>
+  <div class="note cost">
+    <span class="lbl">One phrase in the epic needs qualifying</span>
+    <p>
+      The epic lists <em>"zero-copy lockless ring-buffer kernel&rarr;userspace
+      export"</em>. <strong>Lockless, yes.</strong> Zero-copy is aspirational
+      as written: the in-tree precedent uses <code>.read</code>, which copies
+      once from the ring into the user buffer. Genuine zero-copy needs
+      <code>.mmap</code> of the ring pages with head and tail in a shared
+      control page &mdash; more work and more attack surface, and worth
+      measuring against the <code>read()</code> path before committing to it.
+      The requirements rank zero-copy export only Medium, below the scanner
+      itself.
+    </p>
+  </div>
+</section>
+
+<section id="risks">
+  <h2>What could go wrong</h2>
+  <div class="tw">
+    <table>
+      <thead><tr><th>Risk</th><th>Shape of it</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><strong>Nothing has landed</strong></td>
+          <td>Nineteen changes in review is the largest the series has been, and 2.18 is a deadline rather than a sequence. The argument for landing pieces one at a time gets stronger, not weaker, as the stack grows.</td>
+        </tr>
+        <tr>
+          <td><strong>The format decision is external</strong></td>
+          <td>Three of the four remaining Phase 1 items sit behind it, and its evaluation has not started. Nothing we do moves it.</td>
+        </tr>
+        <tr>
+          <td><strong>DNE is not covered</strong></td>
+          <td>Without Merge/Split, a device scan is per-target. Anyone testing <code>lfind</code> on a multi-MDT filesystem will find that out quickly, and it will read as a defect rather than as a module that is not written yet.</td>
+        </tr>
+        <tr>
+          <td><strong>Three sanity cases are unrun</strong></td>
+          <td>160aa, 160ab and 160ac assert behaviour verified by hand on a cluster, but the test framework has never run them. The first autotest pass is where framework-level mistakes in them will surface.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<footer>
+  <p>
+    Sources: <code>Lustre_Find_Utility-High_Level_Design.pdf</code> v0.2
+    (Dilger 2026-04-03, Blagodarenko 2026-08-08);
+    <a href="https://jira.whamcloud.com/browse/LU-20462">LU-20462</a> and its
+    nine subtasks; the Gerrit board as of 2026-08-26.
+    Performance figures from <code>measurements/cold-on-fast-storage-2026-08-16.md</code>
+    and <code>measurements/blockparse-2026-08-16.md</code>.
+  </p>
+</footer>
+
+</main>
+</div>
