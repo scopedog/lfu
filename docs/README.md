@@ -10,6 +10,22 @@ corrected and says so. When a design document is overtaken wholesale, it moves
 to `superseded/` with a banner naming what replaced it. Nothing is deleted —
 the reason a number changed is often more useful than the number.
 
+## The two phases
+
+| | | |
+|---|---|---|
+| **Phase 1** | userspace design and implementation | Lustre **2.18** |
+| **Phase 2** | in-kernel design and implementation | Lustre **2.19** |
+
+Everything on Gerrit today is Phase 1. Phase 2 is the OSD API scanner, the
+`circ_buf` kernel→userspace ring, bulk RPC and `OBD_CONNECT2_LFU` — and it sits
+behind a wire-format decision that is not ours.
+
+Note that [`design-lfs-find-on-scan.md`](design-lfs-find-on-scan.md) uses
+"phase" for the eight stages of the find pipeline, which is a different and
+much older use of the word. Where both could be meant, this documentation says
+*Phase 1* for the release track and *stage* for the pipeline.
+
 ## Design — current, maintained
 
 | Document | What it covers |
