@@ -1,11 +1,13 @@
-# LU-XXXXX — `lfs find --since` and `--changelog`
+# LU-20650 — `lfs find --since` and `--changelog`
 
-**Status:** drafted 2026-08-26, not yet filed. One of the three pieces is
-already written: `llapi_scan_fid()` is `c3cf4c1073` on branch
-`lu-20649-scan-fid`, currently mislabelled LU-20649 and to be retitled to this
-number once it exists.
+**Status:** filed as LU-20650 on 2026-08-26. One of the three pieces is
+written: `llapi_scan_fid()` is `4a0e0d8b8a` on branch `lu-20650-scan-fid`,
+retitled from LU-20649 with its Change-Id
+(`I796db84d3fe596b1cfa93658dcfeb240db8e33a5`) intact. `--since` and
+`--changelog` are next. Not yet pushed.
 
-**Jira:** to be filed · **Type:** Technical task (as LU-20603, LU-20605,
+**Jira:** [LU-20650](https://jira.whamcloud.com/browse/LU-20650) ·
+**Type:** Technical task (as LU-20603, LU-20605,
 LU-20611, LU-20613, LU-20649 are) · **Epic:** LU-20462 · **Relates to:**
 LU-20605 (which made `find_decide()` take a record) and LU-20649 (which reads
 the changelog into one)
@@ -76,13 +78,14 @@ h3. Acceptance
 
 ## Notes for us, not for the ticket
 
-### The retitle
+### The retitle — done
 
-`c3cf4c1073` carries `LU-20649` in its subject and should not: LU-20649 is
-filed as the changelog *library* half, and its own description says "This is
-the library half only. `lfs find --since` and `lfs find --changelog` are a
-separate change." Retitle to this ticket once it has a number. The Change-Id
-`I796db84d3fe596b1cfa93658dcfeb240db8e33a5` stays, so nothing is lost.
+The commit carried `LU-20649` and should not have: LU-20649 is filed as the
+changelog *library* half, and its own description says "This is the library
+half only. `lfs find --since` and `lfs find --changelog` are a separate
+change." Retitled to LU-20650 on 2026-08-26, branch renamed
+`lu-20649-scan-fid` → `lu-20650-scan-fid`, Change-Id unchanged so Gerrit sees
+one change and not two.
 
 ### Why not LU-20605
 
