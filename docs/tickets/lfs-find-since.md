@@ -161,7 +161,8 @@ Verified on the cluster 2026-08-26. Everything below behaved as §13.1 says:
 
 ### Also still open
 
-- No man page or `sanity` case for any of the three flags yet.
+- **The three `sanity` cases have not been run by the test framework.** See
+  below.
 - `--changelog` with `--resolve` merges correctly by construction but has no
   test that a recorded uid survives the lookup — worth one before push.
 
@@ -245,3 +246,41 @@ into a reproducible off-by-one.
 Two more things review caught before it ran: `sscanf("%s")` into a fixed buffer
 from a file the caller controls, and a cookie from another filesystem being
 accepted as an anchor for this one.
+
+---
+
+## Man page and tests — `d1b91aafd5`
+
+`lfs-find.1` documents `--since`, `--since-cookie`, `--changelog` and
+`--resolve`: what each answers, that `--since` is a strict subset of the same
+search without it, that a bare index belongs to one MDT, that a number which
+could be an index or an epoch second is never guessed at, and that reading a
+changelog neither consumes it nor needs a registered user — while records exist
+only while some user is registered. It renders clean under `man --warnings`,
+and `checkpatch-man` reports only the file's pre-existing `BASH COMPLETION`
+section name.
+
+Three cases: **160aa** asserts the property rather than a filename — that
+`--since`'s answer is a subset of the same find without it, and smaller — so it
+does not depend on what else the filesystem is doing. **160ab** walks the five
+refusals and then shows `--resolve` letting `-size` through. **160ac** runs the
+cookie three times, then a stale anchor and both anchors together.
+
+`160ac` asks for creations only. A wide mask records the test's own reads, and
+then "nothing changed since" is never true — which is exactly what hid the
+cookie's off-by-one. Verified against the MDT that `changelog_mask=creat`
+yields `MARK CREAT`, which is what the test needs.
+
+### The caveat that matters
+
+**These three have not been run by `sanity.sh`.** The cluster has never had the
+test framework on it — only the stock `cfg/local.sh`, no config naming our three
+nodes, no `/tmp/test_logs` — and standing it up means letting the framework
+mount and reformat the filesystem, which is its own piece of work.
+
+What *is* verified: every behaviour the three assert was exercised by hand
+against this cluster while the flags were being written, and `bash -n` parses.
+What is **not**: the framework interaction — helper semantics, `stack_trap`
+ordering, `error` usage, whether `comm` with process substitution behaves inside
+a test function. Those are exactly the mistakes a first autotest run finds, and
+this series has ten of them behind it to say that is not a hypothetical.
