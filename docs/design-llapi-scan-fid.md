@@ -1,7 +1,7 @@
 # `llapi_scan_fid()` — filling a record for one FID
 
-**Date:** 2026-08-26 · **Status:** design **v0.2**, and *implemented* —
-`c3cf4c1073` on branch `lu-20649-scan-fid`, lab-verified ·
+**Date:** 2026-08-26 · **Status:** design **v0.3**, and *implemented* —
+`f1e4165425` on branch `lu-20650-scan-fid` (LU-20650), lab-verified ·
 **Parent architecture:** [`architecture.md`](architecture.md) ·
 **Blocks:** `lfs find --since` and `lfs find --changelog --resolve`, steps 4–5
 of [`design-changelog-scanner.md`](design-changelog-scanner.md).
@@ -135,6 +135,14 @@ int llapi_scan_fid(int mnt_fd, const char *mnt_path, const struct lu_fid *fid,
 		   llapi_scan_cb_t cb, void *data);
 ```
 
+**`mnt_path` is required, corrected in v0.3.** Reviewing the code found the
+call accepting `mnt_path == NULL` the way `llapi_scan_rec_path()` does, and
+falling back to a filesystem-root-relative path. That sibling only *formats* a
+name for the caller to read; this one **opens** it, so a root-relative path
+names whatever sits in the same place under `/` — usually nothing, and an
+`-ENOENT` that means "the FID has no pathname" when the FID resolved perfectly
+well. NULL is refused with `-EINVAL`.
+
 **`mnt_path` as well as `mnt_fd`, corrected in v0.2.** v0.1 proposed `mnt_fd`
 alone. Writing it showed why that cannot work: `fid2path` answers *relative to
 the filesystem root*, and `scan_rec_gather()` needs a pathname it can
@@ -243,3 +251,26 @@ One thing both agree on that is worth not misreading: `LLAPI_SCAN_SIZE` is
 give. That is the walk's existing behaviour and the reason the validity mask
 exists; `lfs find -size` stats the file, which is why `sr_parent_fd` and
 `sr_name` are in the record.
+
+### v0.3, after the code review
+
+Re-reading the diff — the routine's step 4, which the first pass skipped —
+found two things:
+
+1. **`mnt_path == NULL` was accepted** and produced a path that names a
+   different object. Now `-EINVAL`. Verified on the lab: it returns `-22`
+   rather than a misleading `-ENOENT`.
+2. **`sp_flags` was accepted and then ignored** — the silent-ignore this call
+   explicitly refuses for `sp_thread_count`. Kept as accepted-and-ignored
+   rather than refused, because `--since` shares one parameter block between
+   the walk and the per-FID fill and refusing `LLAPI_SCAN_F_STOP_ON_ERROR`
+   there would be hostile; but it is now **documented as ignored** in both the
+   header comment and the man page, which is what was missing.
+
+The re-run on the fixed code reproduces §7 exactly — identical valid masks —
+and adds the third refusal:
+
+```
+	--- NULL mnt_path (expect EINVAL, not a wrong object):
+	  rc=-22 (Invalid argument)
+```
