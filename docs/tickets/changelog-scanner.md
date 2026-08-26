@@ -22,15 +22,13 @@ llapi: read an MDT changelog as a stream of scan records
 
 ## Description (paste verbatim into Jira)
 
-The two scanners LFU has so far enumerate what *exists*: a namespace walk
-(LU-20603) and a target scan (LU-20606, LU-20613). A changelog enumerates what
-*happened*. Delivering it in the same {{struct llapi_scan_rec}} means a
-consumer written against {{llapi_scan_namespace()}} or
-{{llapi_scan_device()}} can be fed by a delta without being rewritten, which
-is the same argument the record was introduced for.
+LFU's two scanners enumerate what *exists*: a namespace walk (LU-20603) and a
+target scan (LU-20606, LU-20613). A changelog enumerates what *happened*.
+Delivering it in the same {{struct llapi_scan_rec}} means a consumer written
+against either can be fed by a delta without being rewritten.
 
-This is the library half only. What it makes possible on the command line is
-{{lfs find --since}} and {{lfs find --changelog}}, which are a separate change.
+This is the library half only.
+{{lfs find --since}} and {{lfs find --changelog}} are a separate change.
 
 h3. The interface
 
@@ -39,70 +37,58 @@ New {{lustre/utils/liblustreapi_scan_changelog.c}}, one exported call:
 {noformat}
 	int llapi_scan_changelog(const struct llapi_scan_changelog_param *sc,
 				 llapi_scan_cb_t cb, void *data);
+
+	LLAPI_SCAN_CL_F_FOLLOW    /* wait at the end of the log */
+	LLAPI_SCAN_CL_F_COALESCE  /* one record per object, not per event */
+	LLAPI_SCAN_CL_F_RESOLVE   /* fill what the log lacks */
+	LLAPI_SCAN_CL_F_CLEAR     /* destructive; off by default */
 {noformat}
 
-The parameter block is versioned by {{sc_size}} the way the other scanners'
-are, and names the MDT, the registered user, a record range, a type mask, and
-a demand mask:
+The parameter block is versioned by {{sc_size}} like the other scanners', and
+names the MDT, the registered user, a record range, a type mask and a demand
+mask.
 
-{noformat}
-	#define LLAPI_SCAN_CL_F_FOLLOW    /* wait at the end of the log */
-	#define LLAPI_SCAN_CL_F_COALESCE  /* one record per object */
-	#define LLAPI_SCAN_CL_F_RESOLVE   /* fill what the log lacks */
-	#define LLAPI_SCAN_CL_F_CLEAR     /* destructive; off by default */
-{noformat}
-
-h3. What a changelog answers for, and what it does not
+h3. What it answers for
 
 A record carries the FID, the parent FID, the name, the event and its time,
-and, where the server recorded them, the uid and gid. It carries no size,
-mode, times, layout or HSM state at any setting, so those arrive absent with
-their {{sr_valid}} bit clear rather than as zeroes.
-
-{{LLAPI_SCAN_CL_F_RESOLVE}} fills them by opening the object through a client
-mount, one open and one stat each. The demand mask decides whether that
-happens at all, so a consumer reading only what an event carries pays nothing.
-Resolution *fills what the stream lacks and never restates what it has*, which
-is what lets a caller ask what an event recorded rather than what is true now.
+and, where the server recorded them, the uid and gid. Size, mode, times,
+layout and HSM state are not in a changelog at any setting, so they arrive
+absent with their {{sr_valid}} bit clear rather than as zeroes.
+{{LLAPI_SCAN_CL_F_RESOLVE}} fills them through a client mount, one open and
+one stat each, and the demand mask decides whether that happens at all.
+Resolution fills what the stream lacks and never restates what it has, so a
+caller can ask what an event recorded rather than what is true now.
 
 The record gains {{sr_event_type}}, {{_flags}}, {{_time}}, {{_index}} and
-{{_prev}}, the rename source, and a job id, behind three new validity bits. An
-event time is not an object time, so it does not land in {{sr_mtime}}: a search
-asking for one must not be handed the other.
+{{_prev}}, the rename source and a job id, behind three new validity bits. An
+event time is not an object time, so it does not land in {{sr_mtime}}.
 
-h3. Two modes
+Object mode holds events in a FID-keyed cache and delivers one record per
+object once it has been quiet, so a file written a hundred times is one record
+and one lookup rather than a hundred of each.
 
-Event mode delivers one record per event, in order. Object mode holds events
-in a FID-keyed cache and delivers one record per object once it has been
-quiet, so a file written a hundred times is one record and one lookup rather
-than a hundred of each.
-
-h3. Clearing
-
-Off by default, and it never runs ahead of the callback. Clearing is
-irreversible and it purges the registered user's whole backlog, not this
-reader's alone. Registering that user stays the caller's business, since
-registering without consuming is how an MDT fills up.
+Clearing is off by default and never runs ahead of the callback: it is
+irreversible and purges the registered user's whole backlog, not this reader's
+alone. Registering that user stays the caller's, since registering without
+consuming is how an MDT fills up.
 
 h3. What ran
 
-First run against a real changelog on a single-node lab, 2026-08-25, built on
-the LU-20462 series:
+First run against a real changelog, single-node lab, 2026-08-25:
 
 {noformat}
-	99 records delivered, 97 with a FID, 48 with a name, last index 185
-	99 events coalesce to 45 objects in object mode
+	99 records delivered, 97 with a FID, 48 with a name
+	99 events coalesce to 45 objects
 	0 objects resolved when unasked, 69 of 99 when asked
-	a consumer stopping early gets its own return value back
+	an early stop returns the consumer's own value
 	seven malformed parameter blocks refused with -EINVAL
 {noformat}
 
 The two records without a FID are the rename pair, whose {{cr_tfid}} is zero.
 
-h3. What comes with it
-
-* {{Documentation/man3/llapi_scan_changelog.3}}
-* {{lustre/tests/llapi_scan_changelog_test.c}}, the program that produced the numbers above
+Also adds {{Documentation/man3/llapi_scan_changelog.3}} and
+{{lustre/tests/llapi_scan_changelog_test.c}}, the program that produced those
+numbers.
 
 ---
 
