@@ -1,10 +1,16 @@
 # LU-20650 — `lfs find --since` and `--changelog`
 
 **Status:** filed as LU-20650 on 2026-08-26. One of the three pieces is
-written: `llapi_scan_fid()` is `4a0e0d8b8a` on branch `lu-20650-scan-fid`,
-retitled from LU-20649 with its Change-Id
-(`I796db84d3fe596b1cfa93658dcfeb240db8e33a5`) intact. `--since` and
-`--changelog` are next. Not yet pushed.
+written and a second one now is, both on branch `lu-20650-since` in
+`~/projects/lustre/lustre-scanfid`:
+
+| | commit | state |
+|---|---|---|
+| `llapi_scan_fid()` | `f1e4165425` | built, reviewed, lab-verified |
+| `lfs find --since` | `5bbf8f6318` | built, reviewed, lab-verified |
+| `lfs find --changelog` | — | not started |
+
+Neither is pushed.
 
 **Jira:** [LU-20650](https://jira.whamcloud.com/browse/LU-20650) ·
 **Type:** Technical task (as LU-20603, LU-20605,
@@ -107,3 +113,30 @@ link.
   items the 2026-08-26 meeting was to settle.
 - **`llapi_scan_changelog_test` is still not wired into a suite** — LU-20649's
   problem, but a reviewer meeting both at once will ask.
+
+### What `--since` does and does not do yet
+
+Verified on the cluster 2026-08-26: against 7 regular files of which 2 changed
+inside the window, `--since 4s -type f` returned exactly those 2 — a strict
+subset — with `rc=0`; the subtree restriction held; a bare index was accepted
+on the single-MDT filesystem and returned all 7; and `-type d` over the same
+window answered for directories.
+
+Not done, and known:
+
+- **`--changelog`** — the event view, with §13.1's three rules.
+- **`--since-cookie`** — the machine spelling, and where the stale-anchor
+  check belongs.
+- **A time anchor reads the log from its oldest surviving record** and cuts on
+  the record's own event time, because a time cannot become a per-MDT index
+  without reading it. Correct, and O(log) rather than O(window).
+- **No man page or `sanity` case yet** for `--since` itself.
+
+### A trap the lab set for me
+
+The first run of the `--since` test piped stderr to `/dev/null`, and the
+output looked perfect: exactly the two changed files. It was wrong. The MDT
+enumeration was walking 64 phantom targets and failing at `testfs-MDT0001`,
+so the command printed the right answer and then exited non-zero. Hiding
+stderr in a test hides the half of the result that says whether to believe the
+other half.
