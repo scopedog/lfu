@@ -1,0 +1,891 @@
+<title>llapi_scan_namespace</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap">
+
+<style>
+:root {
+  --paper:      #f6f7f9;
+  --surface:    #ffffff;
+  --surface-2:  #eef1f4;
+  --ink:        #171c22;
+  --ink-soft:   #333c46;
+  --muted:      #5c6672;
+  --rule:       #dde2e8;
+  --rule-soft:  #e8ecf0;
+  --accent:     #0f6f60;
+  --accent-ink: #0a4f44;
+  --accent-bg:  #e4f0ed;
+  --cost:       #8a6320;
+  --cost-bg:    #f6efe1;
+  --old:        #6b7480;
+  --shadow:     rgba(23, 28, 34, .07);
+
+  --f-display: "Archivo", "Helvetica Neue", Arial, sans-serif;
+  --f-body:    "Source Serif 4", Georgia, "Times New Roman", serif;
+  --f-mono:    "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+
+  --measure: 68ch;
+  --s1: .35rem; --s2: .7rem; --s3: 1.15rem; --s4: 1.9rem;
+  --s5: 3rem;   --s6: 4.5rem;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper:      #12161a;
+    --surface:    #191e24;
+    --surface-2:  #212832;
+    --ink:        #e6eaef;
+    --ink-soft:   #c3cbd4;
+    --muted:      #8e99a6;
+    --rule:       #2b333d;
+    --rule-soft:  #232a33;
+    --accent:     #4fbfa8;
+    --accent-ink: #7fd6c3;
+    --accent-bg:  #14312c;
+    --cost:       #d2a555;
+    --cost-bg:    #322815;
+    --old:        #8b95a2;
+    --shadow:     rgba(0, 0, 0, .4);
+  }
+}
+:root[data-theme="dark"] {
+  --paper:      #12161a;
+  --surface:    #191e24;
+  --surface-2:  #212832;
+  --ink:        #e6eaef;
+  --ink-soft:   #c3cbd4;
+  --muted:      #8e99a6;
+  --rule:       #2b333d;
+  --rule-soft:  #232a33;
+  --accent:     #4fbfa8;
+  --accent-ink: #7fd6c3;
+  --accent-bg:  #14312c;
+  --cost:       #d2a555;
+  --cost-bg:    #322815;
+  --old:        #8b95a2;
+  --shadow:     rgba(0, 0, 0, .4);
+}
+
+* { box-sizing: border-box; }
+
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--f-body);
+  font-size: 17px;
+  line-height: 1.62;
+  margin: 0;
+  -webkit-font-smoothing: antialiased;
+}
+
+.page {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: var(--s5) var(--s3) var(--s6);
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--s4);
+}
+@media (min-width: 1000px) {
+  .page {
+    grid-template-columns: 200px minmax(0, 1fr);
+    gap: var(--s5);
+    padding-top: var(--s6);
+  }
+}
+
+.rail { font-family: var(--f-display); font-size: .8rem; }
+@media (min-width: 1000px) {
+  .rail { position: sticky; top: var(--s4); align-self: start; }
+}
+.rail-title {
+  font-size: .68rem; letter-spacing: .13em; text-transform: uppercase;
+  color: var(--muted); font-weight: 600;
+  padding-bottom: var(--s2); border-bottom: 1px solid var(--rule);
+  margin-bottom: var(--s2);
+}
+.rail ol { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: .28rem; }
+.rail a {
+  color: var(--muted); text-decoration: none; display: block;
+  padding: .22rem 0; border-left: 2px solid transparent; padding-left: .6rem;
+  transition: color .15s, border-color .15s;
+}
+.rail a:hover, .rail a:focus-visible { color: var(--accent); border-left-color: var(--accent); }
+.rail .sib {
+  margin-top: var(--s3); padding-top: var(--s2);
+  border-top: 1px solid var(--rule); font-size: .74rem;
+}
+.rail .sib a { border-left: none; padding-left: 0; color: var(--accent); }
+
+.masthead { border-bottom: 2px solid var(--ink); padding-bottom: var(--s3); margin-bottom: var(--s4); }
+.eyebrow {
+  font-family: var(--f-display); font-size: .7rem; font-weight: 600;
+  letter-spacing: .15em; text-transform: uppercase; color: var(--accent);
+  margin: 0 0 var(--s2);
+}
+h1 {
+  font-family: var(--f-mono); font-weight: 600;
+  font-size: clamp(1.6rem, 4.2vw, 2.6rem); line-height: 1.05;
+  letter-spacing: -.02em; margin: 0 0 var(--s2); text-wrap: balance;
+  word-break: break-word;
+}
+.standfirst {
+  font-size: 1.16rem; color: var(--ink-soft); max-width: var(--measure);
+  margin: 0; text-wrap: pretty;
+}
+.byline {
+  font-family: var(--f-mono); font-size: .76rem; color: var(--muted);
+  margin-top: var(--s3); display: flex; flex-wrap: wrap; gap: var(--s3);
+}
+
+section { margin-bottom: var(--s5); scroll-margin-top: var(--s3); }
+h2 {
+  font-family: var(--f-display); font-weight: 600;
+  font-size: 1.55rem; letter-spacing: -.012em; line-height: 1.15;
+  margin: 0 0 var(--s3); padding-bottom: var(--s2);
+  border-bottom: 1px solid var(--rule); text-wrap: balance;
+}
+h3 {
+  font-family: var(--f-display); font-weight: 600; font-size: 1.02rem;
+  letter-spacing: .005em; margin: var(--s4) 0 var(--s2); color: var(--ink);
+}
+p { max-width: var(--measure); margin: 0 0 var(--s3); text-wrap: pretty; }
+ul, ol.body { max-width: var(--measure); padding-left: 1.2rem; margin: 0 0 var(--s3); }
+li { margin-bottom: var(--s1); }
+a { color: var(--accent); text-underline-offset: 2px; }
+strong { font-weight: 600; color: var(--ink); }
+code {
+  font-family: var(--f-mono); font-size: .87em;
+  background: var(--surface-2); padding: .1em .34em; border-radius: 3px;
+}
+
+.code {
+  background: var(--surface); border: 1px solid var(--rule);
+  border-radius: 5px; margin: 0 0 var(--s3); overflow: hidden;
+}
+.code-head {
+  font-family: var(--f-mono); font-size: .72rem; color: var(--muted);
+  padding: .45rem var(--s3); border-bottom: 1px solid var(--rule-soft);
+  background: var(--surface-2); letter-spacing: .02em;
+}
+.code pre {
+  margin: 0; padding: var(--s3); overflow-x: auto;
+  font-family: var(--f-mono); font-size: .8rem; line-height: 1.62;
+  color: var(--ink-soft);
+}
+.code pre b { color: var(--accent-ink); font-weight: 600; }
+.code pre i { color: var(--muted); font-style: normal; }
+.code.feature { border-color: var(--accent); border-width: 1px; }
+.code.feature .code-head { background: var(--accent-bg); color: var(--accent-ink); font-weight: 600; }
+
+.tw { overflow-x: auto; margin: 0 0 var(--s3); border: 1px solid var(--rule); border-radius: 5px; background: var(--surface); }
+table { border-collapse: collapse; width: 100%; font-size: .87rem; }
+th, td { text-align: left; padding: .62rem var(--s3); border-bottom: 1px solid var(--rule-soft); vertical-align: top; }
+th {
+  font-family: var(--f-display); font-size: .7rem; font-weight: 600;
+  letter-spacing: .1em; text-transform: uppercase; color: var(--muted);
+  background: var(--surface-2); white-space: nowrap;
+}
+tbody tr:last-child td { border-bottom: none; }
+td.num { font-family: var(--f-mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
+td.free { color: var(--accent-ink); font-weight: 600; }
+td.side-c, td.side-s {
+  font-family: var(--f-display); font-size: .72rem; font-weight: 600;
+  letter-spacing: .08em; text-transform: uppercase; white-space: nowrap;
+}
+td.side-c { color: var(--accent-ink); }
+td.side-s { color: var(--cost); }
+.tw code { background: none; padding: 0; }
+
+.note {
+  border-left: 3px solid var(--accent); background: var(--accent-bg);
+  padding: var(--s3); border-radius: 0 4px 4px 0; margin: 0 0 var(--s3);
+  max-width: var(--measure);
+}
+.note.cost { border-left-color: var(--cost); background: var(--cost-bg); }
+.note p:last-child { margin-bottom: 0; }
+.note .lbl {
+  font-family: var(--f-display); font-size: .68rem; font-weight: 600;
+  letter-spacing: .12em; text-transform: uppercase; color: var(--accent-ink);
+  display: block; margin-bottom: var(--s1);
+}
+.note.cost .lbl { color: var(--cost); }
+
+footer {
+  border-top: 1px solid var(--rule); padding-top: var(--s3);
+  font-family: var(--f-mono); font-size: .74rem; color: var(--muted);
+}
+footer p { max-width: none; }
+
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+</style>
+
+<div class="page">
+
+<nav class="rail" aria-label="Sections">
+  <div class="rail-title">Contents</div>
+  <ol>
+    <li><a href="#what">What it is</a></li>
+    <li><a href="#call">The call</a></li>
+    <li><a href="#worked">A worked example</a></li>
+    <li><a href="#delivery">When the callback runs</a></li>
+    <li><a href="#record">Reading the record</a></li>
+    <li><a href="#param">The parameter block</a></li>
+    <li><a href="#mask">The demand mask</a></li>
+    <li><a href="#threads">Threads &amp; stopping</a></li>
+    <li><a href="#filter">The pre-filter</a></li>
+    <li><a href="#layout">Layouts</a></li>
+    <li><a href="#fid">One object, by FID</a></li>
+    <li><a href="#errors">Errors</a></li>
+    <li><a href="#traps">Traps</a></li>
+  </ol>
+  <div class="sib">
+    <a href="https://claude.ai/code/artifact/63f3812f-4730-4c06-80b3-530429dc0943">The lfs find Rewrite &rarr;</a>
+  </div>
+</nav>
+
+<main>
+
+<header class="masthead">
+  <p class="eyebrow">LU-20603 &middot; liblustreapi &middot; since 2.18.0</p>
+  <h1>llapi_scan_namespace()</h1>
+  <p class="standfirst">
+    Walk a Lustre namespace and get one record per object, instead of a line
+    of text to parse. The scanner fetches only the fields you say you will
+    read, and tells you which ones it could actually answer for.
+  </p>
+  <p class="byline">
+    <span>#include &lt;lustre/lustreapi.h&gt;</span>
+    <span>-llustreapi</span>
+    <span>client side</span>
+  </p>
+</header>
+
+<section id="what">
+  <h2>What it is, and when to reach for it</h2>
+  <p>
+    This is the programmatic form of what <code>lfs find</code> does: the same
+    traversal, the same attribute gathering, delivered to your callback rather
+    than judged against command-line predicates and printed. It exists so that
+    a tool needing per-object attributes does not have to shell out to
+    <code>lfs find</code> and parse its output, nor reimplement the ioctl
+    sequence that gathering them correctly requires.
+  </p>
+  <div class="tw">
+    <table>
+      <thead><tr><th>If you want to&hellip;</th><th>Use</th><th>Runs on</th></tr></thead>
+      <tbody>
+        <tr><td>Search a mounted filesystem from a shell</td><td><code>lfs find</code></td><td class="side-c">client</td></tr>
+        <tr><td>Search a mounted filesystem from a program</td><td><strong><code>llapi_scan_namespace()</code></strong></td><td class="side-c">client</td></tr>
+        <tr><td>Read an unmounted MDT or OST off its block device</td><td><code>llapi_scan_device()</code></td><td class="side-s">server</td></tr>
+        <tr><td>Run <code>lfs find</code>'s predicates against such a device</td><td><code>llapi_find_device()</code>, or <code>lfind(8)</code></td><td class="side-s">server</td></tr>
+        <tr><td>Fill a record for one object you already have a FID for</td><td><code>llapi_scan_fid()</code></td><td class="side-c">client</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="note">
+    <span class="lbl">This one is client side</span>
+    <p>
+      It walks a namespace, so there has to be a Lustre <em>mount</em> to walk
+      &mdash; which means a client. It is the programmatic form of
+      <code>lfs find</code>, and <code>lfs find</code> is a client command by
+      construction: <code>llapi_is_lustre_mnt()</code> requires
+      <code>":/"</code> in the mount's device name, so a server target mount
+      is deliberately not recognised.
+    </p>
+    <p>
+      The server-side counterpart is <code>llapi_scan_device()</code>, which
+      reads a target's objects straight off its block device with no mount at
+      all. Both live in <code>liblustreapi</code> and a client build carries
+      both symbols &mdash; but a client has no backend plugin, so a device
+      scan there returns <code>-ENOTSUP</code>. The <code>lfind(8)</code>
+      command is built under <code>SERVER</code> and is not shipped to
+      clients.
+    </p>
+  </div>
+  <p>
+    All five share one gather path and one record definition, which is
+    <a href="https://claude.ai/code/artifact/63f3812f-4730-4c06-80b3-530429dc0943">the
+    subject of a companion page</a>. Everything below concerns the namespace
+    scanner specifically.
+  </p>
+</section>
+
+<section id="call">
+  <h2>The call</h2>
+  <div class="code">
+    <div class="code-head">lustre/lustreapi.h</div>
+<pre><b>typedef int</b> (*llapi_scan_cb_t)(<b>const struct</b> llapi_scan_rec *rec, <b>void</b> *data);
+
+<b>int</b> llapi_scan_namespace(<b>const char</b> *path,
+                         <b>const struct</b> llapi_scan_param *sp,
+                         llapi_scan_cb_t cb, <b>void</b> *data);</pre>
+  </div>
+  <p>
+    The callback runs once per object below <code>path</code>, receiving a
+    record and your <code>data</code> unchanged. <code>sp</code> may be NULL
+    for the defaults.
+  </p>
+  <div class="tw">
+    <table>
+      <thead><tr><th>Return</th><th>Meaning</th></tr></thead>
+      <tbody>
+        <tr><td class="num">0</td><td>The walk finished.</td></tr>
+        <tr><td class="num">&gt; 0</td><td>A callback stopped the scan. The value is whatever that callback returned, passed back unchanged.</td></tr>
+        <tr><td class="num">&lt; 0</td><td>A negative errno.</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section id="worked">
+  <h2>A worked example</h2>
+  <p>
+    Find the regular files under <code>/data</code> owned by
+    <strong>tanjiro</strong> and modified in the last thirty minutes. As a
+    command that is:
+  </p>
+  <div class="code">
+    <div class="code-head">the shell equivalent</div>
+<pre>$ lfs find /data -user tanjiro -mtime -30m -type f</pre>
+  </div>
+  <p>
+    As a program it is the following, complete and compilable. Three things in
+    it are the whole API in miniature: <code>sp_want</code> asks for exactly
+    the three fields the test reads, the callback checks
+    <code>sr_valid</code> before trusting any of them, and the username is
+    resolved once rather than per object.
+  </p>
+  <div class="code feature">
+    <div class="code-head">recent.c &mdash; cc -o recent recent.c -llustreapi</div>
+<pre><b>#include</b> <i>&lt;lustre/lustreapi.h&gt;</i>
+<b>#include</b> <i>&lt;pwd.h&gt;</i>
+<b>#include</b> <i>&lt;stdio.h&gt;</i>
+<b>#include</b> <i>&lt;string.h&gt;</i>
+<b>#include</b> <i>&lt;sys/stat.h&gt;</i>
+<b>#include</b> <i>&lt;time.h&gt;</i>
+
+<b>struct</b> recent {
+        __u32   uid;      <i>/* tanjiro, resolved once */</i>
+        __s64   since;    <i>/* epoch seconds, 30 minutes ago */</i>
+        __u64   found;
+};
+
+<i>/* The three fields this test reads.  Ask for exactly these: anything
+ * more is an ioctl or an open per object that nothing will look at.
+ */</i>
+<b>#define</b> WANT (LLAPI_SCAN_UID | LLAPI_SCAN_MTIME | LLAPI_SCAN_MODE)
+
+<b>static int</b> recent_cb(<b>const struct</b> llapi_scan_rec *rec, <b>void</b> *data)
+{
+        <b>struct</b> recent *r = data;
+
+        <i>/* A field the scanner could not answer for is not a match.  Test
+         * the bits; do not compare the fields against zero, because "no
+         * answer" and "the answer is zero" are different things here.
+         */</i>
+        <b>if</b> ((rec-&gt;sr_valid &amp; WANT) != WANT)
+                <b>return</b> 0;
+
+        <b>if</b> (!S_ISREG(rec-&gt;sr_mode))
+                <b>return</b> 0;
+        <b>if</b> (rec-&gt;sr_uid != r-&gt;uid)
+                <b>return</b> 0;
+        <b>if</b> (rec-&gt;sr_mtime &lt; r-&gt;since)
+                <b>return</b> 0;
+
+        printf(<i>"%s\n"</i>, rec-&gt;sr_path);
+        r-&gt;found++;
+
+        <b>return</b> 0;               <i>/* keep going */</i>
+}
+
+<b>int</b> main(<b>void</b>)
+{
+        <b>struct</b> llapi_scan_param sp = {
+                .sp_size = <b>sizeof</b>(sp),   <i>/* required */</i>
+                <i>/* WANT is the three flags above: LLAPI_SCAN_UID |
+                 * LLAPI_SCAN_MTIME | LLAPI_SCAN_MODE, so the scan
+                 * gathers the uid, the mtime and the mode, and
+                 * nothing else.
+                 */</i>
+                .sp_want = WANT,
+        };
+        <b>struct</b> recent r = { .found = 0 };
+        <b>struct</b> passwd *pw;
+        <b>int</b> rc;
+
+        pw = getpwnam(<i>"tanjiro"</i>);
+        <b>if</b> (pw == NULL) {
+                fprintf(stderr, <i>"no such user: tanjiro\n"</i>);
+                <b>return</b> 1;
+        }
+        r.uid = pw-&gt;pw_uid;
+        r.since = (__s64)time(NULL) - 30 * 60;
+
+        rc = llapi_scan_namespace(<i>"/data"</i>, &amp;sp, recent_cb, &amp;r);
+        <b>if</b> (rc &lt; 0) {
+                fprintf(stderr, <i>"scan of /data failed: %s\n"</i>, strerror(-rc));
+                <b>return</b> 1;
+        }
+
+        printf(<i>"%llu file(s)\n"</i>, (<b>unsigned long long</b>)r.found);
+
+        <b>return</b> 0;
+}</pre>
+  </div>
+  <div class="note cost">
+    <span class="lbl">Why <code>LLAPI_SCAN_MODE</code> and not <code>LLAPI_SCAN_TYPE</code></span>
+    <p>
+      <code>LLAPI_SCAN_TYPE</code> is free &mdash; it comes from the directory
+      entry &mdash; but it is set only when the entry knew the object's type,
+      which not every filesystem fills in. This scan pays for an ioctl anyway
+      to get <code>sr_uid</code> and <code>sr_mtime</code>, and
+      <code>sr_mode</code> arrives with them, so testing the full mode costs
+      nothing extra and is always answerable. In a scan that wants
+      <em>only</em> the type, ask for <code>LLAPI_SCAN_TYPE</code> and pay no
+      ioctl at all.
+    </p>
+  </div>
+  <p>
+    Scaling it up is a one-line change: set <code>sp_thread_count</code> and
+    take a lock around <code>r-&gt;found</code>. See
+    <a href="#threads">Threads &amp; stopping</a>.
+  </p>
+</section>
+
+<section id="delivery">
+  <h2>When the callback runs</h2>
+  <p>
+    Once per object the walk reaches &mdash; files and directories alike,
+    including the path you started from. For a directory it is called on the
+    way <em>down</em>, before its children. What follows is every way an
+    object can be reached and still not be delivered, in the order
+    <code>llapi_scan_cb_init()</code> tests them.
+  </p>
+  <div class="tw">
+    <table>
+      <thead><tr><th>Skipped when</th><th>What happens to the walk</th></tr></thead>
+      <tbody>
+        <tr>
+          <td>A consumer already stopped the scan</td>
+          <td>Nothing further is gathered, no directory is descended, and the callback is not called again. Enforced in the scanner rather than left to the traversal, which without <code>LLAPI_SCAN_F_STOP_ON_ERROR</code> would note the value and carry on &mdash; and with several threads the other workers would know nothing about it.</td>
+        </tr>
+        <tr>
+          <td>The object is above <code>sp_min_depth</code></td>
+          <td>Not delivered; the walk still descends.</td>
+        </tr>
+        <tr>
+          <td><code>sp_filter</code> returned <span class="num">&gt; 0</span></td>
+          <td>Not gathered and not delivered; a directory is still descended into. A negative return stops the whole scan instead.</td>
+        </tr>
+        <tr>
+          <td>It was unlinked between <code>readdir</code> and the gather &mdash; <code>-ENOENT</code> or <code>-ESTALE</code></td>
+          <td>Skipped as normal, not as an error: it existed when the directory was read and does not now.</td>
+        </tr>
+        <tr>
+          <td>The gather failed some other way &mdash; a permission problem, an ioctl error</td>
+          <td>Skipped silently, unless <code>sp_flags</code> carries <code>LLAPI_SCAN_F_STOP_ON_ERROR</code>, which makes it end the scan.</td>
+        </tr>
+        <tr>
+          <td>The object is below <code>sp_max_depth</code></td>
+          <td>Never visited: the traversal stops descending at the limit.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="note">
+    <span class="lbl">A skip is not an error, and you will not hear about it</span>
+    <p>
+      The unlinked and failed-gather cases are invisible to the consumer: no
+      callback, and no counter in the namespace scanner. A search that must
+      tell <em>no matches</em> from <em>could not look</em> has to set
+      <code>LLAPI_SCAN_F_STOP_ON_ERROR</code>.
+      <code>llapi_scan_device(3)</code> is the other way round &mdash; it
+      counts skips in <code>ss_skipped</code>, because torn reads off a live
+      target are expected there and have to be visible.
+    </p>
+  </div>
+  <p>
+    Delivery does not mean the record is complete. The gather succeeding says
+    the object was read, not that every field you asked for arrived &mdash;
+    which is what <code>sr_valid</code> is for. A file whose
+    <code>i_extra_isize</code> does not reach <code>i_crtime</code> genuinely
+    has no birth time, and its record arrives with
+    <code>LLAPI_SCAN_BTIME</code> clear.
+  </p>
+  <p>
+    One asymmetry is worth holding on to: the pre-filter sees only what the
+    directory entry knew &mdash; <code>sr_path</code>, <code>sr_name</code>
+    and the type derived from <code>d_type</code>. Anything else you would
+    reject on has to wait for the callback, by which point the gather has
+    already been paid for.
+  </p>
+</section>
+
+<section id="record">
+  <h2>Reading the record</h2>
+  <p>
+    <code>struct llapi_scan_rec</code> carries the object. Two fields make it
+    survivable across library versions, and one rule governs reading all the
+    others.
+  </p>
+  <div class="tw">
+    <table>
+      <thead><tr><th>Field</th><th>Purpose</th></tr></thead>
+      <tbody>
+        <tr><td><code>sr_size</code></td><td>How much of the record this scanner filled. Fields are only ever appended, so a consumer built against an older definition keeps working.</td></tr>
+        <tr><td><code>sr_valid</code></td><td>One <code>LLAPI_SCAN_*</code> bit per field, set only when the scanner could answer for that field.</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="note">
+    <span class="lbl">The one rule</span>
+    <p>
+      Test the bit; never compare the field against zero. A scanner that
+      <em>could not answer</em> and a scanner that <em>answers zero</em> mean
+      different things, and the record distinguishes them deliberately.
+    </p>
+  </div>
+  <p>
+    The clearest case is a regular file's size. File data lives on OSTs, so in
+    the general case the size is not the MDT's to give &mdash;
+    <code>LLAPI_SCAN_SIZE</code> stays clear rather than reporting 0. When the
+    MDT holds a lazy size-on-MDT value instead,
+    <code>LLAPI_SCAN_LAZY_SIZE</code> says so and the value is in
+    <code>sr_size_bytes</code>. A consumer needing a strict size for every
+    regular file must stat it, which is what <code>lfs find --size</code>
+    does &mdash; and why <code>sr_parent_fd</code> and <code>sr_name</code>
+    are in the record, so you can do it with <code>fstatat(2)</code>.
+  </p>
+  <p>
+    The same distinction runs through HSM: state 0 with
+    <code>LLAPI_SCAN_HSM</code> set means the scan asked and the file has no
+    HSM state, which is not the same as the bit being clear.
+  </p>
+</section>
+
+<section id="param">
+  <h2>The parameter block</h2>
+  <p>
+    <code>sp_size</code> must be set &mdash; it is how the library knows which
+    fields you built against. A struct shorter than the library's is accepted
+    and the fields you did not set read as zero; a longer one is refused,
+    since a field the library does not know cannot be honoured.
+  </p>
+  <div class="tw">
+    <table>
+      <thead><tr><th>Field</th><th>Default</th><th>Meaning</th></tr></thead>
+      <tbody>
+        <tr><td><code>sp_size</code></td><td class="num">&mdash;</td><td>Required. <code>sizeof(struct llapi_scan_param)</code>.</td></tr>
+        <tr><td><code>sp_want</code></td><td class="num">0</td><td>Demand mask. 0 means everything except the three opt-in fields below.</td></tr>
+        <tr><td><code>sp_max_depth</code></td><td class="num">0</td><td>Limit the descent. 0 is unlimited.</td></tr>
+        <tr><td><code>sp_thread_count</code></td><td class="num">0</td><td>0 or 1 scans in the calling thread.</td></tr>
+        <tr><td><code>sp_flags</code></td><td class="num">0</td><td><code>LLAPI_SCAN_F_STOP_ON_ERROR</code> abandons the scan on an unreadable object instead of skipping it.</td></tr>
+        <tr><td><code>sp_filter</code></td><td class="num">NULL</td><td>Pre-I/O filter. See below.</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="note">
+    <span class="lbl">Unknown flags are refused, not ignored</span>
+    <p>
+      An <code>sp_flags</code> bit this library does not define returns
+      <code>-EINVAL</code>. Setting a flag does not change
+      <code>sp_size</code>, so refusing unknown ones is what gives flags the
+      same guarantee fields already have: a caller never has one silently
+      dropped.
+    </p>
+  </div>
+</section>
+
+<section id="mask">
+  <h2>The demand mask</h2>
+  <p>
+    <code>sp_want</code> names the fields you will read. It exists because the
+    same field is not the same cost to every scanner, and because a consumer
+    that asks for everything makes the cheap scans expensive.
+  </p>
+  <div class="tw">
+    <table>
+      <thead><tr><th>Ask for</th><th>Costs</th><th>Notes</th></tr></thead>
+      <tbody>
+        <tr><td><code>LLAPI_SCAN_TYPE</code></td><td class="free">nothing</td><td>The directory entry already knew. This is <code>LLAPI_SCAN_DIRENT_MASK</code>.</td></tr>
+        <tr><td>Most attribute fields</td><td>one ioctl per object</td><td>Mode, uid, gid, times, layout, directory stripe.</td></tr>
+        <tr><td><code>LLAPI_SCAN_MDT_INDEX</code></td><td>an open per object</td><td rowspan="3">Gathered <strong>only</strong> when named, because each costs an open or an ioctl of its own. A scanner reading a target's inodes directly answers all three for free &mdash; which is why the mask exists.</td></tr>
+        <tr><td><code>LLAPI_SCAN_PROJID</code></td><td>an open per object</td></tr>
+        <tr><td><code>LLAPI_SCAN_HSM</code></td><td>an ioctl per object</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>
+    A scan wanting nothing outside <code>LLAPI_SCAN_DIRENT_MASK</code>
+    performs no ioctl per object at all &mdash; that is what makes a name-only
+    search cheap.
+  </p>
+  <div class="code">
+    <div class="code-head">a name-only scan: no ioctl per object</div>
+<pre><b>struct</b> llapi_scan_param sp = {
+        .sp_size = <b>sizeof</b>(sp),
+        .sp_want = LLAPI_SCAN_TYPE,
+};</pre>
+  </div>
+  <div class="note cost">
+    <span class="lbl">The mask is a floor, not a ceiling</span>
+    <p>
+      A field you did not ask for may still be delivered &mdash; the mask
+      says what you need, not what you will get. Always test
+      <code>sr_valid</code> rather than assuming a field is present because
+      you asked, or absent because you did not.
+    </p>
+  </div>
+</section>
+
+<section id="threads">
+  <h2>Threads, and stopping early</h2>
+  <p>
+    <code>sp_thread_count</code> of 0 or 1 scans in the calling thread. Above
+    that, the callback runs concurrently on several threads and must be
+    thread-safe. The record passed to each call is private to that call;
+    <code>data</code> is shared between them, and locking it is yours to do.
+  </p>
+  <div class="code">
+    <div class="code-head">four threads, stopping at the first match</div>
+<pre><b>static int</b> first_cb(<b>const struct</b> llapi_scan_rec *rec, <b>void</b> *data)
+{
+        <b>if</b> (!(rec-&gt;sr_valid &amp; LLAPI_SCAN_UID) || rec-&gt;sr_uid != 0)
+                <b>return</b> 0;
+
+        <i>/* Non-zero stops the scan and is returned to the caller
+         * unchanged, so pick a value you will recognise.
+         */</i>
+        <b>return</b> 1;
+}
+
+<b>struct</b> llapi_scan_param sp = {
+        .sp_size         = <b>sizeof</b>(sp),
+        .sp_want         = LLAPI_SCAN_UID | LLAPI_SCAN_FID,
+        .sp_thread_count = 4,
+};
+
+<b>int</b> rc = llapi_scan_namespace(path, &amp;sp, first_cb, &amp;found);
+<i>/* rc == 1 : stopped by the callback
+ * rc == 0 : the walk finished, nothing matched
+ * rc &lt;  0 : negative errno
+ */</i></pre>
+  </div>
+  <p>
+    With several threads the scan does not stop the instant a callback
+    returns non-zero &mdash; the others finish the object in hand. Expect a
+    few more callback invocations after the one that stopped it.
+  </p>
+</section>
+
+<section id="filter">
+  <h2>The pre-filter</h2>
+  <p>
+    <code>sp_filter</code> is called before any I/O on the object, with a
+    record carrying only <code>sr_path</code>, <code>sr_name</code> and &mdash;
+    when the directory entry knew it &mdash; <code>LLAPI_SCAN_TYPE</code>. It
+    is how you get the cheap-rejection behaviour <code>lfs find</code> has
+    internally: reject on the name, and never pay for the attributes.
+  </p>
+  <div class="tw">
+    <table>
+      <thead><tr><th>Return</th><th>Effect</th></tr></thead>
+      <tbody>
+        <tr><td class="num">0</td><td>Gather the object and deliver it to the callback.</td></tr>
+        <tr><td class="num">1</td><td>Skip it without gathering. Descent into a directory is unaffected.</td></tr>
+        <tr><td class="num">&lt; 0</td><td>Stop the scan.</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="code">
+    <div class="code-head">only *.log, decided before any I/O</div>
+<pre><b>static int</b> only_logs(<b>const struct</b> llapi_scan_rec *rec, <b>void</b> *data)
+{
+        <b>const char</b> *dot;
+
+        <i>/* Directories still have to be descended into.  Returning 1 for
+         * one would skip the directory itself, not its contents -- but
+         * there is no reason to skip it here.
+         */</i>
+        <b>if</b> ((rec-&gt;sr_valid &amp; LLAPI_SCAN_TYPE) &amp;&amp; S_ISDIR(rec-&gt;sr_mode))
+                <b>return</b> 0;
+
+        dot = rec-&gt;sr_name ? strrchr(rec-&gt;sr_name, <i>'.'</i>) : NULL;
+
+        <b>return</b> (dot &amp;&amp; strcmp(dot, <i>".log"</i>) == 0) ? 0 : 1;
+}
+
+sp.sp_filter = only_logs;</pre>
+  </div>
+</section>
+
+<section id="layout">
+  <h2>Layouts and directory stripes</h2>
+  <p>
+    Layouts arrive raw, as <code>sr_lmm</code> and <code>sr_lmmsize</code>,
+    for you to decode with <code>llapi_layout_get_by_xattr(3)</code>. A
+    directory's stripe arrives the same way as <code>sr_lmv</code> and
+    <code>sr_lmvsize</code>, under <code>LLAPI_SCAN_LMV</code>, which is set
+    only for a directory that has one.
+  </p>
+  <div class="code">
+    <div class="code-head">decode a copy, never the record's own buffer</div>
+<pre><i>/* llapi_layout_get_by_xattr() takes a NON-const pointer and may
+ * byte-swap in place.  The record's buffer belongs to the running
+ * scan, so swabbing it would corrupt the walk.
+ */</i>
+<b>void</b> *buf;
+
+<b>if</b> (!(rec-&gt;sr_valid &amp; LLAPI_SCAN_LAYOUT) || rec-&gt;sr_lmm == NULL)
+        <b>return</b> 0;
+
+buf = malloc(rec-&gt;sr_lmmsize);
+<b>if</b> (buf == NULL)
+        <b>return</b> -ENOMEM;
+
+memcpy(buf, rec-&gt;sr_lmm, rec-&gt;sr_lmmsize);
+layout = llapi_layout_get_by_xattr(buf, rec-&gt;sr_lmmsize, 0);</pre>
+  </div>
+</section>
+
+<section id="fid">
+  <h2>One object, by FID</h2>
+  <p>
+    A walk is the wrong shape when you already know which object you want.
+    <code>llapi_scan_fid()</code> fills the same record for a single FID
+    through a mount, using the same gather everything above describes &mdash;
+    so a consumer that got a FID from somewhere else answers the same
+    questions a walk answers, rather than from a <code>stat(2)</code> of its
+    own that covers a fraction of them.
+  </p>
+  <div class="code">
+    <div class="code-head">lustre/lustreapi.h</div>
+<pre><b>int</b> llapi_scan_fid(<b>int</b> mnt_fd, <b>const char</b> *mnt_path,
+                   <b>const struct</b> lu_fid *fid,
+                   <b>const struct</b> llapi_scan_param *sp,
+                   llapi_scan_cb_t cb, <b>void</b> *data);</pre>
+  </div>
+  <p>
+    <code>mnt_fd</code> is an open descriptor on a client mount of the
+    filesystem the FID belongs to, as <code>llapi_root_path_open(3)</code>
+    returns, and <code>mnt_path</code> is that mount&rsquo;s path. Both are
+    required, and a caller filling records for many FIDs opens the mount once
+    and passes the same pair to each call. The callback runs once, with the
+    same lifetime rule as everywhere else on this page: the record is valid
+    for the duration of the call and nothing in it outlives it.
+  </p>
+  <p>
+    Only two fields of the parameter block mean anything here.
+    <code>sp_want</code> is the demand mask, as above.
+    <code>sp_filter</code> runs before the gather, as above. The rest
+    &mdash; <code>sp_max_depth</code>, <code>sp_stats</code>,
+    <code>sp_search</code>, <code>sp_flags</code> &mdash; describe a traversal
+    there is none of and are ignored, so one block can be shared with a walk.
+    An <code>sp_thread_count</code> above 1 is refused rather than ignored,
+    because a caller setting it has misunderstood the call.
+  </p>
+  <div class="note cost">
+    <span class="lbl">What it costs, and what it needs</span>
+    <p>
+      The FID is resolved with <code>llapi_fid2path(3)</code> and the record
+      gathered at the resulting pathname, so the caller needs what that needs:
+      <code>CAP_DAC_READ_SEARCH</code>, unless
+      <code>llite.*.user_fid2path</code> is set. That is one lookup per object
+      on top of the gather &mdash; roughly two round trips where a walk pays
+      one &mdash; which is the price of asking about objects a walk would have
+      to find first.
+    </p>
+    <p>
+      An object unlinked since the caller learned of it no longer resolves and
+      comes back <code>-ENOENT</code>. For a consumer asking what is true
+      <em>now</em>, that is the answer rather than an error to work around.
+    </p>
+  </div>
+  <p>
+    It fills a fresh record and reads nothing in from the caller. A consumer
+    merging the result into a record it already holds decides for itself which
+    fields it lets this call supply &mdash; which is how
+    <code>llapi_scan_changelog(3)</code> keeps answering <em>as recorded</em>
+    while filling in what an event never carried.
+  </p>
+  <p>
+    Its first consumer is <code>lfs find --since</code>, where the changelog
+    supplies candidates and this call verifies each one against the live
+    object, so every predicate keeps the meaning it has without the flag.
+  </p>
+</section>
+
+<section id="errors">
+  <h2>Errors</h2>
+  <div class="tw">
+    <table>
+      <thead><tr><th>Value</th><th>Cause</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><code>-EINVAL</code></td>
+          <td><code>path</code> or <code>cb</code> is NULL; or <code>sp_size</code> is larger than the library's definition, or smaller than the fields up to and including <code>sp_want</code>; or <code>sp_flags</code> sets a bit this library does not define.</td>
+        </tr>
+        <tr>
+          <td><code>-ENAMETOOLONG</code></td>
+          <td><code>path</code> is longer than <code>PATH_MAX</code>.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section id="traps">
+  <h2>Traps</h2>
+  <div class="tw">
+    <table>
+      <thead><tr><th>Trap</th><th>What happens</th></tr></thead>
+      <tbody>
+        <tr>
+          <td>Keeping the record</td>
+          <td>It is valid only for the duration of the callback. Copy anything you keep &mdash; including whatever <code>sr_path</code>, <code>sr_name</code>, <code>sr_lmm</code> and <code>sr_lmv</code> point at.</td>
+        </tr>
+        <tr>
+          <td>Keeping a descriptor</td>
+          <td><code>sr_parent_fd</code> and <code>sr_fd</code> are the scan's own and are closed when it moves on. Use them inside the callback, or <code>dup(2)</code> them.</td>
+        </tr>
+        <tr>
+          <td>Testing a field against zero</td>
+          <td>You cannot tell "no answer" from "the answer is zero". Test the <code>sr_valid</code> bit.</td>
+        </tr>
+        <tr>
+          <td>Forgetting <code>sp_size</code></td>
+          <td><code>-EINVAL</code>. It is not optional even when every other field is left at its default.</td>
+        </tr>
+        <tr>
+          <td>Decoding <code>sr_lmm</code> in place</td>
+          <td><code>llapi_layout_get_by_xattr()</code> may swab the buffer it is given, and that buffer belongs to the running scan.</td>
+        </tr>
+        <tr>
+          <td>Sharing <code>data</code> without a lock</td>
+          <td>Above <code>sp_thread_count</code> 1 the callback runs concurrently. The record is private per call; <code>data</code> is not.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<footer>
+  <p>
+    See also: <code>llapi_scan_namespace(3)</code>,
+    <code>llapi_scan_device(3)</code>,
+    <code>llapi_scan_fid(3)</code>,
+    <code>llapi_layout_get_by_xattr(3)</code>,
+    <code>lfs-find(1)</code>,
+    <code>lfind(8)</code>.
+    Behaviour described here is the series at base <code>5afbab284e</code>,
+    verified on a two-backend lab.
+  </p>
+</footer>
+
+</main>
+</div>
+

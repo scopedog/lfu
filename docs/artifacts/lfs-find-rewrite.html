@@ -1,0 +1,743 @@
+<title>The lfs find Rewrite</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap">
+
+<style>
+:root {
+  --paper:      #f6f7f9;
+  --surface:    #ffffff;
+  --surface-2:  #eef1f4;
+  --ink:        #171c22;
+  --ink-soft:   #333c46;
+  --muted:      #5c6672;
+  --rule:       #dde2e8;
+  --rule-soft:  #e8ecf0;
+  --accent:     #0f6f60;
+  --accent-ink: #0a4f44;
+  --accent-bg:  #e4f0ed;
+  --cost:       #8a6320;
+  --cost-bg:    #f6efe1;
+  --old:        #6b7480;
+  --shadow:     rgba(23, 28, 34, .07);
+
+  --f-display: "Archivo", "Helvetica Neue", Arial, sans-serif;
+  --f-body:    "Source Serif 4", Georgia, "Times New Roman", serif;
+  --f-mono:    "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+
+  --measure: 68ch;
+  --s1: .35rem; --s2: .7rem; --s3: 1.15rem; --s4: 1.9rem;
+  --s5: 3rem;   --s6: 4.5rem;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper:      #12161a;
+    --surface:    #191e24;
+    --surface-2:  #212832;
+    --ink:        #e6eaef;
+    --ink-soft:   #c3cbd4;
+    --muted:      #8e99a6;
+    --rule:       #2b333d;
+    --rule-soft:  #232a33;
+    --accent:     #4fbfa8;
+    --accent-ink: #7fd6c3;
+    --accent-bg:  #14312c;
+    --cost:       #d2a555;
+    --cost-bg:    #322815;
+    --old:        #8b95a2;
+    --shadow:     rgba(0, 0, 0, .4);
+  }
+}
+:root[data-theme="dark"] {
+  --paper:      #12161a;
+  --surface:    #191e24;
+  --surface-2:  #212832;
+  --ink:        #e6eaef;
+  --ink-soft:   #c3cbd4;
+  --muted:      #8e99a6;
+  --rule:       #2b333d;
+  --rule-soft:  #232a33;
+  --accent:     #4fbfa8;
+  --accent-ink: #7fd6c3;
+  --accent-bg:  #14312c;
+  --cost:       #d2a555;
+  --cost-bg:    #322815;
+  --old:        #8b95a2;
+  --shadow:     rgba(0, 0, 0, .4);
+}
+
+* { box-sizing: border-box; }
+
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--f-body);
+  font-size: 17px;
+  line-height: 1.62;
+  margin: 0;
+  -webkit-font-smoothing: antialiased;
+}
+
+.page {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: var(--s5) var(--s3) var(--s6);
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--s4);
+}
+@media (min-width: 1000px) {
+  .page {
+    grid-template-columns: 200px minmax(0, 1fr);
+    gap: var(--s5);
+    padding-top: var(--s6);
+  }
+}
+
+/* ---- rail ---- */
+.rail { font-family: var(--f-display); font-size: .8rem; }
+@media (min-width: 1000px) {
+  .rail { position: sticky; top: var(--s4); align-self: start; }
+}
+.rail-title {
+  font-size: .68rem; letter-spacing: .13em; text-transform: uppercase;
+  color: var(--muted); font-weight: 600;
+  padding-bottom: var(--s2); border-bottom: 1px solid var(--rule);
+  margin-bottom: var(--s2);
+}
+.rail ol { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: .28rem; }
+.rail a {
+  color: var(--muted); text-decoration: none; display: block;
+  padding: .22rem 0; border-left: 2px solid transparent; padding-left: .6rem;
+  transition: color .15s, border-color .15s;
+}
+.rail a:hover, .rail a:focus-visible { color: var(--accent); border-left-color: var(--accent); }
+
+/* ---- masthead ---- */
+.masthead { border-bottom: 2px solid var(--ink); padding-bottom: var(--s3); margin-bottom: var(--s4); }
+.eyebrow {
+  font-family: var(--f-display); font-size: .7rem; font-weight: 600;
+  letter-spacing: .15em; text-transform: uppercase; color: var(--accent);
+  margin: 0 0 var(--s2);
+}
+h1 {
+  font-family: var(--f-display); font-weight: 700;
+  font-size: clamp(2rem, 5vw, 3.1rem); line-height: 1.04;
+  letter-spacing: -.022em; margin: 0 0 var(--s2); text-wrap: balance;
+}
+.standfirst {
+  font-size: 1.16rem; color: var(--ink-soft); max-width: var(--measure);
+  margin: 0; text-wrap: pretty;
+}
+.byline {
+  font-family: var(--f-mono); font-size: .76rem; color: var(--muted);
+  margin-top: var(--s3); display: flex; flex-wrap: wrap; gap: var(--s3);
+}
+
+/* ---- sections ---- */
+section { margin-bottom: var(--s5); scroll-margin-top: var(--s3); }
+h2 {
+  font-family: var(--f-display); font-weight: 600;
+  font-size: 1.55rem; letter-spacing: -.012em; line-height: 1.15;
+  margin: 0 0 var(--s3); padding-bottom: var(--s2);
+  border-bottom: 1px solid var(--rule); text-wrap: balance;
+}
+h3 {
+  font-family: var(--f-display); font-weight: 600; font-size: 1.02rem;
+  letter-spacing: .005em; margin: var(--s4) 0 var(--s2); color: var(--ink);
+}
+p { max-width: var(--measure); margin: 0 0 var(--s3); text-wrap: pretty; }
+ul, ol.body { max-width: var(--measure); padding-left: 1.2rem; margin: 0 0 var(--s3); }
+li { margin-bottom: var(--s1); }
+a { color: var(--accent); text-underline-offset: 2px; }
+strong { font-weight: 600; color: var(--ink); }
+code {
+  font-family: var(--f-mono); font-size: .87em;
+  background: var(--surface-2); padding: .1em .34em; border-radius: 3px;
+}
+
+/* ---- code blocks ---- */
+.code {
+  background: var(--surface); border: 1px solid var(--rule);
+  border-radius: 5px; margin: 0 0 var(--s3); overflow: hidden;
+}
+.code-head {
+  font-family: var(--f-mono); font-size: .72rem; color: var(--muted);
+  padding: .45rem var(--s3); border-bottom: 1px solid var(--rule-soft);
+  background: var(--surface-2); letter-spacing: .02em;
+}
+.code pre {
+  margin: 0; padding: var(--s3); overflow-x: auto;
+  font-family: var(--f-mono); font-size: .8rem; line-height: 1.62;
+  color: var(--ink-soft);
+}
+.code pre b { color: var(--accent-ink); font-weight: 600; }
+.code pre i { color: var(--muted); font-style: normal; }
+
+/* ---- tables ---- */
+.tw { overflow-x: auto; margin: 0 0 var(--s3); border: 1px solid var(--rule); border-radius: 5px; background: var(--surface); }
+table { border-collapse: collapse; width: 100%; font-size: .87rem; }
+th, td { text-align: left; padding: .62rem var(--s3); border-bottom: 1px solid var(--rule-soft); vertical-align: top; }
+th {
+  font-family: var(--f-display); font-size: .7rem; font-weight: 600;
+  letter-spacing: .1em; text-transform: uppercase; color: var(--muted);
+  background: var(--surface-2); white-space: nowrap;
+}
+tbody tr:last-child td { border-bottom: none; }
+td.num { font-family: var(--f-mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
+td.was { color: var(--old); }
+td.none { color: var(--muted); }
+td.now { color: var(--accent-ink); font-weight: 600; }
+.tw code { background: none; padding: 0; }
+
+/* ---- pipeline ---- */
+.pipe { display: grid; gap: var(--s2); margin: 0 0 var(--s3); grid-template-columns: 1fr; }
+@media (min-width: 720px) { .pipe { grid-template-columns: repeat(5, 1fr); } }
+.stage {
+  background: var(--surface); border: 1px solid var(--rule);
+  border-top: 3px solid var(--accent); border-radius: 4px;
+  padding: var(--s2) var(--s2) var(--s3);
+}
+.stage .n {
+  font-family: var(--f-mono); font-size: .68rem; color: var(--accent);
+  font-weight: 600; display: block; margin-bottom: .3rem;
+}
+.stage .fn {
+  font-family: var(--f-mono); font-size: .76rem; color: var(--ink);
+  font-weight: 500; display: block; margin-bottom: .35rem; word-break: break-word;
+}
+.stage .d { font-size: .81rem; color: var(--muted); line-height: 1.45; display: block; }
+.stage.cheap { border-top-color: var(--old); }
+.stage.cheap .n, .stage.cheap .fn { color: var(--old); }
+
+/* ---- callouts ---- */
+.note {
+  border-left: 3px solid var(--accent); background: var(--accent-bg);
+  padding: var(--s3); border-radius: 0 4px 4px 0; margin: 0 0 var(--s3);
+  max-width: var(--measure);
+}
+.note.cost { border-left-color: var(--cost); background: var(--cost-bg); }
+.note p:last-child { margin-bottom: 0; }
+.note .lbl {
+  font-family: var(--f-display); font-size: .68rem; font-weight: 600;
+  letter-spacing: .12em; text-transform: uppercase; color: var(--accent-ink);
+  display: block; margin-bottom: var(--s1);
+}
+.note.cost .lbl { color: var(--cost); }
+
+/* ---- two-up ---- */
+.two { display: grid; gap: var(--s3); grid-template-columns: 1fr; margin-bottom: var(--s3); }
+@media (min-width: 760px) { .two { grid-template-columns: 1fr 1fr; } }
+.panel { background: var(--surface); border: 1px solid var(--rule); border-radius: 5px; padding: var(--s3); }
+.panel h4 {
+  font-family: var(--f-display); font-size: .72rem; font-weight: 600;
+  letter-spacing: .12em; text-transform: uppercase; margin: 0 0 var(--s2);
+  color: var(--muted);
+}
+.panel.after h4 { color: var(--accent); }
+.panel p { font-size: .92rem; margin-bottom: var(--s2); max-width: none; }
+.panel p:last-child { margin-bottom: 0; }
+
+/* ---- footer ---- */
+footer {
+  border-top: 1px solid var(--rule); padding-top: var(--s3);
+  font-family: var(--f-mono); font-size: .74rem; color: var(--muted);
+}
+footer p { max-width: none; }
+
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+</style>
+
+<div class="page">
+
+<nav class="rail" aria-label="Sections">
+  <div class="rail-title">Contents</div>
+  <ol>
+    <li><a href="#shape">The shape that changed</a></li>
+    <li><a href="#old">One function, 586 lines</a></li>
+    <li><a href="#new">Five stages, two shared</a></li>
+    <li><a href="#invisible">What users see</a></li>
+    <li><a href="#record">The record</a></li>
+    <li><a href="#mask">The demand mask</a></li>
+    <li><a href="#api">Using the record</a></li>
+    <li><a href="#changelog">A third source</a></li>
+  </ol>
+</nav>
+
+<main>
+
+<header class="masthead">
+  <p class="eyebrow">LU-20603 &middot; LU-20605 &middot; LU-20611 &middot; LU-20649 &middot; LU-20650</p>
+  <h1>The <code style="font-size:.82em;background:none;padding:0">lfs find</code> rewrite</h1>
+  <p class="standfirst">
+    <code>lfs find</code> had one 586-line function that gathered an object's
+    attributes and judged them in the same breath. Splitting the two produced
+    a record any consumer can read &mdash; and made a scanner API possible
+    without a second copy of the vocabulary.
+  </p>
+  <p class="byline">
+    <span>Lustre 2.18 / 2.19</span>
+    <span>liblustreapi</span>
+    <span>Behaviour unchanged</span>
+  </p>
+</header>
+
+<section id="shape">
+  <h2>The shape that changed</h2>
+  <p>
+    Nothing here is a performance story. The rewrite exists because
+    <code>lfs find</code> knew how to ask an MDT about an object and no other
+    caller could reach that knowledge without copying it. The measurements
+    below are line counts and call sites, not throughput.
+  </p>
+  <div class="tw">
+    <table>
+      <thead>
+        <tr><th>&nbsp;</th><th>Before</th><th>After</th><th>What it means</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>cb_find_init()</code></td>
+          <td class="num was">586 lines</td>
+          <td class="num now">80 lines</td>
+          <td>It coordinates now; it no longer gathers or decides.</td>
+        </tr>
+        <tr>
+          <td>Gathering</td>
+          <td class="was">inline</td>
+          <td class="now"><code>scan_rec_gather()</code>, 120&nbsp;lines</td>
+          <td>Two call sites: the <code>lfs find</code> walk and the scanner API.</td>
+        </tr>
+        <tr>
+          <td>Deciding</td>
+          <td class="was">inline</td>
+          <td class="now"><code>find_decide()</code>, 466&nbsp;lines</td>
+          <td>Two call sites: the walk and a device scan.</td>
+        </tr>
+        <tr>
+          <td>Entry points</td>
+          <td class="num was">1</td>
+          <td class="num now">3</td>
+          <td><code>llapi_find()</code>, <code>llapi_scan_namespace()</code>, <code>llapi_find_device()</code>.</td>
+        </tr>
+        <tr>
+          <td>Predicate vocabulary</td>
+          <td class="was">one binary</td>
+          <td class="now">one file, two binaries</td>
+          <td><code>lfs_find_parse.c</code> compiles into <code>lfs</code> and <code>lfind</code>.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section id="old">
+  <h2>One function, 586 lines</h2>
+  <p>
+    The traversal called <code>cb_find_init()</code> once per object, and that
+    one function did everything: read what the directory entry knew, decide
+    which ioctls the search needed, issue them, run every predicate against
+    the results, and print. The steps were interleaved on purpose &mdash; a
+    name that cannot match should not cost an ioctl &mdash; and interleaving
+    them is what made the function impossible to reuse.
+  </p>
+  <div class="two">
+    <div class="panel">
+      <h4>Why it resisted sharing</h4>
+      <p>
+        The fetched attributes never existed as a value. They lived in
+        <code>param-&gt;fp_lmd</code>, a buffer owned by the search, mutated in
+        place, and read by predicates that also consulted the traversal's
+        local variables &mdash; the parent descriptor, the dirent, the depth.
+      </p>
+      <p>
+        A second consumer could not call in halfway. It would have had to
+        reproduce the gathering, which is where the knowledge actually was.
+      </p>
+    </div>
+    <div class="panel after">
+      <h4>What the split had to preserve</h4>
+      <p>
+        The interleaving. If gathering became a phase that ran to completion
+        before deciding began, every <code>lfs find -name</code> would pay an
+        ioctl per object for attributes it was about to discard.
+      </p>
+      <p>
+        So the new shape is not gather-then-decide. It is
+        decide-what-to-gather, gather that, then decide &mdash; with the
+        demand mask carrying the answer between the halves.
+      </p>
+    </div>
+  </div>
+</section>
+
+<section id="new">
+  <h2>Five stages, two of them shared</h2>
+  <p>
+    The walk now runs five stages per object. The first two are free; the
+    third names a price; the fourth pays it; the fifth judges. Only the third
+    and fifth are new code &mdash; and both are shared.
+  </p>
+  <div class="pipe">
+    <div class="stage cheap">
+      <span class="n">1</span>
+      <span class="fn">scan_rec_dirent()</span>
+      <span class="d">What <code>readdir</code> already told us: path, name, and the object type when the entry carried one.</span>
+    </div>
+    <div class="stage cheap">
+      <span class="n">2</span>
+      <span class="fn">find_prefilter()</span>
+      <span class="d">Predicates that need nothing else. A non-matching <code>-name</code> exits here, having done no I/O.</span>
+    </div>
+    <div class="stage">
+      <span class="n">3</span>
+      <span class="fn">find_want()</span>
+      <span class="d">Turns the remaining predicates into a demand mask &mdash; the fields this search will actually read.</span>
+    </div>
+    <div class="stage">
+      <span class="n">4</span>
+      <span class="fn">scan_rec_gather()</span>
+      <span class="d">Fetches exactly that, and fills a <code>struct llapi_scan_rec</code>. <strong>Shared with the scanner API.</strong></span>
+    </div>
+    <div class="stage">
+      <span class="n">5</span>
+      <span class="fn">find_decide()</span>
+      <span class="d">Every remaining predicate, reading the record. <strong>Shared with the device scanner.</strong></span>
+    </div>
+  </div>
+  <p>
+    <code>llapi_scan_namespace()</code> uses stages 1&ndash;4 and hands the
+    record to the caller instead of stage 5. <code>llapi_find_device()</code>
+    skips 1&ndash;4 entirely &mdash; its records come off a block device &mdash;
+    and joins at stage 5. <code>llapi_scan_fid()</code>, added for the
+    changelog work below, runs stages 3&ndash;4 for a single FID resolved
+    through a mount. Four entry points, one gather path, one set of
+    predicates.
+  </p>
+</section>
+
+<section id="invisible">
+  <h2>What a user of <code>lfs find</code> sees</h2>
+  <p>
+    Nothing. That is the point, and it is the part worth testing hardest.
+    Across every <code>sanity</code> test that touches <code>lfs find</code> or
+    <code>lfs getdirstripe</code>, the before and after result sets are
+    identical &mdash; same passes, same skips, same two pre-existing failures.
+  </p>
+  <div class="tw">
+    <table>
+      <thead><tr><th>Run</th><th>Pass</th><th>Fail</th><th>Skip</th><th>Total</th></tr></thead>
+      <tbody>
+        <tr><td>Base commit</td><td class="num">80</td><td class="num">2</td><td class="num">45</td><td class="num">127</td></tr>
+        <tr><td>With the series</td><td class="num">80</td><td class="num">2</td><td class="num">45</td><td class="num">127</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>
+    The two failures are <code>56Eaa</code> and <code>56xb</code>, and they
+    fail at the base commit too &mdash; which is only knowable because the
+    before run was measured rather than assumed.
+  </p>
+  <div class="note">
+    <span class="lbl">Four deltas, deliberately</span>
+    <p>
+      The directory-stripe checks now run after the stat ioctl, so a directory
+      they reject costs one ioctl it did not before. The unstriped
+      <code>--foreign</code> shortcut now prints its own object's attributes
+      under <code>-printf</code> rather than the previous object's. An MDT
+      index that cannot be fetched no longer fails the object. And a directory
+      that is not on Lustre answers <code>ENOTTY</code>, which is now an answer
+      rather than an error &mdash; so the walk descends into it instead of
+      losing the subtree.
+    </p>
+  </div>
+</section>
+
+<section id="record">
+  <h2>The record is the interface</h2>
+  <p>
+    Stage 4 produces a <code>struct llapi_scan_rec</code>, and that value is
+    what makes the split work. Before it, the fetched attributes lived in a
+    buffer owned by the search and mutated in place; there was nothing a
+    second consumer could be handed.
+  </p>
+  <p>
+    Two fields let it cross a version boundary. <code>sr_size</code> says how
+    much of the record the scanner filled, so a consumer built against an
+    older definition keeps working &mdash; fields are only ever appended.
+    <code>sr_valid</code> carries one bit per field, set only when the scanner
+    could answer for it.
+  </p>
+  <div class="note">
+    <span class="lbl">Why a validity mask at all</span>
+    <p>
+      Because "could not answer" and "the answer is zero" are different
+      things, and the old code could not express the difference. A regular
+      file's size is the standing example: the data lives on OSTs, so the size
+      is not the MDT's to give. Reporting 0 would be a lie; leaving
+      <code>LLAPI_SCAN_SIZE</code> clear is the truth. <code>lfs find --size</code>
+      then stats the file, which is why <code>sr_parent_fd</code> and
+      <code>sr_name</code> are in the record.
+    </p>
+  </div>
+</section>
+
+<section id="mask">
+  <h2>The demand mask carries the answer</h2>
+  <p>
+    The mask is what lets gathering and deciding be separate functions without
+    losing the interleaving. Stage 3 turns the search's remaining predicates
+    into a set of fields; stage 4 fetches exactly those and no more. Without
+    it the split would have cost every <code>lfs find -name</code> an ioctl
+    per object for attributes it was about to discard.
+  </p>
+  <p>
+    It also encodes something the old code had no way to say: <strong>the same
+    field is not the same cost to every scanner</strong>. A project id costs a
+    namespace walk an open per object, and costs a scanner reading inodes off
+    a block device nothing at all. Three fields &mdash;
+    <code>LLAPI_SCAN_MDT_INDEX</code>, <code>LLAPI_SCAN_PROJID</code> and
+    <code>LLAPI_SCAN_HSM</code> &mdash; are therefore gathered only when named,
+    and a scan wanting nothing beyond what the directory entry knew performs
+    no ioctl per object at all.
+  </p>
+  <p>
+    The per-field costs, and how to set the mask, are on the
+    <a href="https://claude.ai/code/artifact/f7416d38-b82f-4c58-871a-0f982937313d">companion page</a>.
+  </p>
+</section>
+
+<section id="api">
+  <h2>Reading the record from your own code</h2>
+  <p>
+    The gather path this rewrite created is exposed as
+    <code>llapi_scan_namespace()</code>: the same traversal and the same
+    record, delivered to a callback instead of judged against command-line
+    predicates. A tool that needs per-object attributes no longer has to
+    shell out to <code>lfs find</code> and parse its output.
+  </p>
+  <div class="note">
+    <span class="lbl">Companion page</span>
+    <p>
+      <a href="https://claude.ai/code/artifact/f7416d38-b82f-4c58-871a-0f982937313d">Using
+      <code>llapi_scan_namespace()</code></a> &mdash; the signature, the
+      parameter block, the demand mask, the pre-filter, threading, and worked
+      examples including a complete program that finds recently modified files
+      by owner.
+    </p>
+  </div>
+</section>
+
+<section id="changelog">
+  <h2>A third source: the changelog</h2>
+  <p>
+    Splitting the predicates from the gathering had a consequence nobody was
+    aiming at. Once <code>find_decide()</code> takes a record rather than a
+    directory entry, anything that can fill a record can be searched with
+    <code>lfs find</code>&rsquo;s vocabulary &mdash; and a Lustre Changelog can
+    fill one. That makes a third input possible without a second copy of the
+    predicates, which is the same argument the rewrite was made for.
+  </p>
+  <div class="note">
+    <span class="lbl">Status &mdash; on Gerrit, 2026-08-26</span>
+    <p>
+      All of it is written, lab-verified against a three-node cluster, and
+      pushed. <code>llapi_scan_changelog()</code> reads an MDT&rsquo;s
+      changelog and delivers <code>struct llapi_scan_rec</code>, in event mode
+      or coalesced one record per object (68415).
+      <code>llapi_scan_fid()</code> fills a record for one FID the way a walk
+      fills one (68416), which is what <code>--since</code> verifies each
+      candidate with. Then <code>--since</code> (68417),
+      <code>--changelog</code> (68418), <code>--since-cookie</code> (68419)
+      and the man page and tests (68420).
+    </p>
+  </div>
+  <p>
+    A changelog is not a scan, and that difference decides the interface. It
+    enumerates what <em>happened</em>, never what exists: an object nobody has
+    touched does not appear, however well it matches. So there are two
+    spellings, and they answer two different questions.
+  </p>
+  <div class="tw">
+    <table>
+      <thead>
+        <tr><th>&nbsp;</th><th><code>--since</code></th><th><code>--changelog</code></th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Answers</td>
+          <td class="now">as it is now</td>
+          <td class="was">as it was recorded</td>
+        </tr>
+        <tr>
+          <td>The changelog&rsquo;s role</td>
+          <td>a candidate set; every hit verified the ordinary way</td>
+          <td>the whole source</td>
+        </tr>
+        <tr>
+          <td>The result</td>
+          <td>a strict subset of an ordinary <code>find</code></td>
+          <td>events, coalesced to one line per object</td>
+        </tr>
+        <tr>
+          <td>Deletions</td>
+          <td>invisible &mdash; a removed object cannot be verified</td>
+          <td>visible, which is the reason this spelling exists</td>
+        </tr>
+        <tr>
+          <td>A predicate it cannot answer</td>
+          <td>none; it verifies</td>
+          <td>refused, or counted undecided</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <p>
+    <code>lfs find /mnt/lustre --since 2h -type f</code> takes the FIDs of
+    everything with an event in the last two hours, resolves each one through
+    <code>llapi_scan_fid()</code>, and then applies the predicates exactly as
+    it always has. That call is what makes the promise keepable: it fills the
+    record the way the walk fills it &mdash; layout, HSM state, project id and
+    all &mdash; where an <code>fstat</code> of its own would have answered six
+    predicates out of eighty and left <code>--since -stripe-count 4</code>
+    disagreeing with a plain find on the same filesystem. Every flag keeps its
+    meaning, the output is pathnames, and the answer is narrower than a full
+    <code>find</code> &mdash; never different.
+  </p>
+  <p>
+    <code>lfs find /mnt/lustre --changelog testfs-MDT0000 --since 4200</code>
+    reads the log and nothing else. A changelog record carries a FID, a parent
+    FID, a name, the event and its time, and &mdash; where the server recorded
+    them &mdash; a uid and gid. It carries no size, mode, times, layout or HSM
+    state at any setting, so those arrive absent with their
+    <code>sr_valid</code> bit clear, or are filled by a lookup the caller asks
+    for.
+  </p>
+
+  <h3>The same question, asked of both sources</h3>
+  <p>
+    The two spellings compose &mdash; <code>--changelog</code> picks the
+    source, <code>--since</code> picks where in it to start &mdash; so the
+    clearest way to see the difference is to hold the query still and change
+    only the source.
+  </p>
+  <div class="code">
+    <div class="code-head">the accelerator, then the event view</div>
+<pre>lfs find /mnt/lustre <b>--since 2h</b> -type f
+lfs find /mnt/lustre <b>--since 2h --changelog all</b> -type f</pre>
+  </div>
+  <p>
+    <code>--changelog</code> takes an MDT name or <code>all</code>, and the
+    argument is <em>required</em>: <code>getopt_long()</code> accepts an
+    optional argument only in the <code>--changelog=VALUE</code> form, and a
+    required one accepts both spellings. So a bare <code>--changelog</code>
+    followed by <code>-type f</code> is an error rather than a default &mdash;
+    it would otherwise swallow <code>-type</code> as its value.
+  </p>
+  <p>
+    Given the same six things happening in the window, the two commands
+    disagree about five of them.
+  </p>
+  <div class="tw">
+    <table>
+      <thead>
+        <tr>
+          <th>In the last two hours</th>
+          <th><code>--since 2h</code></th>
+          <th><code>--since 2h --changelog all</code></th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>a.log</code> created, a regular file</td>
+          <td class="now">/mnt/lustre/a.log</td>
+          <td class="now">/mnt/lustre/a.log</td>
+        </tr>
+        <tr>
+          <td><code>b.txt</code> appended to; created last year</td>
+          <td class="now">/mnt/lustre/b.txt</td>
+          <td class="was">undecided &mdash; the event is a write, and only a
+          creation records the type</td>
+        </tr>
+        <tr>
+          <td><code>c.tmp</code> created, then unlinked</td>
+          <td class="none">nothing &mdash; a removed object cannot be verified</td>
+          <td class="now">[0x200000402:0x1f:0x0]</td>
+        </tr>
+        <tr>
+          <td><code>notes.txt</code> renamed to <code>notes.old</code></td>
+          <td class="now">/mnt/lustre/notes.old, the name it has now</td>
+          <td class="was">undecided for <code>-type</code>; the record&rsquo;s
+          name is <code>notes.txt</code>, the name at the event</td>
+        </tr>
+        <tr>
+          <td><code>logs/</code> created, a directory</td>
+          <td class="none">nothing &mdash; not a regular file</td>
+          <td class="none">nothing &mdash; the creation recorded a directory</td>
+        </tr>
+        <tr>
+          <td><code>old.log</code>, a regular file nobody touched</td>
+          <td class="none">nothing</td>
+          <td class="none">nothing</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <p>
+    Two rows carry the whole trade. <code>c.tmp</code> is the one only
+    <code>--changelog</code> can answer &mdash; there is no object left to
+    verify, so the FID is the answer or there is none. <code>old.log</code> is
+    what both spellings cost: it matches <code>-type f</code> perfectly and
+    neither prints it, because it has no event. Everything between those two
+    rows is the same distinction read twice: <code>--since</code> asks which
+    files <em>are</em> like this now, among those that changed;
+    <code>--changelog</code> asks what the log says <em>happened</em>.
+  </p>
+  <p>
+    One more thing is the same in both: <code>2h</code> is the time spelling,
+    and under DNE it is the only one that means the same thing on every MDT. A
+    bare <code>--since 4200</code> is an index into one MDT&rsquo;s log, so on a
+    multi-MDT filesystem it is refused as ambiguous unless a single
+    <code>--changelog MDT</code> names which log it indexes.
+  </p>
+  <div class="note">
+    <span class="lbl">Four ways a flag gets refused</span>
+    <p>
+      It needs object state and <code>--resolve</code> was not given; it
+      describes a walk (<code>--maxdepth</code>); it needs the mounted
+      filesystem&rsquo;s target list (<code>--ost</code>); or the record
+      carries something that is <em>not what the option means</em> &mdash;
+      which is why <code>-name</code> is answered from the event and
+      <code>--mdt</code> is refused outright. A predicate is answered from what
+      the source actually has, or refused. It is never approximated, and never
+      reinterpreted.
+    </p>
+  </div>
+  <p>
+    That rule is also why a flag may mean different things on different
+    commands without it being a defect: <code>lfind --name</code> already
+    matches every linkea name where <code>lfs find --name</code> matches the
+    name the walk arrived by. The promise worth keeping is not that flags
+    behave identically everywhere, but that an answer is never invented.
+  </p>
+</section>
+
+<footer>
+  <p>
+    Sources: <code>Documentation/man3/llapi_scan_namespace.3</code>,
+    <code>include/lustre/lustreapi.h</code>,
+    <code>lustre/utils/liblustreapi_scan.c</code>,
+    <code>lustre/utils/liblustreapi_pfind.c</code>,
+    <code>lustre/utils/liblustreapi_scan_changelog.c</code>.
+    Line counts measured on the series at base <code>5afbab284e</code>;
+    <code>sanity</code> figures from a two-backend lab run,
+    <code>ONLY=0e,17h,17i,27z,51c,51d,56,60h,65n,160d,162b,300</code>.
+  </p>
+</footer>
+
+</main>
+</div>
+
+
