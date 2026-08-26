@@ -1,0 +1,14 @@
+diff --git a/lustre/utils/liblustreapi_pfind.c b/lustre/utils/liblustreapi_pfind.c
+index dffd45dad9..a1b8d7470e 100644
+--- a/lustre/utils/liblustreapi_pfind.c
++++ b/lustre/utils/liblustreapi_pfind.c
+@@ -3675,7 +3675,8 @@ static int find_changelog_supported(struct find_param *param)
+ 		return -ENOTSUP;
+ 	}
+ 
+-	if (param->fp_max_depth != (unsigned int)-1 || param->fp_min_depth != 0) {
++	if (param->fp_max_depth != (unsigned int)-1 ||
++	    param->fp_min_depth != 0) {
+ 		llapi_error(LLAPI_MSG_ERROR | LLAPI_MSG_NO_ERRNO, -ENOTSUP,
+ 			    "--maxdepth and --mindepth describe a walk, which --changelog is not; --since honours them");
+ 		return -ENOTSUP;
