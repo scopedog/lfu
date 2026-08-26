@@ -1,12 +1,15 @@
-# LU-XXXXX — a plainly registered changelog user cannot be looked up
+# LU-20647 — a plainly registered changelog user cannot be looked up
 
-**Status:** drafted 2026-08-26, not yet filed. Fix not written yet; once the
-ticket exists it goes on its own branch off the series base (`5afbab284e`) and
-is pushed standalone, the way LU-20624 and LU-20643 were.
+**Status:** filed as LU-20647 on 2026-08-26. The fix is one commit,
+`f771afbbd8`, on branch `lu-20647-changelog-user-lookup` in
+`~/projects/lustre/lustre-lu20647`, based on the series base (`5afbab284e`) so
+it stands alone rather than behind the LU-20462 series. Change-Id
+`I12ef76c773ce31e4548db9022f381cabfe7f5ddc`. checkpatch clean, 0 errors and 0
+warnings. **Not yet pushed.**
 
-**Jira:** to be filed · **Type:** Bug · **Component:** none (the LU project
-defines none) · **Affects:** 2.17.0 and master (2.17.57) — everything since
-LU-19296 landed
+**Jira:** [LU-20647](https://jira.whamcloud.com/browse/LU-20647) ·
+**Type:** Bug · **Component:** none (the LU project defines none) ·
+**Affects:** 2.17.0 and master (2.17.57) — everything since LU-19296 landed
 
 **The Description below is Jira wiki markup, not Markdown** — see the note at
 the end of this file. Paste it verbatim; do not reflow it.
@@ -137,3 +140,40 @@ bold, and no bare square brackets outside a `{noformat}` block.
 **LU-20643's description is live and rendering badly**, and LU-20637's and
 LU-20603's carry stray backticks. Worth a pass with the same rules if the user
 wants them tidy.
+
+---
+
+## A second defect on the same path, not filed
+
+Found while writing the fix. It is reachable today, without it, so it is its
+own ticket rather than part of this one.
+
+A zero `cf_mask` means two different things, and the client composes them as
+if it meant one. `mdd_chlg_usermask()` returns 0 for a user with no per-user
+mask, and `mdc_changelog.c:222` reads a zero `crs_user_mask` as *do not
+filter*. But `mdc_changelog.c:811-814` composes:
+
+```
+	if (in.cf_mask == 0)
+		crs->crs_user_mask = out.cf_mask;
+	else
+		crs->crs_user_mask = in.cf_mask & out.cf_mask;
+```
+
+so when the user has no mask and the caller passes one, the result is
+`in.cf_mask & 0`, which is 0, which means *do not filter*. The `--mask` is
+silently dropped and the caller gets everything.
+
+Registering with a name and no mask already produces this today:
+`mdd_device.c:1789` writes a `rec2` when *either* a mask or a name was given,
+but `cur_mask` is assigned only inside `if (mask)`. So:
+
+```
+	lctl --device testfs-MDT0000 changelog register -n --user foo
+	lfs changelog --user foo --mask creat testfs-MDT0000   # unfiltered
+```
+
+The fix is a third arm — `else if (out.cf_mask == 0) crs->crs_user_mask =
+in.cf_mask;` — or giving "no per-user mask" a value that is not zero. It is a
+wrong answer rather than an error, which makes it the more dangerous of the
+two.
