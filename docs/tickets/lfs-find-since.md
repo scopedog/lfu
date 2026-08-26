@@ -8,7 +8,7 @@ written and a second one now is, both on branch `lu-20650-since` in
 |---|---|---|
 | `llapi_scan_fid()` | `f1e4165425` | built, reviewed, lab-verified |
 | `lfs find --since` | `5bbf8f6318` | built, reviewed, lab-verified |
-| `lfs find --changelog` | `7d3a02579f` | built, reviewed, lab-verified except `-type` |
+| `lfs find --changelog` | `e0265228c5` | built, reviewed, lab-verified |
 
 Neither is pushed.
 
@@ -141,13 +141,14 @@ so the command printed the right answer and then exited non-zero. Hiding
 stderr in a test hides the half of the result that says whether to believe the
 other half.
 
-### `--changelog`, and the one thing left in it
+### `--changelog`, verified
 
 Verified on the cluster 2026-08-26. Everything below behaved as §13.1 says:
 
 | | |
 |---|---|
 | `--changelog all --since 2m` | prints the objects with events, and reports *"7 objects have no pathname and are named by FID"* — rule 3 |
+| `-type f` / `-type d` | answer from the creation the record carries |
 | `-size` without `--resolve` | refused, naming itself and `--resolve` |
 | `-mtime -1` | refused: *"a changelog records an event time, not an object time; say `--since 1d`"* |
 | a subtree path | refused, naming the mount and `--resolve` — rule 2 |
@@ -155,17 +156,7 @@ Verified on the cluster 2026-08-26. Everything below behaved as §13.1 says:
 | an MDT that does not exist | refused, naming the filesystem |
 | `--resolve -size` | let through, and answers |
 
-**The gap: `-type` under `--changelog` returns nothing** where the design says
-it should match the creations and count the rest undecided. It is not the
-`find_decide()` type check — a fix there never fired, so it was reverted rather
-than left in shared code unverified. The skip happens earlier, in
-`find_prefilter()`: when a coalesced record carries `LLAPI_SCAN_TYPE` at all,
-the prefilter compares it and returns "skip" on a mismatch, and when it does
-not carry it the record reaches `find_decide()` with `stx_mode` zero. Which of
-those two is happening here is the next thing to find out — instrument the
-callback and print `sr_valid` per record.
-
-Everything else in `--changelog` is independent of it and works.
+**`-type` was broken, and the cause was in LU-20649, not here.** See below.
 
 ### Also still open
 
@@ -173,3 +164,51 @@ Everything else in `--changelog` is independent of it and works.
 - No man page or `sanity` case for either flag yet.
 - `--changelog` with `--resolve` merges correctly by construction but has no
   test that a recorded uid survives the lookup — worth one before push.
+
+---
+
+## The `-type` bug, and where it actually was
+
+`lfs find --changelog all -type f` returned nothing. Two guesses were wrong
+before the data settled it, which is the point worth keeping.
+
+**Guess one, wrong:** `find_decide()`'s type check reads `stx_mode` as zero and
+calls it a miss rather than a don't-know. A fix there **never fired**, so it was
+reverted rather than left unverified in the function all three entry points
+share.
+
+**Guess two, wrong:** `find_prefilter()` was skipping records that had no type.
+
+**What the data said.** A twenty-line program that read the coalesced stream and
+printed `sr_valid` and `sr_mode` per record:
+
+```
+	fid=[0x200007161:0x3f:0x0] valid=0x14204001 TYPE=yes mode=0000000(zero) evt=11 name=afile
+	fid=[0x200007161:0x40:0x0] valid=0x14204001 TYPE=yes mode=0040000(DIR)  evt=2  name=adir
+```
+
+`TYPE=yes` with `mode` **zero**. The record claimed to know its type and carried
+nothing for it, so `find_prefilter()` compared 0 against `S_IFREG`, missed, and
+skipped — silently, because a confident wrong answer is not undecided.
+
+**The cause, in `scan_cl_absorb()` (LU-20649):**
+
+```c
+	o->co_mode = scan_cl_mode(r->cr_type);	/* assigned every event */
+	if (o->co_mode != 0)
+		o->co_valid |= LLAPI_SCAN_TYPE;	/* only ever OR'd in */
+```
+
+Only a creation implies a type. `afile` was CREAT (mode `S_IFREG`, bit set) then
+OPEN and CLOSE (mode 0, bit **stays**). Coalescing left it claiming to know its
+type and carrying zero — which is exactly what the validity mask exists to keep
+apart: *"cannot answer"* from *"the answer is zero"*.
+
+The fix only overwrites the mode when the new event actually implies one, so a
+creation's answer stands for every event after it. An object's type does not
+change. Folded into `e18638d331`, LU-20649's own commit, and the three LU-20650
+commits rebased on top with their Change-Ids intact.
+
+Verified after: the same record reads `mode=0100000(REG)`, `-type f` returns the
+file and `-type d` the directories.
+
