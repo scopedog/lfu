@@ -67,22 +67,34 @@ filter*. The caller's mask is dropped and everything comes back.
 h3. Which users have no mask
 
 Registration writes a {{rec2}} when *either* a mask or a name was given
-({{lustre/mdd/mdd_device.c:1789}}), but {{cur_mask}} is only assigned inside
-{{if (mask)}} ({{lustre/mdd/mdd_device.c:1817-1826}}). So a registration with a
-name and no mask produces a {{rec2}} whose {{cur_mask}} is 0, and that user
-hits this today:
+({{lustre/mdd/mdd_device.c:1789}}). It fills {{cur_mask}} when a mask was
+given, and otherwise only while the server's own {{changelog_mask}} is still
+minimal, where a maskless user is handed {{CHANGELOG_DEFMASK}} instead
+({{lustre/mdd/mdd_device.c:1817-1832}}).
+
+So the case reachable today is a registration with a name and no mask made
+while the server mask is set to anything wider than minimal — which is the
+ordinary state of a filesystem that has any masked user or any explicit
+{{changelog_mask}}:
 
 {noformat}
+	lctl set_param mdd.testfs-MDT0000.changelog_mask=ALL
 	lctl --device testfs-MDT0000 changelog register --user foo
+	lctl get_param -n mdd.testfs-MDT0000.changelog_users
+	  -> cl9-foo   14 (0)          <- no mask column: this is the case
+
 	touch /mnt/testfs/a ; mkdir /mnt/testfs/d
 	lfs changelog --user foo --mask creat testfs-MDT0000
 	  -> the MKDIR record is listed too
 {noformat}
 
+Registered while the server mask *is* minimal, the same command produces
+{{cl8-foo ... mask=MARK,CREAT,MKDIR,...}} and does not show the bug.
+
 A user registered with neither a mask nor a name gets the older record type,
-whose mask is 0 by definition, so every such user is affected as well. Those
-users cannot be looked up at all until LU-20647 is fixed, which is the only
-reason this is not visible for them yet.
+whose mask reads as 0 whatever was written to it, so every such user is
+affected as well. Those users cannot be looked up at all until LU-20647 is
+fixed, which is the only reason this is not visible for them yet.
 
 h3. The fix
 
@@ -125,10 +137,22 @@ caller sent, and the username is filled. The LU-20647 fix reads every `req`
 field before the first write to `reply`, so it does not depend on that; anything
 further should keep the same discipline.
 
-**The test is `test_160z`, and it stands alone.** It registers a user with a
-name and no mask — reachable without the LU-20647 fix — asks for `--mask creat`
-and requires MKDIR to be absent, then asks without `--mask` and requires it to
-be present. The second half is what keeps the fix from turning "no mask" into
+### The filed description needs this correction
+
+LU-20648 was filed on 2026-08-26 with the earlier, wrong claim that `cur_mask`
+is assigned *only* inside `if (mask)`. It is not — `mdd_device.c:1827-1832`
+also hands a maskless user `CHANGELOG_DEFMASK` while the server mask is
+minimal. **The Description above is corrected; the one in Jira is not yet.**
+
+The bug itself is unaffected: it was observed on the lab on 2026-08-26, and the
+fix is unchanged. What changes is the repro, which needs the server mask
+widened first.
+
+**The test is `test_160z`, and it stands alone.** It widens the server mask
+first — without that the user is handed a default mask and the test passes
+while proving nothing — then registers a user with a name and no mask,
+asserts that user carries no mask, asks for `--mask creat` and requires MKDIR
+to be absent, then asks without `--mask` and requires it to be present. The second half is what keeps the fix from turning "no mask" into
 "no records". Extending `test_160y` instead would have made this patch depend
 on LU-20647, and the point is that it does not.
 
