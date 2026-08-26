@@ -1,13 +1,15 @@
-# LU-XXXXX — the Changelog Input Scanner
+# LU-20649 — the Changelog Input Scanner
 
-**Status:** drafted 2026-08-26, not yet filed. The code exists and is
-lab-verified: one commit on branch `lu-changelog-scan` in
-`~/projects/lustre/lustre-lu20603`, still titled `LU-XXXXX` because it has no
-ticket, which is what blocks the push.
+**Status:** filed as LU-20649 on 2026-08-26. The commit is `38e691a616` on
+branch `lu-20649-changelog-scan` in `~/projects/lustre/lustre-lu20649`, sitting
+on top of the rebuilt round-10 stack. Change-Id
+`I12efd3bd2150592a4507533129ab56573ef924d9`. checkpatch: 0 errors, 1 warning
+(the MAINTAINERS question every new file gets). **Not yet pushed, and it cannot
+go before round 10** — it is the tenth patch of the series.
 
-**Jira:** to be filed · **Type:** Technical task (as LU-20603, LU-20605,
-LU-20611, LU-20613 are) · **Epic:** LU-20462 · **Component:** none (the LU
-project defines none)
+**Jira:** [LU-20649](https://jira.whamcloud.com/browse/LU-20649) ·
+**Type:** Technical task (as LU-20603, LU-20605, LU-20611, LU-20613 are) ·
+**Epic:** LU-20462 · **Component:** none (the LU project defines none)
 
 **The Description below is Jira wiki markup, not Markdown.** Paste it verbatim;
 do not reflow it. Rules are in `changelog-user-lookup.md`.
@@ -94,18 +96,30 @@ numbers.
 
 ## Notes for us, not for the ticket
 
-### The round-10 fixes are folded into this commit
+### The round-10 fixes were folded in, and are now out — done
 
-`git show lu-changelog-scan` touches six files that are **not** part of the
-changelog scanner: `llapi_scan_namespace.3`, `lfs_find_parse.c/.h`,
+The old `lu-changelog-scan` commit touched six files that are **not** part of
+the changelog scanner: `llapi_scan_namespace.3`, `lfs_find_parse.c/.h`,
 `liblustreapi_pfind.c`, `liblustreapi_scan_device.c` and `libscan_ldiskfs.c`.
-Their contents are byte-identical to `docs/round10-pending/round10-code.patch`
-— verified 2026-08-26 by diffing the changed lines.
+Their changed lines were byte-identical to
+`docs/round10-pending/round10-code.patch`.
 
-So once round 10 is pushed, those six file changes belong to their proper
-parent commits and **must be dropped from this one**, or it will carry a
-duplicate of them. Rebase `lu-changelog-scan` onto the rebuilt stack in
-`~/projects/lustre/lustre-round10` and drop them before pushing.
+`38e691a616` is the same work rebuilt on top of the round-10 stack with those
+six dropped, so they are carried by their proper parent commits instead. The
+check that it is right: `git diff lu-changelog-scan 38e691a616` is **empty** —
+the resulting tree is identical, which is only possible if the dropped files
+were exactly the ones the parents already carry.
+
+`lu-changelog-scan` is left in place as the backup.
+
+### The man page `.TH` line is 82 columns, and that is fine
+
+`checkpatch-man.pl` reports `CHECK: Line length of 82 exceeds 80 columns` for
+`llapi_scan_changelog.3`, as it does for `llapi_scan_namespace.3`. It is the
+standard `.TH NAME 3 DATE "Lustre User API" "Lustre Library Functions"` that 88
+of the 145 pages in `Documentation/man3/` use, and **60 of them are already
+over 80 columns**. Shortening ours would break with the convention to satisfy a
+CHECK the tree ignores. Left alone deliberately.
 
 ### It is not the last piece
 
