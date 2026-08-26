@@ -1,10 +1,14 @@
-# LU-XXXXX — `lfs changelog --mask` is dropped for a user who has no mask
+# LU-20648 — `lfs changelog --mask` is dropped for a user who has no mask
 
-**Status:** drafted 2026-08-26, not yet filed. No fix written yet. Found while
-writing the LU-20647 fix; reachable today without it, which is why it is its
-own ticket — see `changelog-user-lookup.md`.
+**Status:** filed as LU-20648 on 2026-08-26. The fix is one commit,
+`0ea197d87b`, on branch `lu-20648-changelog-user-mask` in
+`~/projects/lustre/lustre-lu20648`, based on the series base (`5afbab284e`).
+Change-Id `Ib178e4c15be40c415262bf06c08da8b061855cf9`. checkpatch clean, 0
+errors and 0 warnings. **Not yet pushed.** Found while writing the LU-20647
+fix; reachable today without it, which is why it is its own ticket — see
+`changelog-user-lookup.md`.
 
-**Jira:** to be filed · **Type:** Bug · **Component:** none (the LU project
+**Jira:** [LU-20648](https://jira.whamcloud.com/browse/LU-20648) · **Type:** Bug · **Component:** none (the LU project
 defines none) · **Affects:** 2.17.0 and master (2.17.57) — everything since
 LU-19296 landed
 
@@ -121,6 +125,14 @@ caller sent, and the username is filled. The LU-20647 fix reads every `req`
 field before the first write to `reply`, so it does not depend on that; anything
 further should keep the same discipline.
 
-**If this is fixed after LU-20647,** the natural test is an extension of
-`test_160y`: register a user with a name and no mask, ask for `--mask creat`,
-and assert no MKDIR record comes back. Today that assertion fails.
+**The test is `test_160z`, and it stands alone.** It registers a user with a
+name and no mask — reachable without the LU-20647 fix — asks for `--mask creat`
+and requires MKDIR to be absent, then asks without `--mask` and requires it to
+be present. The second half is what keeps the fix from turning "no mask" into
+"no records". Extending `test_160y` instead would have made this patch depend
+on LU-20647, and the point is that it does not.
+
+**The two patches touch the same place in `sanity.sh`.** `test_160y` and
+`test_160z` are both inserted after `run_test 160x`, so whichever lands second
+needs a trivial rebase. That is a textual conflict, not a dependency — either
+can land first.
