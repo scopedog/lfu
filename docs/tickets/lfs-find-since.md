@@ -9,6 +9,7 @@ written and a second one now is, both on branch `lu-20650-since` in
 | `llapi_scan_fid()` | `f1e4165425` | built, reviewed, lab-verified |
 | `lfs find --since` | `5bbf8f6318` | built, reviewed, lab-verified |
 | `lfs find --changelog` | `e0265228c5` | built, reviewed, lab-verified |
+| `lfs find --since-cookie` | `a394dccfd3` | built, reviewed, lab-verified |
 
 Neither is pushed.
 
@@ -160,8 +161,7 @@ Verified on the cluster 2026-08-26. Everything below behaved as §13.1 says:
 
 ### Also still open
 
-- `--since-cookie`, and the stale-anchor check that belongs with it.
-- No man page or `sanity` case for either flag yet.
+- No man page or `sanity` case for any of the three flags yet.
 - `--changelog` with `--resolve` merges correctly by construction but has no
   test that a recorded uid survives the lookup — worth one before push.
 
@@ -212,3 +212,36 @@ commits rebased on top with their Change-Ids intact.
 Verified after: the same record reads `mode=0100000(REG)`, `-type f` returns the
 file and `-type d` the directories.
 
+---
+
+## `--since-cookie`, and the off-by-one only the lab could find
+
+The file is a line per MDT, `<mdtname> <index>`, read as the anchors and
+rewritten with the indexes the run reached — written whole and renamed over, so
+an interrupted run leaves the previous anchors rather than half of the new ones.
+
+Six cases verified on the cluster:
+
+| | |
+|---|---|
+| first run, no cookie file | reads from the oldest record, writes the cookie |
+| second run, same cookie | returns only what changed since |
+| third run, nothing changed | returns nothing |
+| cookie older than the oldest surviving record | refused, naming both indexes, `-ESTALE` |
+| cookie from another filesystem | ignored, not used as an anchor |
+| `--since` and `--since-cookie` together | refused |
+
+**The off-by-one.** With a wide changelog mask the first test looked like it
+worked, because every `lfs find` run generates OPEN and CLOSE events of its own
+and the extra objects looked like those. Re-running with a narrow mask made it
+unmistakable: **every run repeated the last object of the previous one**. The
+cookie holds the last index consumed and `sc_startrec` is inclusive — as
+`lfs changelog MDT <startrec>` is — so the next run has to start one past it.
+
+Worth keeping: the wide mask hid the bug behind a plausible explanation I had
+already accepted once. Narrowing it was what turned "that's probably the reads"
+into a reproducible off-by-one.
+
+Two more things review caught before it ran: `sscanf("%s")` into a fixed buffer
+from a file the caller controls, and a cookie from another filesystem being
+accepted as an anchor for this one.
