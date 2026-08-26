@@ -197,6 +197,33 @@ footer p { max-width: none; }
 
 <section id="state">
   <h2>Where it stands</h2>
+  <p>
+    The work is split in two, and the split is by <em>where the code runs</em>
+    rather than by feature:
+  </p>
+  <div class="tw">
+    <table>
+      <thead><tr><th>&nbsp;</th><th>What it is</th><th>Release</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><strong>Phase&nbsp;1</strong></td>
+          <td>Userspace design and implementation &mdash; the client-side namespace scanner, the device scanner and its backends, the changelog scanner, and <code>lfs find</code> and <code>lfind</code> on top of them. Nothing here needs a kernel change.</td>
+          <td class="num">Lustre 2.18</td>
+        </tr>
+        <tr>
+          <td><strong>Phase&nbsp;2</strong></td>
+          <td>In-kernel design and implementation &mdash; the OSD API scanner running inside the server, the <code>circ_buf</code> ring that carries its output to userspace, and the bulk RPC modules that carry a stream between nodes.</td>
+          <td class="num">Lustre 2.19</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <p>
+    The division is Dilger&rsquo;s, set on 2026-08-19; the phase numbering is
+    ours. It matters mostly because <strong>2.18 is a deadline rather than a
+    sequence</strong> &mdash; which argues for landing Phase 1 pieces one at a
+    time rather than holding them for a complete series.
+  </p>
   <div class="scores">
     <div class="score"><span class="n">19</span><span class="l">changes in review</span></div>
     <div class="score"><span class="n">8</span><span class="l">LU tickets, all In&nbsp;Progress</span></div>

@@ -6,6 +6,23 @@ Every module the HLD names as initial and either client- or device-side is
 written and in review. What is left in Phase 1 is the stream format, the modules
 that depend on it, and the indexes — and the format decision is not ours to make.
 
+## The two phases
+
+The work is split in two, and the split is by *where the code runs* rather than
+by feature:
+
+| | What it is | Release |
+|---|---|---|
+| **Phase 1** | Userspace design and implementation — the client-side namespace scanner, the device scanner and its backends, the changelog scanner, and `lfs find` and `lfind` on top of them. Nothing here needs a kernel change. | Lustre 2.18 |
+| **Phase 2** | In-kernel design and implementation — the OSD API scanner running inside the server, the `circ_buf` ring that carries its output to userspace, and the bulk RPC modules that carry a stream between nodes. | Lustre 2.19 |
+
+The division is Dilger's, set on 2026-08-19; the phase numbering is ours. It
+matters mostly because **2.18 is a deadline rather than a sequence** — which
+argues for landing Phase 1 pieces one at a time rather than holding them for a
+complete series.
+
+## Where it stands
+
 | | |
 |---|---|
 | Changes in review | **19** |
