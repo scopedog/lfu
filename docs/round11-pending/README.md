@@ -700,3 +700,54 @@ brace. `bash -n` caught it. Concatenating conflict sides works for adjacent
 *declarations* (it worked twice on `lustreapi.h` today) and does not work for
 bodies, where each side is a fragment of a different whole. Rebuilt by applying
 the mdc hunk cleanly and inserting the test text after `160y`'s `run_test`.
+
+## The 21:33–21:51 wave — 28 comments across 68288/68419/68160/68417
+
+### Fixed (four real defects)
+
+**1. `--since` silently ignored four predicates (68417).**
+`find_since_rec_cb()` went straight to `find_decide()`, and `find_decide()`
+never reads `fp_pattern` — that is `find_prefilter()`'s job. So
+`lfs find --since 1d -name '*.log'` returned files that do not match, and the
+same for `-type`, `--mdt-count` and `--hash-type`. **The sibling
+`--changelog` path already prefilters**, so the two disagreed about the same
+predicates, and 68417's own message claims *"a strict subset, narrowed and
+never different"*. Now prefilters first, like its sibling.
+
+**2. The `--since-cookie` file was rewritten from the wrong set (68419).**
+`find_cookie_write()` wrote `mdts[0..mdt_count)` — the MDTs *this run*
+covered. `--changelog MDT0001` narrows `mdt_count` to **1**, so a
+`--changelog MDT0001 --since-cookie f` run on a 4-MDT filesystem **destroyed
+the other three entries**, and the next run repeated their whole logs. An
+offline MDT was dropped the same way. It now merges into `starts[]`, which is
+indexed by MDT and already holds what the file said, and writes every anchored
+entry.
+
+**3 and 4. `lfind.8` was split across the wrong commits (68160).** Its
+SYNOPSIS listed `--fid2path` in all four forms while 68160's `lfind.c` has no
+such option — 68288 adds it. And a `.TP` had lost its tag, so groff rendered
+*"most 16 of them; the default is /dev"* as an option name: the `--search`
+tag and its first body line are added by **68163**, while the rest of that
+paragraph sat in 68160. Each piece moved to the commit that owns it.
+
+**The check that makes that safe: the final tree hash is byte-identical
+before and after** (`0d5a21064…`), so content only moved between commits. And
+every commit now renders clean on its own — verified per commit, with
+`--fid2path` documented only where implemented and no orphaned `.TP`.
+
+### Verified, NOT fixed — it needs a decision
+
+**`find_cl_oldest()` cannot tell an emptied log from a quiet one (68419).**
+It leaves `*oldest = 0` when the callback never fires, so the gap test
+`oldest > sc.sc_startrec` is false and a purge past the cookie goes
+unreported. But an empty log is genuinely ambiguous: it is also what "nothing
+happened since" looks like, and the log alone cannot separate them. The bot
+asked a question rather than asserting a bug, and it is right to. Needs a
+design answer, not a patch.
+
+### Recurring, and worth one decision
+
+**Neither `--since` nor `--since-cookie` is documented** — `lfs-find.1` and
+the `lfs find` usage string are untouched by 68417 and 68419. That is the same
+gap noted this morning against 68420's version gate. Three changes now point
+at it.
