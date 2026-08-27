@@ -124,3 +124,42 @@ buys forward compatibility only if fields are appended.** If we want
 hand-written FFI consumers to be viable at all, the API needs either a stable
 layout or a generated binding; asking people to transcribe a moving struct by
 hand will keep producing this.
+
+---
+
+## Resolved 2026-08-27: `sr_gen` moved to the end of the struct
+
+The user's call, and the right one: honour the promise in the layout rather
+than ask every consumer to track a moving struct.
+
+`sr_gen` now sits after `sr_lma_incompat` — the end of the struct **as 68156
+defines it** — with the later changelog block appended after that. Verified by
+`offsetof` against the real header, not a transcription:
+
+| field | 68156 PS6 | now |
+|---|---|---|
+| `sr_ino` | 168 | 168 |
+| `sr_parent_fid` | 176 | 176 |
+| `sr_linkea` | 192 | 192 |
+| `sr_linkeasize` | 200 | 200 |
+| `sr_class` | 204 | 204 |
+| `sr_lma_compat` | 208 | 208 |
+| `sr_lma_incompat` | 212 | 212 |
+| `sr_gen` | — | 216 |
+
+**Every PS6 offset restored**, growth append-only, `sizeof` 216 → 304.
+
+The pleasing part: **PR 186's FFI is now correct exactly as written**. The fix
+did not just prevent a future break, it removed the one that was already
+loaded. Artem was told so in a follow-up review; finding 2 (the `LAZY_SIZE`
+misreading) is unaffected and still stands.
+
+Where it landed: the comment on the field says only why it is where it is; the
+argument is in 68156's message. `sr_gen` has exactly one user
+(`liblustreapi_scan_device.c:446`), so nothing else moved.
+
+Verified: 16 commits, 16 Change-Ids, base `5afbab284e`, all subjects <=50,
+build rc=0 with zero `-Wall -Werror` diagnostics, checkpatch 0 errors on all 16
+(68156 goes 2649 -> 2654 lines checked, findings unchanged). The commit-msg
+hook rejected a 71-column line on the first attempt, which is the hook doing
+its job.
