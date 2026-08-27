@@ -214,3 +214,45 @@ new patchset.
 
 68340, 68413 and 68414 sit on master rather than in the stack, and none is
 needed to call `llapi_scan_device()`.
+
+## Finding 2, resolved — and it was our documentation, not his misreading
+
+Asked how Artem should fix the `LAZY_SIZE` check, and reading `scan_size()`
+properly turned the finding around. **`llapi_scan_device.3` was wrong**, and
+his code is a faithful implementation of it. The page said:
+
+> For a regular file with a layout, `LLAPI_SCAN_SIZE` is **not set** ... When
+> `trusted.som` answers, `LLAPI_SCAN_LAZY_SIZE` and `LLAPI_SCAN_LAZY_BLOCKS`
+> say so.
+
+The code has **two** paths to the non-lazy bits, and the second is the common
+case:
+
+1. a regular file with **no layout** (DoM, or never written) — answered from
+   the object itself: `LLAPI_SCAN_SIZE | LLAPI_SCAN_BLOCKS`;
+2. a striped file whose SOM is **`SOM_FL_STRICT`** — also
+   `LLAPI_SCAN_SIZE | LLAPI_SCAN_BLOCKS`, because a strict SOM is
+   authoritative and the MDT hands it to clients as a real size.
+
+Only lazy or stale SOM sets the lazy bits. **`mdt.*.enable_strict_som` is on by
+default**, so path 2 is most settled files — which upgrades the severity a lot:
+his histogram was dropping the *majority* of the filesystem, skewed exactly the
+wrong way, since a file with a strict SOM is one that has been sitting
+untouched. That is the cold data the dashboard exists to show.
+
+Man page rewritten in 68156 to describe both paths and to say plainly that a
+consumer wanting a size should test `LLAPI_SCAN_SIZE` and `LLAPI_SCAN_LAZY_SIZE`
+together. `groff -man` clean. Artem given the exact patch, plus two optional
+notes: the two bits are real information (exact vs approximate) if he wants to
+keep them apart, and `sr_blocks` is the more honest number than `sr_size_bytes`
+for "how much space is cold" on sparse or DoM files.
+
+**Both findings against this PR ended up being ours.** One was a layout that
+broke our own append-only promise; the other was a man page that documented the
+opposite of what the code does. The consumer wrote correct code against both.
+That is the argument for having a first consumer before landing, and for
+reading the implementation rather than the prose when answering "how do I fix
+this".
+
+Verified after the doc fix: 16 commits, 16 Change-Ids, base `5afbab284e`,
+checkpatch **0 errors total** across all 16, build rc=0 with zero diagnostics.
