@@ -26,13 +26,14 @@ The MDS≠client fix from the two-node lab landed in **PS2**, and PS3's
 `conf-sanity.sh` is byte-identical to PS2's — so the fix is in and the failure
 survived it. Whatever this is, it is a second failure mode.
 
-What points at our code rather than the tree:
+What pointed at our code rather than the tree:
 
-- **0 of 170** other owners' open changes with a Maloo run since 08-22 failed
-  conf-sanity in any session. Every previous triage in this series used the
-  owner-ratio the other way round; here it inverts.
 - `review-dne-subtest-change` runs only the subtests a patch changed, and the
   only conf-sanity subtest 68288 adds is test_166.
+- **Retracted:** the *"0 of 170 other owners failed conf-sanity, so the
+  owner-ratio inverts"* argument. The count was arithmetically right and
+  evidentially worthless — see the note on counting below. The diagnosis below
+  rests on the session log and needs none of it.
 
 ### Diagnosed from the session log — it is test_166, and the cause is DNE
 
@@ -142,3 +143,32 @@ Note the shape of the fourth: this is the **stack-blindness pattern inverted**.
 Usually the bot misses that a later change fixes what it flags; here it is right
 precisely because 68340 is *not* stacked, and our message described an effect
 that only exists once the series is applied on top.
+
+## 68094: closed. A timeout, and a lesson about counting
+
+68094's `review-dne-zfs-part-3` conf-sanity failure on PS10 is, from the
+session, *"Timeout occurred after 201 minutes, last suite running was
+conf-sanity"*. No subtest failed. **Not ours, twice over:** a wall-clock
+timeout is not an assertion, and 68094's tree (68231 + 68094) contains no
+`conf-sanity.sh` change at all — there is no conf-sanity subtest of ours in
+that build to fail. 201 minutes is also the familiar shape here; LU-20598's own
+title is *"Timeout occurred after 258 minutes"*.
+
+**The counting lesson, which is the part worth keeping.** Maloo's Gerrit
+comment renders a session timeout and a real assertion failure **identically**,
+as `1 tests failed: <suite>`. Measured: across our 18 changes and 170 of other
+owners', **0 of 283** such messages contain the word "timeout". The failure
+mode exists only on the session page, behind the login.
+
+So any tally built from `gerrit query --comments` — including every
+owner-ratio in [[lfu-autotest-known-noise]] — silently mixes environment with
+defect. That does not invalidate the ratios used *comparatively* (both sides of
+the ratio are mixed the same way), but it does invalidate reading a low
+absolute count as *"nobody else has this defect"*. That is precisely the
+mistake made against 68288 this morning: "0 of 170 owners failed conf-sanity"
+was reported as a strong signal when a good share of any such column is
+timeouts, and a suite that merely happened to be running when the clock ran out
+is not a failing suite.
+
+**The rule that follows:** the owner-ratio can say *"this looks tree-wide"*. It
+can never say *"this is ours"* — for that, get the log.
