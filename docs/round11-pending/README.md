@@ -219,3 +219,29 @@ Gerrit revision and keep their patchset and votes — 68094, 68095, 68156, 68157
   — that is the whole point of the bug. Verifying it needs a ≥2-MDT
   configuration, and the honest control is to run the pre-fix test first and
   watch it lose the files.
+
+## 68420's gate: HELD, by the user's decision (2026-08-27)
+
+**Decision: leave `MDS1_VERSION >= 2.17.58` alone and revisit once the `lfs
+find` options and the changelog fixes have landed.** So the three tests
+skipping everywhere is now a deliberate state, not an open defect — do not
+re-flag it as one.
+
+**The trigger for revisiting:** 68413 (LU-20647), 68414 (LU-20648) and the
+`--since`/`--changelog`/`--since-cookie` options landing. At that point the
+gate must be re-checked against the version they *actually* land in — 2.17.58
+was chosen before any of them had a landing version, and there is no reason to
+expect it to be the right number.
+
+**Two things to carry with the hold, because a dormant test is easy to lose:**
+
+- **`Test-Parameters: testlist=sanity env=ONLY=160aa,160ab,160ac` is now a
+  guaranteed-wasted session.** It buys a targeted run, on every patchset, of
+  exactly the three tests that cannot execute — the run can only ever report
+  three skips. Worth dropping until the gate comes down, and restoring with it.
+  Left in place for now: it is the same 68420-testing decision the user has
+  just taken, not a separate one.
+- **Nothing in the commit message says the gate exists**, so a reviewer reading
+  68420 sees three tests and no hint that none of them can run. One sentence
+  would preempt the question. Not added — the user said hold, and this is their
+  change to describe.
