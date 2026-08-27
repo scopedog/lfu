@@ -179,3 +179,38 @@ already said about it on someone else's.** A review comment is a claim with a
 timestamp, and when the ground moves under it the thread has to be closed
 explicitly — a correction posted somewhere else in the PR does not reach the
 person reading the diff.
+
+### Telling Artem how to fetch — and a correction we owed him
+
+Checked before writing the instructions, and it mattered: **Gerrit's current
+68156 PS9 still has `sr_gen` mid-struct.** The fix is local and unpushed, so
+the follow-up above ("your FFI is now correct as written") was true of our tree
+and *false of anything downloadable*. Corrected on the PR explicitly rather
+than quietly: pull today and you need `sr_gen` in your mirror; pull after the
+next patchset and you do not.
+
+**The whole series is one fetch**, because it is a linear 16-commit stack and
+the tip carries every ancestor:
+
+```sh
+git fetch https://review.whamcloud.com/fs/lustre-release refs/changes/20/68420/1
+git checkout -b lfu FETCH_HEAD
+```
+
+Verified by actually running it into an empty repo — 16 commits down to
+`5afbab284e`. The patchset number moves, so the durable form is
+
+```sh
+git ls-remote https://review.whamcloud.com/fs/lustre-release 'refs/changes/20/68420/*'
+```
+
+and take the highest numeric ref; `.../meta` is Gerrit's own bookkeeping.
+
+**The series has no Gerrit topic set** (checked: `topic=(none)` on 68094, 68420,
+68340). Setting one would let anyone fetch or view the series as a unit instead
+of being told which change is the tip, and would group it in the web UI. Worth
+doing on the next push — it costs nothing, since a topic can be set without a
+new patchset.
+
+68340, 68413 and 68414 sit on master rather than in the stack, and none is
+needed to call `llapi_scan_device()`.
