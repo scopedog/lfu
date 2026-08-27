@@ -355,10 +355,24 @@ old test short-circuited on `crs_user_mask == 0` and never touched
   at :638, with the init at :652 — before `file->private_data` is set, so no
   reader can observe a zeroed mask.
 
-**`test_160za` added** for the direction the bot found: a user registered
-`--mask creat`, asked for `--mask mkdir`, must see **no** records — asserting
-both that MKDIR is absent *and* that CREAT did not leak, since the old bug
-returned the whole log.
+**`test_160za` was written, then REMOVED — and that is the important part.**
+It asserted the disjoint case returns no records. It passed. Then the control
+(the pre-fix module, rebuilt from the top and confirmed by an `md5sum` guard on
+the installed `mdc.ko`) **passed too**. A test that passes against the broken
+code is a test of nothing, so it is gone.
+
+Chasing why produced the real finding: **the bot's severity does not
+reproduce.** On the *pre-fix* module, `lfs changelog --user U --mask mkdir` for
+a user registered `--mask creat` returns **nothing**, not the whole log. The
+server already restricts delivery to the user's own mask — a user with
+`mask=MARK,CREAT` is only ever sent CREAT records — and the requested mask is
+applied there too, so the client-side `crs_user_mask == 0` never has anything
+to fail to filter.
+
+So the code change stands as **hardening, not a user-visible fix**: the
+client-side test should mean what it says, and `llapi_changelog_start_user()`
+takes a raw mask from an application. The commit message says exactly that
+rather than claiming a wrong answer nobody can observe.
 
 **Also:** `Fixes: 41b55cf2309d` added (verified — that commit introduces the
 composition and the record test), the subject cut from 61 to 44 characters, and
