@@ -521,3 +521,57 @@ Verified after all of it: 16 commits, 16 Change-Ids, base `5afbab284e`,
 **0 errors**, `groff -man` clean on both man pages.
 
 **Round 11 now moves 18 of 19.** Only 68231 is untouched.
+
+## 68156 + 68158 AI reviews (2026-08-27 20:03/20:07) — 5 comments
+
+The reviews did arrive, 16 and 28 min after their verdicts, so the earlier
+worry that the bot had gone selective was premature. **68157 still has none at
+45+ min**, so it may yet be skipped.
+
+### The one that matters: `LMV_USER_MAGIC` on a real directory stripe (68156)
+
+**Confirmed on every claim, and it is our defect.**
+
+| Fact | Evidence |
+|---|---|
+| the device path stamps `LMV_USER_MAGIC` | `liblustreapi_scan_device.c:244` |
+| a namespace scan carries `LMV_MAGIC_V1` | `llite/dir.c:2274` sets it for `LL_IOC_LMV_GETSTRIPE` |
+| `LMV_USER_MAGIC` **means "default layout"** | `LMV_USER_MAGIC 0x0CD30CD0 /* default lmv magic */`; `LMV_MAGIC_V1 0x0CD20CD0 /* normal stripe lmv magic */` |
+| liblustreapi dispatches on exactly that | `liblustreapi.c:2150` prints `"(Default)"`; `:2307` **suppresses the object list** when the magic is `LMV_USER_MAGIC` |
+| `cb_get_dirstripe()` picks on the same basis | `liblustreapi_pfind.c:148` default → `LMV_USER_MAGIC`, `:150` otherwise → `LMV_MAGIC_V1` |
+
+So **one striped directory reads back differently from the two scanners**, and
+`lmv_dump_user_lmm()` renders a real striped directory scanned off a device as
+a *default layout with its stripe list suppressed*. That is precisely the
+guarantee `scan_lmv_to_user()`'s own comment and the `sr_lmv` comment make.
+
+**And the obvious fix is unsafe.** The device path sizes the buffer with
+`lmv_user_md_size(0, ...)` — header only — while setting `lum_stripe_count` to
+the **real** count. Today the `LMV_USER_MAGIC` stamp is the only thing stopping
+`lmv_dump_user_lmm()` from walking `lum_objects[]`. Change the magic alone and
+that walk runs over `count` entries in a header-sized buffer.
+
+**Recommendation: do NOT fix this in round 11.**
+
+- The defect is already on the current Gerrit patchset, so leaving it changes
+  nothing for the worse.
+- The naive fix trades a wrong answer for a buffer over-read.
+- The real fix is a design choice — carry `lum_stripe_count` as 0, carry zeroed
+  entries, keep the summary form and document it, or mark the missing shard
+  list with a bit the way the foreign case now is — and it interacts with the
+  decision just made about `LLAPI_SCAN_LMV_FOREIGN`.
+- A device-scan LMV change wants a lab, and there is no time before 23:00.
+
+**A safe subset is available if wanted:** leave the magic alone and correct the
+two comments that claim the two forms are identical, so the code and its
+documentation stop disagreeing. That removes the false guarantee without
+touching behaviour.
+
+### The other four, all minor and all safe
+
+| Where | Finding |
+|---|---|
+| 68156 `/COMMIT_MSG` | the body never mentions `struct llapi_scan_stats`/`sp_stats` or `LLAPI_SCAN_F_INTERNAL`, both public API a caller must know |
+| 68156 `llapi_scan_device.3:89` | **already fixed today** — this is the strict-SOM paragraph corrected for Artem's `LAZY_SIZE` finding; the bot is reviewing PS9, which predates it |
+| 68158 `lfs_find_parse.h:90` | `-1` means different things for `pathstart` and `pathend`; the latter means "runs to argc", and `lfs_find()` does that fixup while the header does not say so |
+| 68158 `lfs_find_parse.h:98` | "0 on success, non-zero otherwise" is the one test that does not work — the give-up paths return 0, which is why `stopped` exists |
