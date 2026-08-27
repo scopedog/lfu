@@ -163,3 +163,19 @@ build rc=0 with zero `-Wall -Werror` diagnostics, checkpatch 0 errors on all 16
 (68156 goes 2649 -> 2654 lines checked, findings unchanged). The commit-msg
 hook rejected a 71-column line on the first attempt, which is the hook doing
 its job.
+
+### The two stale inline threads, closed
+
+The summary follow-up corrected finding 1, but the **inline** comments on
+`age.rs:77` and `:174` still read *"8 bytes off once you rebase"*, which our
+own change had just made false. A reader scrolling the diff sees those threads
+without necessarily reading the review body. Both got a short reply saying they
+are superseded and that the code is correct as written; the line 183
+(`LAZY_SIZE`) thread was deliberately left alone, because that one still
+stands.
+
+**Worth generalising: fixing a problem on our side does not retract what we
+already said about it on someone else's.** A review comment is a claim with a
+timestamp, and when the ground moves under it the thread has to be closed
+explicitly — a correction posted somewhere else in the PR does not reach the
+person reading the diff.
