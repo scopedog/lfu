@@ -751,3 +751,29 @@ design answer, not a patch.
 the `lfs find` usage string are untouched by 68417 and 68419. That is the same
 gap noted this morning against 68420's version gate. Three changes now point
 at it.
+
+## The 22:05/22:19 wave — 14 more, six marked (defect). NOT YET FIXED.
+
+68415 is the changelog Object Stream and had **never been reviewed**; this is
+its first pass, and it is the largest crop of defects on any single change.
+
+| Where | Finding | Status |
+|---|---|---|
+| 68415 `:152` | `scan_cl_rec_event()` memsets the record and never restores `sr_parent_fd`/`sr_fd` to **-1**, which `lustreapi.h` documents. So they are **0 — stdin**. `liblustreapi_pfind.c:3844` does `fc.fc_d = isdir ? rec->sr_fd : -1`, handing fd 0 to the decider for a directory | **VERIFIED** |
+| 68415 `:558` | `LLAPI_SCAN_CL_PARAM_MIN_SIZE` is 24 (through `sc_want`) but `sc_mdtname` sits at 32 — a caller using the minimum leaves `sc_mdtname` uninitialised. **Same class as the `sp_size` field-boundary defect fixed on 68094 today** | to verify |
+| 68415 `:619` | `llapi_changelog_start_user()` can fail *after* `llapi_changelog_start()` succeeded, leaving `*priv` set | to verify |
+| 68415 `:622` | with the default `sc_want` of 0 the condition is false, so a step is silently skipped | to verify |
+| 68415 `:669` | while coalescing, `sl_accepted` is the index of the last **delivered object** rather than the last **consumed record**, so records between them can be lost on resume | to verify — potentially the worst of the batch |
+| 68163 `:467` | is `hdl` really NULL on that path? `sa_handle_get_from_db()` assigns `*hdl` before it can fail | to verify |
+
+Plus eight minor/style: a missing EXAMPLES section, `scan_cl_mode()` returning
+`S_IFDIR` for `CL_RMDIR` so the man page's claim is too narrow, no
+`ss_size` check against `LLAPI_SCAN_CL_STATS_MIN_SIZE`, and a commit message
+describing a new function as a fix.
+
+**Scope note.** Round 11 began as three fixes. It is now: the DNE test_166 fix,
+68340's six, 68414's three, the `sr_gen` move, five version gates, 68094's
+five, 68416's eleven, an out-of-bounds write, `--since`'s missing prefilter,
+the cookie-file data loss, and a man page split across three commits — with 14
+more arriving. Reviews are still landing; 68417's own review has not come, and
+68418/68420 have not been reviewed at all.
