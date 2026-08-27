@@ -172,3 +172,50 @@ is not a failing suite.
 
 **The rule that follows:** the owner-ratio can say *"this looks tree-wide"*. It
 can never say *"this is ours"* — for that, get the log.
+
+---
+
+# Round 11 is built and verified — NOT pushed
+
+Applied 2026-08-27. Safety branches `backup-pre-round11-20260827`
+(`lu-20650-since`) and `backup-pre-round11-lmd-20260827`
+(`stale-lmd-buffer`) in `~/projects/lustre/lustre-scanfid`.
+
+**What went in — three code changes and five subjects.**
+
+| Change | What |
+|---|---|
+| 68288 | `mkdir -p` → `mkdir_on_mdt0` in test_166, the DNE placement bug |
+| 68418 | the 82-column line wrapped |
+| 68340 | `lmd_fid` cleared in `convert_lmdbuf_v1v2()`; `lmd_lmmsize`/`lmd_padding` cleared on the lstat path; the over-narrow comment rewritten; message re-scoped, subject fixed, `Fixes:` added |
+| 68415, 68417, 68418, 68419, 68420 | subjects cut to ≤50 |
+
+**Verification.**
+
+- **Code delta is exactly the two intended stack fixes** — `git diff` against
+  the backup branch shows the test_166 mkdir and the line wrap, nothing else.
+- **Checkpatch, per patch, before and after:** identical everywhere except
+  68418, whose warning count goes **1 → 0**. Zero errors on all 16 + 68340.
+- **Builds:** `liblustreapi.la lfs lfind` at stack HEAD, on 68340's branch,
+  and per-commit on 68418/68419/68420 — all rc=0 with **zero diagnostics**
+  under `-Wall -Werror`.
+- `bash -n lustre/tests/conf-sanity.sh` clean.
+- **All 16 subjects ≤50**, 16 unique Change-Ids, base still `5afbab284e`, no
+  message body line over 70.
+
+**What a push would cost:** 9 changes are byte-identical to their current
+Gerrit revision and keep their patchset and votes — 68094, 68095, 68156, 68157,
+68158, 68159, 68160, 68163, 68231. **8 take a new patchset**: 68288 PS3→PS4,
+68340 PS1→PS2, and 68415–68420 PS1→PS2.
+
+**Still not done, and deliberately:**
+
+- **68420's version gate** — unchanged, still `MDS1_VERSION >= 2.17.58`, still
+  skipping everywhere. The user's call; see above.
+- **68231's stale Verified-1** — needs a `BUILD` comment or nothing. The
+  user's call.
+- **No lab run.** The test_166 fix is behavioural and **DNE-specific**, and
+  nothing here has run against a real target. A single-MDT lab cannot verify it
+  — that is the whole point of the bug. Verifying it needs a ≥2-MDT
+  configuration, and the honest control is to run the pre-fix test first and
+  watch it lose the files.
