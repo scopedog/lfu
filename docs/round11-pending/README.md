@@ -383,3 +383,33 @@ restores.
 cannot be compiled locally (the working tree is `--disable-modules
 --disable-server` on a 7.0 kernel), and 68414's original fix was lab-verified
 before its push.
+
+## 68094's AI review (2026-08-27 18:30) — 5 comments, all 5 real
+
+23 minutes after 68094's Maloo verdict; the trigger is now 8 for 8. **68094 is
+currently one of the four changes round 11 does NOT move**, so acting on these
+makes it a sixteenth.
+
+| Where | Finding | Verified |
+|---|---|---|
+| `liblustreapi_scan.c:549` | **`sp_size` need not land on a field boundary.** Accepted range is `[MIN_SIZE, sizeof]`; `memcpy(&spl, sp, sp_size)` with 25–31 copies **half of `sp_filter`**, and `st.ss_filter` is then called through it | Measured: `sizeof(struct llapi_scan_param)` = 56, `sp_filter` at **[24, 32)**, `LLAPI_SCAN_PARAM_MIN_SIZE` = 24. So 25–31 is accepted and yields a partial function pointer |
+| `lustreapi.h:621` | **`sr_attr_flags` is unmasked `stx_attributes`**, so it carries raw inode flags, not only `STATX_ATTR_*` as the header says | `ll_dir_ioctl()` does `stx.stx_attributes \|= body->mbo_flags` (`llite/dir.c:2485`). Our namespace path assigns it raw (`liblustreapi_scan.c:192`) while **the device path masks** (`libscan_ldiskfs.c`, "only these i_flags bits share their values"). `lfs find` masks too (`liblustreapi_pfind.c:1558`). **Our two scanners disagree about one documented field** |
+| `lustreapi.h:631` | **A foreign LMV breaks "always in the lmv_user_md form."** A namespace scan delivers the raw `lmv_foreign_md` blob | `llapi_scan_lmv_size()` **already branches on `lmv_is_foreign()`** (`liblustreapi_scan.c:100-107`), and `cb_find_init()` guards **5** reads with it. The code knows; the contract does not |
+| `llapi_scan_namespace.3:70` | the page documents some record fields and none of the `LLAPI_SCAN_*` constants — `sr_fid` especially, which most consumers reach for first | fair on inspection |
+| `lustreapi_internal.h:311` | *"Both are enumerated"* but only one macro is defined | fair — leftover from a two-macro version |
+
+**Two of these are API-contract decisions, not defects with an obvious fix**,
+and the bot phrased both as questions:
+
+- **`sr_attr_flags`** — mask it in the namespace path to match the device path
+  and the header, or add an `sr_attr_mask` beside it and let the consumer do
+  what `lfs find` does? Masking is smaller and makes the two scanners agree;
+  carrying the mask preserves information a consumer might want.
+- **`sr_lmv`** — say in the contract that a consumer must check `lum_magic`
+  first, or give a foreign LMV its own `sr_valid` bit? A bit is friendlier and
+  costs one constant; the contract change is free but pushes the check onto
+  every consumer, and PR 186 has already shown how that goes.
+
+**`sp_size` has an obvious safe fix** and no contract question: reject a size
+that does not end on a field boundary. Today the only real values are
+`LLAPI_SCAN_PARAM_MIN_SIZE` and `sizeof(*sp)`.
