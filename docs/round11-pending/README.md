@@ -301,3 +301,27 @@ It has none (`topic=(none)` on 68094, 68420, 68340). A topic groups the changes
 in the web UI and lets anyone fetch or review the series as a unit instead of
 being told which change is the tip — which is exactly the question Artem had to
 ask. **A topic can be set without a new patchset**, so it costs nothing.
+
+## 68414's AI review (2026-08-27 17:25) — 3 comments, all 3 verified real
+
+Arrived 13 minutes after 68414's Maloo verdict, consistent with the 16–27 min
+trigger. **Not yet fixed** — this is kernel code in `mdc`, and 68414's original
+fix was lab-verified before its push, so these want the same treatment.
+
+| Where | Finding | Verified |
+|---|---|---|
+| `mdc_changelog.c:821` | **A real gap in 68414's own fix.** Two *non-zero but disjoint* masks intersect to zero, and the record test reads zero as "no filter" — so `in & out == 0` returns **every** record type instead of none | Confirmed at base: `chlg_ioctl()` composes `in.cf_mask & out.cf_mask` (:811-814) and the record test is `if (crs->crs_user_mask && !(crs->crs_user_mask & BIT(...)))` (:222). 68414 adds the `out == 0` arm but leaves the disjoint case |
+| `/COMMIT_MSG` | wants `Fixes: 41b55cf2309d ("LU-19296 changelog: Add user-specific changelog filtering")` | **Checked** — the sha exists, dated 2026-03-15, and carries 9 references to `cf_mask`/`crs_user_mask`. It is the right commit |
+| `sanity.sh:22542` | `changelog_chmask()` sets the mask on **all** MDS nodes but only `$SINGLEMDS` is restored, so with `MDSCOUNT > 1` the others are left at ALL | Confirmed — `changelog_chmask()` is `do_nodes $(mdts_nodes) $LCTL set_param mdd.*.changelog_mask` (`test-framework.sh:11403-11407`) |
+
+**The first one is the interesting one and it is the same bug one case further
+along.** 68414 fixes "the registered user has no mask"; the bot found "the two
+masks do not overlap". Both end at `crs_user_mask == 0`, and both are then read
+as unrestricted. The honest fix distinguishes *no filter* from *empty filter*
+rather than adding a third arm — otherwise the next disjoint case finds the
+same hole.
+
+**Decision needed:** fold into round 11 (which delays the push and needs
+another lab, since this is kernel code) or take it as round 12. 68414 is
+currently one of the **nine** changes round 11 does **not** move, so fixing it
+makes it a tenth.
