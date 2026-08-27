@@ -86,7 +86,7 @@ Every one verified against the tree before being written down.
 | `liblustreapi_pfind.c:430` | `lmd_lmmsize` is stale on the lstat path too | `llapi_get_lum_file_fd()` does `memcpy(lum, &lmd->lmd_lmm, lmd->lmd_lmmsize)` (`liblustreapi_layout.c:6104-6106`). `convert_lmdbuf_v1v2()` zeroes it; this path does not. Bounded by the `> lumsize` check, so not an overflow — but a stale length in a public API |
 | commit message | *"report a FID made of one"* is unsupported | at `5afbab284e`, `lmd_fid` is read **only** in `lustre/llite/dir.c:2404`, nowhere in `lustre/utils`, and `fid_is_sane()` is not compiled into utils at all. The reader is `scan_rec_mdt()`, which **our series** adds — 68340 is standalone on master, so its own tree cannot show the effect. The `-btime`/`-attrs` half of the claim does hold |
 | commit message | the subject overstates the change | it clears fields before reuse rather than stopping the reuse |
-| commit message | wants a `Fixes:` tag | the bot proposes `11aa7f8704c4 ("LU-11367 som: integrate LSOM with lfs find")` — **verify that sha before using it**, the way round 8 did for 68231 |
+| commit message | wants a `Fixes:` tag | the bot proposes `11aa7f8704c4 ("LU-11367 som: integrate LSOM with lfs find")`, 2018-11-01 — **checked, and it is the right one**: it introduces `lov_user_mds_data_v2`, `convert_lmd_statx()` and `llapi_get_lum_file_fd()` in one commit |
 
 Note the shape of the fourth: this is the **stack-blindness pattern inverted**.
 Usually the bot misses that a later change fixes what it flags; here it is right
