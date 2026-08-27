@@ -488,3 +488,36 @@ Whole-round verification after the gate change: 16 commits / 16 Change-Ids /
 base `5afbab284e`; checkpatch **0 errors** across all 19 patches (21 warnings
 and 187 checks, all the known moved-code noise); `liblustreapi.la lfs lfind`
 builds rc=0 with **zero** diagnostics under `-Wall -Werror`.
+
+### 68094 — all five applied (the user's decisions)
+
+**`sr_attr_flags` masked** with `stx_attributes_mask`, so the field carries only
+what the server declared and means what the header says. **Foreign LMV got its
+own bit**, `LLAPI_SCAN_LMV_FOREIGN = 0x20000000`, chosen above the block the
+rest of the series fills.
+
+**The review only saw half of the foreign case.** It flagged the namespace path;
+checking the other one showed `scan_lmv_to_user()` in the **device** path also
+handles `LMV_MAGIC_FOREIGN`, copying the blob out as `lmv_foreign_md` with a
+byte-swapped header. Both paths now set the bit. A review that names one call
+site is not a survey of them.
+
+**Both doc items done:** `llapi_scan_namespace.3` gains a *"The record's fields
+and their bits"* section covering every field and constant, including
+`sr_parent_fd`/`sr_fd` lifetime and that `sr_attr_flags` is masked; and the
+`lustreapi_internal.h` comment no longer promises two enumerations while
+defining one — it describes `LLAPI_SCAN_MDT_MASK` and points at the public
+`LLAPI_SCAN_DIRENT_MASK` for the dirent half.
+
+**A mistake of mine, caught by building.** Resolving the 68156 rebase conflict
+split a comment block, orphaning its body after a `#define` — a syntax error
+(`missing terminating ' character` on `target's`). **The rebase completed
+happily, because git does not compile.** Repaired, and every commit is now
+built individually rather than only at HEAD, since that breakage was mid-stack
+and invisible from the tip.
+
+Verified after all of it: 16 commits, 16 Change-Ids, base `5afbab284e`,
+**every commit builds alone** with zero `-Wall -Werror` diagnostics, checkpatch
+**0 errors**, `groff -man` clean on both man pages.
+
+**Round 11 now moves 18 of 19.** Only 68231 is untouched.
