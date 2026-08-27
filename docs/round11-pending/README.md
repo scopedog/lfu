@@ -575,3 +575,72 @@ touching behaviour.
 | 68156 `llapi_scan_device.3:89` | **already fixed today** — this is the strict-SOM paragraph corrected for Artem's `LAZY_SIZE` finding; the bot is reviewing PS9, which predates it |
 | 68158 `lfs_find_parse.h:90` | `-1` means different things for `pathstart` and `pathend`; the latter means "runs to argc", and `lfs_find()` does that fixup while the header does not say so |
 | 68158 `lfs_find_parse.h:98` | "0 on success, non-zero otherwise" is the one test that does not work — the give-up paths return 0, which is why `stopped` exists |
+
+## 68159's AI review (20:40) — 6 comments, and one is an out-of-bounds WRITE
+
+### The serious one: the swab runs before the bounds check
+
+`liblustreapi_pfind.c:3376-3378`:
+
+```c
+memcpy(&lmd->lmd_lmm, rec->sr_lmm, size);
+layout_swab_lov_user_md(&lmd->lmd_lmm, size);   /* unbounded, and it STORES */
+if (find_lmm_fits(&lmd->lmd_lmm, size)) {       /* the validator, too late */
+```
+
+**We built `find_lmm_fits()` in round 5 for exactly this hazard and then call
+it after the thing it was meant to guard.** The validator is correct; the
+ordering defeats it.
+
+`layout_swab_lov_user_md()` (`liblustreapi_layout.c:166`) takes
+`ent_count = comp_v1->lcm_entry_count` **straight from the buffer** — a `__u16`,
+so up to 65535 — and writes `comp_v1->lcm_entries[i]` for each, bounded by
+nothing. It then computes `lum = (char *)comp_v1 + ent->lcme_offset` from an
+arbitrary `__u32` in the buffer and **stores** `lum->lmm_magic`. Its `lum_size`
+argument is never used to bound the composite path; it is only reassigned from
+`ent->lcme_size`.
+
+The only guards at our call site are `sr_lmmsize <= fp_lum_size` and
+`>= sizeof(struct lov_user_md_v1)`. Neither bounds `lcm_entry_count` or
+`lcme_offset`.
+
+**The exposure is ours even though the function is upstream.** Upstream's other
+caller (`liblustreapi_layout.c:585`) feeds it an ioctl answer — kernel-sourced
+and trusted. We introduced a path that feeds it **bytes read off a device that
+may have been written while we read them**, which is the precise case
+`find_lmm_fits()` exists for. On a big-endian host it is any composite layout
+read short; on little-endian it needs the first four bytes to read as
+`__swab32(LOV_MAGIC_COMP_V1)`, which a torn read can produce.
+
+**The fix the bot proposes is the right one and we already own half of it:**
+make `find_lmm_fits()` byte-order agnostic and run it on the raw copy *before*
+the swab, which is exactly the order `llapi_layout_get_by_xattr()` uses
+(`llapi_layout_lum_truncated()` runs ahead of its swab).
+
+**This is verifiable without a lab** — crafted buffers (`lcm_entry_count`
+65535, `lcme_offset` past the end, `lcme_size` 0) fed to the validator in a
+standalone harness prove rejection happens before any store.
+
+### The second defect, same area
+
+`pfind.c:3228` — an entry passes the bounds test with `lcme_size == 0`, or with
+`lcme_offset == size`, and `lov_comp_entry()` then reads `lmm_magic`,
+`lmm_pattern`, `lmm_stripe_count` and a v3 pool name — up to 48 bytes — from
+`comp + lcme_offset`, past what was accounted for. Wants
+`len >= sizeof(struct lov_user_md_v1)` and `off >= sizeof(*comp) + need`.
+
+### The rest
+
+- `llapi_find_device.3:111` **(defect)** — `fp_size_sign` is documented
+  backwards. `lfs_find_parse.c` sets `-1` for `+size` and `1` for `-size`, and
+  `find_value_cmp()` matches `file + margin <= limit` when `sign > 0`, so the
+  man page's example finds files *up to* a gigabyte where the prose says over.
+  `fp_size_units` is 0 where `lfs` sets 512.
+- `pfind.c:2845` (minor) — the undecided-btime change also alters the
+  **namespace walk**: what used to fail with `-EOPNOTSUPP` is now dropped
+  silently, and a walk has no undecided counter to report it. Suggests it
+  belongs in its own patch with a `Fixes:` tag.
+- `/COMMIT_MSG` (minor) — same point, that the walk-side behaviour change is
+  not stated.
+- `scan_device.c:179` (style) — a block comment describing
+  `scan_linkea_entry()` sits ~70 lines above it.
