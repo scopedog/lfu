@@ -248,3 +248,56 @@ expect it to be the right number.
   68420 sees three tests and no hint that none of them can run. One sentence
   would preempt the question. Not added — the user said hold, and this is their
   change to describe.
+
+---
+
+# AFTER PUSHING ROUND 11 — do these, in this order
+
+Written down because the push is the noisy part, and these are what gets
+forgotten once it succeeds.
+
+## 1. Tell Artem the series has moved (PR 186)
+
+**Promised to him in writing** — *"I will comment here when it is up"* — and he
+is holding off on purpose, because everything downloadable still has `sr_gen`
+mid-struct. Until this comment goes out, he is blocked on us.
+
+Post to <https://github.com/TheLustreCollective/lustre/pull/186>, filling in the
+new patchset number:
+
+> The next patchset is up. It carries both fixes from this review: `sr_gen`
+> moved to the end of `struct llapi_scan_rec`, so your FFI mirror is correct
+> exactly as written; and `llapi_scan_device.3` corrected, since a strict SOM
+> sets `LLAPI_SCAN_SIZE` and not `LLAPI_SCAN_LAZY_SIZE` — the code fix for that
+> one is still yours to make.
+>
+> ```sh
+> git fetch https://review.whamcloud.com/fs/lustre-release refs/changes/20/68420/<N>
+> git checkout -b lfu FETCH_HEAD
+> ```
+>
+> That is the whole 16-commit series down to base `5afbab284e`; the tip carries
+> every ancestor. To find `<N>` without the browser:
+>
+> ```sh
+> git ls-remote https://review.whamcloud.com/fs/lustre-release 'refs/changes/20/68420/*'
+> ```
+>
+> — highest numeric ref wins; ignore `.../meta`.
+
+**Verify the ref resolves before posting it.** `git ls-remote` the pattern and
+check that the number you are about to quote actually exists: a wrong patchset
+number sends him to a tree that is not the one described.
+
+## 2. Answer and resolve the Gerrit threads this round addressed
+
+Routine step 6. Round 11 answers 68340's six AI comments — reply against **the
+revision each comment was left on**, not the current one, and read a thread's
+resolved state off the **last reply's** `unresolved`, never the root's.
+
+## 3. Consider setting a Gerrit topic on the series
+
+It has none (`topic=(none)` on 68094, 68420, 68340). A topic groups the changes
+in the web UI and lets anyone fetch or review the series as a unit instead of
+being told which change is the tip — which is exactly the question Artem had to
+ask. **A topic can be set without a new patchset**, so it costs nothing.
