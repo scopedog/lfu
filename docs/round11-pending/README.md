@@ -675,3 +675,28 @@ longer contradicts the errors text.
 
 Verified after: 16 commits, **every one builds alone**, checkpatch 0 errors,
 `groff -man` clean.
+
+## 68413 and 68414 collided, and are now stacked
+
+Preparing the lab tree found that **68413 and 68414 cannot both be applied**:
+each inserts its test (`160y`, `160z`) at the same point in `sanity.sh`, so
+`git am` of the second fails on a textual conflict. On Gerrit they are two
+independent changes on master, so each applies to master alone and neither
+shows a problem — the collision only appears when both land.
+
+That matters because of the dependency found earlier the same evening:
+**68413 alone is a regression.** Making a plain changelog user reachable makes
+`cf_mask == 0` the ordinary answer, which a client without 68414 reads as "do
+not filter". So the two have to land together *and* could not both be applied.
+
+**68414 is now a child of 68413** (`lu-20648-onto-20647`), which removes the
+conflict and states the dependency in the shape of the series rather than only
+in prose. `160z` sits after `160y`. Checkpatch 0/0/0, `bash -n` clean.
+
+**A resolution mistake worth recording.** The first attempt resolved the
+conflict by concatenating the two sides, which **split both functions** — the
+merged file had `160y`'s body running straight into `160z`'s with no closing
+brace. `bash -n` caught it. Concatenating conflict sides works for adjacent
+*declarations* (it worked twice on `lustreapi.h` today) and does not work for
+bodies, where each side is a fragment of a different whole. Rebuilt by applying
+the mdc hunk cleanly and inserting the test text after `160y`'s `run_test`.
