@@ -214,11 +214,14 @@ Gerrit revision and keep their patchset and votes — 68094, 68095, 68156, 68157
   skipping everywhere. The user's call; see above.
 - **68231's stale Verified-1** — needs a `BUILD` comment or nothing. The
   user's call.
-- **No lab run.** The test_166 fix is behavioural and **DNE-specific**, and
-  nothing here has run against a real target. A single-MDT lab cannot verify it
-  — that is the whole point of the bug. Verifying it needs a ≥2-MDT
-  configuration, and the honest control is to run the pre-fix test first and
-  watch it lose the files.
+- ~~No lab run.~~ **DONE 2026-08-27 — the fix is verified on a 4-MDT lab.**
+  `tests/lab-dne166/`, results in
+  [`bench-data/2026-08-27/dne166-lab.txt`](../../bench-data/2026-08-27/dne166-lab.txt).
+  Pre-fix: **PASS then FAIL, with autotest's message verbatim** (*"--fid2path
+  lost 19 paths"*). Post-fix: **4/4 PASS**. 165 and 166 also pass in sequence.
+  The mechanism was measured, not assumed: a stock DNE filesystem ships a ROOT
+  default LMV so plain mkdirs under the root round-robin MDT0,1,2,3, and
+  `lfs mkdir -i 0` overrides it.
 
 ## 68420's gate: HELD, by the user's decision (2026-08-27)
 
