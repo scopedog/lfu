@@ -459,3 +459,32 @@ say so rather than leaving a window where the tree is worse than before.
 **3. `Fixes: 5b85a4eb7510 ("LU-19296 changelog: retrive changelog user info
 from MDT")`** — verified: the commit exists (2025-10-10), mentions
 `mdd_changelog_user_lookup_cb` twice, and is in 2.17.0, so b2_17 wants the fix.
+
+### DONE — all five gates changed to 2.17.57 (the user reversed the hold)
+
+| Change | Test | Gate |
+|---|---|---|
+| 68420 | 160aa, 160ab, 160ac | `MDS1_VERSION >= 2.17.57` |
+| 68413 | 160y | `MDS1_VERSION >= 2.17.57` |
+| 68414 | 160z | `CLIENT_VERSION >= 2.17.57` |
+
+**The skip messages were changed too** — they all named 2.17.58, and a skip
+that misreports the version it wants is worse than the gate itself, because it
+is the only thing a reader sees in the results.
+
+Verified: **no `2.17.58` remains** in any of the three worktrees, and the only
+other gate at 2.17.56+ anywhere is the pre-existing 2.17.56, which passes.
+`bash -n` clean on all three.
+
+Also folded into 68413 while its message was open: the verified
+`Fixes: 5b85a4eb7510` and a paragraph saying it wants LU-20648 beside it,
+because landing it alone trades a lookup failure for a wrong answer.
+
+**Round 11 now stands at 17 changes moving**, 68094 being the only one of the
+19 still untouched — its five AI comments are triaged but not applied, two of
+them being contract decisions still with the user.
+
+Whole-round verification after the gate change: 16 commits / 16 Change-Ids /
+base `5afbab284e`; checkpatch **0 errors** across all 19 patches (21 warnings
+and 187 checks, all the known moved-code noise); `liblustreapi.la lfs lfind`
+builds rc=0 with **zero** diagnostics under `-Wall -Werror`.
