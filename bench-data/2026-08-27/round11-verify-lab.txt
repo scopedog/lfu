@@ -102,3 +102,21 @@ The rewrite asserts the shape AND a minimum count: the composite must have >= 2
 components, lfind must exit 0, at least one object must come back, and the
 filtered count must be smaller than the unfiltered one. Only then is the swab
 path demonstrated.
+
+
+68413 + 68414 (stacked) — sanity 160y and 160z
+==============================================
+Built on the same lab, 2 commits, tree 92c751471a, ldiskfs enabled, 105s.
+
+  PASS 160y (4s)
+  PASS 160z (4s)
+  PASS=2 SKIP=0
+
+**SKIP=0 is the result that matters.** Earlier today, on this same lab shape,
+160z SKIPPED — the gate was MDS/CLIENT >= 2.17.58 against a 2.17.57 tree, and
+the only way to exercise the code was to patch the gate out by hand. With the
+gate at 2.17.57 both tests run of their own accord. That is the version-gate
+reversal measured rather than argued.
+
+It also confirms the restack: 68414 applied on top of 68413 with 160z placed
+after 160y, and both tests coexist in one sanity.sh.
