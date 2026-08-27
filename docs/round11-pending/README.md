@@ -644,3 +644,34 @@ standalone harness prove rejection happens before any store.
   not stated.
 - `scan_device.c:179` (style) — a block comment describing
   `scan_linkea_entry()` sits ~70 lines above it.
+
+## 68416's AI review (21:22) — 11 comments, 5 of them code, all real
+
+The first review of the changelog series, and the largest yet.
+
+| # | Finding | Verified |
+|---|---|---|
+| 10 | **the `lstat()` costs an OST glimpse per regular file, and the answer is thrown away** | `ll_getattr_dentry()` (`llite/file.c:6297-6300`) keeps `need_glimpse` set unless *none* of `STATX_SIZE`, `STATX_BLOCKS`, `STATX_MTIME` is asked for; glibc's `lstat` is `STATX_BASIC_STATS`. The result is used only for `S_ISDIR`, then `scan_rec_gather()` re-fetches through the MDC. It also breaks the documented contract that a scan wanting nothing outside `LLAPI_SCAN_DIRENT_MASK` performs no ioctl per object |
+| 11 | **the record never carries the type** — `scan_rec_dirent(..., NULL)` | so `sp_filter` sees no `LLAPI_SCAN_TYPE`, which `lustreapi.h` documents it gets; and a caller wanting only `LLAPI_SCAN_DIRENT_MASK` gets an **entirely empty record**, `scan_rec_gather()` returning at its first line |
+| 8 | `sp_flags` documented as ignored but rejected | a block shared with `llapi_scan_device()` carrying `LLAPI_SCAN_F_INTERNAL` came back `-EINVAL` — defeating the sharing the comment argues for |
+| 9 | `param.fp_max_depth` assignment is dead | checked all six callees: zero reads of `fp_max_depth` |
+| 7 | the kernel-doc claims HSM and projid come by default | the default mask clears `HSM`, `PROJID` and `MDT_INDEX` |
+
+**Fixed:** a type-only `statx(STATX_TYPE)` with the existing `HAVE_STATX`
+fallback (**both branches compile** — the fallback checked with `-UHAVE_STATX`,
+since this host defines it); `sr_mode`/`LLAPI_SCAN_TYPE` set from that; the
+dead line dropped; `LLAPI_SCAN_F_KNOWN_DEV` accepted so a shared block works;
+and the kernel-doc, the man page and the commit message all corrected to say
+what the default actually leaves out.
+
+**The glimpse one matters beyond tidiness.** `llapi_scan_fid()` is the
+per-object resolver for the changelog path, so an OST glimpse per object would
+have made `lfs find --since` slower than the plain walk it is supposed to beat
+— undercutting the premise of 68417–68420.
+
+Also done from the review: `llapi_scan_fid.3` gained `ERRORS` and `EXAMPLES`
+sections to match its three sibling pages, and the `sp_flags` paragraph no
+longer contradicts the errors text.
+
+Verified after: 16 commits, **every one builds alone**, checkpatch 0 errors,
+`groff -man` clean.
