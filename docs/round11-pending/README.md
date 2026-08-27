@@ -413,3 +413,49 @@ and the bot phrased both as questions:
 **`sp_size` has an obvious safe fix** and no contract question: reject a size
 that does not end on a field boundary. Today the only real values are
 `LLAPI_SCAN_PARAM_MIN_SIZE` and `sizeof(*sp)`.
+
+## 68413's AI review (2026-08-27 18:32) — 3 comments, and one overturns our own decision
+
+11 minutes after its verdict, so the trigger window is wider than the 16–27 min
+this file has been quoting.
+
+**1. The version gate — and the evidence changes the 68420 decision.** The bot
+says *"No other gate in lustre/tests is above the current tag; should this be
+2.17.57?"* Checked, and it is right, more strongly than it put it:
+
+```
+tree tag: 2.17.57_59_gd1b91aa
+
+every version_code gate at 2.17.56+ anywhere in lustre/tests:
+  2.17.56   <- replay-single, sanity-quota, sanity-sec  (BELOW the tag: passes)
+  2.17.58   <- sanity.sh:22536, 22583, 22626  — ALL THREE ARE OURS (160aa/ab/ac)
+```
+
+Add 68413's `test_160y` and 68414's `test_160z`, and **every gate above the
+current tag in the entire test suite belongs to this series.** Nothing else
+does it.
+
+**So the house convention is the opposite of what I assumed on 08-27 morning.**
+I framed 2.17.58 as a legitimate interop gate and recommended holding it. The
+tree says a gate is set at a version the branch has **reached**, so the test
+runs immediately on the change that adds it — interop still skips, because an
+older MDS or client reports a lower version. Gating *above* the tag means the
+test runs nowhere until a tag is cut, which is what we have: 160aa/ab/ac,
+160y and 160z have never executed anywhere, including on the targeted
+`Test-Parameters` sessions those changes pay for.
+
+**This is worth putting back to the user**, because the 08-27 hold was decided
+on my framing. `2.17.57` makes all five tests run now and keeps interop
+skipping.
+
+**2. 68413 and 68414 are coupled, and 68413 alone is a regression.** Enabling
+lookup for a plain `CHANGELOG_USER_REC` user makes `cf_mask = 0` the normal
+case, and pre-68414 `chlg_ioctl()` composes `in & 0 = 0`, which the record test
+reads as unfiltered. So `lfs changelog --user cl1 --mask creat` on a plain user
+**succeeds and prints every record type** where it used to stop at `-ENOENT`.
+68414 is exactly the fix. They should land together, and 68413's message should
+say so rather than leaving a window where the tree is worse than before.
+
+**3. `Fixes: 5b85a4eb7510 ("LU-19296 changelog: retrive changelog user info
+from MDT")`** — verified: the commit exists (2025-10-10), mentions
+`mdd_changelog_user_lookup_cb` twice, and is in 2.17.0, so b2_17 wants the fix.
