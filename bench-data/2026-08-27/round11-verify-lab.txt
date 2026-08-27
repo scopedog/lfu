@@ -1,0 +1,75 @@
+Round 11 verification lab — 2026-08-27
+======================================
+lfu-r11-srv + lfu-r11-cli, us-central1-a, c3-standard-8, rocky-linux-9.
+4 MDTs + 1 OST, ldiskfs. Build 104s/106s, ldiskfs enabled.
+
+TREE HASH MATCHED EXACTLY: lab 4c185054c8 == local (lu-20650-since with
+stale-lmd-buffer cherry-picked). So these results are for this code, not an
+approximation. 68340 applies cleanly on the stack -- checked locally first.
+
+A. sr_gen, read with offsetof from the INSTALLED header
+-------------------------------------------------------
+  sr_ino 168  sr_parent_fid 176  sr_linkea 192  sr_linkeasize 200
+  sr_class 204  sr_lma_compat 208  sr_lma_incompat 212  sr_gen 216
+  sizeof 304
+
+Every offset a consumer built against 68156 PS6 assumes is preserved, and
+sr_gen is appended. PR 186's hand-written FFI mirror is correct as written.
+This is the installed header on a real build, not a local transcription.
+
+B. conf-sanity 165 + 166, DNE (MDSCOUNT=4)
+------------------------------------------
+  PASS 165 (105s)
+  PASS 166 (4s)
+
+C. sanity ONLY=56 -- the whole lfs find suite
+---------------------------------------------
+  PASS=63  FAIL=0  SKIP=23     (earlier baseline: 75 / 2 / 9, total 86)
+
+  Same total (86). ZERO failures, against two in the baseline -- and both of
+  those now PASS: 56xb (34s) and 56Eaa (4s). The extra skips are the OST-count
+  dependent family (56x*, 56w*, 56bb/bc/s), this lab having OSTCOUNT=1 where
+  the baseline had four. Explained by lab shape, not by code.
+
+  **56ob PASS (3s)** -- the test that failed on 68417's aarch64 autotest
+  session today. It passes on x86_64 with the full round-11 stack.
+
+D. a walk crossing onto a non-Lustre subtree (68340's lmd_stx fix)
+------------------------------------------------------------------
+  tmpfs mounted inside Lustre; 1 Lustre file + 3 tmpfs files.
+  plain walk        -> all four, as expected
+  -btime -3650      -> ONLY /mnt/lustre/d68340/lustrefile
+
+  No tmpfs path is reported. A non-Lustre file is not answered from the
+  previous object's buffer, which is exactly what the fix is for.
+
+  NOT tested, deliberately: round 11's ADDITIONS to 68340 (clearing lmd_fid
+  and lmd_lmmsize) have no observable effect -- lmd_fid's only reader is on
+  the scanner path, which clears it itself, and no in-tree caller passes a lum
+  to llapi_get_lum_file_fd(). They are hardening for out-of-tree consumers and
+  a lab cannot prove them.
+
+THE 56ob QUESTION IS NOW ANSWERED THREE WAYS
+--------------------------------------------
+  1. set_time(), find_time_check() and find_value_cmp() are byte-identical to
+     the base commit; 68417's pfind change is purely additive.
+  2. LU-20086 (Open): "sanity test_56ob aarch64: 'lfs find ... -mtime 2w'
+     wrong: found 0" -- filed by someone else, our test, our arch.
+  3. This lab: 56ob PASSES on x86_64 with the whole stack applied.
+
+FOUR ATTEMPTS OF PLUMBING, EVERY FAILURE DRESSED AS A CODE FAILURE
+------------------------------------------------------------------
+  1. pdsh absent -- installed before EPEL existed, and a `;`-chained echo
+     reported success anyway.
+  2. no root pubkey on the peer.
+  3. `Host key verification failed` -- the runner must ssh to ITSELF; only the
+     peer had been tested.
+  4. runas group missing and rsync absent (sanity needs both).
+  Plus one of mine: `grep -c` exits 1 on a zero count, and `set -e` turned
+  that into a silent abort right after the suite failed to start.
+
+  Part A passed on every one of those runs -- it is the only part needing no
+  remote node. That is the tell: when a lab looks like a code regression,
+  prove the plumbing first.
+
+Instances DELETED at the end; disks checked explicitly.
