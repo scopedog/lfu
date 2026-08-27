@@ -34,16 +34,66 @@ What points at our code rather than the tree:
 - `review-dne-subtest-change` runs only the subtests a patch changed, and the
   only conf-sanity subtest 68288 adds is test_166.
 
-What argues it is narrow, not broad: the **Janitor's `conf-sanity4@ldiskfs+DNE`
-passed on PS3** (job 68932, Success 13865s) with 165 and 166 absent from its
-skip list — so both ran and passed there. The difference between the two is
-that the Janitor runs 166 late in a full chunk, where a previous test has left
-the filesystem mounted, while subtest-change runs it alone and therefore takes
-the `is_mounted $MOUNT || setup_noconfig` branch. That is a hypothesis, not a
-finding — the session page needs the Maloo login.
+### Diagnosed from the session log — it is test_166, and the cause is DNE
 
-**Blocked on:** the subtest and the failure mode (timeout vs assertion) off
-Maloo. Ask; do not infer.
+The user pulled the log (`conf-sanity_2026-08-27_1241.zip`, session
+`b6cb4274`). It is an assertion, not a timeout:
+
+```
+conf-sanity test_166: @@@@@@ FAIL: --fid2path lost 19 paths
+  = /usr/lib64/lustre/tests/conf-sanity.sh:13076:test_166()
+```
+
+**`review-dne-subtest-change` runs a changed subtest twice**, which is what
+exposed this and is the single most useful thing to know about that session:
+
+| Iteration | `d166.conf-sanity` FID | MDT | Result |
+|---|---|---|---|
+| 1 | `[0x200000bd1:0x2:0x0]` | MDT0000 | **PASS** — *"--fid2path resolved 20 objects from 21 names, hardlink once"* |
+| 2 (`repeat 2/ iter`) | `[0x240000bd0:0x1:0x0]` | **MDT0001** | **FAIL** — lost f1…f19, i.e. all of `$want` |
+
+Proof, from `onyx-156vm87`'s debug log, which hosts MDT0001:
+
+```
+mdt_reint.c:537:mdt_create()) @@@ lustre-MDT0001: create
+    (d166.conf-sanity->[0x240000bd0:0x1:0x0]) in parent [0x200000007:0x1:0x0]
+```
+
+The parent (the root, `[0x200000007:0x1:0x0]`) is on MDT0000 and the child was
+created on MDT0001 — a remote directory. MDT0000's side of it goes through the
+cross-MDT `out_handler.c` path, which is itself the tell. 1560 references to
+sequence `0x240000bd0` sit in MDT0001's log: the twenty files are all there.
+
+**The defect is ours and it is in the test.** test_166 does a plain
+`mkdir -p $MOUNT/$tdir` and then scans only `$(mdsdevname 1)` — MDT0000. Under
+DNE a fresh directory can be placed on any MDT, so the scan is looking at the
+wrong target and correctly reports nothing. **test_165 already gets this right**
+and the fix is to copy it:
+
+```
+-	mkdir -p $MOUNT/$tdir
++	mkdir_on_mdt0 $MOUNT/$tdir || error "mkdir $tdir failed"
+```
+
+(`mkdir_on_mdt0` is `$LFS mkdir -i 0 -c 1`, so it pins the directory to the
+target the test scans. `$MOUNT` rather than `$DIR` still holds — that part of
+the test was right.)
+
+**This also explains every other observation, which the earlier hypothesis did
+not:**
+
+- The Janitor's `conf-sanity4@ldiskfs+DNE` passed because it runs 166 **once**,
+  and that once landed on MDT0000. It is a coin toss, not a pass.
+- The two-node lab passed because it has **one MDT** — there was nowhere else
+  for the directory to go. A single-MDT lab structurally cannot see this, the
+  same way the single-node lab could not see the MDS≠client bug.
+- It survived the PS2 fix because it is unrelated to it.
+
+**The earlier reading in this file was wrong** and is left here on purpose: it
+blamed the `is_mounted $MOUNT || setup_noconfig` branch on the theory that
+running alone was the variable. Running alone was not the variable; running
+*twice* was. Both readings fit the Gerrit-level evidence equally well, which is
+exactly why that evidence was not enough.
 
 ## 68420: the changelog tests cannot run
 
