@@ -95,3 +95,58 @@ MDT0001, MDT0002 and MDT0003 by the round-robin allocator, and are precisely
 where the pre-fix arm died. All four resolve all 20 objects.
 
 VERDICT: the failing autotest session is reproduced and the fix closes it.
+
+
+A LAB TRAP THAT COST A RUN, AND ONE CAVEAT IT EXPOSED
+-----------------------------------------------------
+`PDSH="ssh -o StrictHostKeyChecking=no -x"`, inherited from tests/lab-166/,
+CANNOT serve `do_nodes`: test-framework passes a comma-separated node list, so
+`ssh` gets `lfu-dne-cli,lfu-dne-srv` as one hostname and answers
+
+    hostname contains invalid characters
+
+The message is not in the Lustre tree, which is why grepping for it found
+nothing. It appears immediately after `Using TIMEOUT=`, at the
+`do_nodes $(comma_list $(nodes_list))` line in test-framework.sh:6334.
+`llmount.sh` hits it too and exits non-zero *after* mounting everything.
+
+Fix: install `pdsh` + `pdsh-rcmd-ssh` and use `PDSH="pdsh -S -R ssh -w"`.
+
+The caveat it exposed: because that error aborts `setup_noconfig`, and because
+test_166 only calls it under `is_mounted $MOUNT ||`, both ARMS above very
+likely ran against a filesystem left mounted by the probe rather than one the
+test brought up. That does NOT weaken the result -- the arms were identical to
+each other, the only difference between them was the one line under test, and
+the round-robin placement was measured directly and independently. But it does
+mean the arms exercised the is_mounted-true branch, and the setup_noconfig
+branch is covered by the 165+166 sequence run below rather than by them.
+
+
+NEIGHBOUR CHECK — 165 AND 166 IN SEQUENCE, ON DNE, WITH pdsh
+------------------------------------------------------------
+ONLY="165 166", MDSCOUNT=4, FSTYPE=ldiskfs, PDSH="pdsh -S -R ssh -w".
+
+    PASS 165 (115s)
+    PASS 166 (3s)
+    PASS=2  FAIL=0  SKIP=0
+
+test_165 brings the filesystem up with setup_noconfig and leaves it up; 166
+then takes the `is_mounted $MOUNT ||` branch. That is the ordering that
+previously produced a stack_trap/lustre_rmmod race -- green standalone, red in
+sequence -- and it is clean here. This run also covers the setup_noconfig path
+that the two arms did not.
+
+An earlier attempt at this same check reported `test_165 returned 255` and
+FAIL 165 (94s). That was the PDSH trap above and nothing else: with pdsh
+installed the identical command passes.
+
+
+SUMMARY
+-------
+  probe        plain mkdir under root round-robins MDT0,1,2,3   (measured)
+  probe        lfs mkdir -i 0 pins MDT0 every time              (measured)
+  ARM pre      PASS then FAIL "--fid2path lost 19 paths"        (reproduced)
+  ARM post     PASS x4                                          (fixed)
+  165+166      PASS, PASS, in sequence                          (no regression)
+
+Both instances DELETED at the end of the session; disks checked explicitly.
