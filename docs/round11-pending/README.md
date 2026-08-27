@@ -325,3 +325,47 @@ same hole.
 another lab, since this is kernel code) or take it as round 12. 68414 is
 currently one of the **nine** changes round 11 does **not** move, so fixing it
 makes it a tenth.
+
+### FIXED, and folded into round 11 (the user's call)
+
+All three addressed on branch `lu-20648-changelog-user-mask`; safety branch
+`backup-pre-r11-68414-20260827`. **68414 becomes the tenth change round 11
+moves**, PS1 → PS2.
+
+**The encoding, not a third arm.** Adding `else if (in & out == 0)` would have
+fixed this one case and left the next. `crs_user_mask` now *names the record
+types to deliver*:
+
+- `chlg_open()` initialises it to `~0ULL` — everything, i.e. unfiltered;
+- the record test loses its zero special case and is a plain
+  `if (!(crs->crs_user_mask & BIT(rec->cr.cr_type)))`;
+- an empty intersection is no bits, which now means **no records** rather than
+  every record.
+
+Behaviour is unchanged for every case that was already right: both masks zero
+still delivers everything, one zero still passes the other through.
+
+**Two things checked because the diff changed when `BIT()` is evaluated.** The
+old test short-circuited on `crs_user_mask == 0` and never touched
+`BIT(cr_type)`; the new one always does.
+
+- `cr_type` tops out at `CL_DN_OPEN = 24` (`CL_LAST` = 25), far below 64, so
+  `BIT()` cannot be undefined.
+- `crs` has exactly one allocation site, `OBD_ALLOC_PTR(crs)` in `chlg_open()`
+  at :638, with the init at :652 — before `file->private_data` is set, so no
+  reader can observe a zeroed mask.
+
+**`test_160za` added** for the direction the bot found: a user registered
+`--mask creat`, asked for `--mask mkdir`, must see **no** records — asserting
+both that MKDIR is absent *and* that CREAT did not leak, since the old bug
+returned the whole log.
+
+**Also:** `Fixes: 41b55cf2309d` added (verified — that commit introduces the
+composition and the record test), the subject cut from 61 to 44 characters, and
+`test_160z` now widens only `$SINGLEMDS`, matching the facet its `stack_trap`
+restores.
+
+**Being built and run on `lfu-mask-lab`** — this is `mdc` kernel code that
+cannot be compiled locally (the working tree is `--disable-modules
+--disable-server` on a 7.0 kernel), and 68414's original fix was lab-verified
+before its push.
