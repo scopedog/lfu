@@ -73,3 +73,32 @@ FOUR ATTEMPTS OF PLUMBING, EVERY FAILURE DRESSED AS A CODE FAILURE
   prove the plumbing first.
 
 Instances DELETED at the end; disks checked explicitly.
+
+
+SECOND PASS — after the AI-review round (lfu-r11b, us-central1-a)
+=================================================================
+Tree hash matched local exactly (8a9025e8f9 = the 16-commit stack with
+stale-lmd-buffer cherry-picked). Both nodes built clean, ldiskfs enabled, 105s.
+
+  A. conf-sanity 165 + 166, DNE (MDSCOUNT=4)   PASS 165 (94s), PASS 166 (3s)
+  B. sanity ONLY=56                            PASS=63 FAIL=0 SKIP=23
+                                               identical to the first pass on
+                                               this shape, so none of the
+                                               round-11 churn regressed lfs find
+  C. the LMM bounds fix, on a real device scan
+       composite created with 3 components
+       lfind --device MDT --type f --component-count +1  ->  1 object, exit 0
+       lfind --device MDT --type f                       ->  8 objects
+       the filter narrows 8 -> 1, so it discriminates
+
+C IS THE ONE THAT NEEDED A SECOND ATTEMPT, AND THE FIRST WAS VACUOUS.
+The first version filtered on --stripe-count +1 against a filesystem with
+OSTCOUNT=1, so nothing could match; the scans printed nothing and the check
+("no crash and no garbage") passed on the empty result. That is the same trap
+as the removed test_160za earlier today and the "empty scan compares equal to
+another empty scan" note in [[lfu-gcp-lab]] -- three times in one day.
+
+The rewrite asserts the shape AND a minimum count: the composite must have >= 2
+components, lfind must exit 0, at least one object must come back, and the
+filtered count must be smaller than the unfiltered one. Only then is the swab
+path demonstrated.
