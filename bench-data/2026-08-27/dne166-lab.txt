@@ -1,0 +1,97 @@
+conf-sanity test_166 on a DNE filesystem — lab record
+=====================================================
+2026-08-27. GCP us-central1-a, two c3-standard-8 rocky-linux-9 instances,
+lfu-dne-srv (MGS + 4 MDTs + OST) and lfu-dne-cli (client, conf-sanity runner).
+Series: 16 patches on 5afbab284e, the round-11 tree. Build 109s, ldiskfs
+enabled, lfind installed. Recipe: tests/lab-dne166/.
+
+WHY THIS LAB EXISTS
+-------------------
+Two previous labs for test_166 could not see this bug:
+  - the single-node lab (2026-08-24) has one MDT;
+  - the two-node lab (2026-08-25, tests/lab-166/) also has one MDT — it was
+    built for the MDS-is-not-a-client bug, a different one.
+The failing autotest session is review-dne-subtest-change, which is DNE.
+
+
+THE MECHANISM, MEASURED
+-----------------------
+A stock DNE filesystem ships a ROOT default LMV, with no configuration from
+the test framework and none from autotest:
+
+    lfs getdirstripe -D /mnt/lustre
+    lmv_stripe_count: 1  lmv_stripe_offset: -1  lmv_hash_type: none
+    lmv_max_inherit: -1  lmv_max_inherit_rr: 3
+
+`lmv_stripe_offset: -1` is "space balanced", and with max_inherit_rr set, a
+plain mkdir directly under the root is allocated ROUND ROBIN. Measured, eight
+plain mkdirs under the root on a 4-MDT filesystem:
+
+    probeA1 -> MDT0    probeA5 -> MDT0
+    probeA2 -> MDT1    probeA6 -> MDT1
+    probeA3 -> MDT2    probeA7 -> MDT2
+    probeA4 -> MDT3    probeA8 -> MDT3
+
+Setting that default LMV explicitly changed nothing — it was already there.
+So THREE IN FOUR runs of the old test_166 place $tdir off MDT0000, and the
+test scans only $(mdsdevname 1) = MDT0000.
+
+That is the whole failure, and it matches the autotest log exactly:
+iteration 1 -> MDT0000 (PASS), iteration 2 -> MDT0001 (FAIL, lost 19 paths).
+
+The code path: lustre/llite/namei.c:1735-1760 sets MF_QOS_MKDIR|MF_RR_MKDIR
+when ROOT has a space-balanced default LMV, and lmv_locate_tgt_create()
+(lustre/lmv/lmv_obd.c:2258+) then allocates by space rather than following the
+parent. Note `fid_is_root()` in lmv_op_default_rr_mkdir() — being directly
+under the root is itself a round-robin trigger.
+
+And the fix does override it. `lfs mkdir -i 0 -c 1`, which is what
+mkdir_on_mdt0 expands to, is policy step 1 in that same function — "is lfs
+mkdir -i N? mkdir on MDT N" — checked before the default LMV:
+
+    probeC1 -> MDT0   probeC2 -> MDT0   probeC3 -> MDT0   probeC4 -> MDT0
+
+
+ARM 1 — CONTROL, the pre-fix test (plain `mkdir -p`)
+----------------------------------------------------
+conf-sanity ONLY=166 ONLY_REPEAT=4, MDSCOUNT=4, FSTYPE=ldiskfs.
+ONLY_REPEAT is the same mechanism review-dne-subtest-change uses.
+
+  == conf-sanity test 166 ==================================== 13:35:05
+  client sees 21 names over 20 objects
+  --fid2path resolved 20 objects from 21 names, hardlink once
+  PASS 166 (34s)
+
+  == conf-sanity test 166 (repeat 2/4 iter, 0/30 min) ======== 13:35:39
+  client sees 21 names over 20 objects
+   conf-sanity test_166: @@@@@@ FAIL: --fid2path lost 19 paths
+  FAIL 166 (2s)
+
+  tally: PASS 1  FAIL 1
+
+REPRODUCED, and reproduced exactly: pass on the first iteration, fail on the
+second, with autotest's message verbatim — "--fid2path lost 19 paths", the
+same 19, the same shape. test-framework stops repeating after a failure, which
+is why 2 of 4 iterations ran; autotest's session shows the same two.
+
+This is the control the fix has to beat, and it is the honest one: the only
+thing changed between the arms is that single line.
+
+
+ARM 2 — THE FIX (mkdir_on_mdt0)
+-------------------------------
+Identical configuration; the single line is the only difference.
+
+  == conf-sanity test 166 ==================================== 13:39:02
+  --fid2path resolved 20 objects from 21 names, hardlink once   PASS 166 (35s)
+  == repeat 2/4 ==  --fid2path resolved 20 objects ...          PASS 166 (2s)
+  == repeat 3/4 ==  --fid2path resolved 20 objects ...          PASS 166 (3s)
+  == repeat 4/4 ==  --fid2path resolved 20 objects ...          PASS 166 (2s)
+
+  tally: PASS 4  FAIL 0
+
+Iterations 2, 3 and 4 are precisely the ones that would have been placed on
+MDT0001, MDT0002 and MDT0003 by the round-robin allocator, and are precisely
+where the pre-fix arm died. All four resolve all 20 objects.
+
+VERDICT: the failing autotest session is reproduced and the fix closes it.
