@@ -44,6 +44,48 @@ is nearly pristine and its indices are small. The test hardcodes `1` as
 "definitely older than the oldest record", which is only true on a filesystem
 with history.
 
+## RESULT (2026-08-28): H3. The test is wrong, 68419 is right.
+
+Reproduced on `rhel9.7-server-mgs-mds-clone`, MDSCOUNT=2, ldiskfs.
+**The variable is how much changelog history exists before 160ac runs.**
+
+| run | history | `oldest` vs `startrec` | verdict |
+|---|---|---|---|
+| `ONLY=160aa,160ab,160ac` | 160aa+160ab first | 87 > 2 | **PASS** x2 |
+| `ONLY=160ac`, fresh format | none | 1 > 2 -> false | **FAIL** |
+
+The failing run's probe:
+
+    PROBE: mdt=lustre-MDT0000 surviving_records=2
+    PROBE: users: current_index: 2
+    PROBE: oldest_rec: 1 01CREAT ... a
+    PROBE: oldest_rec: 2 01CREAT ... b
+    PROBE: stale_find_exit=0            <-- should have refused
+    PROBE: stale_find_out: /mnt/lustre/d160ac.sanity/b
+
+**H1 and H2 are ruled out**: the log is not empty (2 records) and the record
+does carry an index (`oldest = 1`, not 0). So `find_cl_oldest()`'s overloaded
+`0` — the parked "empty vs quiet" design question — is **not** what failed
+here. It stays a latent defect worth fixing on its own; it is not this one.
+
+**H3 confirmed, and the guard is behaving correctly.** The cookie's `1` resumes
+at `2` (the anchor is exclusive — worth knowing, and not obvious from the
+test). The oldest surviving record is `1`. Nothing was purged between 1 and 2,
+so the answer is complete and refusing would have been *wrong*. `lfs find`
+returning `d160ac.sanity/b` is the right answer.
+
+The bug is that the test **assumes** staleness instead of creating it. Writing
+anchor `1` is only "older than the oldest surviving record" on a filesystem
+that already has changelog history — which the Janitor has (its users are
+`cl13` and `cl33`) and `review-dne-subtest-change` does not, because it runs
+only the subtests the patch changed.
+
+**The fix belongs in the test:** manufacture a real gap rather than assuming
+one — take the anchor, write records the cookie has not consumed, `changelog_clear`
+to purge them, then write one more. Then records between the anchor and the
+oldest survivor really are gone, which is the condition the guard exists for,
+and the test would fail against a build without the guard.
+
 ## Stages
 
 | script | where | what |

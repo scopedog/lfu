@@ -16,10 +16,21 @@
 # H1/H2 are defects in 68419.  H3 is a defect in the test.  The record count
 # and the first record's index tell them apart in one run.
 set -e
+# One run at a time.  A second run started while the first was still mounting
+# fought it for the same filesystem and the same log, and the mixed output
+# looked like a formatting bug for a good ten minutes.
+exec 9>/tmp/.lab160ac.lock
+flock -n 9 || { echo "another 03-probe.sh is running (lock /tmp/.lab160ac.lock)"; exit 1; }
+
 L=${LTREE:-$HOME/lustre-160ac}
 export HOME=/root
 export PDSH="ssh -o StrictHostKeyChecking=no -x"
-export ONLY=160aa,160ab,160ac
+# ONLY is a knob: the whole question is how much changelog history exists
+# before 160ac runs.  All three (the default) leaves the index in the 80s;
+# 160ac alone on a fresh filesystem starts it at 1, which is what
+# review-dne-subtest-change does for a patch whose only changed subtest ran
+# first.
+export ONLY=${ONLY:-160aa,160ab,160ac}
 export ONLY_REPEAT=${ONLY_REPEAT:-2}
 export ONLY_MINUTES=${ONLY_MINUTES:-30}
 export SLOW=yes FSTYPE=ldiskfs
@@ -27,7 +38,9 @@ export SLOW=yes FSTYPE=ldiskfs
 # this is for fidelity, not because DNE is suspected.
 export MDSCOUNT=${MDSCOUNT:-2} OSTCOUNT=1
 
-id -u runas >/dev/null 2>&1 || useradd -u 500 -M runas
+# not -u 500: on a reused lab VM that UID is often already taken by a real
+# user, and useradd fails, and set -e kills the run before anything mounts.
+id -u runas >/dev/null 2>&1 || useradd -M runas 2>/dev/null || true
 chmod o+x /home/nishida /home/nishida/lustre-release
 T=$L/lustre/tests/sanity.sh
 cd $L
@@ -67,6 +80,20 @@ PY
 
 cd $L/lustre/tests
 ./llmountcleanup.sh >/dev/null 2>&1 || true
+
+# sanity.sh's setup mounts but does NOT format, so on a node whose /tmp holds
+# no device files it goes straight to losetup and fails.  llmount.sh is what
+# formats.  Its exit code is not trustworthy -- it returns non-zero on a
+# "hostname contains invalid characters" warning (see lab-dne166/README) -- so
+# check the mount, not the status.
+# a stale device file means a stale changelog index, and the index is the
+# variable under test, so start from a real format every time
+rm -f /tmp/lustre-mdt[0-9] /tmp/lustre-ost[0-9] 2>/dev/null || true
+echo "=== formatting and mounting (MDSCOUNT=$MDSCOUNT FSTYPE=$FSTYPE)"
+./llmount.sh > /tmp/llmount.log 2>&1 || true
+mount -t lustre | grep -q "on /mnt/lustre " || {
+	echo "llmount did not mount /mnt/lustre:"; tail -25 /tmp/llmount.log; exit 1; }
+lfs df -h 2>/dev/null | head -6
 echo "=== MDSCOUNT=$MDSCOUNT ONLY_REPEAT=$ONLY_REPEAT ONLY=$ONLY"
 LOG=/tmp/lab160ac.log
 bash sanity.sh > $LOG 2>&1 || true
