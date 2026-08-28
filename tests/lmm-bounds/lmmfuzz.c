@@ -96,6 +96,38 @@ int main(void)
 	v1->lmm_magic = 0xdeadbeef;
 	check("garbage magic", sizeof(*v1), false);
 
+	/*
+	 * A foreign layout in host order is a layout.  The same one swapped
+	 * is refused on purpose: layout_swab_lov_user_md() does not swab a
+	 * top-level foreign magic, so accepting it here would hand the rest
+	 * of find an EA still in the target's byte order, and --foreign
+	 * would then miss every HSM-released or PCC file on a big-endian
+	 * host.  Refused, it takes the no-layout path instead.
+	 */
+	printf("foreign layouts:\n");
+	memset(buf, 0, sizeof(buf));
+	{
+		struct lov_foreign_md *lfm = (void *)buf;
+		__u32 fsz;
+
+		/*
+		 * 64 and not 8: the entry guard rejects anything shorter
+		 * than a lov_user_md_v1, as the caller does before it, so a
+		 * foreign EA that small never reaches the switch.  A real
+		 * one -- lov_hsm_md -- is longer than that.
+		 */
+		lfm->lfm_magic = LOV_USER_MAGIC_FOREIGN;
+		lfm->lfm_length = 64;
+		fsz = lov_foreign_md_size(64);
+		check("foreign, host order, buffer big enough", fsz, true);
+		check("foreign, host order, buffer too small", fsz - 1, false);
+
+		lfm->lfm_magic = __swab32(LOV_USER_MAGIC_FOREIGN);
+		lfm->lfm_length = __swab32(64);
+		check("foreign, byte-swapped (the swab cannot undo it)",
+		      fsz, false);
+	}
+
 	printf("\n%s (%d wrong)\n", fails ? "FAILURES" : "ALL EXPECTATIONS MET", fails);
 	return fails != 0;
 }

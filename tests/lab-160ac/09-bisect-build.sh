@@ -11,7 +11,9 @@ L=${LTREE:-/home/nishida/lustre-160ac}
 BASE=${BASE:-5afbab284e}
 cd $L
 git reset -q --hard HEAD; git clean -qfd
-HEAD_WAS=$(git rev-parse HEAD)
+# the branch, not the sha: checking the sha back out leaves a detached HEAD,
+# and the next rebase in this tree then updates nothing
+HEAD_WAS=$(git symbolic-ref -q --short HEAD || git rev-parse HEAD)
 fail=0
 for c in $(git log --reverse --format=%h $BASE..$HEAD_WAS); do
 	git checkout -q $c
