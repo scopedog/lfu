@@ -43,6 +43,32 @@ sanity test_160ad: @@@@@@ FAIL: --since under d160ad.sanity/b lost the hardlinke
 which is the whole point: the file exists, a walk finds it, and `--since`
 did not. SKIP was 0 everywhere.
 
+## `ARM=nofid` — the object `--changelog` exists to report
+
+68420 PS2's AI review noticed that nothing exercised the two things that
+separate `--changelog` from `--since`: an object unlinked since its event is
+still in the answer, and its FID names it once no pathname does. Writing the
+case found the second half missing.
+
+`find_decide()` resolves a FID through the mount for a target scan too, and
+there an object with no pathname is **counted, not printed** — the target's
+own objects never had a name. `--changelog` took the same branch, so an
+unlinked object was counted as "no pathname" and the one thing `--since`
+cannot report came back silently absent, while `lfs-find.1` said it would be
+named. `fc_fid_when_lost` now separates the two sources.
+
+```sh
+ssh nishida@192.168.122.10 'sudo -n ARM=nofid ONLY=160ab bash ~/12-160ad-arms.sh'
+```
+
+Measured 2026-08-28: the control fails with
+
+```
+sanity test_160ab: @@@@@@ FAIL: --changelog did not name the unlinked [0x200000402:0x7:0x0]
+```
+
+and the fixed arm passes 160aa/ab/ac/ad twice each, SKIP 0.
+
 ## Two things the runner has to get right
 
 - `sudo` sets `HOME=/root`, so `$HOME/lustre-160ac` is not the tree. The

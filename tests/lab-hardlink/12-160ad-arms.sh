@@ -6,8 +6,12 @@
 # search rooted at the OTHER directory is answered about a name that is not
 # under it.  The fix walks the links; the control cuts that back out.
 #
+# The same runner carries the control for 160ab's unlinked-object case,
+# which is a different cut of the same file.
+#
 #   ARM=fixed    160aa/ab/ac/ad must all PASS, SKIP 0
-#   ARM=control  160ad must FAIL
+#   ARM=control  160ad must FAIL (no link enumeration)
+#   ARM=nofid    160ab must FAIL (no FID for an object whose name is gone)
 set -e
 exec 9>/tmp/.lab160ad.lock
 flock -n 9 || { echo "another 12-160ad-arms.sh is running"; exit 1; }
@@ -28,7 +32,8 @@ chmod o+x /home/nishida /home/nishida/lustre-release 2>/dev/null || true
 
 cd $L
 git checkout -q -- lustre/utils/liblustreapi_pfind.c
-[[ "$ARM" == control ]] && python3 ${CUT:-/home/nishida/cut-links.py} "$L"
+[[ "$ARM" == control ]] && python3 /home/nishida/cut-links.py "$L"
+[[ "$ARM" == nofid ]] && python3 /home/nishida/cut-fidfallback.py "$L"
 make -j"$(nproc)" -C lustre/utils > /tmp/arm-$ARM-build.log 2>&1 ||
 	{ echo "BUILD FAILED"; grep -m5 error: /tmp/arm-$ARM-build.log; exit 1; }
 
