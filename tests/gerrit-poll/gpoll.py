@@ -30,6 +30,7 @@ if not changes:
 
 seeding = not seen
 events=[]
+lu20598=[]
 for d in changes:
     n=d["number"]; cur=d["currentPatchSet"]["number"]
     for c in d.get("comments",[]):
@@ -42,13 +43,16 @@ for d in changes:
         ps=int(psm.group(1)) if psm else -1
         # filter 1: a message against a superseded patchset needs no action
         if ps!=-1 and ps!=cur: continue
-        # filter 2: LU-20598, deterministic and tree-wide
-        if "review-dne-selinux-ssk-part-2" in m and "sanity-sec" in m: continue
+        # filter 2: LU-20598.  Rolled up rather than dropped -- it is
+        # deterministic and needs no triage, but it is also what gates the
+        # series now, and silence hid three of these on current patchsets.
+        if "review-dne-selinux-ssk-part-2" in m and "sanity-sec" in m:
+            lu20598.append(n); continue
         # noise: the bare "sessions will be run" announcement
         if who=="maloo" and "sessions will be run" in m: continue
         # our own push: 18 of these arrive at once and none is information
         if who=="hnishida" and re.match(r"Uploaded patch set \d+", m): continue
-        t=datetime.datetime.fromtimestamp(c["timestamp"],datetime.UTC).strftime("%m-%d %H:%M")
+        t=datetime.datetime.fromtimestamp(c["timestamp"]).strftime("%m-%d %H:%M")  # local, as `date`
         # a vote, not the "Outdated Votes:" listing a push leaves behind
         vote=""
         if re.search(r"^Patch Set \d+: Verified-1", m, re.M): vote=" **Verified-1**"
@@ -69,3 +73,8 @@ for d in changes:
 
 json.dump(sorted(seen), open(STATE,"w"))
 for e in sorted(events): print(e, flush=True)
+if lu20598 and not seeding:
+    u=sorted(set(lu20598))
+    print("%s LU-20598 sanity-sec: %d new on %s" %
+          (datetime.datetime.now().strftime("%m-%d %H:%M"), len(lu20598),
+           ",".join(str(x) for x in u)), flush=True)
