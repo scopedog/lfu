@@ -93,10 +93,27 @@ and the test would fail against a build without the guard.
 | all three, `ONLY_REPEAT=2` | PASS x2 | PASS x2 | PASS x2 |
 | **each alone on a fresh fs**, `ONLY_REPEAT=2` | PASS x2 | PASS x2 | PASS x2 |
 | **control** (`ARM=control`, refusal cut out) | — | — | **FAIL** |
+| **control** (`ARM=noglimpse`, glimpse cut out) | — | **FAIL** | — |
 
-The control line is the one that matters: 160ac fails against a library with
-the stale-anchor refusal removed and passes against one that has it, so the
-test discriminates instead of merely agreeing with the code beside it.
+The two control lines are the ones that matter: each test fails against a
+library with the thing it checks removed, so it discriminates instead of
+merely agreeing with the code beside it.
+
+`ARM=noglimpse` neuters the condition rather than deleting the call --
+deleting it leaves two static functions unreferenced and the tree builds with
+`-Werror`, so the arm fails to compile instead of failing the test.
+
+**FIXED 2026-08-28 (see `08-resolvedbg.sh` for how it was found).** The
+instrumented run showed the decider being handed
+`flags=0xc00000000000000` = `OBD_MD_FLLAZYSIZE | OBD_MD_FLLAZYBLOCKS` and no
+`OBD_MD_FLSIZE`: the per-FID lookup answers from the MDT, whose size for a
+striped file is the lazy SOM value, so `-size` was undecidable for every
+object. `--resolve` now glimpses -- one `O_RDONLY` open and an `fstat`, the
+same one `lfs find` does on an ordinary walk -- but only when `-size` or
+`-blocks` is in the search, `--lazy` has not said the MDT's answer will do,
+and the merged record has no strict size already. Widening it to the whole
+demand mask would have put an OST round trip behind every `-uid` and
+`-mtime` search, since one mask covers them all.
 
 **A third defect, found by fixing the second.** Asserting that
 `--changelog --resolve -size +0` returns something made 160ab fail. It is not

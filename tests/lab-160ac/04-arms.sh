@@ -4,6 +4,7 @@
 #   ARM=post     the tree as committed                   -> expect 160ac PASS
 #   ARM=control  the stale-anchor refusal cut out of
 #                liblustreapi_pfind.c, tests unchanged   -> expect 160ac FAIL
+#   ARM=noglimpse  the --resolve glimpse cut out         -> expect 160ab FAIL
 #
 # The control is the point.  A test is verified by failing against the code it
 # is meant to catch, not by passing beside the code it was written with --
@@ -22,7 +23,9 @@ cd $L
 git checkout -- lustre/utils/liblustreapi_pfind.c
 
 if [ "$ARM" = control ]; then
-	python3 "$L/../cut-guard.py" "$P"
+	python3 /home/nishida/cut-guard.py "$P"
+elif [ "$ARM" = noglimpse ]; then
+	python3 /home/nishida/cut-glimpse.py "$P"
 else
 	grep -q "sc.sc_startrec != 0 && oldest > sc.sc_startrec" $P ||
 		{ echo "post arm is missing the guard in the source"; exit 1; }
@@ -46,11 +49,21 @@ LIB=$(find /usr/lib64 /usr/lib -name "liblustreapi.so.1.0.0" 2>/dev/null | head 
 [ -n "$LIB" ] || { echo "cannot find the installed liblustreapi"; exit 1; }
 n=$(strings "$LIB" | grep -c "has purged past the cookie" || true)
 echo "  installed $LIB carries the refusal: $n"
+# the glimpse is static and leaves no symbol, so the arm is asserted from the
+# source it was built from rather than from the object
+g=$(grep -c "NOGLIMPSE ARM" $P || true)   # 0 = glimpse live, 1 = disabled
+echo "  built source has the glimpse DISABLED: $g"
 if [ "$ARM" = control ] && [ "$n" != 0 ]; then
 	echo "CONTROL ARM STILL HAS THE GUARD -- the run would prove nothing"; exit 1
 fi
 if [ "$ARM" = post ] && [ "$n" = 0 ]; then
 	echo "POST ARM IS MISSING THE GUARD -- a stale control build is installed"; exit 1
+fi
+if [ "$ARM" = noglimpse ] && [ "$g" = 0 ]; then
+	echo "NOGLIMPSE ARM STILL GLIMPSES -- the run would prove nothing"; exit 1
+fi
+if [ "$ARM" != noglimpse ] && [ "$g" != 0 ]; then
+	echo "A NOGLIMPSE SOURCE IS STILL IN PLACE"; exit 1
 fi
 
 cd $L && git checkout -- lustre/utils/liblustreapi_pfind.c

@@ -34,6 +34,11 @@ git fetch -q origin master --tags
 git cat-file -e "$BASE^{commit}" 2>/dev/null ||
 	{ echo "cannot reach $BASE even after fetch"; exit 1; }
 
+# reset BEFORE the checkout, not after: a tree carrying a hand-copied file
+# (a quick arm, an experiment) fails "git checkout" outright and the build
+# never starts.  $LTREE is this lab's own clone, so discarding is right here
+# -- which is exactly why the build must never be pointed at $SRC.
+git reset -q --hard HEAD; git clean -qfdx
 git checkout -q "$BASE"; git reset -q --hard "$BASE"; git clean -qfdx
 
 echo "=== applying the series ==="
