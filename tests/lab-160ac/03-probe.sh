@@ -16,7 +16,7 @@
 # H1/H2 are defects in 68419.  H3 is a defect in the test.  The record count
 # and the first record's index tell them apart in one run.
 set -e
-L=/home/nishida/lustre-release
+L=${LTREE:-$HOME/lustre-160ac}
 export HOME=/root
 export PDSH="ssh -o StrictHostKeyChecking=no -x"
 export ONLY=160aa,160ab,160ac

@@ -67,6 +67,26 @@ reproduction has failed and the fix cannot be validated against it. See the
 `test_160za` note in the known-noise record, where a new test passed against
 broken code and only a control caught it.
 
+## Two traps this lab hit on its first run, both guarded now
+
+**`~/lustre-release` on the lab VM is somebody's working tree.** On
+`rhel9.7-server-mgs-mds-clone` it had uncommitted edits to `mdd_changelog.c`
+and `lwp_dev.c`, ten local branches of unrelated work, and a `master` **216
+commits ahead of origin**. The first draft of `02-build.sh` would have run
+`reset --hard` and `clean -fdx` in it. It now builds in `$LTREE`
+(`~/lustre-160ac`, a hardlinked local clone, so it costs seconds) and
+**refuses outright if `LTREE` is `~/lustre-release`**. "Clone VM" does not mean
+disposable.
+
+**`git fetch origin master` without `--tags` silently builds the wrong
+version.** `LUSTRE_VERSION` comes from `git describe`, and the clone's newest
+tag was `2.17.51`, so the build installed `lfs 2.17.51_737` — *below* the
+`2.17.57` gate, which would have skipped all three tests while the lab looked
+like it ran. With `--tags` the same tree describes as `v2_17_57-59`, matching
+the round-11 record's `2.17.57_59`. So `02-build.sh` asserts the **installed**
+version after `make install`, not just the gate in the source: the source gate
+being right does not mean the binary clears it.
+
 ## Why one node and ldiskfs
 
 Both backends failed identically, so the cause is not backend-specific, and the
