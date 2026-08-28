@@ -86,6 +86,40 @@ to purge them, then write one more. Then records between the anchor and the
 oldest survivor really are gone, which is the condition the guard exists for,
 and the test would fail against a build without the guard.
 
+## The fix, and how it was verified (2026-08-28)
+
+| condition | 160aa | 160ab | 160ac |
+|---|---|---|---|
+| all three, `ONLY_REPEAT=2` | PASS x2 | PASS x2 | PASS x2 |
+| **each alone on a fresh fs**, `ONLY_REPEAT=2` | PASS x2 | PASS x2 | PASS x2 |
+| **control** (`ARM=control`, refusal cut out) | — | — | **FAIL** |
+
+The control line is the one that matters: 160ac fails against a library with
+the stale-anchor refusal removed and passes against one that has it, so the
+test discriminates instead of merely agreeing with the code beside it.
+
+**A third defect, found by fixing the second.** Asserting that
+`--changelog --resolve -size +0` returns something made 160ab fail. It is not
+the assertion that is wrong -- `lfs-find.1` says `--resolve` exists so that
+"options needing its state (`--size`, `--projid`, the layout options) can be
+answered", and `06-sizeprobe.sh` shows it does not:
+
+    === plain find -size +0 (no changelog) ===
+      /mnt/lustre/szp/withdata            <- 11 bytes, matched
+    === changelog --resolve -type f ===
+      /mnt/lustre/szp/withdata            <- resolve itself works
+      /mnt/lustre/szp/empty
+    === changelog --resolve -size +0 ===
+      lfs find: 2 objects could not be decided: the changelog has no answer
+                for a field the search asked for
+
+So `--resolve` resolves the name but does not fill the size. The old test
+passed only because it checked the exit status and never looked at the output
+-- a vacuous assertion hiding a real defect, which is the same shape as
+68414's `test_160za`. 160ab now asserts acceptance and deliberately not the
+answer, with the reason in the test, so nothing encodes the gap as correct.
+**The `--resolve` defect itself is unfixed and belongs to 68416/68418.**
+
 ## Stages
 
 | script | where | what |
@@ -93,7 +127,9 @@ and the test would fail against a build without the guard.
 | `00-patches.sh` | **local** | cuts `5afbab284e..191c17a792` (68420 PS2) and scps it to the instance |
 | `01-prereq.sh` | instance | repos and build prerequisites; unchanged from `lab-dne166/` |
 | `02-build.sh` | instance | builds the series, and **refuses to continue if 160ac is absent or gated above the tree** |
-| `03-probe.sh` | instance | `ONLY=160aa,160ab,160ac ONLY_REPEAT=2`, with the stale-cookie block instrumented |
+| `03-probe.sh` | instance | runs `$ONLY` under `ONLY_REPEAT`; `PROBE=1` instruments the stale-cookie block |
+| `04-arms.sh` | instance | `ARM=post` / `ARM=control`, and checks WHICH arm got installed |
+| `06-sizeprobe.sh` | instance | does `-size` survive `--changelog --resolve`? (no) |
 
 One `c3-standard-8` rocky-linux-9 instance; MGS + 2 MDTs + OST + client on it.
 

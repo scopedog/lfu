@@ -46,24 +46,20 @@ T=$L/lustre/tests/sanity.sh
 cd $L
 git checkout -- lustre/tests/sanity.sh
 
+if [ "${PROBE:-0}" = 1 ]; then
 python3 - "$T" <<'PY'
 import sys
 p = sys.argv[1]
 s = open(p).read()
-old = '''	# an anchor older than the oldest surviving record is refused
-	echo "$(facet_svc $SINGLEMDS) 1" > $ck
-	$LFS find $DIR/$tdir --since-cookie $ck -type f &> /dev/null &&
+old = '''	$LFS find $DIR/$tdir --since-cookie $ck -type f &> /dev/null &&
 		error "a stale cookie should be refused"
 '''
-new = '''	# an anchor older than the oldest surviving record is refused
-	local mdt0=$(facet_svc $SINGLEMDS)
-	local nrec=$($LFS changelog $mdt0 2>/dev/null | grep -c .)
-	echo "PROBE: mdt=$mdt0 surviving_records=$nrec"
-	echo "PROBE: cookie_was: $(cat $ck | tr '\\n' '|')"
+new = '''	local mdt0=$(facet_svc $SINGLEMDS)
+	echo "PROBE: surviving_records=$($LFS changelog $mdt0 2>/dev/null | grep -c .)"
+	echo "PROBE: cookie: $(cat $ck | tr '\\n' '|')"
 	do_facet $SINGLEMDS $LCTL get_param -n mdd.$mdt0.changelog_users 2>&1 |
 		sed 's/^/PROBE: users: /'
 	$LFS changelog $mdt0 2>&1 | head -2 | sed 's/^/PROBE: oldest_rec: /'
-	echo "$mdt0 1" > $ck
 	local rc160=0
 	$LFS find $DIR/$tdir --since-cookie $ck -type f > /tmp/probe160.out 2>&1 ||
 		rc160=$?
@@ -77,6 +73,7 @@ if old not in s:
 open(p, 'w').write(s.replace(old, new))
 print("probe inserted")
 PY
+fi
 
 cd $L/lustre/tests
 ./llmountcleanup.sh >/dev/null 2>&1 || true
