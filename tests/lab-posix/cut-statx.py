@@ -6,27 +6,20 @@
 # filesystem has them.  With lstat back, LLAPI_SCAN_BTIME is clear whatever the
 # filesystem knows and "lfs find -btime" matches nothing -- which sanity 157d
 # must catch on a filesystem that reports a birth time.
+#
+# Cuts the #ifdef rather than the body: the body has already been edited once
+# since this arm was written, and an arm that stops matching is an arm that
+# quietly stops running.  There are two HAVE_STATX blocks in the file, so this
+# finds the one belonging to the ENOTTY fallback by its error string.
 import sys
 
 p = sys.argv[1]
 s = open(p).read()
-old = '''#ifdef HAVE_STATX
-			ret = statx(AT_FDCWD, path, AT_SYMLINK_NOFOLLOW,
-				    STATX_BASIC_STATS | STATX_BTIME,
-				    &lmd->lmd_stx);
-			if (ret) {
-				ret = -errno;
-				llapi_error(LLAPI_MSG_ERROR, ret,
-					    "error: %s: statx failed for %s",
-					    __func__, path);
-			}
-			lmd_stx_finish(lmd, true);
-#else
-'''
-new = '''#if 0	/* NOSTATX ARM */
-#else
-'''
-if old not in s:
-    sys.exit("NOSTATX CUT DID NOT MATCH -- the ENOTTY branch has changed")
-open(p, 'w').write(s.replace(old, new))
+
+mark = '"error: %s: statx failed for %s"'
+if mark not in s:
+    sys.exit("NOSTATX CUT DID NOT MATCH -- no statx in the ENOTTY fallback")
+i = s.rindex("#ifdef HAVE_STATX", 0, s.index(mark))
+s = s[:i] + "#if 0	/* NOSTATX ARM */" + s[i + len("#ifdef HAVE_STATX"):]
+open(p, 'w').write(s)
 print("nostatx arm: the lstat fallback is back")
