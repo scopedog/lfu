@@ -323,6 +323,15 @@ what blocks other work next, what is merely wanted last.
    remains is not a measurement but a statement: the HLD's target is an
    *exclusive-access* number, and our docs should say so wherever a reader
    would otherwise take it for a live-filesystem figure.
+6b. **POSIX Input Scanner** — **written 2026-08-29**, held locally in 68094.
+   Not a new module: `architecture.md` §7 had already established it is the
+   namespace scanner with a different attribute source, and the walk's
+   `ENOTTY` fallback meant it half worked already. What it needed was a
+   *contract* — and enforcing it found a defect, a FID built out of the
+   object's filename published with `LLAPI_SCAN_FID` set. See
+   [`design-posix-scanner.md`](design-posix-scanner.md) and
+   [`../tests/lab-posix/`](../tests/lab-posix/).
+
 7. **Aggregate / histogram Filter Rules.** Andreas named the bounded histogram
    as a Trash Can requirement, so it is a consumer blocker rather than a
    reporting nicety — but the HLD's diagram marks Advanced Operators
