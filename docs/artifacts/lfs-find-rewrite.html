@@ -541,7 +541,7 @@ footer p { max-width: none; }
     predicates, which is the same argument the rewrite was made for.
   </p>
   <div class="note">
-    <span class="lbl">Status &mdash; on Gerrit, 2026-08-26</span>
+    <span class="lbl">Status &mdash; on Gerrit, 2026-08-29</span>
     <p>
       All of it is written, lab-verified against a three-node cluster, and
       pushed. <code>llapi_scan_changelog()</code> reads an MDT&rsquo;s
@@ -552,6 +552,14 @@ footer p { max-width: none; }
       candidate with. Then <code>--since</code> (68417),
       <code>--changelog</code> (68418), <code>--since-cookie</code> (68419)
       and the man page and tests (68420).
+    </p>
+    <p>
+      Three rounds of review since have changed behaviour rather than style,
+      and each is below: <code>--resolve</code> now answers <code>-size</code>,
+      <code>--since</code> follows a file&rsquo;s other names, and
+      <code>--changelog</code> really does name an object whose pathname is
+      gone &mdash; the row this page already claimed, which turned out not to
+      work until the test for it was written.
     </p>
   </div>
   <p>
@@ -614,6 +622,18 @@ footer p { max-width: none; }
     state at any setting, so those arrive absent with their
     <code>sr_valid</code> bit clear, or are filled by a lookup the caller asks
     for.
+  </p>
+  <p>
+    That lookup is <code>--resolve</code>, and it does two things a record
+    cannot. It produces a pathname, which is what makes a subtree search
+    possible at all: a changelog says nothing about where an object sits, so
+    without it <code>--changelog</code> takes the filesystem rather than a
+    directory. And handing that pathname to the decider is what answers
+    <code>-size</code> &mdash; the decider stats the path, which glimpses the
+    OSTs. Asking the MDT instead returns the lazy SOM value for a striped
+    file, which is why <code>-size</code> under <code>--resolve</code> came
+    back &ldquo;could not be decided&rdquo; for every object until the resolved
+    path reached the decider rather than only the record.
   </p>
 
   <h3>The same question, asked of both sources</h3>
@@ -702,6 +722,16 @@ lfs find /mnt/lustre <b>--since 2h --changelog all</b> -type f</pre>
     multi-MDT filesystem it is refused as ambiguous unless a single
     <code>--changelog MDT</code> names which log it indexes.
   </p>
+  <p>
+    <code>--since-cookie</code> is the exact form of the same thing. It holds
+    one anchor per MDT in a file and rewrites each with the index that MDT
+    reached, so a repeated job resumes where it stopped on every log rather
+    than at a time the logs only approximate. It also refuses: if an MDT has
+    purged past its anchor the records in between are gone, and returning what
+    is left would be a short answer with nothing to say so. Every anchor is
+    checked before any MDT is scanned, so that refusal cannot arrive after
+    part of the answer is already on stdout.
+  </p>
   <div class="note">
     <span class="lbl">Four ways a flag gets refused</span>
     <p>
@@ -721,6 +751,16 @@ lfs find /mnt/lustre <b>--since 2h --changelog all</b> -type f</pre>
     matches every linkea name where <code>lfs find --name</code> matches the
     name the walk arrived by. The promise worth keeping is not that flags
     behave identically everywhere, but that an answer is never invented.
+  </p>
+  <p>
+    <code>--since</code> sits between those two, and getting it wrong was
+    silent. There is no walk to have arrived by, so a FID resolves to
+    linkno&nbsp;0 &mdash; the name the file was created under. A search rooted
+    at a directory holding the file&rsquo;s <em>other</em> link therefore
+    dropped it, and <code>-name</code> was answered about one basename where
+    the file goes by two. Both now walk every link a file with more than one
+    has, which is what keeps <code>--since</code> a subset of the search it
+    claims to be a subset of, rather than merely a smaller answer.
   </p>
 </section>
 
