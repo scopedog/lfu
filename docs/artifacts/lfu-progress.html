@@ -260,15 +260,26 @@ footer p { max-width: none; }
   <div class="note">
     <span class="lbl">Where the time is going now</span>
     <p>
-      Fourteen rounds of review fixes, every one of the nineteen changes at
-      patch set 3 or later and the oldest at 12 &mdash; and the reviews are
-      still finding defects rather than style. The most recent, on 2026-08-29:
-      the <code>--since-cookie</code> parser bounded an MDT index as a signed
+      Fifteen rounds of review fixes, every one of the nineteen changes at
+      patch set 3 or later and the oldest at 13 &mdash; and the reviews, and
+      writing the tests they ask for, are still finding defects rather than
+      style. Two on 2026-08-29 alone.
+    </p>
+    <p>
+      The <code>--since-cookie</code> parser bounded an MDT index as a signed
       value while indexing the anchor array with an unsigned one, so a cookie
       line reading <code>&lt;fsname&gt;-MDT-1</code> parsed to
       <code>0xffffffff</code> and stored 32&nbsp;GiB past the end. The sanity
       case added with the fix segfaults against a build with the old test put
-      back. That is an argument for landing in pieces, not against it.
+      back.
+    </p>
+    <p>
+      And stating the POSIX scanner's contract &mdash; which fields a record
+      carries when a stat is the source &mdash; found that every file scanned
+      outside Lustre came back with a FID built from its own filename, with
+      the validity bit set to say it was real. Neither defect was found by
+      reading the code. Both were found by writing down what it was supposed
+      to promise. That is an argument for landing in pieces, not against it.
     </p>
   </div>
 </section>
@@ -303,7 +314,7 @@ footer p { max-width: none; }
         <tr><td>Lustre Namespace Input Scanner</td><td><span class="chip rev">in review</span></td><td>68094 &mdash; LU-20603</td></tr>
         <tr><td><code>lfs find</code> Filter Rule and Output Format</td><td><span class="chip rev">in review</span></td><td>68095, 68157, 68158, 68159 &mdash; LU-20605, LU-20611</td></tr>
         <tr><td>FID &rarr; pathname Output Format</td><td><span class="chip rev">in review</span></td><td>68288 &mdash; LU-20637</td></tr>
-        <tr><td>POSIX Input Scanner</td><td><span class="chip none">not started</span></td><td>the namespace walk now survives crossing onto non-Lustre, which is not the same thing</td></tr>
+        <tr><td>POSIX Input Scanner</td><td><span class="chip rev">in review</span></td><td>68094 &mdash; LU-20603. The same scanner with a stat for an attribute source, as the HLD asks, rather than a second crawler</td></tr>
         <tr><td>Client Bulk RPC Filter Rule</td><td><span class="chip p2">Phase 2</span></td><td>needs the format first</td></tr>
 
         <tr class="grp"><td colspan="3">Future improvements, per the HLD</td></tr>
@@ -454,7 +465,7 @@ footer p { max-width: none; }
         </tr>
         <tr>
           <td><strong>The new sanity cases are young</strong></td>
-          <td>This one has half resolved itself. The framework has now run 160aa&ndash;160ac, and it did surface a framework-level mistake: 160ac <em>assumed</em> a stale cookie rather than making one, which holds only on a filesystem that already has changelog history &mdash; so it passed the Janitor and failed <code>review-dne-subtest-change</code>. It makes the gap now. Six cases exist (160aa&ndash;160ad, 160y, 160z), and the four newest have not yet had a full autotest pass on the current patch sets.</td>
+          <td>This one has half resolved itself. The framework has now run 160aa&ndash;160ac, and it did surface a framework-level mistake: 160ac <em>assumed</em> a stale cookie rather than making one, which holds only on a filesystem that already has changelog history &mdash; so it passed the Janitor and failed <code>review-dne-subtest-change</code>. It makes the gap now. Seven cases exist on Gerrit (157c, 160y, 160z, 160aa&ndash;160ad), and the newest have not yet had a full autotest pass on the current patch sets.</td>
         </tr>
       </tbody>
     </table>
