@@ -5,8 +5,9 @@
 module is recorded where its code lives and no separate ticket exists for it.
 Kept below as the record of what was said.
 
-**B is being filed** as a Technical task, parent LU-20462. When it has a
-number, put it here and in the commit subject of the patch that writes it.
+**B is filed** as [LU-20665](https://jira.whamcloud.com/browse/LU-20665),
+Technical task, parent LU-20462, assigned to Hiroshi Nishida, In Progress. The
+patch that writes it carries that number in its subject.
 
 Why the split: LU-20603 is `llapi_scan_namespace()` and the POSIX Input
 Scanner *is* `llapi_scan_namespace()` — two boxes in the HLD diagram, one
@@ -70,13 +71,16 @@ a record off Lustre carried a FID: valid=0x43ff
 
 ---
 
-# B. Being filed — LU-?????
+# B. Filed 2026-08-29 as LU-20665
 
-## Summary line
-
-The Summary field is plain text, not wiki markup, so this goes in as it reads:
+Summary as filed:
 
 > LFU: fetch attributes with statx for filesystems that are not Lustre
+
+Not written yet, deliberately: the change is small, but it makes
+{{lfs find -btime}} start answering on every non-Lustre object where it
+silently matched nothing, which is a behaviour change to a shipped command and
+wants its own argument and its own test rather than riding with the round.
 
 ## Description, paste-ready
 
