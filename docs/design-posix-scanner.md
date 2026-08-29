@@ -70,13 +70,53 @@ there for a good reason, so a pass would mean nothing. `sanity` 157c passes
 passes twice, and the `nofid` arm — the clear cut back out — fails test10 with
 `a record off Lustre carried a FID: valid=0x43ff`.
 
-## 4. Not done, deliberately
+## 4. Is the `statx()` change necessary? No — checked against the HLD
 
-**`statx()` in place of `lstat`** in the `ENOTTY` fallback would answer `BTIME`
-and `ATTRS` off Lustre, and would make `lfs find -btime` work there too. That
-is a change to long-standing upstream code with a wider blast radius than a
-field that was being invented, so it wants its own patch, its own reasoning and
-its own test rather than riding along with a defect fix.
+The HLD names `statx()` for this module, which reads at first like a
+requirement:
+
+> **POSIX Input Scanner Module.** It *may be desirable* to also implement an
+> Input Scanner Module that performs a traditional POSIX directory traversal
+> for non-Lustre filesystems … This could likely be implemented as part of the
+> Lustre Namespace Input Scanner module **using statx() calls to fetch file
+> attributes from the kernel** rather than implementing a duplicate parallel
+> namespace scanner module.
+
+Read whole, the sentence's requirement is the *rather than* clause, and that is
+the one we meet. Three things say `statx()` is a suggested route and not an
+obligation:
+
+1. **The module is outside the initial set.** *"The initial Input Scanner
+   modules for locating files should be a Lustre client mountpoint scanner, an
+   ldiskfs filesystem scanner, and Lustre Changelogs consumer."* POSIX is not
+   among them, and its own section opens *"It may be desirable to also
+   implement"*.
+2. **`btime` is not one of the attributes the HLD asks for.** Its standard list
+   is *"size, blocks, atime, mtime, ctime, etc."*
+3. **The HLD explicitly allows omitting what is not available:** *"It should be
+   possible to distinguish between required and optional attributes, allowing
+   attributes to be returned if readily available … but omitting the pathname
+   if not."* `sr_valid` is exactly that mechanism, so an absent `BTIME` is
+   conformant rather than a gap.
+
+**And the behaviour it would change is already deliberate and uniform.**
+`find_decide()` has a case for a missing birth time, with the reason in the
+code: an object with no `STATX_BTIME` cannot match `-btime`, so it does not
+match and the walk carries on — *"ending it here, after matches have already
+been printed, is the wrong answer, and on a walk the error reaches
+llapi_semantic_traverse() and takes the whole subtree with it."*
+
+That case is **not POSIX-specific**: an old ldiskfs inode whose `i_extra_isize`
+does not reach `i_crtime` has no birth time either, and behaves identically on
+Lustre. Measured: `lfs find /tmp/ptree -type f -btime -1d` returns nothing on a
+tree created seconds earlier, and the same command on Lustre returns the file.
+Adding `statx()` would fix the POSIX half of that asymmetry and leave the old
+inode half exactly as it is — it moves the boundary rather than removing it.
+
+**So: an enhancement, not a correctness fix.** What it would buy is `-btime`
+and `--attrs` off Lustre on filesystems that have them (ext4, XFS; not tmpfs),
+which is worth having on its own merits and worth its own patch. What it would
+not buy is HLD conformance, which the contract in §3 already has.
 
 **Nothing about the walk itself changed**, and nothing needs to: the traversal,
 the thread pool and the predicates were already source-agnostic. That is the

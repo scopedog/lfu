@@ -83,9 +83,17 @@ Lustre** rather than pass there: every absence it checks would be present for a
 good reason, so a green run on Lustre would mean nothing. Give `-p DIR` when
 `P_tmpdir` is Lustre.
 
-## Not done, deliberately
+## `statx()` instead of `lstat` — checked, and not necessary
 
-**`statx()` instead of `lstat`** in the `ENOTTY` fallback would add `BTIME` and
-`ATTRS` off Lustre, and would make `lfs find -btime` work there too. It is a
-change to upstream code with a wider blast radius than the defect fix, so it
-wants its own patch and its own reasoning rather than riding along.
+Measured on the lab: `lfs find /tmp/ptree -type f -btime -1d` returns **nothing**
+for files created seconds earlier, where the same command on Lustre returns the
+file. That looks like a POSIX gap and is not one — `find_decide()` treats an
+object with no `STATX_BTIME` as not matching, deliberately, and **an old ldiskfs
+inode whose `i_extra_isize` does not reach `i_crtime` behaves the same way on
+Lustre**. `statx()` would fix one half of that and leave the other.
+
+The HLD names `statx()` for this module but does not require it: the module sits
+outside the three initial Input Scanners, `btime` is not in its standard
+attribute list, and it explicitly allows returning attributes only *"if readily
+available"*. See [`design-posix-scanner.md`](../../docs/design-posix-scanner.md)
+§4. An enhancement worth its own patch, not a correctness fix.
