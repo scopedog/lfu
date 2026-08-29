@@ -70,7 +70,40 @@ there for a good reason, so a pass would mean nothing. `sanity` 157c passes
 passes twice, and the `nofid` arm — the clear cut back out — fails test10 with
 `a record off Lustre carried a FID: valid=0x43ff`.
 
-## 4. Is the `statx()` change necessary? No — checked against the HLD
+## 4. The statx change — LU-20665, written 2026-08-29
+
+Not necessary, and written anyway on the user's call. §5 keeps the reasoning
+for *not necessary*, which is still the answer to give when someone files it as
+a bug. What it buys, measured on the lab after the change:
+
+```
+before  valid=0x43fe [TYPE,MODE,NLINK,UID,GID,SIZE,BLOCKS,ATIME,MTIME,CTIME]
+after   valid=0x4ffe [ ... ,ATIME,MTIME,CTIME,BTIME,ATTRS]
+```
+
+and `lfs find /tmp/ptree -type f -btime -1d`, which returned nothing for files
+created seconds earlier, now names all three. The FID stays absent, which is
+the §2 fix still holding.
+
+The shape of it: `statx(AT_FDCWD, path, AT_SYMLINK_NOFOLLOW, STATX_BASIC_STATS
+| STATX_BTIME, &stx)` in the `ENOTTY` branch, behind `HAVE_STATX` as the tree's
+three other userspace call sites already are. The kernel's own `stx_mask` then
+says which fields were filled, in place of this code asserting
+`STATX_BASIC_STATS` on the filesystem's behalf — so a filesystem with no birth
+time still leaves the bit clear, and `-btime` still does not match there.
+
+**Two things the compiler and the lab had to say.** `lov_user_mds_data_v2` is
+packed, so `&lmd->lmd_stx` is not an address `statx()` may be handed and
+`-Werror=address-of-packed-member` refuses it: the answer goes into a local and
+is assigned. And the flag tail both fillers share — which `OBD_MD_FL` bits the
+answer claims, plus the FID clear — moved into `lmd_stx_finish()`, since only
+the fill differs between a stat and a statx.
+
+sanity **157d** asks `stat -c %W` for a birth time and asserts against what it
+says, because `$TMP` is often tmpfs and has none. It prints which branch it
+took: a case that quietly checks nothing is worth nothing.
+
+## 5. Why it was not necessary — checked against the HLD
 
 The HLD names `statx()` for this module, which reads at first like a
 requirement:
@@ -113,10 +146,11 @@ tree created seconds earlier, and the same command on Lustre returns the file.
 Adding `statx()` would fix the POSIX half of that asymmetry and leave the old
 inode half exactly as it is — it moves the boundary rather than removing it.
 
-**So: an enhancement, not a correctness fix.** What it would buy is `-btime`
-and `--attrs` off Lustre on filesystems that have them (ext4, XFS; not tmpfs),
-which is worth having on its own merits and worth its own patch. What it would
-not buy is HLD conformance, which the contract in §3 already has.
+**So: an enhancement, not a correctness fix.** What it buys is `-btime` and
+`--attrs` off Lustre on filesystems that have them (ext4, XFS; not tmpfs),
+which is worth having on its own merits — and is why it was written as its own
+patch under its own ticket. What it does not buy is HLD conformance, which the
+contract in §3 already had.
 
 **Nothing about the walk itself changed**, and nothing needs to: the traversal,
 the thread pool and the predicates were already source-agnostic. That is the
