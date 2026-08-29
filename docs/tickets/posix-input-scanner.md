@@ -71,7 +71,12 @@ a record off Lustre carried a FID: valid=0x43ff
 
 ---
 
-# B. Filed 2026-08-29 as LU-20665
+# B. Filed 2026-08-29 as LU-20665 — written, and held
+
+**Held until the current round is reviewed** (the user's call, 2026-08-29). The
+patch is on `lu-20665-statx` and verified; it is the only change in the series
+that alters `lfs find`'s answer on every non-Lustre object, so it goes up on
+its own rather than inside a batch.
 
 Summary as filed:
 
