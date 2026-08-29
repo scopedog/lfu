@@ -1,33 +1,35 @@
-# POSIX Input Scanner — an LU-20603 comment, and one follow-up ticket
+# POSIX Input Scanner — the LU-20603 comment, and the statx ticket
 
-**Decided 2026-08-29: no new ticket for the module.** LU-20603 is
-`llapi_scan_namespace()`, and the POSIX Input Scanner *is*
-`llapi_scan_namespace()` — the HLD draws them as two boxes, but in the tree
-there is one function, one traversal and one record, and the fix has to land in
-68094 rather than in a change of its own. A ticket owning no change is
-bookkeeping a maintainer reads past.
+**A is posted.** The comment went on
+[LU-20603](https://jira.whamcloud.com/browse/LU-20603) on 2026-08-29, so the
+module is recorded where its code lives and no separate ticket exists for it.
+Kept below as the record of what was said.
 
-**The one condition that would change it:** if module completion is reported by
-counting subtasks of LU-20462, a comment on LU-20603 does not appear in that
-audit, and the subtask earns its keep. Then file A from the git history of this
-file (commit `6447aaa`).
+**B is being filed** as a Technical task, parent LU-20462. When it has a
+number, put it here and in the commit subject of the patch that writes it.
 
-So: **A is now a comment to post on LU-20603**, and **B stays a ticket draft**,
-Technical task, parent LU-20462, to file only when the follow-up is wanted.
+Why the split: LU-20603 is `llapi_scan_namespace()` and the POSIX Input
+Scanner *is* `llapi_scan_namespace()` — two boxes in the HLD diagram, one
+function in the tree — while statx is a separate change to a separate
+behaviour. The one condition that would have made A its own ticket, and did
+not apply: module completion reported by counting subtasks of LU-20462, which
+a comment does not appear in. The standalone draft is in this file's history
+at `6447aaa`.
+
+**Markup:** `jira.whamcloud.com` is Jira Server 9.12 and takes wiki markup, not
+Markdown — `{noformat}` blocks, `{{inline}}`, and every identifier in braces
+because a matched pair of underscores italicises. See [[jira-wiki-markup]] in
+memory, and LU-20637, whose description still shows the raw backticks from
+before we knew.
 
 Background: [`design-posix-scanner.md`](../design-posix-scanner.md), lab
 [`tests/lab-posix/`](../../tests/lab-posix/).
 
 ---
 
-# A. Comment to post on LU-20603
+# A. Posted on LU-20603, 2026-08-29
 
-**Jira wiki markup, not Markdown.** `jira.whamcloud.com` is Jira Server 9.12,
-where backticks and triple-backtick fences render literally: LU-20637's
-description still shows its raw fences. Blocks are `{noformat}`, inline
-literals are `{{double braces}}`, `*bold*`, `_italic_`, headings `h3.`.
-Underscores are safe inside `{{ }}` and italicise a matched pair outside it, so
-every identifier goes in braces. Paste from the rule below.
+As posted:
 
 ---
 
@@ -68,7 +70,7 @@ a record off Lustre carried a FID: valid=0x43ff
 
 ---
 
-# B. The follow-up, still a ticket if you want it tracked
+# B. Being filed — LU-?????
 
 ## Summary line
 
