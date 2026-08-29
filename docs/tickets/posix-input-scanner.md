@@ -22,118 +22,58 @@ Background: [`design-posix-scanner.md`](../design-posix-scanner.md), lab
 
 # A. Comment to post on LU-20603
 
-No summary line, no fields: it is a comment on the existing ticket. Same
-formatting rule as a description, written without double hyphens, asterisks or
-braces in the prose so Jira's editor has nothing to autoformat.
+Trimmed 2026-08-29 at the user's request. Identifiers carrying an underscore
+stay inside a code block: Jira's wiki markup reads a matched pair as italics,
+so the scanner test's name would render with a word missing. Paste from the
+rule below.
 
 ---
 
 This ticket also delivers the High Level Design's POSIX Input Scanner module,
-which is why no separate ticket exists for it.
+so there is no separate ticket for it. The design asks for that module to be
+built inside the namespace scanner rather than duplicated, and it is this
+scanner with a stat as the attribute source: the walk has fallen back to a stat
+when the attribute ioctl answers ENOTTY since long before this work, so a search
+already crossed onto storage that is not Lustre and answered there.
 
-The High Level Design asks for a POSIX Input Scanner beside the Lustre
-namespace scanner, so that the same searches work over storage that is not
-Lustre. It names the consumers as Client Side File Cache (PCC-RO) and Trash Can
-Undelete (TCU), and it asks for the module to be implemented inside the
-namespace scanner rather than as a duplicate parallel scanner.
-
-That is not a scanner to write. The namespace walk has fetched attributes with
-
-```
-ioctl(LL_IOC_MDC_GETINFO_V2)
-```
-
-and fallen back to a stat when that answers
-
-```
-ENOTTY
-```
-
-since long before this work, so a search already crosses onto a filesystem that
-is not Lustre and answers there. Measured on a lab: `lfs find` answers `-type`,
-`-size`, `-mtime` and `-uid` correctly on an ext4 tree today.
-
-What was missing is not traversal but the record's honesty. A scan record
-carries a validity mask saying which fields the scanner could answer for, and
-off Lustre that mask was wrong about one field.
-
-Every regular file scanned outside Lustre came back with
+What was missing was the record's honesty. Off Lustre every regular file came
+back with the FID validity bit
 
 ```
 LLAPI_SCAN_FID
 ```
 
-set, and a FID built out of the object's own filename:
+set, and a FID built out of its own filename:
 
 ```
 /tmp/ptree/a      fid=[0x61:0x0:0x0]
 /tmp/ptree/big    fid=[0x676962:0x0:0x0]
 ```
 
-`0x61` is the letter a. `0x676962` is the string big. The walk writes the
-object name into the attribute buffer because that buffer is the ioctl input as
-well as its output; the ioctl fails with ENOTTY; the stat fallback fills the
-statx fields and never touches the FID; and
+0x61 is the letter a and 0x676962 is the string big. The walk writes the name
+into the attribute buffer because that buffer is the ioctl input as well as its
+output, the ioctl then fails, the stat fallback never touches the FID, and
 
 ```
 fid_is_sane()
 ```
 
-reads the leftover name bytes as a valid IGIF. An IGIF is a legitimate FID
-shape, so nothing downstream could catch it. A consumer doing exactly what the
-validity mask promises would read a fabricated FID and, for example, ask an MDT
-about it.
+reads the leftover bytes as a valid IGIF. That is a legitimate FID shape, so
+nothing downstream could catch it.
 
-This ticket covers stating the contract for a target that is not Lustre and
-enforcing it:
+The contract is now stated and enforced. A record gathered from a stat carries
+type, mode, link count, owner, size, blocks and the three timestamps, plus the
+project id on demand. The FID, the layout, the directory stripe, the MDT index
+and the HSM state leave their bits clear.
 
-A record gathered from a stat carries type, mode, link count, owner, size,
-blocks and the three timestamps, plus the project id on demand where the
-filesystem supports project quotas.
-
-It carries none of the fields only Lustre has. The FID, the layout, the
-directory stripe, the MDT index and the HSM state all leave their bits clear
-rather than reading as zero or as something invented.
-
-Nothing about the traversal, the thread pool, the demand mask or the predicates
-changes. The POSIX Input Scanner is the namespace scanner with a different
-attribute source, which is what the design asks for.
-
-## Acceptance
-
-A new case in `llapi_scan_test` builds a tree on a filesystem that is not
-Lustre, scans it through `llapi_scan_namespace()`, and asserts both halves:
-that what a stat answers is present, and that the FID, layout, directory
-stripe, MDT index and HSM bits are all clear.
-
-The case refuses to run on Lustre rather than pass there, because every absence
-it asserts would be present for a good reason on Lustre and a green run would
-mean nothing. sanity test_157c passes it a directory outside the filesystem
-under test.
-
-```
-test10: a record off Lustre carries what a stat answers, and no FID   pass
-PASS 157c
-```
-
-Verified against a build with the fix removed, where the same case fails:
+The scanner test gained a case that scans a tree outside Lustre and asserts
+both halves, and it refuses to run on Lustre, where every absence it checks
+would be present for a good reason. sanity 157c passes it a directory outside
+the filesystem under test. Against a build with the fix removed it fails:
 
 ```
 a record off Lustre carried a FID: valid=0x43ff
 ```
-
-## Why it is in this ticket and not its own
-
-The POSIX Input Scanner is this module with a different attribute source, so
-there is no second scanner to track. The fix also has to be here: this call is
-the first consumer of the FID field for an object the ioctl did not answer for,
-so it is what turns a latent stale value into a published one, and landing the
-API under one ticket with the fix under another would ship a release that
-reports invented FIDs.
-
-Nothing upstream reads that field for such an object today. `lfs find -printf`
-resolves a FID from the pathname instead, which is why this is not an upstream
-defect report.
 
 ---
 
