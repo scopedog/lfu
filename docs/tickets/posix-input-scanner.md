@@ -1,35 +1,35 @@
-# POSIX Input Scanner — ticket draft (not yet filed)
+# POSIX Input Scanner — an LU-20603 comment, and one follow-up ticket
 
-Two drafts, because the work splits along a line the HLD draws for us. **A** is
-the module; **B** is the enhancement I deliberately did not write. File A;
-file B only if you want the follow-up tracked now rather than when someone
-asks for it.
+**Decided 2026-08-29: no new ticket for the module.** LU-20603 is
+`llapi_scan_namespace()`, and the POSIX Input Scanner *is*
+`llapi_scan_namespace()` — the HLD draws them as two boxes, but in the tree
+there is one function, one traversal and one record, and the fix has to land in
+68094 rather than in a change of its own. A ticket owning no change is
+bookkeeping a maintainer reads past.
 
-Technical task, **parent LU-20462**, related to **LU-20603**
-(`llapi_scan_namespace()`, where the code lands). Assignee Hiroshi Nishida,
-Affects Version **2.18.0**. The LU project defines no components, so that field
-stays empty as on every other ticket there.
+**The one condition that would change it:** if module completion is reported by
+counting subtasks of LU-20462, a comment on LU-20603 does not appear in that
+audit, and the subtask earns its keep. Then file A from the git history of this
+file (commit `6447aaa`).
+
+So: **A is now a comment to post on LU-20603**, and **B stays a ticket draft**,
+Technical task, parent LU-20462, to file only when the follow-up is wanted.
 
 Background: [`design-posix-scanner.md`](../design-posix-scanner.md), lab
 [`tests/lab-posix/`](../../tests/lab-posix/).
 
 ---
 
-# A. The module
+# A. Comment to post on LU-20603
 
-## Summary line
-
-```
-LFU: Input Scanner support for filesystems that are not Lustre
-```
-
-## Description, paste-ready
-
-Written without double hyphens, asterisks or braces in the prose, with every
-literal inside a code block, so Jira's editor has nothing to autoformat. Paste
-the whole of the following.
+No summary line, no fields: it is a comment on the existing ticket. Same
+formatting rule as a description, written without double hyphens, asterisks or
+braces in the prose so Jira's editor has nothing to autoformat.
 
 ---
+
+This ticket also delivers the High Level Design's POSIX Input Scanner module,
+which is why no separate ticket exists for it.
 
 The High Level Design asks for a POSIX Input Scanner beside the Lustre
 namespace scanner, so that the same searches work over storage that is not
@@ -122,13 +122,14 @@ Verified against a build with the fix removed, where the same case fails:
 a record off Lustre carried a FID: valid=0x43ff
 ```
 
-## Note on where the code lands
+## Why it is in this ticket and not its own
 
-The fix belongs in the change that adds `llapi_scan_namespace()`, LU-20603,
-change 68094, and not in a change of its own. That call is the first consumer
-of the FID field for an object the ioctl did not answer for, so it is what
-turns a latent stale value into a published one. Landing the API first and the
-fix second would ship a release that reports invented FIDs.
+The POSIX Input Scanner is this module with a different attribute source, so
+there is no second scanner to track. The fix also has to be here: this call is
+the first consumer of the FID field for an object the ioctl did not answer for,
+so it is what turns a latent stale value into a published one, and landing the
+API under one ticket with the fix under another would ship a release that
+reports invented FIDs.
 
 Nothing upstream reads that field for such an object today. `lfs find -printf`
 resolves a FID from the pathname instead, which is why this is not an upstream
@@ -136,7 +137,7 @@ defect report.
 
 ---
 
-# B. The follow-up, if you want it tracked
+# B. The follow-up, still a ticket if you want it tracked
 
 ## Summary line
 
