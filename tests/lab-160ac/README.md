@@ -188,3 +188,51 @@ Both backends failed identically, so the cause is not backend-specific, and the
 Janitor's passing run was `ldiskfs+DNE`, so DNE is not the discriminator either.
 `MDSCOUNT=2` is kept for fidelity with `subtest-change`, not because DNE is
 suspected. `ONLY_REPEAT` is the variable — as in `lab-dne166/`.
+
+## Round 14 (2026-08-29): 68419 PS2's cookie parse, and its two arms
+
+Three of the four AI comments on 68419 PS2 were about `find_cookie_read()` /
+`find_cookie_write()`, and one of them was a live out-of-bounds write.  160ac
+gained a case for each of the two that a test can reach.
+
+| arm | what is cut | 160ac |
+|---|---|---|
+| `post` | the tree as committed | **PASS** x2 |
+| `nobound` | the signed bound test put back (`(int)mdt >= nstarts`) | **FAIL** |
+| `noheader` | the foreign-cookie refusal cut out | **FAIL** |
+
+**`nobound` dies rather than merely disagreeing**, which is the point:
+
+    sanity.sh: line 22821: 70762 Segmentation fault (core dumped)
+        $LFS find $DIR/$tdir --since-cookie $ck.bad -type f > /dev/null
+    sanity test_160ac: @@@@@@ FAIL: a negative MDT index should be ignored
+
+`%x` accepts a sign, so a cookie line of `<fsname>-MDT-1 42` parses to
+`0xffffffff`; as `(int)` that is -1, which passes `>= nstarts`, and
+`starts[0xffffffffu]` then lands 32GiB past a 64-entry array.  Confirmed
+outside the lab too, with a four-line probe: `-MDT-1` -> `0xffffffff`,
+`-MDT-800` -> `0xfffff800`, both accepted by the old test and both rejected by
+`mdt >= (unsigned int)nstarts`.
+
+The whole round ran on one VM: **160y, 160z, 160aa, 160ab, 160ac, 160ad all
+PASS x2, SKIP=0**, MDSCOUNT=2, ldiskfs.  160y and 160z are 68413/68414, which
+are not in the 16-commit stack -- the lab branch is base + those two + the
+stack, so one build covers both series.
+
+## Three traps this lab hit in round 14
+
+**`03-probe.sh` reads `$HOME` before it sets it.**  Under `sudo` that is
+already `/root`, so `L` becomes `/root/lustre-160ac`, the `cd` fails, and the
+run ends having tested nothing while still printing a tidy-looking cleanup.
+Pass `LTREE=` explicitly.
+
+**A root-owned log file makes a build "fail" that never ran.**  The arm script
+redirected to `/tmp/arm-make.log`, left root-owned by an earlier `sudo` run;
+the redirect failed, the `make` never executed, and the `|| { BUILD FAILED;
+tail ...; }` branch printed **the previous run's log**, which looks exactly
+like a build that ran.  The logs live under `$HOME` now.
+
+**`make install` needs the filesystem unmounted.**  `/sbin/mount.lustre` is
+"Device or resource busy" while anything Lustre is mounted, so an arm built
+between two runs installs nothing and the next run silently reports on the
+arm before it.  `llmountcleanup.sh` first.
