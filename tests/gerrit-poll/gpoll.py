@@ -52,6 +52,12 @@ for d in changes:
         if who=="maloo" and "sessions will be run" in m: continue
         # our own push: 18 of these arrive at once and none is information
         if who=="hnishida" and re.match(r"Uploaded patch set \d+", m): continue
+        # our own review replies: a round answers dozens of threads at once and
+        # every one of them comes back as "Patch Set N: (K comments)".  What we
+        # just wrote is never news; a human reply still is, and this is anchored
+        # to our username so it cannot swallow one.
+        if who=="hnishida" and re.match(r"Patch Set \d+:\s*$", m.splitlines()[0]) \
+           and re.search(r"^\(\d+ comments?\)$", m, re.M): continue
         t=datetime.datetime.fromtimestamp(c["timestamp"]).strftime("%m-%d %H:%M")  # local, as `date`
         # a vote, not the "Outdated Votes:" listing a push leaves behind
         vote=""
