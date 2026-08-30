@@ -236,3 +236,36 @@ like a build that ran.  The logs live under `$HOME` now.
 "Device or resource busy" while anything Lustre is mounted, so an arm built
 between two runs installs nothing and the next run silently reports on the
 arm before it.  `llmountcleanup.sh` first.
+
+## Round 15 (2026-08-30): the AI sweep, and the LAST_ID control
+
+`11-run-r15.sh` and `12-conf-r15.sh` are the round's two runs, on `lab-r15b`
+(base + 68413 + 68414 + the 16), `rhel9.7-server-mgs-mds-clone`, MDSCOUNT=2,
+ldiskfs, `ONLY_REPEAT=2`:
+
+| run | result |
+|---|---|
+| sanity `157c,160aa,160ab,160ac,160ad,160y,160z` | **PASS x2 each, SKIP 0** |
+| conf-sanity `165,166` | **PASS x2 each** |
+
+166 is not vacuous: *"client sees 21 names over 20 objects / --fid2path
+resolved 20 objects from 21 names, hardlink once"*.
+
+**The control that matters this round is `ostprobe.sh` + `cut-lastid.py`.**
+Neither 165 nor 166 scans an OST, so the defect 68288's review found -- an
+`O/<seq>/LAST_ID` classified as a data object, `fid2path` answering -EINVAL
+for it, the sweep exiting non-zero on a healthy filesystem -- has no test to
+fail against.  So it was cut back in:
+
+| arm | `lfind --local --fid2path /mnt/lustre` |
+|---|---|
+| the tree as committed | **exit=0**, 63 OST objects counted, no error |
+| `cut-lastid.py` (the classify order and the -EINVAL arm put back) | **exit=1**, `cannot resolve [0x280000400:0x0:0x0] ... Invalid argument (22)` |
+
+`0x280000400:0x0:0x0` is the LAST_ID itself -- f_oid 0, which is exactly what
+`fid_is_namespace_visible()` excludes.  The lab build was restored to the
+committed tree afterwards and the probe rerun to confirm exit=0.
+
+**`lfind --device` wants the target's `mntdev`**, and `obdfilter.*.mntdev` was
+empty on this node, so the OST-alone arm of the probe fell through to a ZFS
+guess and answered -ENOTSUP. `--local` is the arm that works here.
