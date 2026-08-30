@@ -93,3 +93,14 @@ Three defects the round found that no comment named:
 Verification: checkpatch clean on the round's delta, all 16 commits build
 individually (userspace), and the lab run is `lab-r15b` -- base + 68413 +
 68414 + the 16, 18 patches, on `rhel9.7-server-mgs-mds-clone`.
+
+## Pushed 2026-08-30
+
+Both branches went to `review` `refs/for/master`.  The stack is 68094 **PS14**
+through 68420 **PS5**; 68231 stayed at PS4, its tree being byte-identical, and
+68340 was not in this round.  68413/68414 are **PS4**.  The push removed the
+jenkins `Verified+1` and the Maloo `Verified-1` across the series, as a push
+always does; no human vote was outstanding.
+
+All 56 replies posted against the new revisions and **every thread resolved**
+(checked back: 56 posted, 0 unresolved).
