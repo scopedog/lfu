@@ -1,0 +1,832 @@
+[    0.000000] Linux version 4.18.0rh8.10-debug (green@maintenance) (gcc version 8.5.0 20210514 (Red Hat 8.5.0-26) (GCC)) #2 SMP Mon Jul 14 01:24:22 EDT 2025
+[    0.000000] Command line: rd.shell root=nbd:192.168.200.253:rocky8.10:ext4:ro:-p,-b4096 ro crashkernel=256M panic=1 nomodeset ipmtu=9000 ip=dhcp rd.neednet=1 init_on_free=off mitigations=off console=ttyS1,115200 audit=0
+[    0.000000] x86/fpu: Supporting XSAVE feature 0x001: 'x87 floating point registers'
+[    0.000000] x86/fpu: Supporting XSAVE feature 0x002: 'SSE registers'
+[    0.000000] x86/fpu: Supporting XSAVE feature 0x004: 'AVX registers'
+[    0.000000] x86/fpu: xstate_offset[2]:  576, xstate_sizes[2]:  256
+[    0.000000] x86/fpu: Enabled xstate features 0x7, context size is 832 bytes, using 'standard' format.
+[    0.000000] signal: max sigframe size: 1776
+[    0.000000] BIOS-provided physical RAM map:
+[    0.000000] BIOS-e820: [mem 0x0000000000000000-0x000000000009fbff] usable
+[    0.000000] BIOS-e820: [mem 0x000000000009fc00-0x000000000009ffff] reserved
+[    0.000000] BIOS-e820: [mem 0x00000000000f0000-0x00000000000fffff] reserved
+[    0.000000] BIOS-e820: [mem 0x0000000000100000-0x00000000bffcdfff] usable
+[    0.000000] BIOS-e820: [mem 0x00000000bffce000-0x00000000bfffffff] reserved
+[    0.000000] BIOS-e820: [mem 0x00000000feffc000-0x00000000feffffff] reserved
+[    0.000000] BIOS-e820: [mem 0x00000000fffc0000-0x00000000ffffffff] reserved
+[    0.000000] BIOS-e820: [mem 0x0000000100000000-0x0000000146dfffff] usable
+[    0.000000] NX (Execute Disable) protection: active
+[    0.000000] SMBIOS 2.8 present.
+[    0.000000] DMI: QEMU Standard PC (i440FX + PIIX, 1996), BIOS 1.17.0-10.fc44 06/10/2025
+[    0.000000] Hypervisor detected: KVM
+[    0.000000] kvm-clock: Using msrs 4b564d01 and 4b564d00
+[    0.000000] kvm-clock: using sched offset of 457099796 cycles
+[    0.000000] clocksource: kvm-clock: mask: 0xffffffffffffffff max_cycles: 0x1cd42e4dffb, max_idle_ns: 881590591483 ns
+[    0.000000] tsc: Detected 2399.998 MHz processor
+[    0.000000] e820: update [mem 0x00000000-0x00000fff] usable ==> reserved
+[    0.000000] e820: remove [mem 0x000a0000-0x000fffff] usable
+[    0.000000] last_pfn = 0x146e00 max_arch_pfn = 0x400000000
+[    0.000000] MTRR default type: write-back
+[    0.000000] MTRR fixed ranges enabled:
+[    0.000000]   00000-9FFFF write-back
+[    0.000000]   A0000-BFFFF uncachable
+[    0.000000]   C0000-FFFFF write-protect
+[    0.000000] MTRR variable ranges enabled:
+[    0.000000]   0 base 0000C0000000 mask 3FFFC0000000 uncachable
+[    0.000000]   1 disabled
+[    0.000000]   2 disabled
+[    0.000000]   3 disabled
+[    0.000000]   4 disabled
+[    0.000000]   5 disabled
+[    0.000000]   6 disabled
+[    0.000000]   7 disabled
+[    0.000000] x86/PAT: Configuration [0-7]: WB  WC  UC- UC  WB  WP  UC- WT  
+[    0.000000] last_pfn = 0xbffce max_arch_pfn = 0x400000000
+[    0.000000] found SMP MP-table at [mem 0x000f54b0-0x000f54bf]
+[    0.000000] BRK [0x0e801000, 0x0e801fff] PGTABLE
+[    0.000000] BRK [0x0e802000, 0x0e802fff] PGTABLE
+[    0.000000] BRK [0x0e803000, 0x0e803fff] PGTABLE
+[    0.000000] BRK [0x0e804000, 0x0e804fff] PGTABLE
+[    0.000000] BRK [0x0e805000, 0x0e805fff] PGTABLE
+[    0.000000] BRK [0x0e806000, 0x0e806fff] PGTABLE
+[    0.000000] BRK [0x0e807000, 0x0e807fff] PGTABLE
+[    0.000000] BRK [0x0e808000, 0x0e808fff] PGTABLE
+[    0.000000] BRK [0x0e809000, 0x0e809fff] PGTABLE
+[    0.000000] BRK [0x0e80a000, 0x0e80afff] PGTABLE
+[    0.000000] BRK [0x0e80b000, 0x0e80bfff] PGTABLE
+[    0.000000] BRK [0x0e80c000, 0x0e80cfff] PGTABLE
+[    0.000000] RAMDISK: [mem 0xbcc54000-0xbffbffff]
+[    0.000000] ACPI: Early table checksum verification disabled
+[    0.000000] ACPI: RSDP 0x00000000000F52D0 000014 (v00 BOCHS )
+[    0.000000] ACPI: RSDT 0x00000000BFFE247C 000034 (v01 BOCHS  BXPC     00000001 BXPC 00000001)
+[    0.000000] ACPI: FACP 0x00000000BFFE2318 000074 (v01 BOCHS  BXPC     00000001 BXPC 00000001)
+[    0.000000] ACPI: DSDT 0x00000000BFFE0040 0022D8 (v01 BOCHS  BXPC     00000001 BXPC 00000001)
+[    0.000000] ACPI: FACS 0x00000000BFFE0000 000040
+[    0.000000] ACPI: APIC 0x00000000BFFE238C 000090 (v03 BOCHS  BXPC     00000001 BXPC 00000001)
+[    0.000000] ACPI: HPET 0x00000000BFFE241C 000038 (v01 BOCHS  BXPC     00000001 BXPC 00000001)
+[    0.000000] ACPI: WAET 0x00000000BFFE2454 000028 (v01 BOCHS  BXPC     00000001 BXPC 00000001)
+[    0.000000] ACPI: Reserving FACP table memory at [mem 0xbffe2318-0xbffe238b]
+[    0.000000] ACPI: Reserving DSDT table memory at [mem 0xbffe0040-0xbffe2317]
+[    0.000000] ACPI: Reserving FACS table memory at [mem 0xbffe0000-0xbffe003f]
+[    0.000000] ACPI: Reserving APIC table memory at [mem 0xbffe238c-0xbffe241b]
+[    0.000000] ACPI: Reserving HPET table memory at [mem 0xbffe241c-0xbffe2453]
+[    0.000000] ACPI: Reserving WAET table memory at [mem 0xbffe2454-0xbffe247b]
+[    0.000000] ACPI: Local APIC address 0xfee00000
+[    0.000000] No NUMA configuration found
+[    0.000000] Faking a node at [mem 0x0000000000000000-0x0000000146dfffff]
+[    0.000000] NODE_DATA(0) allocated [mem 0x1465a3000-0x1465cdfff]
+[    0.000000] Reserving 256MB of memory at 2752MB for crashkernel (System RAM: 4205MB)
+[    0.000000] Zone ranges:
+[    0.000000]   DMA      [mem 0x0000000000001000-0x0000000000ffffff]
+[    0.000000]   DMA32    [mem 0x0000000001000000-0x00000000ffffffff]
+[    0.000000]   Normal   [mem 0x0000000100000000-0x0000000146dfffff]
+[    0.000000]   Device   empty
+[    0.000000] Movable zone start for each node
+[    0.000000] Early memory node ranges
+[    0.000000]   node   0: [mem 0x0000000000001000-0x000000000009efff]
+[    0.000000]   node   0: [mem 0x0000000000100000-0x00000000bffcdfff]
+[    0.000000]   node   0: [mem 0x0000000100000000-0x0000000146dfffff]
+[    0.000000] Zeroed struct page in unavailable ranges: 4756 pages
+[    0.000000] Initmem setup node 0 [mem 0x0000000000001000-0x0000000146dfffff]
+[    0.000000] On node 0 totalpages: 1076588
+[    0.000000]   DMA zone: 64 pages used for memmap
+[    0.000000]   DMA zone: 158 pages reserved
+[    0.000000]   DMA zone: 3998 pages, LIFO batch:0
+[    0.000000]   DMA32 zone: 12224 pages used for memmap
+[    0.000000]   DMA32 zone: 782286 pages, LIFO batch:63
+[    0.000000]   Normal zone: 4536 pages used for memmap
+[    0.000000]   Normal zone: 290304 pages, LIFO batch:63
+[    0.000000] ACPI: PM-Timer IO Port: 0x608
+[    0.000000] ACPI: Local APIC address 0xfee00000
+[    0.000000] ACPI: LAPIC_NMI (acpi_id[0xff] dfl dfl lint[0x1])
+[    0.000000] IOAPIC[0]: apic_id 0, version 17, address 0xfec00000, GSI 0-23
+[    0.000000] ACPI: INT_SRC_OVR (bus 0 bus_irq 0 global_irq 2 dfl dfl)
+[    0.000000] ACPI: INT_SRC_OVR (bus 0 bus_irq 5 global_irq 5 high level)
+[    0.000000] ACPI: INT_SRC_OVR (bus 0 bus_irq 9 global_irq 9 high level)
+[    0.000000] ACPI: INT_SRC_OVR (bus 0 bus_irq 10 global_irq 10 high level)
+[    0.000000] ACPI: INT_SRC_OVR (bus 0 bus_irq 11 global_irq 11 high level)
+[    0.000000] ACPI: IRQ0 used by override.
+[    0.000000] ACPI: IRQ5 used by override.
+[    0.000000] ACPI: IRQ9 used by override.
+[    0.000000] ACPI: IRQ10 used by override.
+[    0.000000] ACPI: IRQ11 used by override.
+[    0.000000] Using ACPI (MADT) for SMP configuration information
+[    0.000000] ACPI: HPET id: 0x8086a201 base: 0xfed00000
+[    0.000000] TSC deadline timer available
+[    0.000000] smpboot: Allowing 4 CPUs, 0 hotplug CPUs
+[    0.000000] kvm-guest: KVM setup pv remote TLB flush
+[    0.000000] kvm-guest: setup PV sched yield
+[    0.000000] PM: Registered nosave memory: [mem 0x00000000-0x00000fff]
+[    0.000000] PM: Registered nosave memory: [mem 0x0009f000-0x0009ffff]
+[    0.000000] PM: Registered nosave memory: [mem 0x000a0000-0x000effff]
+[    0.000000] PM: Registered nosave memory: [mem 0x000f0000-0x000fffff]
+[    0.000000] PM: Registered nosave memory: [mem 0xbffce000-0xbfffffff]
+[    0.000000] PM: Registered nosave memory: [mem 0xc0000000-0xfeffbfff]
+[    0.000000] PM: Registered nosave memory: [mem 0xfeffc000-0xfeffffff]
+[    0.000000] PM: Registered nosave memory: [mem 0xff000000-0xfffbffff]
+[    0.000000] PM: Registered nosave memory: [mem 0xfffc0000-0xffffffff]
+[    0.000000] [mem 0xc0000000-0xfeffbfff] available for PCI devices
+[    0.000000] Booting paravirtualized kernel on KVM
+[    0.000000] clocksource: refined-jiffies: mask: 0xffffffff max_cycles: 0xffffffff, max_idle_ns: 1910969940391419 ns
+[    0.000000] setup_percpu: NR_CPUS:8192 nr_cpumask_bits:4 nr_cpu_ids:4 nr_node_ids:1
+[    0.000000] percpu: Embedded 63 pages/cpu s221184 r8192 d28672 u524288
+[    0.000000] pcpu-alloc: s221184 r8192 d28672 u524288 alloc=1*2097152
+[    0.000000] pcpu-alloc: [0] 0 1 2 3 
+[    0.000000] kvm-guest: PV spinlocks enabled
+[    0.000000] PV qspinlock hash table entries: 256 (order: 0, 4096 bytes, linear)
+[    0.000000] Built 1 zonelists, mobility grouping on.  Total pages: 1059606
+[    0.000000] Policy zone: Normal
+[    0.000000] Kernel command line: rd.shell root=nbd:192.168.200.253:rocky8.10:ext4:ro:-p,-b4096 ro crashkernel=256M panic=1 nomodeset ipmtu=9000 ip=dhcp rd.neednet=1 init_on_free=off mitigations=off console=ttyS1,115200 audit=0
+[    0.000000] Specific versions of hardware are certified with Red Hat Enterprise Linux 8. Please see the list of hardware certified with Red Hat Enterprise Linux 8 at https://catalog.redhat.com.
+[    0.000000] audit: disabled (until reboot)
+[    0.000000] software IO TLB: area num 4.
+[    0.000000] Memory: 2829652K/4306352K available (18435K kernel code, 11221K rwdata, 7248K rodata, 2908K init, 18040K bss, 524580K reserved, 0K cma-reserved)
+[    0.000000] SLUB: HWalign=64, Order=0-3, MinObjects=0, CPUs=4, Nodes=1
+[    0.000000] kmemleak: Kernel memory leak detector disabled
+[    0.000000] ftrace: allocating 41240 entries in 162 pages
+[    0.000000] ftrace: allocated 162 pages with 3 groups
+[    0.000000] rcu: Hierarchical RCU implementation.
+[    0.000000] rcu: 	RCU event tracing is enabled.
+[    0.000000] rcu: 	RCU restricting CPUs from NR_CPUS=8192 to nr_cpu_ids=4.
+[    0.000000] rcu: 	RCU callback double-/use-after-free debug enabled.
+[    0.000000] 	Rude variant of Tasks RCU enabled.
+[    0.000000] 	Tracing variant of Tasks RCU enabled.
+[    0.000000] rcu: RCU calculated value of scheduler-enlistment delay is 100 jiffies.
+[    0.000000] rcu: Adjusting geometry for rcu_fanout_leaf=16, nr_cpu_ids=4
+[    0.000000] NR_IRQS: 524544, nr_irqs: 456, preallocated irqs: 16
+[    0.000000] random: get_random_bytes called from start_kernel+0x622/0x9a8 with crng_init=0
+[    0.001000] Console: colour *CGA 80x25
+[    0.001000] printk: console [ttyS1] enabled
+[    0.001000] ACPI: Core revision 20220331
+[    0.001000] clocksource: hpet: mask: 0xffffffff max_cycles: 0xffffffff, max_idle_ns: 19112604467 ns
+[    0.001000] hpet clockevent registered
+[    0.001010] APIC: Switch to symmetric I/O mode setup
+[    0.003372] x2apic enabled
+[    0.004009] Switched APIC routing to physical x2apic.
+[    0.005015] kvm-guest: setup PV IPIs
+[    0.008000] ..TIMER: vector=0x30 apic1=0 pin1=2 apic2=-1 pin2=-1
+[    0.008000] clocksource: tsc-early: mask: 0xffffffffffffffff max_cycles: 0x229835b7123, max_idle_ns: 440795242976 ns
+[    0.008021] Calibrating delay loop (skipped) preset value.. 4799.99 BogoMIPS (lpj=2399998)
+[    0.009013] pid_max: default: 32768 minimum: 301
+[    0.010131] LSM: Security Framework initializing
+[    0.011056] Yama: becoming mindful.
+[    0.012043] SELinux:  Initializing.
+[    0.013067] *** VALIDATE selinux ***
+[    0.021325] Dentry cache hash table entries: 1048576 (order: 11, 8388608 bytes, vmalloc)
+[    0.026259] Inode-cache hash table entries: 524288 (order: 10, 4194304 bytes, vmalloc)
+[    0.027153] Mount-cache hash table entries: 16384 (order: 5, 131072 bytes, vmalloc)
+[    0.028124] Mountpoint-cache hash table entries: 16384 (order: 5, 131072 bytes, vmalloc)
+[    0.029118] *** VALIDATE tmpfs ***
+[    0.031205] *** VALIDATE proc ***
+[    0.032261] *** VALIDATE cgroup ***
+[    0.033011] *** VALIDATE cgroup2 ***
+[    0.034271] x86/cpu: User Mode Instruction Prevention (UMIP) activated
+[    0.035154] Last level iTLB entries: 4KB 0, 2MB 0, 4MB 0
+[    0.036010] Last level dTLB entries: 4KB 0, 2MB 0, 4MB 0, 1GB 0
+[    0.037030] Spectre V2 : User space: Vulnerable
+[    0.038012] Speculative Store Bypass: Vulnerable
+[    0.041272] debug: unmapping init [mem 0xffffffff92a59000-0xffffffff92a60fff]
+[    0.043161] smpboot: CPU0: Intel(R) Xeon(R) CPU E5-2695 v2 @ 2.40GHz (family: 0x6, model: 0x3e, stepping: 0x4)
+[    0.044707] Performance Events: IvyBridge events, full-width counters, Intel PMU driver.
+[    0.045024] ... version:                2
+[    0.046014] ... bit width:              48
+[    0.047014] ... generic registers:      4
+[    0.048021] ... value mask:             0000ffffffffffff
+[    0.049016] ... max period:             00007fffffffffff
+[    0.050016] ... fixed-purpose events:   3
+[    0.051011] ... event mask:             000000070000000f
+[    0.052293] rcu: Hierarchical SRCU implementation.
+[    0.054534] smp: Bringing up secondary CPUs ...
+[    0.055571] x86: Booting SMP configuration:
+[    0.056024] .... node  #0, CPUs:      #1 #2 #3
+[    0.059320] smp: Brought up 1 node, 4 CPUs
+[    0.061012] smpboot: Max logical packages: 1
+[    0.062019] smpboot: Total of 4 processors activated (19199.98 BogoMIPS)
+[    0.280566] node 0 deferred pages initialised in 216ms
+[    0.284105] devtmpfs: initialized
+[    0.285353] x86/mm: Memory block size: 128MB
+[    0.288876] gcov: version magic: 0x41383552
+[    0.291337] clocksource: jiffies: mask: 0xffffffff max_cycles: 0xffffffff, max_idle_ns: 1911260446275000 ns
+[    0.296149] futex hash table entries: 1024 (order: 4, 65536 bytes, vmalloc)
+[    0.299426] pinctrl core: initialized pinctrl subsystem
+
+[    0.301958] *************************************************************
+[    0.304018] **     NOTICE NOTICE NOTICE NOTICE NOTICE NOTICE NOTICE    **
+[    0.307020] **                                                         **
+[    0.310018] **  IOMMU DebugFS SUPPORT HAS BEEN ENABLED IN THIS KERNEL  **
+[    0.313020] **                                                         **
+[    0.316018] ** This means that this kernel is built to expose internal **
+[    0.319020] ** IOMMU data structures, which may compromise security on **
+[    0.321016] ** your system.                                            **
+[    0.324020] **                                                         **
+[    0.327018] ** If you see this message and you are not debugging the   **
+[    0.330022] ** kernel, report this immediately to your vendor!         **
+[    0.332017] **                                                         **
+[    0.335021] **     NOTICE NOTICE NOTICE NOTICE NOTICE NOTICE NOTICE    **
+[    0.338020] *************************************************************
+[    0.341804] NET: Registered protocol family 16
+[    0.343506] DMA: preallocated 512 KiB GFP_KERNEL pool for atomic allocations
+[    0.347101] DMA: preallocated 512 KiB GFP_KERNEL|GFP_DMA pool for atomic allocations
+[    0.352096] DMA: preallocated 512 KiB GFP_KERNEL|GFP_DMA32 pool for atomic allocations
+[    0.358039] cpuidle: using governor menu
+[    0.359675] acpiphp: ACPI Hot Plug PCI Controller Driver version: 0.5
+[    0.360456] PCI: Using configuration type 1 for base access
+[    0.361136] core: PMU erratum BJ122, BV98, HSD29 worked around, HT is on
+[    0.369131] HugeTLB registered 1.00 GiB page size, pre-allocated 0 pages
+[    0.372056] HugeTLB registered 2.00 MiB page size, pre-allocated 0 pages
+[    0.375168] cryptd: max_cpu_qlen set to 1000
+[    0.378643] ACPI: Added _OSI(Module Device)
+[    0.382028] ACPI: Added _OSI(Processor Device)
+[    0.384019] ACPI: Added _OSI(3.0 _SCP Extensions)
+[    0.385015] ACPI: Added _OSI(Processor Aggregator Device)
+[    0.389922] ACPI: 1 ACPI AML tables successfully acquired and loaded
+[    0.399659] ACPI: Interpreter enabled
+[    0.400093] ACPI: PM: (supports S0 S3 S4 S5)
+[    0.402021] ACPI: Using IOAPIC for interrupt routing
+[    0.404144] PCI: Using host bridge windows from ACPI; if necessary, use "pci=nocrs" and report a bug
+[    0.408541] ACPI: Enabled 2 GPEs in block 00 to 0F
+[    0.418856] ACPI: PCI Root Bridge [PCI0] (domain 0000 [bus 00-ff])
+[    0.421061] acpi PNP0A03:00: _OSC: OS supports [ASPM ClockPM Segments MSI HPX-Type3]
+[    0.425048] acpi PNP0A03:00: _OSC: not requesting OS control; OS requires [ExtendedConfig ASPM ClockPM MSI]
+[    0.428103] acpi PNP0A03:00: fail to add MMCONFIG information, can't access extended PCI configuration space under this bridge.
+[    0.434468] acpiphp: Slot [2] registered
+[    0.436128] acpiphp: Slot [5] registered
+[    0.437127] acpiphp: Slot [6] registered
+[    0.438102] acpiphp: Slot [7] registered
+[    0.440157] acpiphp: Slot [8] registered
+[    0.442121] acpiphp: Slot [9] registered
+[    0.443117] acpiphp: Slot [10] registered
+[    0.445176] acpiphp: Slot [3] registered
+[    0.446104] acpiphp: Slot [4] registered
+[    0.448185] acpiphp: Slot [11] registered
+[    0.449126] acpiphp: Slot [12] registered
+[    0.451096] acpiphp: Slot [13] registered
+[    0.452108] acpiphp: Slot [14] registered
+[    0.454106] acpiphp: Slot [15] registered
+[    0.455087] acpiphp: Slot [16] registered
+[    0.457110] acpiphp: Slot [17] registered
+[    0.458106] acpiphp: Slot [18] registered
+[    0.460132] acpiphp: Slot [19] registered
+[    0.461126] acpiphp: Slot [20] registered
+[    0.463165] acpiphp: Slot [21] registered
+[    0.465155] acpiphp: Slot [22] registered
+[    0.467186] acpiphp: Slot [23] registered
+[    0.469196] acpiphp: Slot [24] registered
+[    0.470132] acpiphp: Slot [25] registered
+[    0.471122] acpiphp: Slot [26] registered
+[    0.473144] acpiphp: Slot [27] registered
+[    0.475198] acpiphp: Slot [28] registered
+[    0.476131] acpiphp: Slot [29] registered
+[    0.478151] acpiphp: Slot [30] registered
+[    0.480191] acpiphp: Slot [31] registered
+[    0.482100] PCI host bridge to bus 0000:00
+[    0.483028] pci_bus 0000:00: root bus resource [io  0x0000-0x0cf7 window]
+[    0.486036] pci_bus 0000:00: root bus resource [io  0x0d00-0xffff window]
+[    0.489039] pci_bus 0000:00: root bus resource [mem 0x000a0000-0x000bffff window]
+[    0.492053] pci_bus 0000:00: root bus resource [mem 0xc0000000-0xfebfffff window]
+[    0.495052] pci_bus 0000:00: root bus resource [mem 0xe0000000000-0xe007fffffff window]
+[    0.498033] pci_bus 0000:00: root bus resource [bus 00-ff]
+[    0.500179] pci 0000:00:00.0: [8086:1237] type 00 class 0x060000
+[    0.504000] pci 0000:00:01.0: [8086:7000] type 00 class 0x060100
+[    0.507283] pci 0000:00:01.1: [8086:7010] type 00 class 0x010180
+[    0.517738] pci 0000:00:01.1: reg 0x20: [io  0xc320-0xc32f]
+[    0.524057] pci 0000:00:01.1: legacy IDE quirk: reg 0x10: [io  0x01f0-0x01f7]
+[    0.526029] pci 0000:00:01.1: legacy IDE quirk: reg 0x14: [io  0x03f6]
+[    0.529021] pci 0000:00:01.1: legacy IDE quirk: reg 0x18: [io  0x0170-0x0177]
+[    0.531018] pci 0000:00:01.1: legacy IDE quirk: reg 0x1c: [io  0x0376]
+[    0.534798] pci 0000:00:01.3: [8086:7113] type 00 class 0x068000
+[    0.537955] pci 0000:00:01.3: quirk: [io  0x0600-0x063f] claimed by PIIX4 ACPI
+[    0.541058] pci 0000:00:01.3: quirk: [io  0x0700-0x070f] claimed by PIIX4 SMB
+[    0.544967] pci 0000:00:02.0: [1af4:1000] type 00 class 0x020000
+[    0.551025] pci 0000:00:02.0: reg 0x10: [io  0xc300-0xc31f]
+[    0.565039] pci 0000:00:02.0: reg 0x20: [mem 0xe0000000000-0xe0000003fff 64bit pref]
+[    0.571026] pci 0000:00:02.0: reg 0x30: [mem 0xfeb80000-0xfebbffff pref]
+[    0.578404] pci 0000:00:05.0: [1af4:1001] type 00 class 0x010000
+[    0.586016] pci 0000:00:05.0: reg 0x10: [io  0xc000-0xc07f]
+[    0.595019] pci 0000:00:05.0: reg 0x14: [mem 0xfebc0000-0xfebc0fff]
+[    0.613014] pci 0000:00:05.0: reg 0x20: [mem 0xe0000004000-0xe0000007fff 64bit pref]
+[    0.622638] pci 0000:00:06.0: [1af4:1001] type 00 class 0x010000
+[    0.629025] pci 0000:00:06.0: reg 0x10: [io  0xc080-0xc0ff]
+[    0.636024] pci 0000:00:06.0: reg 0x14: [mem 0xfebc1000-0xfebc1fff]
+[    0.656022] pci 0000:00:06.0: reg 0x20: [mem 0xe0000008000-0xe000000bfff 64bit pref]
+[    0.666812] pci 0000:00:07.0: [1af4:1001] type 00 class 0x010000
+[    0.675015] pci 0000:00:07.0: reg 0x10: [io  0xc100-0xc17f]
+[    0.681015] pci 0000:00:07.0: reg 0x14: [mem 0xfebc2000-0xfebc2fff]
+[    0.706015] pci 0000:00:07.0: reg 0x20: [mem 0xe000000c000-0xe000000ffff 64bit pref]
+[    0.719821] pci 0000:00:08.0: [1af4:1001] type 00 class 0x010000
+[    0.726021] pci 0000:00:08.0: reg 0x10: [io  0xc180-0xc1ff]
+[    0.733019] pci 0000:00:08.0: reg 0x14: [mem 0xfebc3000-0xfebc3fff]
+[    0.751021] pci 0000:00:08.0: reg 0x20: [mem 0xe0000010000-0xe0000013fff 64bit pref]
+[    0.761962] pci 0000:00:09.0: [1af4:1001] type 00 class 0x010000
+[    0.772013] pci 0000:00:09.0: reg 0x10: [io  0xc200-0xc27f]
+[    0.780015] pci 0000:00:09.0: reg 0x14: [mem 0xfebc4000-0xfebc4fff]
+[    0.800016] pci 0000:00:09.0: reg 0x20: [mem 0xe0000014000-0xe0000017fff 64bit pref]
+[    0.810136] pci 0000:00:0a.0: [1af4:1001] type 00 class 0x010000
+[    0.819021] pci 0000:00:0a.0: reg 0x10: [io  0xc280-0xc2ff]
+[    0.827013] pci 0000:00:0a.0: reg 0x14: [mem 0xfebc5000-0xfebc5fff]
+[    0.840014] pci 0000:00:0a.0: reg 0x20: [mem 0xe0000018000-0xe000001bfff 64bit pref]
+[    0.851796] ACPI: PCI: Interrupt link LNKA configured for IRQ 10
+[    0.854392] ACPI: PCI: Interrupt link LNKB configured for IRQ 10
+[    0.856379] ACPI: PCI: Interrupt link LNKC configured for IRQ 11
+[    0.859454] ACPI: PCI: Interrupt link LNKD configured for IRQ 11
+[    0.862259] ACPI: PCI: Interrupt link LNKS configured for IRQ 9
+[    0.868031] iommu: Default domain type: Passthrough 
+[    0.870300] SCSI subsystem initialized
+[    0.871120] ACPI: bus type USB registered
+[    0.873074] usbcore: registered new interface driver usbfs
+[    0.874100] usbcore: registered new interface driver hub
+[    0.876079] usbcore: registered new device driver usb
+[    0.877134] pps_core: LinuxPPS API ver. 1 registered
+[    0.879012] pps_core: Software ver. 5.3.6 - Copyright 2005-2007 Rodolfo Giometti <giometti@linux.it>
+[    0.883064] PTP clock support registered
+[    0.885422] EDAC MC: Ver: 3.0.0
+[    0.887164] PCI: Using ACPI for IRQ routing
+[    0.888018] PCI: pci_cache_line_size set to 64 bytes
+[    0.888334] e820: reserve RAM buffer [mem 0x0009fc00-0x0009ffff]
+[    0.888348] e820: reserve RAM buffer [mem 0xbffce000-0xbfffffff]
+[    0.888352] e820: reserve RAM buffer [mem 0x146e00000-0x147ffffff]
+[    0.888819] NetLabel: Initializing
+[    0.889009] NetLabel:  domain hash size = 128
+[    0.890009] NetLabel:  protocols = UNLABELED CIPSOv4 CALIPSO
+[    0.891155] NetLabel:  unlabeled traffic allowed by default
+[    0.893200] vgaarb: loaded
+[    0.895366] hpet0: at MMIO 0xfed00000, IRQs 2, 8, 0
+[    0.897020] hpet0: 3 comparators, 64-bit 100.000000 MHz counter
+[    0.903247] clocksource: Switched to clocksource kvm-clock
+[    1.015586] VFS: Disk quotas dquot_6.6.0
+[    1.017391] VFS: Dquot-cache hash table entries: 512 (order 0, 4096 bytes)
+[    1.041546] *** VALIDATE ramfs ***
+[    1.044461] *** VALIDATE hugetlbfs ***
+[    1.047766] pnp: PnP ACPI init
+[    1.049404] pnp 00:00: Plug and Play ACPI device, IDs PNP0303 (active)
+[    1.049479] pnp 00:01: Plug and Play ACPI device, IDs PNP0f13 (active)
+[    1.049510] pnp 00:02: [dma 2]
+[    1.049571] pnp 00:02: Plug and Play ACPI device, IDs PNP0700 (active)
+[    1.049637] pnp 00:03: Plug and Play ACPI device, IDs PNP0501 (active)
+[    1.049721] pnp 00:04: Plug and Play ACPI device, IDs PNP0501 (active)
+[    1.049791] pnp 00:05: Plug and Play ACPI device, IDs PNP0b00 (active)
+[    1.051232] pnp: PnP ACPI: found 6 devices
+[    1.070211] clocksource: acpi_pm: mask: 0xffffff max_cycles: 0xffffff, max_idle_ns: 2085701024 ns
+[    1.073067] pci_bus 0000:00: resource 4 [io  0x0000-0x0cf7 window]
+[    1.074689] pci_bus 0000:00: resource 5 [io  0x0d00-0xffff window]
+[    1.076326] pci_bus 0000:00: resource 6 [mem 0x000a0000-0x000bffff window]
+[    1.078147] pci_bus 0000:00: resource 7 [mem 0xc0000000-0xfebfffff window]
+[    1.080665] pci_bus 0000:00: resource 8 [mem 0xe0000000000-0xe007fffffff window]
+[    1.084411] NET: Registered protocol family 2
+[    1.086703] IP idents hash table entries: 131072 (order: 8, 1048576 bytes, vmalloc)
+[    1.092359] tcp_listen_portaddr_hash hash table entries: 4096 (order: 5, 163840 bytes, vmalloc)
+[    1.096581] TCP established hash table entries: 65536 (order: 7, 524288 bytes, vmalloc)
+[    1.102700] TCP bind hash table entries: 65536 (order: 9, 2097152 bytes, vmalloc)
+[    1.106001] TCP: Hash tables configured (established 65536 bind 65536)
+[    1.107981] MPTCP token hash table entries: 8192 (order: 6, 393216 bytes, vmalloc)
+[    1.110794] UDP hash table entries: 4096 (order: 6, 393216 bytes, vmalloc)
+[    1.116352] UDP-Lite hash table entries: 4096 (order: 6, 393216 bytes, vmalloc)
+[    1.119442] NET: Registered protocol family 1
+[    1.122078] RPC: Registered named UNIX socket transport module.
+[    1.124904] RPC: Registered udp transport module.
+[    1.127034] RPC: Registered tcp transport module.
+[    1.129507] RPC: Registered tcp NFSv4.1 backchannel transport module.
+[    1.132370] NET: Registered protocol family 44
+[    1.134479] pci 0000:00:00.0: Limiting direct PCI/PCI transfers
+[    1.137223] pci 0000:00:01.0: PIIX3: Enabling Passive Release
+[    1.139584] pci 0000:00:01.0: Activating ISA DMA hang workarounds
+[    1.142454] PCI: CLS 0 bytes, default 64
+[    1.144367] Unpacking initramfs...
+[    2.550253] debug: unmapping init [mem 0xffffa048fcc54000-0xffffa048fffbffff]
+[    2.555619] PCI-DMA: Using software bounce buffering for IO (SWIOTLB)
+[    2.557983] software IO TLB: mapped [mem 0x00000000a8000000-0x00000000ac000000] (64MB)
+[    2.561459] clocksource: tsc: mask: 0xffffffffffffffff max_cycles: 0x229835b7123, max_idle_ns: 440795242976 ns
+[    3.072735] Initialise system trusted keyrings
+[    3.074589] Key type blacklist registered
+[    3.076336] workingset: timestamp_bits=36 max_order=20 bucket_order=0
+[    3.086407] zbud: loaded
+[    3.090354] *** VALIDATE nfs ***
+[    3.091814] *** VALIDATE nfs4 ***
+[    3.094106] pstore: using deflate compression
+[    3.099233] Platform Keyring initialized
+[    3.202622] NET: Registered protocol family 38
+[    3.204645] Key type asymmetric registered
+[    3.205942] Asymmetric key parser 'x509' registered
+[    3.207880] Block layer SCSI generic (bsg) driver version 0.4 loaded (major 247)
+[    3.210749] io scheduler mq-deadline registered
+[    3.212573] io scheduler kyber registered
+[    3.214158] io scheduler bfq registered
+[    3.216125] atomic64_test: passed for x86-64 platform with CX8 and with SSE
+[    3.219224] shpchp: Standard Hot Plug PCI Controller Driver version: 0.4
+[    3.222578] input: Power Button as /devices/LNXSYSTM:00/LNXPWRBN:00/input/input0
+[    3.225905] ACPI: Power Button [PWRF]
+[    3.233074] ACPI: \_SB_.LNKB: Enabled at IRQ 10
+[    3.240677] ACPI: \_SB_.LNKA: Enabled at IRQ 11
+[    3.257529] ACPI: \_SB_.LNKC: Enabled at IRQ 11
+[    3.266929] ACPI: \_SB_.LNKD: Enabled at IRQ 10
+[    3.285852] Serial: 8250/16550 driver, 4 ports, IRQ sharing enabled
+[    3.314172] 00:03: ttyS1 at I/O 0x2f8 (irq = 3, base_baud = 115200) is a 16550A
+[    3.345081] 00:04: ttyS0 at I/O 0x3f8 (irq = 4, base_baud = 115200) is a 16550A
+[    3.352930] Non-volatile memory driver v1.3
+[    3.354710] Linux agpgart interface v0.103
+[    3.387880] virtio_blk virtio1: [vda] 149408 512-byte logical blocks (76.5 MB/73.0 MiB)
+[    3.391337] vda: detected capacity change from 0 to 76496896
+[    3.406145] virtio_blk virtio2: [vdb] 2097152 512-byte logical blocks (1.07 GB/1.00 GiB)
+[    3.409393] vdb: detected capacity change from 0 to 1073741824
+[    3.427120] virtio_blk virtio3: [vdc] 5120000 512-byte logical blocks (2.62 GB/2.44 GiB)
+[    3.430565] vdc: detected capacity change from 0 to 2621440000
+[    3.445088] virtio_blk virtio4: [vdd] 5120000 512-byte logical blocks (2.62 GB/2.44 GiB)
+[    3.447975] vdd: detected capacity change from 0 to 2621440000
+[    3.463422] virtio_blk virtio5: [vde] 8388608 512-byte logical blocks (4.29 GB/4.00 GiB)
+[    3.466670] vde: detected capacity change from 0 to 4294967296
+[    3.481257] virtio_blk virtio6: [vdf] 8388608 512-byte logical blocks (4.29 GB/4.00 GiB)
+[    3.484425] vdf: detected capacity change from 0 to 4294967296
+[    3.492812] libphy: Fixed MDIO Bus: probed
+[    3.501856] usbcore: registered new interface driver usbserial_generic
+[    3.503758] usbserial: USB Serial support registered for generic
+[    3.506071] i8042: PNP: PS/2 Controller [PNP0303:KBD,PNP0f13:MOU] at 0x60,0x64 irq 1,12
+[    3.510544] serio: i8042 KBD port at 0x60,0x64 irq 1
+[    3.512954] serio: i8042 AUX port at 0x60,0x64 irq 12
+[    3.515742] mousedev: PS/2 mouse device common for all mice
+[    3.519593] rtc_cmos 00:05: RTC can wake from S4
+[    3.525213] input: AT Translated Set 2 keyboard as /devices/platform/i8042/serio0/input/input1
+[    3.529068] rtc_cmos 00:05: registered as rtc0
+[    3.531896] rtc_cmos 00:05: alarms up to one day, y3k, 242 bytes nvram, hpet irqs
+[    3.532795] input: VirtualPS/2 VMware VMMouse as /devices/platform/i8042/serio1/input/input4
+[    3.535290] intel_pstate: CPU model not supported
+[    3.541113] input: VirtualPS/2 VMware VMMouse as /devices/platform/i8042/serio1/input/input3
+[    3.545565] hid: raw HID events driver (C) Jiri Kosina
+[    3.548166] usbcore: registered new interface driver usbhid
+[    3.551295] usbhid: USB HID core driver
+[    3.553130] drop_monitor: Initializing network drop monitor service
+[    3.555904] Initializing XFRM netlink socket
+[    3.557855] NET: Registered protocol family 10
+[    3.561226] Segment Routing with IPv6
+[    3.562822] NET: Registered protocol family 17
+[    3.565154] mpls_gso: MPLS GSO support
+[    3.565974] start plist test
+[    3.568327] end plist test
+[    3.570187] RAS: Correctable Errors collector initialized.
+[    3.574928] AVX version of gcm_enc/dec engaged.
+[    3.576435] AES CTR mode by8 optimization enabled
+[    3.653320] sched_clock: Marking stable (3653286322, 0)->(4564438656, -911152334)
+[    3.658400] registered taskstats version 1
+[    3.660388] Loading compiled-in X.509 certificates
+[    3.662463] zswap: loaded using pool lzo/zbud
+[    3.686781] Key type big_key registered
+[    3.699842] Key type encrypted registered
+[    3.701854] ima: No TPM chip found, activating TPM-bypass!
+[    3.703971] ima: Allocated hash algorithm: sha1
+[    3.705777] ima: No architecture policies found
+[    3.709066] evm: Initialising EVM extended attributes:
+[    3.711093] evm: security.selinux
+[    3.712529] evm: security.ima
+[    3.713681] evm: security.capability
+[    3.714896] evm: HMAC attrs: 0x1
+[    3.716934] rtc_cmos 00:05: setting system clock to 2026-08-30 19:08:30 UTC (1788116910)
+[    3.722281] debug: unmapping init [mem 0xffffffff93a03000-0xffffffff93bfffff]
+[    3.724953] debug: unmapping init [mem 0xffffffff92782000-0xffffffff92a58fff]
+[    3.734123] Write protecting the kernel read-only data: 28672k
+[    3.737340] debug: unmapping init [mem 0xffffffff90e03000-0xffffffff90ffffff]
+[    3.740400] debug: unmapping init [mem 0xffffffff91714000-0xffffffff917fffff]
+[    3.776132] systemd[1]: systemd 239 (239-82.el8_10.5) running in system mode. (+PAM +AUDIT +SELINUX +IMA -APPARMOR +SMACK +SYSVINIT +UTMP +LIBCRYPTSETUP +GCRYPT +GNUTLS +ACL +XZ +LZ4 +SECCOMP +BLKID +ELFUTILS +KMOD +IDN2 -IDN +PCRE2 default-hierarchy=legacy)
+[    3.786202] systemd[1]: Detected virtualization kvm.
+[    3.788430] systemd[1]: Detected architecture x86-64.
+[    3.790660] systemd[1]: Running in initial RAM disk.
+[    3.817824] systemd[1]: No hostname configured.
+[    3.819719] systemd[1]: Set hostname to <localhost>.
+[    3.822063] random: systemd: uninitialized urandom read (16 bytes read)
+[    3.824809] systemd[1]: Initializing machine ID from random generator.
+[    3.970540] random: systemd: uninitialized urandom read (16 bytes read)
+[    3.973715] systemd[1]: Reached target Slices.
+[    3.978647] random: systemd: uninitialized urandom read (16 bytes read)
+[    3.980961] systemd[1]: Reached target Timers.
+[    3.985737] systemd[1]: Listening on Journal Socket (/dev/log).
+[    4.543412] device-mapper: uevent: version 1.0.3
+[    4.545954] device-mapper: ioctl: 4.46.0-ioctl (2022-02-22) initialised: dm-devel@redhat.com
+[    5.205900] random: fast init done
+[    5.214626] virtio_net virtio0 ens2: renamed from eth0
+[    5.228654] libata version 3.00 loaded.
+[    5.234524] ata_piix 0000:00:01.1: version 2.13
+[    5.251748] scsi host0: ata_piix
+[    5.270484] scsi host1: ata_piix
+[    5.272101] ata1: PATA max MWDMA2 cmd 0x1f0 ctl 0x3f6 bmdma 0xc320 irq 14
+[    5.274933] ata2: PATA max MWDMA2 cmd 0x170 ctl 0x376 bmdma 0xc328 irq 15
+[   10.224607] random: crng init done
+[   10.226177] random: 7 urandom warning(s) missed due to ratelimiting
+[   10.547487] EXT4-fs (nbd0): mounted filesystem with ordered data mode. Opts: (null)
+[   11.620368] printk: systemd: 26 output lines suppressed due to ratelimiting
+[   11.863448] SELinux:  Disabled at runtime.
+[   11.929773] systemd[1]: systemd 239 (239-82.el8_10.5) running in system mode. (+PAM +AUDIT +SELINUX +IMA -APPARMOR +SMACK +SYSVINIT +UTMP +LIBCRYPTSETUP +GCRYPT +GNUTLS +ACL +XZ +LZ4 +SECCOMP +BLKID +ELFUTILS +KMOD +IDN2 -IDN +PCRE2 default-hierarchy=legacy)
+[   11.939632] systemd[1]: Detected virtualization kvm.
+[   11.941818] systemd[1]: Detected architecture x86-64.
+[   12.435691] systemd[1]: initrd-switch-root.service: Succeeded.
+[   12.439045] systemd[1]: Stopped Switch Root.
+[   12.446342] systemd[1]: systemd-journald.service: Service has no hold-off time (RestartSec=0), scheduling restart.
+[   12.451449] systemd[1]: systemd-journald.service: Scheduled restart job, restart counter is at 1.
+[   12.455099] systemd[1]: Stopped Journal Service.
+[   12.461796] systemd[1]: Starting Journal Service...
+[   12.466642] systemd[1]: Started Forward Password Requests to Wall Directory Watch.
+[   12.658493] Adding 1048572k swap on /dev/vdb.  Priority:-2 extents:1 across:1048572k FS
+[   12.913696] squashfs: version 4.0 (2009/01/31) Phillip Lougher
+[   13.287536] piix4_smbus 0000:00:01.3: SMBus Host Controller at 0x700, revision 0
+[   13.309259] input: PC Speaker as /devices/platform/pcspkr/input/input5
+[   13.359259] RAPL PMU: API unit is 2^-32 Joules, 0 fixed counters, 10737418240 ms ovfl timer
+[   13.386614] EDAC sbridge: Seeking for: PCI ID 8086:0ea0
+[   13.386638] EDAC sbridge:  Ver: 1.1.2 
+[   15.090210] Key type dns_resolver registered
+[   15.382570] NFS: Registering the id_resolver key type
+[   15.384562] Key type id_resolver registered
+[   15.385902] Key type id_legacy registered
+[   52.567564] spl: loading out-of-tree module taints kernel.
+[   57.828398] ZFS: Loaded module v2.3.2-1, ZFS pool version 5000, ZFS filesystem version 5
+[   68.817335] Key type ._llcrypt registered
+[   68.823963] Key type .llcrypt registered
+[   68.966831] Lustre: DEBUG MARKER: oleg316-server.virtnet: executing set_hostid
+[   85.160025] hrtimer: interrupt took 3016001 ns
+[   87.261526] Lustre: DEBUG MARKER: oleg316-server.virtnet: executing load_modules_local
+[   88.568379] libcfs: HW NUMA nodes: 1, HW CPU cores: 4, npartitions: 1
+[   88.600486] alg: No test for adler32 (adler32-zlib)
+[   90.107755] Lustre: Lustre: Build Version: 2.17.57_46_g0d6162b
+[   90.894410] LNet: Added LNI 192.168.203.116@tcp [8/256/0/180]
+[   92.719157] Key type lgssc registered
+[   94.596996] Lustre: Echo OBD driver; http://www.lustre.org/
+[  104.316482]  vdc: vdc1 vdc9
+[  112.901922]  vde: vde1 vde9
+[  121.557368]  vdf: vdf1 vdf9
+[  137.432558] Lustre: DEBUG MARKER: oleg316-server.virtnet: executing load_modules_local
+[  145.096843] Lustre: lustre-MDT0000: mounting server target with '-t lustre' deprecated, use '-t lustre_tgt'
+[  146.329947] Lustre: Setting parameter lustre-MDT0000.mdt.identity_upcall=/home/green/git/lustre-release/lustre/utils/l_getidentity in log lustre-MDT0000
+[  146.565723] Lustre: ctl-lustre-MDT0000: No data found on store. Initialize space.
+[  146.639413] Lustre: lustre-MDT0000: new disk, initializing
+[  146.933147] Lustre: lustre-MDT0000: Imperative Recovery not enabled, recovery window 60-180
+[  146.994759] Lustre: ctl-lustre-MDT0000: super-sequence allocation rc = 0 [0x0000000200000400-0x0000000240000400]:0:mdt
+[  151.237937] Lustre: DEBUG MARKER: oleg316-server.virtnet: executing set_default_debug vfstrace rpctrace dlmtrace neterror ha config ioctl super lfsck all
+[  155.751101] Lustre: Modifying parameter general.debug_raw_pointers=Y in log params
+[  160.998645] Lustre: lustre-OST0000: new disk, initializing
+[  161.008485] Lustre: srv-lustre-OST0000: No data found on store. Initialize space.
+[  161.013496] Lustre: Skipped 1 previous similar message
+[  161.083240] Lustre: lustre-OST0000: Imperative Recovery not enabled, recovery window 60-180
+[  166.393647] Lustre: DEBUG MARKER: oleg316-server.virtnet: executing set_default_debug vfstrace rpctrace dlmtrace neterror ha config ioctl super lfsck all
+[  172.541271] Lustre: ctl-lustre-MDT0000: super-sequence allocation rc = 0 [0x0000000240000400-0x0000000280000400]:0:ost
+[  172.559524] Lustre: cli-lustre-OST0000-super: Allocated super-sequence [0x0000000240000400-0x0000000280000400]:0:ost]
+[  172.730771] Lustre: lustre-OST0000-osc-MDT0000: update sequence from 0x100000000 to 0x240000400
+[  176.444932] Lustre: lustre-OST0001: new disk, initializing
+[  176.448452] Lustre: srv-lustre-OST0001: No data found on store. Initialize space.
+[  176.519883] Lustre: lustre-OST0001: Imperative Recovery not enabled, recovery window 60-180
+[  182.597440] Lustre: DEBUG MARKER: oleg316-server.virtnet: executing set_default_debug vfstrace rpctrace dlmtrace neterror ha config ioctl super lfsck all
+[  186.649170] Lustre: ctl-lustre-MDT0000: super-sequence allocation rc = 0 [0x0000000280000400-0x00000002c0000400]:1:ost
+[  186.661264] Lustre: cli-lustre-OST0001-super: Allocated super-sequence [0x0000000280000400-0x00000002c0000400]:1:ost]
+[  186.854821] Lustre: lustre-OST0001-osc-MDT0000: update sequence from 0x100010000 to 0x280000400
+[  194.374280] Lustre: DEBUG MARKER: Using TIMEOUT=20
+[  203.855792] Lustre: Setting parameter general.lod.*.mdt_hash=crush in log params
+[  209.440316] Lustre: DEBUG MARKER: oleg316-server.virtnet: executing check_logdir /tmp/testlogs/
+[  213.375529] Lustre: DEBUG MARKER: oleg316-server.virtnet: executing yml_node
+[  217.379207] Lustre: DEBUG MARKER: Client: 2.17.57.46
+[  219.657374] Lustre: DEBUG MARKER: MDS: 2.17.57.46
+[  221.944653] Lustre: DEBUG MARKER: OSS: 2.17.57.46
+[  223.277593] Lustre: DEBUG MARKER: -----============= acceptance-small: sanity-hsm ============----- Sun Aug 30 15:12:08 EDT 2026
+[  237.398301] Lustre: DEBUG MARKER: excepting tests:
+[  238.776941] Lustre: DEBUG MARKER: === sanity-hsm: start setup 15:12:24 (1788117144) ===
+[  244.081314] Lustre: DEBUG MARKER: oleg316-client.virtnet: executing check_config_client /mnt/lustre
+[  258.917647] Lustre: DEBUG MARKER: Using TIMEOUT=20
+[  262.410720] Lustre: 11332:0:(mgs_llog.c:1450:mgs_modify_param()) MGS: modify general/lod.*.mdt_hash=crush (mode = 0) failed: rc = -17
+[  266.346712] Lustre: DEBUG MARKER: oleg316-server.virtnet: executing set_default_debug vfstrace rpctrace dlmtrace neterror ha config ioctl super lfsck all
+[  270.143505] Lustre: DEBUG MARKER: === sanity-hsm: finish setup 15:12:55 (1788117175) ===
+[  271.618453] Lustre: Setting parameter lustre.mdt.lustre-MDT0000.hsm_control=enabled in log params
+[  295.746265] Lustre: DEBUG MARKER: == sanity-hsm test 1A: lfs hsm flags root/non-root access ========================================================== 15:13:20 (1788117200)
+[  303.597066] Lustre: DEBUG MARKER: == sanity-hsm test 1a: mmap
+[  314.762578] Lustre: DEBUG MARKER: == sanity-hsm test 1b: Archive, Release and Restore composite file ========================================================== 15:13:39 (1788117219)
+[  326.079651] Lustre: DEBUG MARKER: == sanity-hsm test 1c: Check setting archive-id in lfs hsm_set ========================================================== 15:13:51 (1788117231)
+[  332.659624] Lustre: DEBUG MARKER: == sanity-hsm test 1d: Archive, Release and Restore DoM file ========================================================== 15:13:58 (1788117238)
+[  343.453759] Lustre: DEBUG MARKER: == sanity-hsm test 1e: Archive, Release and Restore SEL file ========================================================== 15:14:08 (1788117248)
+[  344.844508] Lustre: 5846:0:(lod_lov.c:1446:lod_parse_striping()) lustre-MDT0000-mdtlov: EXTENSION flags=40 set on component[2]=1 of non-SEL file [0x200000401:0x11:0x0] with magic=0xbd60bd0
+[  346.148893] Lustre: 7659:0:(lod_lov.c:1446:lod_parse_striping()) lustre-MDT0000-mdtlov: EXTENSION flags=50 set on component[2]=1 of non-SEL file [0x200000402:0x6:0x0] with magic=0xbd60bd0
+[  346.159123] Lustre: 7659:0:(lod_lov.c:1446:lod_parse_striping()) Skipped 5 previous similar messages
+[  355.719043] Lustre: DEBUG MARKER: == sanity-hsm test 1f: DoM file release after restore ==== 15:14:20 (1788117260)
+[  368.355117] Lustre: DEBUG MARKER: == sanity-hsm test 2: Check file dirtyness when doing setattr ========================================================== 15:14:33 (1788117273)
+[  375.158266] Lustre: DEBUG MARKER: == sanity-hsm test 3: Check file dirtyness when opening for write ========================================================== 15:14:40 (1788117280)
+[  382.541365] Lustre: DEBUG MARKER: == sanity-hsm test 4: Useless cancel must not be registered ========================================================== 15:14:47 (1788117287)
+[  388.982540] Lustre: DEBUG MARKER: == sanity-hsm test 8: Test default archive number ======== 15:14:54 (1788117294)
+[  395.881409] Lustre: DEBUG MARKER: == sanity-hsm test 9A: Use of explicit archive number, with dedicated copytool ========================================================== 15:15:01 (1788117301)
+[  402.709492] Lustre: DEBUG MARKER: oleg316-client.virtnet: executing pgrep --pidfile=/var/run/lhsmtool_posix.pid --list-full hsmtool
+[  407.334182] Lustre: DEBUG MARKER: oleg316-client.virtnet: executing get_client_uuid /mnt/lustre2
+[  416.396602] Lustre: DEBUG MARKER: == sanity-hsm test 9a: Multiple remote agents ============ 15:15:21 (1788117321)
+[  417.751384] Lustre: DEBUG MARKER: SKIP: sanity-hsm test_9a Need 3 or more clients, have 1
+[  419.470887] Lustre: DEBUG MARKER: == sanity-hsm test 10a: Archive a file =================== 15:15:24 (1788117324)
+[  428.281490] Lustre: DEBUG MARKER: == sanity-hsm test 10b: Archive of non dirty file must work without doing request ========================================================== 15:15:33 (1788117333)
+[  435.992605] Lustre: DEBUG MARKER: == sanity-hsm test 10c: Check forbidden archive ========== 15:15:41 (1788117341)
+[  441.899330] Lustre: DEBUG MARKER: == sanity-hsm test 10d: Archive a file on the default archive id ========================================================== 15:15:47 (1788117347)
+[  450.050690] Lustre: DEBUG MARKER: == sanity-hsm test 11a: Import a file ==================== 15:15:55 (1788117355)
+[  456.777621] Lustre: DEBUG MARKER: == sanity-hsm test 11b: Import a deleted file using its FID ========================================================== 15:16:02 (1788117362)
+[  466.604915] Lustre: DEBUG MARKER: == sanity-hsm test 11c: Import a file to a directory with a pool ========================================================== 15:16:11 (1788117371)
+[  487.319094] Lustre: DEBUG MARKER: == sanity-hsm test 12a: Restore an imported file explicitly ========================================================== 15:16:32 (1788117392)
+[  497.665444] Lustre: DEBUG MARKER: == sanity-hsm test 12b: Restore an imported file implicitly ========================================================== 15:16:42 (1788117402)
+[  506.238104] Lustre: DEBUG MARKER: == sanity-hsm test 12c: Restore a file with stripe of 2 == 15:16:51 (1788117411)
+[  516.611883] Lustre: DEBUG MARKER: == sanity-hsm test 12d: Restore of a non archived, non released file must work ========================================================== 15:17:01 (1788117421)
+[  526.380368] Lustre: DEBUG MARKER: == sanity-hsm test 12e: Check forbidden restore ========== 15:17:11 (1788117431)
+[  533.867441] Lustre: DEBUG MARKER: == sanity-hsm test 12f: Restore a released file explicitly ========================================================== 15:17:19 (1788117439)
+[  542.144978] Lustre: DEBUG MARKER: == sanity-hsm test 12g: Restore a released file implicitly ========================================================== 15:17:27 (1788117447)
+[  550.956788] Lustre: DEBUG MARKER: == sanity-hsm test 12h: Restore a released file implicitly from a second node ========================================================== 15:17:36 (1788117456)
+[  552.321280] Lustre: DEBUG MARKER: SKIP: sanity-hsm test_12h Need 2 or more clients, have 1
+[  553.909147] Lustre: DEBUG MARKER: == sanity-hsm test 12m: Archive/release/implicit restore ========================================================== 15:17:39 (1788117459)
+[  561.796856] Lustre: DEBUG MARKER: == sanity-hsm test 12n: Import/implicit restore/release == 15:17:47 (1788117467)
+[  569.681962] Lustre: DEBUG MARKER: == sanity-hsm test 12o: Layout-swap failure during Restore leaves file released ========================================================== 15:17:54 (1788117474)
+[  574.544291] Lustre: *** cfs_fail_loc=152, val=0***
+[  598.618638] Lustre: DEBUG MARKER: == sanity-hsm test 12p: implicit restore of a file on copytool mount point ========================================================== 15:18:23 (1788117503)
+[  608.515289] Lustre: DEBUG MARKER: == sanity-hsm test 12q: file attributes are refreshed after restore ========================================================== 15:18:33 (1788117513)
+[  626.721685] Lustre: DEBUG MARKER: == sanity-hsm test 12r: lseek restores released file ===== 15:18:52 (1788117532)
+[  635.913972] Lustre: DEBUG MARKER: == sanity-hsm test 12s: race between restore requests ==== 15:19:01 (1788117541)
+[  639.631717] LustreError: 5844:0:(mdt_hsm_cdt_client.c:349:mdt_hsm_register_hal()) cfs_race id 18b sleeping
+[  645.087294] LustreError: 5844:0:(mdt_hsm_cdt_client.c:349:mdt_hsm_register_hal()) cfs_fail_race id 18b awake: rc=0
+[  651.900758] Lustre: DEBUG MARKER: == sanity-hsm test 12t: Multiple parallel reads for a HSM imported file ========================================================== 15:19:17 (1788117557)
+[  661.082458] Lustre: DEBUG MARKER: == sanity-hsm test 12u: Multiple reads on multiple HSM imported files in parallel ========================================================== 15:19:26 (1788117566)
+[  683.007853] Lustre: DEBUG MARKER: == sanity-hsm test 13: Recursively import and restore a directory ========================================================== 15:19:48 (1788117588)
+[  712.282588] Lustre: DEBUG MARKER: == sanity-hsm test 14: Rebind archived file to a new fid ========================================================== 15:20:17 (1788117617)
+[  720.024705] Lustre: DEBUG MARKER: == sanity-hsm test 15: Rebind a list of files ============ 15:20:25 (1788117625)
+[  739.942835] Lustre: DEBUG MARKER: == sanity-hsm test 16: Test CT bandwith control option === 15:20:45 (1788117645)
+[  768.644954] Lustre: DEBUG MARKER: == sanity-hsm test 20: Release is not permitted ========== 15:21:14 (1788117674)
+[  774.892789] Lustre: DEBUG MARKER: == sanity-hsm test 21: Simple release tests ============== 15:21:20 (1788117680)
+[  785.190512] Lustre: DEBUG MARKER: == sanity-hsm test 22: Could not swap a release file ===== 15:21:30 (1788117690)
+[  793.389343] Lustre: DEBUG MARKER: == sanity-hsm test 23: Release does not change a/mtime (utime) ========================================================== 15:21:38 (1788117698)
+[  799.514652] Lustre: DEBUG MARKER: == sanity-hsm test 24a: Archive, release, and restore does not change a/mtime (i/o) ========================================================== 15:21:45 (1788117705)
+[  812.093025] Lustre: DEBUG MARKER: == sanity-hsm test 24b: root can archive, release, and restore user files ========================================================== 15:21:57 (1788117717)
+[  822.319190] Lustre: DEBUG MARKER: == sanity-hsm test 24c: check that user,group,other request masks work ========================================================== 15:22:07 (1788117727)
+[  835.681884] Lustre: DEBUG MARKER: == sanity-hsm test 24d: check that read-only mounts are respected ========================================================== 15:22:21 (1788117741)
+[  850.061198] Lustre: DEBUG MARKER: == sanity-hsm test 24e: tar succeeds on HSM released files ========================================================== 15:22:35 (1788117755)
+[  859.562435] Lustre: DEBUG MARKER: == sanity-hsm test 24f: root can archive, release, and restore tar files ========================================================== 15:22:45 (1788117765)
+[  867.901887] Lustre: DEBUG MARKER: == sanity-hsm test 24g: write by non-owner still sets dirty ========================================================== 15:22:53 (1788117773)
+[  877.544580] Lustre: DEBUG MARKER: == sanity-hsm test 25a: Restore lost file (HS_LOST flag) from import ========================================================== 15:23:02 (1788117782)
+[  883.805835] Lustre: DEBUG MARKER: == sanity-hsm test 25b: Restore lost file (HS_LOST flag) after release ========================================================== 15:23:09 (1788117789)
+[  891.194586] Lustre: DEBUG MARKER: == sanity-hsm test 26A: Remove the archive of a valid file ========================================================== 15:23:16 (1788117796)
+[  899.295572] Lustre: DEBUG MARKER: == sanity-hsm test 26a: Remove Archive On Last Unlink (RAoLU) policy ========================================================== 15:23:24 (1788117804)
+[  925.321659] Lustre: DEBUG MARKER: == sanity-hsm test 26b: RAoLU policy when CDT off ======== 15:23:50 (1788117830)
+[  941.634407] Lustre: DEBUG MARKER: == sanity-hsm test 26c: RAoLU effective when file closed ========================================================== 15:24:07 (1788117847)
+[  970.377296] Lustre: DEBUG MARKER: == sanity-hsm test 26d: RAoLU when Client eviction ======= 15:24:35 (1788117875)
+[  975.759923] Lustre: 33128:0:(genops.c:1774:obd_export_evict_by_uuid()) lustre-MDT0000: evicting ac7c5027-6180-4909-8db3-66678661b180 at adminstrative request
+[  991.394665] Lustre: DEBUG MARKER: == sanity-hsm test 26e: RAoLU with a non-started coordinator ========================================================== 15:24:56 (1788117896)
+[  997.428860] Lustre: Modifying parameter lustre.mdt.lustre-MDT0000.hsm_control=shutdown in log params
+[ 1019.413687] Lustre: Failing over lustre-MDT0000
+[ 1019.752690] Lustre: server umount lustre-MDT0000 complete
+[ 1033.150775] LustreError: 8472:0:(ldlm_lockd.c:2564:ldlm_cancel_handler()) ldlm_cancel from 192.168.203.16@tcp arrived at 1788117939 with bad export cookie 6123351953559542408
+[ 1036.255204] Lustre: 3307:0:(client.c:2503:ptlrpc_expire_one_request()) @@@ Request sent has timed out for slow reply: [sent 1788117927/real 1788117927]  req@ffffa048411e1f80 x1874976568782720/t0(0) o400->lustre-MDT0000-lwp-OST0000@0@lo:12/10 lens 224/224 e 0 to 1 dl 1788117943 ref 1 fl Rpc:XNQr/200/ffffffff rc 0/-1 job:'kworker.0' uid:0 gid:0 projid:4294967295
+[ 1036.256301] Lustre: lustre-MDT0000-lwp-OST0001: Connection to lustre-MDT0000 (at 0@lo) was lost; in progress operations using this service will wait for recovery to complete
+[ 1036.284365] Lustre: 3307:0:(client.c:2503:ptlrpc_expire_one_request()) Skipped 1 previous similar message
+[ 1036.310291] Lustre: Skipped 1 previous similar message
+[ 1036.397489] LustreError: MGC192.168.203.116@tcp: Connection to MGS (at 0@lo) was lost; in progress operations using this service will fail
+[ 1036.805249] Lustre: lustre-MDT0000: Imperative Recovery not enabled, recovery window 60-180
+[ 1036.863436] Lustre: lustre-MDT0000: in recovery but waiting for the first client to connect
+[ 1037.454517] Lustre: lustre-MDT0000: Will be in recovery for at least 1:00, or until 2 clients reconnect
+[ 1040.701772] Lustre: DEBUG MARKER: oleg316-server.virtnet: executing set_default_debug vfstrace rpctrace dlmtrace neterror ha config ioctl super lfsck all
+[ 1041.504817] Lustre: 3307:0:(client.c:2503:ptlrpc_expire_one_request()) @@@ Request sent has timed out for slow reply: [sent 1788117932/real 1788117932]  req@ffffa048411e2680 x1874976568783232/t0(0) o400->lustre-MDT0000-lwp-OST0001@0@lo:12/10 lens 224/224 e 0 to 1 dl 1788117948 ref 1 fl Rpc:XNQr/200/ffffffff rc 0/-1 job:'kworker.0' uid:0 gid:0 projid:4294967295
+[ 1042.740605] Lustre: lustre-MDT0000: Recovery over after 0:05, of 2 clients 2 recovered and 0 were evicted.
+[ 1042.769159] Lustre: lustre-OST0001: new connection from lustre-MDT0000-mdtlov (cleaning up unused objects from 0x280000400:117 to 0x280000400:161)
+[ 1042.776985] Lustre: lustre-OST0000: new connection from lustre-MDT0000-mdtlov (cleaning up unused objects from 0x240000400:117 to 0x240000400:161)
+[ 1046.879440] Lustre: 3307:0:(client.c:2503:ptlrpc_expire_one_request()) @@@ Request sent has timed out for slow reply: [sent 1788117937/real 1788117937]  req@ffffa0497bf03800 x1874976568783616/t0(0) o400->lustre-MDT0000-lwp-OST0001@0@lo:12/10 lens 224/224 e 0 to 1 dl 1788117953 ref 1 fl Rpc:XNQr/200/ffffffff rc 0/-1 job:'kworker.0' uid:0 gid:0 projid:4294967295
+[ 1046.906065] Lustre: 3307:0:(client.c:2503:ptlrpc_expire_one_request()) Skipped 1 previous similar message
+[ 1047.010507] Lustre: lustre-MDT0000-lwp-OST0000: Connection restored to 0@lo (at 0@lo)
+[ 1048.181549] Lustre: DEBUG MARKER: oleg316-client.virtnet: executing wait_import_state_mount (FULL|IDLE) mdc.lustre-MDT0000-mdc-*.mds_server_uuid 1475 0
+[ 1049.505389] Lustre: DEBUG MARKER: mdc.lustre-MDT0000-mdc-*.mds_server_uuid in FULL state after 0 sec
+[ 1062.578928] Lustre: Modifying parameter lustre.mdt.lustre-MDT0000.hsm_control=enabled in log params
+[ 1084.862203] Lustre: DEBUG MARKER: == sanity-hsm test 27a: Remove the archive of an imported file (Operation not permitted) ========================================================== 15:26:29 (1788117989)
+[ 1091.393410] Lustre: DEBUG MARKER: == sanity-hsm test 27b: Remove the archive of a relased file (Operation not permitted) ========================================================== 15:26:36 (1788117996)
+[ 1098.332458] Lustre: DEBUG MARKER: == sanity-hsm test 28: Concurrent archive/file remove ==== 15:26:43 (1788118003)
+[ 1111.364272] Lustre: DEBUG MARKER: == sanity-hsm test 29a: Tests --mntpath and --archive options ========================================================== 15:26:56 (1788118016)
+[ 1117.043877] Lustre: DEBUG MARKER: == sanity-hsm test 29b: Archive/delete/remove by FID from the archive. ========================================================== 15:27:02 (1788118022)
+[ 1125.042431] Lustre: DEBUG MARKER: == sanity-hsm test 29c: Archive/delete/remove by FID, using a file list. ========================================================== 15:27:10 (1788118030)
+[ 1134.624493] Lustre: DEBUG MARKER: == sanity-hsm test 29d: hsm_remove by FID with archive_id 0 for unlinked file cause ========================================================== 15:27:20 (1788118040)
+[ 1135.794836] Lustre: DEBUG MARKER: SKIP: sanity-hsm test_29d Need 3 or more clients, have 1
+[ 1137.293802] Lustre: DEBUG MARKER: == sanity-hsm test 30a: Restore at exec (import case) ==== 15:27:22 (1788118042)
+[ 1138.478777] Lustre: DEBUG MARKER: SKIP: sanity-hsm test_30a Need 2 or more clients, have 1
+[ 1139.694861] Lustre: DEBUG MARKER: == sanity-hsm test 30b: Restore at exec (release case) === 15:27:25 (1788118045)
+[ 1140.951921] Lustre: DEBUG MARKER: SKIP: sanity-hsm test_30b Need 2 or more clients, have 1
+[ 1142.088325] Lustre: DEBUG MARKER: == sanity-hsm test 30c: Update during exec of released file must fail ========================================================== 15:27:27 (1788118047)
+[ 1142.992608] Lustre: DEBUG MARKER: SKIP: sanity-hsm test_30c Need 2 or more clients, have 1
+[ 1144.139803] Lustre: DEBUG MARKER: == sanity-hsm test 31a: Import a large file and check size during restore ========================================================== 15:27:29 (1788118049)
+[ 1160.679445] Lustre: DEBUG MARKER: == sanity-hsm test 31b: Restore a large unaligned file and check size during restore ========================================================== 15:27:46 (1788118066)
+[ 1179.364342] Lustre: DEBUG MARKER: == sanity-hsm test 31c: Restore a large aligned file and check size during restore ========================================================== 15:28:04 (1788118084)
+[ 1197.191971] Lustre: DEBUG MARKER: == sanity-hsm test 33: Kill a restore waiting process ==== 15:28:23 (1788118103)
+[ 1206.484732] Lustre: DEBUG MARKER: == sanity-hsm test 34: Remove file during restore ======== 15:28:31 (1788118111)
+[ 1215.241322] Lustre: DEBUG MARKER: == sanity-hsm test 35: Overwrite file during restore ===== 15:28:40 (1788118120)
+[ 1224.002661] Lustre: DEBUG MARKER: == sanity-hsm test 36: Move file during restore ========== 15:28:49 (1788118129)
+[ 1232.725741] Lustre: DEBUG MARKER: == sanity-hsm test 37: re-archive a dirty file =========== 15:28:58 (1788118138)
+[ 1302.414236] Lustre: DEBUG MARKER: == sanity-hsm test 40: Parallel archive requests ========= 15:30:08 (1788118208)
+[ 1303.654292] Lustre: lustre-MDT0000: No more memory to set HSM max_requests=1152921504606846976 (max request memory: 461MB, current total 3/975941): rc = -12
+[ 1419.644310] Lustre: DEBUG MARKER: == sanity-hsm test 50: Archive with large number of pending HSM actions ========================================================== 15:32:05 (1788118325)
+[ 1420.821646] Lustre: lustre-MDT0000: No more memory to set HSM max_requests=1000000 (max request memory: 461MB, current total 3/975941): rc = -12
+[ 2277.378459] Lustre: DEBUG MARKER: == sanity-hsm test 52: Opened for write file on an evicted client should be set dirty ========================================================== 15:46:22 (1788119182)
+[ 2282.176855] Lustre: 44159:0:(genops.c:1774:obd_export_evict_by_uuid()) lustre-MDT0000: evicting ac7c5027-6180-4909-8db3-66678661b180 at adminstrative request
+[ 2291.879346] Lustre: DEBUG MARKER: == sanity-hsm test 53: Opened for read file on an evicted client should not be set dirty ========================================================== 15:46:37 (1788119197)
+[ 2296.102045] Lustre: 44459:0:(genops.c:1774:obd_export_evict_by_uuid()) lustre-MDT0000: evicting ac7c5027-6180-4909-8db3-66678661b180 at adminstrative request
+[ 2305.913750] Lustre: DEBUG MARKER: == sanity-hsm test 54: Write during an archive cancels it ========================================================== 15:46:51 (1788119211)
+[ 2354.122604] Lustre: DEBUG MARKER: == sanity-hsm test 55: Truncate during an archive cancels it ========================================================== 15:47:39 (1788119259)
+[ 2367.647832] Lustre: DEBUG MARKER: == sanity-hsm test 56: Setattr during an archive is ok === 15:47:52 (1788119272)
+[ 2415.816593] Lustre: DEBUG MARKER: == sanity-hsm test 57: Archive a file with dirty cache on another node ========================================================== 15:48:40 (1788119320)
+[ 2417.309390] Lustre: DEBUG MARKER: SKIP: sanity-hsm test_57 Need 2 or more clients, have 1
+[ 2419.125691] Lustre: DEBUG MARKER: == sanity-hsm test 58: Truncate a released file will trigger restore ========================================================== 15:48:44 (1788119324)
+[ 2435.317831] Lustre: DEBUG MARKER: == sanity-hsm test 59: Release stripeless file with non-zero size ========================================================== 15:49:00 (1788119340)
+[ 2442.779699] Lustre: DEBUG MARKER: == sanity-hsm test 60: Changing progress update interval from default ========================================================== 15:49:08 (1788119348)
+[ 2463.638180] Lustre: DEBUG MARKER: == sanity-hsm test 61: Waiting archive of a removed file should fail ========================================================== 15:49:28 (1788119368)
+[ 2476.052992] Lustre: DEBUG MARKER: == sanity-hsm test 70: Copytool logs JSON register/unregister events to FIFO ========================================================== 15:49:41 (1788119381)
+[ 2487.298798] Lustre: DEBUG MARKER: == sanity-hsm test 71: Copytool logs JSON archive events to FIFO ========================================================== 15:49:52 (1788119392)
+[ 2508.020659] Lustre: DEBUG MARKER: == sanity-hsm test 72: Copytool logs JSON restore events to FIFO ========================================================== 15:50:13 (1788119413)
+[ 2524.728853] Lustre: DEBUG MARKER: == sanity-hsm test 90: Archive/restore a file list ======= 15:50:29 (1788119429)
+[ 2621.581221] Lustre: DEBUG MARKER: == sanity-hsm test 100: Set coordinator /proc tunables === 15:52:06 (1788119526)
+[ 2652.814980] Lustre: DEBUG MARKER: == sanity-hsm test 102: Verify coordinator control ======= 15:52:38 (1788119558)
+[ 2665.031994] Lustre: DEBUG MARKER: == sanity-hsm test 103: Purge all requests =============== 15:52:50 (1788119570)
+[ 2676.436356] Lustre: DEBUG MARKER: == sanity-hsm test 103a: Purge pending restore requests == 15:53:01 (1788119581)
+[ 2693.369250] Lustre: DEBUG MARKER: == sanity-hsm test 104: Copy tool data field ============= 15:53:18 (1788119598)
+[ 2701.923426] Lustre: DEBUG MARKER: == sanity-hsm test 105: Restart of coordinator =========== 15:53:27 (1788119607)
+[ 2722.245680] Lustre: DEBUG MARKER: == sanity-hsm test 106a: Copytool register/unregister ==== 15:53:47 (1788119627)
+[ 2726.771330] Lustre: DEBUG MARKER: oleg316-client.virtnet: executing pgrep --pidfile=/var/run/lhsmtool_posix.pid --list-full hsmtool
+[ 2731.256348] Lustre: DEBUG MARKER: oleg316-client.virtnet: executing get_client_uuid /mnt/lustre2
+[ 2738.277911] Lustre: DEBUG MARKER: oleg316-client.virtnet: executing pgrep --pidfile=/var/run/lhsmtool_posix.pid --list-full hsmtool
+[ 2743.500602] Lustre: DEBUG MARKER: oleg316-client.virtnet: executing get_client_uuid /mnt/lustre2
+[ 2750.032796] Lustre: DEBUG MARKER: == sanity-hsm test 106b: Unregister agent after a copytool crash ========================================================== 15:54:15 (1788119655)
+[ 2754.654114] Lustre: DEBUG MARKER: oleg316-client.virtnet: executing pgrep --pidfile=/var/run/lhsmtool_posix.pid --list-full hsmtool
+[ 2759.264608] Lustre: DEBUG MARKER: oleg316-client.virtnet: executing get_client_uuid /mnt/lustre2
+[ 2768.310693] Lustre: DEBUG MARKER: == sanity-hsm test 106c: Unregister copytool on client eviction ========================================================== 15:54:33 (1788119673)
+[ 2772.591658] Lustre: DEBUG MARKER: oleg316-client.virtnet: executing pgrep --pidfile=/var/run/lhsmtool_posix.pid --list-full hsmtool
+[ 2776.923720] Lustre: DEBUG MARKER: oleg316-client.virtnet: executing get_client_uuid /mnt/lustre2
+[ 2781.662996] Lustre: DEBUG MARKER: oleg316-client.virtnet: executing pgrep --pidfile=/var/run/lhsmtool_posix.pid --list-full hsmtool
+[ 2786.243528] Lustre: DEBUG MARKER: oleg316-client.virtnet: executing pgrep --pidfile=/var/run/lhsmtool_posix.pid --list-full hsmtool
+[ 2790.159289] Lustre: DEBUG MARKER: oleg316-client.virtnet: executing get_client_uuid /mnt/lustre2
+[ 2790.886562] Lustre: 58282:0:(genops.c:1774:obd_export_evict_by_uuid()) lustre-MDT0000: evicting 8c434d2f-090c-45fe-9f00-bf7ac8b2db7e at adminstrative request
+[ 2795.785328] Lustre: DEBUG MARKER: oleg316-client.virtnet: executing wait_import_state_mount (FULL|IDLE) mdc.lustre-MDT0000-mdc-*.mds_server_uuid 1475 0
+[ 2797.021519] Lustre: DEBUG MARKER: mdc.lustre-MDT0000-mdc-*.mds_server_uuid in FULL state after 0 sec
+[ 2803.122904] Lustre: DEBUG MARKER: == sanity-hsm test 107: Copytool re-register after MDS restart ========================================================== 15:55:08 (1788119708)
+[ 2805.842039] Lustre: Failing over lustre-MDT0000
+[ 2806.151798] Lustre: server umount lustre-MDT0000 complete
+[ 2823.262378] LustreError: MGC192.168.203.116@tcp: Connection to MGS (at 0@lo) was lost; in progress operations using this service will fail
+[ 2823.651437] Lustre: lustre-MDT0000-lwp-OST0001: Connection to lustre-MDT0000 (at 0@lo) was lost; in progress operations using this service will wait for recovery to complete
+[ 2823.675080] Lustre: Skipped 1 previous similar message
+[ 2823.906801] Lustre: lustre-MDT0000: Imperative Recovery not enabled, recovery window 60-180
+[ 2824.020676] Lustre: lustre-MDT0000: in recovery but waiting for the first client to connect
+[ 2824.673513] Lustre: 3306:0:(client.c:2503:ptlrpc_expire_one_request()) @@@ Request sent has timed out for slow reply: [sent 1788119715/real 1788119715]  req@ffffa0497ffc5c00 x1874976569570048/t0(0) o400->lustre-MDT0000-lwp-OST0001@0@lo:12/10 lens 224/224 e 0 to 1 dl 1788119731 ref 1 fl Rpc:XNQr/200/ffffffff rc 0/-1 job:'kworker.0' uid:0 gid:0 projid:4294967295
+[ 2824.728135] Lustre: 3306:0:(client.c:2503:ptlrpc_expire_one_request()) Skipped 1 previous similar message
+[ 2824.809318] Lustre: lustre-MDT0000: Will be in recovery for at least 1:00, or until 2 clients reconnect
+[ 2825.166199] Lustre: lustre-MDT0000: Recovery over after 0:01, of 2 clients 2 recovered and 0 were evicted.
+[ 2825.272771] Lustre: lustre-OST0001: new connection from lustre-MDT0000-mdtlov (cleaning up unused objects from 0x280000400:453 to 0x280000400:481)
+[ 2825.276813] Lustre: lustre-OST0000: new connection from lustre-MDT0000-mdtlov (cleaning up unused objects from 0x240000400:454 to 0x240000400:481)
+[ 2828.844428] Lustre: DEBUG MARKER: oleg316-server.virtnet: executing set_default_debug vfstrace rpctrace dlmtrace neterror ha config ioctl super lfsck all
+[ 2829.296901] Lustre: lustre-MDT0000-lwp-OST0000: Connection restored to 0@lo (at 0@lo)
+[ 2829.303390] Lustre: Skipped 1 previous similar message
+[ 2830.305171] Lustre: 3308:0:(client.c:2503:ptlrpc_expire_one_request()) @@@ Request sent has timed out for slow reply: [sent 1788119720/real 1788119720]  req@ffffa04977d1c700 x1874976569570432/t0(0) o400->lustre-MDT0000-lwp-OST0001@0@lo:12/10 lens 224/224 e 0 to 1 dl 1788119736 ref 1 fl Rpc:XNQr/200/ffffffff rc 0/-1 job:'kworker.0' uid:0 gid:0 projid:4294967295
+[ 2834.384757] Lustre: 3306:0:(client.c:2503:ptlrpc_expire_one_request()) @@@ Request sent has timed out for slow reply: [sent 1788119725/real 1788119725]  req@ffffa04944ea9180 x1874976569570688/t0(0) o400->lustre-MDT0000-lwp-OST0000@0@lo:12/10 lens 224/224 e 0 to 1 dl 1788119741 ref 1 fl Rpc:XNQr/200/ffffffff rc 0/-1 job:'kworker.0' uid:0 gid:0 projid:4294967295
+[ 2834.436272] Lustre: 3306:0:(client.c:2503:ptlrpc_expire_one_request()) Skipped 1 previous similar message
+[ 2839.086159] Lustre: DEBUG MARKER: oleg316-client.virtnet: executing wait_import_state_mount (FULL|IDLE) mdc.lustre-MDT0000-mdc-*.mds_server_uuid 1475 0
+[ 2840.784871] Lustre: DEBUG MARKER: mdc.lustre-MDT0000-mdc-*.mds_server_uuid in FULL state after 0 sec
+[ 2849.368674] Lustre: DEBUG MARKER: == sanity-hsm test 109: Policy display/change ============ 15:55:54 (1788119754)
+[ 2860.104346] Lustre: 60945:0:(mdt_coordinator.c:2281:mdt_hsm_policy_seq_write()) lustre-MDT0000: 'wrong' is unknown, supported policies are:
+[ 2868.460166] Lustre: DEBUG MARKER: == sanity-hsm test 110a: Non blocking restore policy (import case) ========================================================== 15:56:13 (1788119773)
+[ 2877.721830] Lustre: DEBUG MARKER: == sanity-hsm test 110b: Non blocking restore policy (release case) ========================================================== 15:56:22 (1788119782)
+[ 2887.774163] Lustre: DEBUG MARKER: == sanity-hsm test 111a: No retry policy (import case), restore will error ========================================================== 15:56:33 (1788119793)
+[ 2897.886900] Lustre: DEBUG MARKER: == sanity-hsm test 111b: No retry policy (release case), restore will error ========================================================== 15:56:43 (1788119803)
+[ 2909.893417] Lustre: DEBUG MARKER: == sanity-hsm test 112: State of recorded request ======== 15:56:55 (1788119815)
+[ 2919.486397] Lustre: DEBUG MARKER: == sanity-hsm test 113: wrong stat after restore ========= 15:57:04 (1788119824)
+[ 2931.128533] Lustre: DEBUG MARKER: == sanity-hsm test 114: Incompatible request does not set other requests as STARTED ========================================================== 15:57:16 (1788119836)
+[ 2944.050455] Lustre: DEBUG MARKER: == sanity-hsm test 200: Register/Cancel archive ========== 15:57:29 (1788119849)
+[ 2954.069856] Lustre: DEBUG MARKER: == sanity-hsm test 201: Register/Cancel restore ========== 15:57:39 (1788119859)
+[ 2968.109652] Lustre: DEBUG MARKER: == sanity-hsm test 202: Register/Cancel remove =========== 15:57:53 (1788119873)
+[ 2977.730957] Lustre: DEBUG MARKER: == sanity-hsm test 220A: Changelog for archive =========== 15:58:03 (1788119883)
+[ 2980.417516] Lustre: lustre-MDD0000: changelog on
+[ 2989.039866] Lustre: lustre-MDD0000: changelog off
+[ 2991.963713] Lustre: DEBUG MARKER: == sanity-hsm test 220a: Changelog for failed archive ==== 15:58:17 (1788119897)
+[ 2994.849318] Lustre: lustre-MDD0000: changelog on
+[ 3004.191219] Lustre: lustre-MDD0000: changelog off
+[ 3006.695468] Lustre: DEBUG MARKER: == sanity-hsm test 221: Changelog for archive canceled === 15:58:31 (1788119911)
+[ 3009.617967] Lustre: lustre-MDD0000: changelog on
+[ 3018.837464] Lustre: lustre-MDD0000: changelog off
+[ 3021.453674] Lustre: DEBUG MARKER: == sanity-hsm test 222a: Changelog for explicit restore == 15:58:46 (1788119926)
+[ 3024.955344] Lustre: lustre-MDD0000: changelog on
+[ 3031.469486] Lustre: lustre-MDD0000: changelog off
+[ 3034.190706] Lustre: DEBUG MARKER: == sanity-hsm test 222b: Changelog for implicit restore == 15:58:59 (1788119939)
+[ 3036.953307] Lustre: lustre-MDD0000: changelog on
+[ 3047.306145] Lustre: lustre-MDD0000: changelog off
+[ 3049.982271] Lustre: DEBUG MARKER: == sanity-hsm test 222c: Changelog for failed explicit restore ========================================================== 15:59:15 (1788119955)
+[ 3053.957852] Lustre: lustre-MDD0000: changelog on
+[ 3062.852550] Lustre: lustre-MDD0000: changelog off
+[ 3065.038266] Lustre: DEBUG MARKER: == sanity-hsm test 222d: Changelog for failed implicit restore ========================================================== 15:59:30 (1788119970)
+[ 3078.884483] Lustre: DEBUG MARKER: == sanity-hsm test 223a: Changelog for restore canceled (import case) ========================================================== 15:59:44 (1788119984)
+[ 3082.552531] Lustre: lustre-MDD0000: changelog on
+[ 3082.558850] Lustre: Skipped 1 previous similar message
+[ 3119.351310] Lustre: lustre-MDD0000: changelog off
+[ 3119.353865] Lustre: Skipped 1 previous similar message
+[ 3121.625155] Lustre: DEBUG MARKER: == sanity-hsm test 223b: Changelog for restore canceled (release case) ========================================================== 16:00:27 (1788120027)
+[ 3124.428320] Lustre: lustre-MDD0000: changelog on
+[ 3137.049302] Lustre: DEBUG MARKER: == sanity-hsm test 224A: Changelog for remove ============ 16:00:42 (1788120042)
+[ 3152.284760] Lustre: DEBUG MARKER: == sanity-hsm test 224a: Changelog for failed remove ===== 16:00:57 (1788120057)
+[ 3165.287858] Lustre: lustre-MDD0000: changelog off
+[ 3165.292560] Lustre: Skipped 2 previous similar messages
+[ 3167.669365] Lustre: DEBUG MARKER: == sanity-hsm test 225: Changelog for remove canceled ==== 16:01:13 (1788120073)
+[ 3173.382550] Lustre: DEBUG MARKER: == sanity-hsm test 226: changelog for last rm/mv with exiting archive ========================================================== 16:01:18 (1788120078)
+[ 3191.977822] Lustre: DEBUG MARKER: == sanity-hsm test 227: changelog when explicit setting of HSM flags ========================================================== 16:01:37 (1788120097)
+[ 3195.213884] Lustre: lustre-MDD0000: changelog on
+[ 3195.220744] Lustre: Skipped 3 previous similar messages
+[ 3208.732179] Lustre: DEBUG MARKER: == sanity-hsm test 228: On released file, return extend to FIEMAP. For [cp,tar] --sparse ========================================================== 16:01:53 (1788120113)
+[ 3219.337456] Lustre: DEBUG MARKER: == sanity-hsm test 250: Coordinator max request ========== 16:02:04 (1788120124)
+[ 3242.947973] Lustre: DEBUG MARKER: == sanity-hsm test 251: Coordinator request timeout ====== 16:02:28 (1788120148)
+[ 3453.709061] Lustre: DEBUG MARKER: sanity-hsm test_251: @@@@@@ FAIL: request on 0x200000bd3:0x34:0x0 is not STARTED on mds1
+[ 3458.247055] LustreError: 59426:0:(mdt_coordinator.c:1834:mdt_hsm_update_request_state()) lustre-MDT0000: Cannot find running request for cookie 0x6a952051 on fid=[0x200000bd3:0x2d:0x0]
+[ 3465.392891] Lustre: DEBUG MARKER: == sanity-hsm test 252: Timeout'ed running archive of a removed file should be canceled ========================================================== 16:06:10 (1788120370)
+[ 3470.591407] LustreError: 59427:0:(mdt_coordinator.c:1834:mdt_hsm_update_request_state()) lustre-MDT0000: Cannot find running request for cookie 0x6a952055 on fid=[0x200000bd3:0x37:0x0]
+[ 3470.605879] LustreError: 59427:0:(mdt_coordinator.c:1834:mdt_hsm_update_request_state()) Skipped 5 previous similar messages
+[ 3476.809101] Lustre: DEBUG MARKER: == sanity-hsm test 253: Check for wrong file size after release ========================================================== 16:06:22 (1788120382)
+[ 3485.037139] Lustre: DEBUG MARKER: == sanity-hsm test 254a: Request counters are initialized to zero ========================================================== 16:06:30 (1788120390)
+[ 3492.062729] Lustre: DEBUG MARKER: == sanity-hsm test 254b: Request counters are correctly incremented and decremented ========================================================== 16:06:37 (1788120397)
+[ 3594.323404] Lustre: DEBUG MARKER: sanity-hsm test_254b: @@@@@@ FAIL: Expected 54 (!= 0) active archive requests

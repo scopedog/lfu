@@ -1,0 +1,36 @@
+== sanity-hsm test 251: Coordinator request timeout ====== 16:02:28 (1788120148)
+0+0 records in
+0+0 records out
+0 bytes copied, 0.00617042 s, 0.0 kB/s
+mdt.lustre-MDT0000.hsm_control=disabled
+mdt.lustre-MDT0000.hsm_control=enabled
+Starting copytool 'agt1' on 'oleg316-client.virtnet' with cmdline 'lhsmtool_posix --archive-format=v2 --hsm-root=/tmp/arc1/sanity-hsm.test_251/ --daemon --pid-file=/var/run/lhsmtool_posix.pid  "/mnt/lustre2"'
+Copytool is suspended on oleg316-client.virtnet
+Waiting 200s for 'STARTED'
+Changed after 3s: from 'WAITING' to 'CANCELED'
+Waiting 180s for 'STARTED'
+Waiting 150s for 'STARTED'
+Changed after 64s: from 'CANCELED' to ''
+Waiting 130s for 'STARTED'
+Waiting 110s for 'STARTED'
+Waiting 100s for 'STARTED'
+Waiting 80s for 'STARTED'
+Waiting 70s for 'STARTED'
+Waiting 60s for 'STARTED'
+Waiting 30s for 'STARTED'
+Waiting 20s for 'STARTED'
+Waiting 0s for 'STARTED'
+Update not seen after 200s: want 'STARTED' got ''
+ sanity-hsm test_251: @@@@@@ FAIL: request on 0x200000bd3:0x34:0x0 is not STARTED on mds1 
+  Trace dump:
+  = /home/green/git/lustre-release/lustre/tests/test-framework.sh:7496:error()
+  = /home/green/git/lustre-release/lustre/tests/test-framework.sh:12326:wait_request_state()
+  = /home/green/git/lustre-release/lustre/tests/sanity-hsm.sh:4814:test_251()
+  = /home/green/git/lustre-release/lustre/tests/test-framework.sh:7873:run_one()
+  = /home/green/git/lustre-release/lustre/tests/test-framework.sh:7936:run_one_logged()
+  = /home/green/git/lustre-release/lustre/tests/test-framework.sh:7750:run_test()
+  = /home/green/git/lustre-release/lustre/tests/sanity-hsm.sh:4822:main()
+Dumping lctl log to /tmp/testlogs//sanity-hsm.test_251.*.1788120360.log
+rsync: chown "/tmp/testlogs/.sanity-hsm.test_251.debug_log.oleg316-server.1788120360.log.vlA7e3" failed: Operation not permitted (1)
+rsync: chown "/tmp/testlogs/.sanity-hsm.test_251.dmesg.oleg316-server.1788120360.log.jIeULM" failed: Operation not permitted (1)
+rsync error: some files/attrs were not transferred (see previous errors) (code 23) at main.c(1668) [generator=3.1.3]

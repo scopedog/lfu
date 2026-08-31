@@ -1,0 +1,291 @@
+lhsmtool_posix: 1788120398.916566 [117077]: action=0 src=(null) dst=(null) mount_point=/mnt/lustre2
+lhsmtool_posix: 1788120398.940779 [117078]: waiting for message from kernel
+lhsmtool_posix: 1788120504.146516 [117078]: copytool fs=lustre archive#=1 item_count=2
+lhsmtool_posix: 1788120504.146782 [117078]: waiting for message from kernel
+lhsmtool_posix: 1788120504.147050 [117078]: copytool fs=lustre archive#=1 item_count=7
+lhsmtool_posix: 1788120504.147303 [118418]: [0x200000bd3:0x39:0x0] action ARCHIVE reclen 72, cookie=0x6a952057
+lhsmtool_posix: 1788120504.149415 [118423]: [0x200000bd3:0x3e:0x0] action ARCHIVE reclen 72, cookie=0x6a95205c
+lhsmtool_posix: 1788120504.150675 [118425]: [0x200000bd3:0x40:0x0] action ARCHIVE reclen 72, cookie=0x6a95205e
+lhsmtool_posix: 1788120504.153801 [118419]: [0x200000bd3:0x3a:0x0] action ARCHIVE reclen 72, cookie=0x6a952058
+lhsmtool_posix: 1788120504.154067 [117078]: waiting for message from kernel
+lhsmtool_posix: 1788120504.154336 [117078]: copytool fs=lustre archive#=1 item_count=7
+lhsmtool_posix: 1788120504.154471 [118421]: [0x200000bd3:0x3c:0x0] action ARCHIVE reclen 72, cookie=0x6a95205a
+lhsmtool_posix: 1788120504.154993 [118423]: processing file 'd254b.sanity-hsm/f254b.sanity-hsm-5'
+lhsmtool_posix: 1788120504.155539 [118426]: [0x200000bd3:0x41:0x0] action ARCHIVE reclen 72, cookie=0x6a95205f
+lhsmtool_posix: 1788120504.157017 [118427]: [0x200000bd3:0x42:0x0] action ARCHIVE reclen 72, cookie=0x6a952060
+lhsmtool_posix: 1788120504.158642 [118429]: [0x200000bd3:0x44:0x0] action ARCHIVE reclen 72, cookie=0x6a952062
+lhsmtool_posix: 1788120504.159286 [118428]: [0x200000bd3:0x43:0x0] action ARCHIVE reclen 72, cookie=0x6a952061
+lhsmtool_posix: 1788120504.160018 [118432]: [0x200000bd3:0x47:0x0] action ARCHIVE reclen 72, cookie=0x6a952065
+lhsmtool_posix: 1788120504.166168 [118424]: [0x200000bd3:0x3f:0x0] action ARCHIVE reclen 72, cookie=0x6a95205d
+lhsmtool_posix: 1788120504.167717 [118420]: [0x200000bd3:0x3b:0x0] action ARCHIVE reclen 72, cookie=0x6a952059
+lhsmtool_posix: 1788120504.168473 [117078]: waiting for message from kernel
+lhsmtool_posix: 1788120504.168757 [117078]: copytool fs=lustre archive#=1 item_count=1
+lhsmtool_posix: 1788120504.170605 [118422]: [0x200000bd3:0x3d:0x0] action ARCHIVE reclen 72, cookie=0x6a95205b
+lhsmtool_posix: 1788120504.171023 [118431]: [0x200000bd3:0x46:0x0] action ARCHIVE reclen 72, cookie=0x6a952064
+lhsmtool_posix: 1788120504.174184 [117078]: waiting for message from kernel
+lhsmtool_posix: 1788120504.174648 [118418]: processing file 'd254b.sanity-hsm/f254b.sanity-hsm-0'
+lhsmtool_posix: 1788120504.175160 [118421]: processing file 'd254b.sanity-hsm/f254b.sanity-hsm-3'
+lhsmtool_posix: 1788120504.175568 [118425]: processing file 'd254b.sanity-hsm/f254b.sanity-hsm-7'
+lhsmtool_posix: 1788120504.177241 [117078]: copytool fs=lustre archive#=1 item_count=8
+lhsmtool_posix: 1788120504.178043 [118426]: processing file 'd254b.sanity-hsm/f254b.sanity-hsm-8'
+lhsmtool_posix: 1788120504.178515 [118428]: processing file 'd254b.sanity-hsm/f254b.sanity-hsm-10'
+lhsmtool_posix: 1788120504.180610 [117078]: waiting for message from kernel
+lhsmtool_posix: 1788120504.180907 [117078]: copytool fs=lustre archive#=1 item_count=7
+lhsmtool_posix: 1788120504.181179 [118422]: processing file 'd254b.sanity-hsm/f254b.sanity-hsm-4'
+lhsmtool_posix: lhsmtool_posix: 1788120504.185408 [118449]: [0x200000bd3:0x55:0x0] action ARCHIVE reclen 72, cookie=0x6a952073
+1788120504.181240 [118431]: processing file 'd254b.sanity-hsm/f254b.sanity-hsm-13'
+lhsmtool_posix: 1788120504.181474 [118419]: processing file 'd254b.sanity-hsm/f254b.sanity-hsm-1'
+lhsmtool_posix: 1788120504.188631 [117078]: waiting for message from kernel
+lhsmtool_posix: 1788120504.188897 [117078]: copytool fs=lustre archive#=1 item_count=9
+lhsmtool_posix: 1788120504.190107 [118442]: [0x200000bd3:0x4f:0x0] action ARCHIVE reclen 72, cookie=0x6a95206d
+lhsmtool_posix: 1788120504.191432 [118433]: [0x200000bd3:0x48:0x0] action ARCHIVE reclen 72, cookie=0x6a952066
+lhsmtool_posix: 1788120504.192689 [118440]: [0x200000bd3:0x4d:0x0] action ARCHIVE reclen 72, cookie=0x6a95206b
+lhsmtool_posix: 1788120504.181590 [118427]: processing file 'd254b.sanity-hsm/f254b.sanity-hsm-9'
+lhsmtool_posix: 1788120504.181639 [118432]: processing file 'd254b.sanity-hsm/f254b.sanity-hsm-14'
+lhsmtool_posix: 1788120504.181694 [118429]: processing file 'd254b.sanity-hsm/f254b.sanity-hsm-11'
+lhsmtool_posix: 1788120504.182193 [118424]: processing file 'd254b.sanity-hsm/f254b.sanity-hsm-6'
+lhsmtool_posix: 1788120504.182228 [118444]: [0x200000bd3:0x51:0x0] action ARCHIVE reclen 72, cookie=0x6a95206f
+lhsmtool_posix: 1788120504.206809 [118452]: [0x200000bd3:0x58:0x0] action ARCHIVE reclen 72, cookie=0x6a952076
+lhsmtool_posix: 1788120504.208222 [118420]: processing file 'd254b.sanity-hsm/f254b.sanity-hsm-2'
+lhsmtool_posix: 1788120504.208865 [118450]: [0x200000bd3:0x56:0x0] action ARCHIVE reclen 72, cookie=0x6a952074
+lhsmtool_posix: 1788120504.209504 [118456]: [0x200000bd3:0x5b:0x0] action ARCHIVE reclen 72, cookie=0x6a952079
+lhsmtool_posix: 1788120504.217582 [118449]: processing file 'd254b.sanity-hsm/f254b.sanity-hsm-28'
+lhsmtool_posix: 1788120504.195617 [118436]: [0x200000bd3:0x49:0x0] action ARCHIVE reclen 72, cookie=0x6a952067
+lhsmtool_posix: 1788120504.221019 [118447]: [0x200000bd3:0x53:0x0] action ARCHIVE reclen 72, cookie=0x6a952071
+lhsmtool_posix: 1788120504.191448 [118453]: [0x200000bd3:0x59:0x0] action ARCHIVE reclen 72, cookie=0x6a952077
+lhsmtool_posix: 1788120504.222054 [118440]: processing file 'd254b.sanity-hsm/f254b.sanity-hsm-20'
+lhsmtool_posix: 1788120504.191420 [118430]: [0x200000bd3:0x45:0x0] action ARCHIVE reclen 72, cookie=0x6a952063
+lhsmtool_posix: 1788120504.228767 [118461]: [0x200000bd3:0x5d:0x0] action ARCHIVE reclen 72, cookie=0x6a95207b
+lhsmtool_posix: 1788120504.195520 [118451]: [0x200000bd3:0x57:0x0] action ARCHIVE reclen 72, cookie=0x6a952075
+lhsmtool_posix: 1788120504.195543 [118441]: [0x200000bd3:0x4e:0x0] action ARCHIVE reclen 72, cookie=0x6a95206c
+lhsmtool_posix: 1788120504.195556 [118446]: [0x200000bd3:0x52:0x0] action ARCHIVE reclen 72, cookie=0x6a952070
+lhsmtool_posix: 1788120504.195573 [118439]: [0x200000bd3:0x4c:0x0] action ARCHIVE reclen 72, cookie=0x6a95206a
+lhsmtool_posix: 1788120504.195587 [118438]: [0x200000bd3:0x4b:0x0] action ARCHIVE reclen 72, cookie=0x6a952069
+lhsmtool_posix: 1788120504.195603 [118437]: [0x200000bd3:0x4a:0x0] action ARCHIVE reclen 72, cookie=0x6a952068
+lhsmtool_posix: 1788120504.234219 [118452]: processing file 'd254b.sanity-hsm/f254b.sanity-hsm-31'
+lhsmtool_posix: 1788120504.195502 [118448]: [0x200000bd3:0x54:0x0] action ARCHIVE reclen 72, cookie=0x6a952072
+lhsmtool_posix: 1788120504.195476 [118454]: [0x200000bd3:0x5a:0x0] action ARCHIVE reclen 72, cookie=0x6a952078
+lhsmtool_posix: 1788120504.239547 [118436]: processing file 'd254b.sanity-hsm/f254b.sanity-hsm-16'
+lhsmtool_posix: 1788120504.239652 [118447]: processing file 'd254b.sanity-hsm/f254b.sanity-hsm-26'
+lhsmtool_posix: 1788120504.240560 [118450]: processing file 'd254b.sanity-hsm/f254b.sanity-hsm-29'
+lhsmtool_posix: 1788120504.201675 [118443]: [0x200000bd3:0x50:0x0] action ARCHIVE reclen 72, cookie=0x6a95206e
+lhsmtool_posix: 1788120504.251551 [117078]: waiting for message from kernel
+lhsmtool_posix: 1788120504.251835 [117078]: copytool fs=lustre archive#=1 item_count=8
+lhsmtool_posix: 1788120504.252243 [118462]: [0x200000bd3:0x5e:0x0] action ARCHIVE reclen 72, cookie=0x6a95207c
+lhsmtool_posix: 1788120504.256775 [118456]: processing file 'd254b.sanity-hsm/f254b.sanity-hsm-34'
+lhsmtool_posix: 1788120504.256939 [118442]: processing file 'd254b.sanity-hsm/f254b.sanity-hsm-22'
+lhsmtool_posix: 1788120504.262074 [118444]: processing file 'd254b.sanity-hsm/f254b.sanity-hsm-24'
+lhsmtool_posix: 1788120504.263174 [118453]: processing file 'd254b.sanity-hsm/f254b.sanity-hsm-32'
+lhsmtool_posix: 1788120504.264147 [118470]: [0x200000bd3:0x63:0x0] action ARCHIVE reclen 72, cookie=0x6a952081
+lhsmtool_posix: 1788120504.264503 [118468]: [0x200000bd3:0x61:0x0] action ARCHIVE reclen 72, cookie=0x6a95207f
+lhsmtool_posix: 1788120504.264649 [118467]: [0x200000bd3:0x60:0x0] action ARCHIVE reclen 72, cookie=0x6a95207e
+lhsmtool_posix: 1788120504.264828 [118466]: [0x200000bd3:0x5f:0x0] action ARCHIVE reclen 72, cookie=0x6a95207d
+lhsmtool_posix: 1788120504.265790 [118471]: [0x200000bd3:0x64:0x0] action ARCHIVE reclen 72, cookie=0x6a952082
+lhsmtool_posix: 1788120504.231821 [118458]: [0x200000bd3:0x5c:0x0] action ARCHIVE reclen 72, cookie=0x6a95207a
+lhsmtool_posix: 1788120504.267580 [118438]: processing file 'd254b.sanity-hsm/f254b.sanity-hsm-18'
+lhsmtool_posix: 1788120504.269692 [118461]: processing file 'd254b.sanity-hsm/f254b.sanity-hsm-36'
+lhsmtool_posix: 1788120504.259205 [118418]: llapi_hsm_action_begin() on '/mnt/lustre2/.lustre/fid/0x200000bd3:0x39:0x0' failed: No such file or directory (2)
+lhsmtool_posix: 1788120504.271618 [118418]: Action completed, notifying coordinator cookie=0x6a952057, FID=[0x200000bd3:0x39:0x0], hp_flags=0 err=2
+lhsmtool_posix: 1788120504.259289 [118423]: llapi_hsm_action_begin() on '/mnt/lustre2/.lustre/fid/0x200000bd3:0x3e:0x0' failed: No such file or directory (2)
+lhsmtool_posix: 1788120504.271760 [118423]: Action completed, notifying coordinator cookie=0x6a95205c, FID=[0x200000bd3:0x3e:0x0], hp_flags=0 err=2
+lhsmtool_posix: 1788120504.259494 [118422]: llapi_hsm_action_begin() on '/mnt/lustre2/.lustre/fid/0x200000bd3:0x3d:0x0' failed: No such file or directory (2)
+lhsmtool_posix: 1788120504.271855 [118422]: Action completed, notifying coordinator cookie=0x6a95205b, FID=[0x200000bd3:0x3d:0x0], hp_flags=0 err=2
+lhsmtool_posix: 1788120504.274176 [118454]: processing file 'd254b.sanity-hsm/f254b.sanity-hsm-33'
+lhsmtool_posix: 1788120504.274620 [118448]: processing file 'd254b.sanity-hsm/f254b.sanity-hsm-27'
+lhsmtool_posix: 1788120504.275378 [118437]: processing file 'd254b.sanity-hsm/f254b.sanity-hsm-17'
+lhsmtool_posix: 1788120504.275624 [118451]: processing file 'd254b.sanity-hsm/f254b.sanity-hsm-30'
+lhsmtool_posix: 1788120504.278133 [118425]: llapi_hsm_action_begin() on '/mnt/lustre2/.lustre/fid/0x200000bd3:0x40:0x0' failed: No such file or directory (2)
+lhsmtool_posix: 1788120504.278248 [118425]: Action completed, notifying coordinator cookie=0x6a95205e, FID=[0x200000bd3:0x40:0x0], hp_flags=0 err=2
+lhsmtool_posix: 1788120504.278468 [118441]: processing file 'd254b.sanity-hsm/f254b.sanity-hsm-21'
+lhsmtool_posix: 1788120504.278716 [118439]: processing file 'd254b.sanity-hsm/f254b.sanity-hsm-19'
+lhsmtool_posix: 1788120504.279510 [118430]: processing file 'd254b.sanity-hsm/f254b.sanity-hsm-12'
+lhsmtool_posix: 1788120504.279754 [118458]: processing file 'd254b.sanity-hsm/f254b.sanity-hsm-35'
+lhsmtool_posix: 1788120504.280039 [118443]: processing file 'd254b.sanity-hsm/f254b.sanity-hsm-23'
+lhsmtool_posix: 1788120504.280474 [118470]: processing file 'd254b.sanity-hsm/f254b.sanity-hsm-42'
+lhsmtool_posix: 1788120504.280669 [118467]: processing file 'd254b.sanity-hsm/f254b.sanity-hsm-39'
+lhsmtool_posix: 1788120504.280843 [118468]: processing file 'd254b.sanity-hsm/f254b.sanity-hsm-40'
+lhsmtool_posix: 1788120504.282140 [118466]: processing file 'd254b.sanity-hsm/f254b.sanity-hsm-38'
+lhsmtool_posix: 1788120504.283901 [118462]: processing file 'd254b.sanity-hsm/f254b.sanity-hsm-37'
+lhsmtool_posix: 1788120504.284505 [118446]: processing file 'd254b.sanity-hsm/f254b.sanity-hsm-25'
+lhsmtool_posix: 1788120504.284904 [118433]: processing file 'd254b.sanity-hsm/f254b.sanity-hsm-15'
+lhsmtool_posix: 1788120504.288939 [118469]: [0x200000bd3:0x62:0x0] action ARCHIVE reclen 72, cookie=0x6a952080
+lhsmtool_posix: 1788120504.289352 [118472]: [0x200000bd3:0x65:0x0] action ARCHIVE reclen 72, cookie=0x6a952083
+lhsmtool_posix: 1788120504.289761 [118473]: [0x200000bd3:0x66:0x0] action ARCHIVE reclen 72, cookie=0x6a952084
+lhsmtool_posix: 1788120504.290842 [117078]: waiting for message from kernel
+lhsmtool_posix: 1788120504.291419 [118476]: [0x200000bd3:0x69:0x0] action ARCHIVE reclen 72, cookie=0x6a952087
+lhsmtool_posix: 1788120504.291575 [117078]: copytool fs=lustre archive#=1 item_count=5
+lhsmtool_posix: 1788120504.293643 [117078]: waiting for message from kernel
+lhsmtool_posix: 1788120504.293940 [118478]: [0x200000bd3:0x6b:0x0] action ARCHIVE reclen 72, cookie=0x6a952089
+lhsmtool_posix: 1788120504.295473 [118477]: [0x200000bd3:0x6a:0x0] action ARCHIVE reclen 72, cookie=0x6a952088
+lhsmtool_posix: 1788120504.299380 [118421]: llapi_hsm_action_begin() on '/mnt/lustre2/.lustre/fid/0x200000bd3:0x3c:0x0' failed: No such file or directory (2)
+lhsmtool_posix: 1788120504.299471 [118421]: Action completed, notifying coordinator cookie=0x6a95205a, FID=[0x200000bd3:0x3c:0x0], hp_flags=0 err=2
+lhsmtool_posix: 1788120504.303027 [118469]: processing file 'd254b.sanity-hsm/f254b.sanity-hsm-41'
+lhsmtool_posix: 1788120504.303457 [118472]: processing file 'd254b.sanity-hsm/f254b.sanity-hsm-44'
+lhsmtool_posix: 1788120504.303612 [118473]: processing file 'd254b.sanity-hsm/f254b.sanity-hsm-45'
+lhsmtool_posix: 1788120504.303888 [118471]: processing file 'd254b.sanity-hsm/f254b.sanity-hsm-43'
+lhsmtool_posix: 1788120504.304312 [118426]: llapi_hsm_action_begin() on '/mnt/lustre2/.lustre/fid/0x200000bd3:0x41:0x0' failed: No such file or directory (2)
+lhsmtool_posix: 1788120504.304543 [118426]: Action completed, notifying coordinator cookie=0x6a95205f, FID=[0x200000bd3:0x41:0x0], hp_flags=0 err=2
+lhsmtool_posix: 1788120504.311171 [118476]: processing file 'd254b.sanity-hsm/f254b.sanity-hsm-48'
+lhsmtool_posix: 1788120504.311334 [118474]: [0x200000bd3:0x67:0x0] action ARCHIVE reclen 72, cookie=0x6a952085
+lhsmtool_posix: 1788120504.313938 [118481]: [0x200000bd3:0x6e:0x0] action ARCHIVE reclen 72, cookie=0x6a95208c
+lhsmtool_posix: 1788120504.314227 [118480]: [0x200000bd3:0x6d:0x0] action ARCHIVE reclen 72, cookie=0x6a95208b
+lhsmtool_posix: 1788120504.314375 [118479]: [0x200000bd3:0x6c:0x0] action ARCHIVE reclen 72, cookie=0x6a95208a
+lhsmtool_posix: 1788120504.314516 [118475]: [0x200000bd3:0x68:0x0] action ARCHIVE reclen 72, cookie=0x6a952086
+lhsmtool_posix: 1788120504.316822 [118419]: llapi_hsm_action_begin() on '/mnt/lustre2/.lustre/fid/0x200000bd3:0x3a:0x0' failed: No such file or directory (2)
+lhsmtool_posix: 1788120504.316921 [118419]: Action completed, notifying coordinator cookie=0x6a952058, FID=[0x200000bd3:0x3a:0x0], hp_flags=0 err=2
+lhsmtool_posix: 1788120504.319511 [118478]: processing file 'd254b.sanity-hsm/f254b.sanity-hsm-50'
+lhsmtool_posix: 1788120504.319834 [118477]: processing file 'd254b.sanity-hsm/f254b.sanity-hsm-49'
+lhsmtool_posix: 1788120504.320379 [118428]: llapi_hsm_action_begin() on '/mnt/lustre2/.lustre/fid/0x200000bd3:0x43:0x0' failed: No such file or directory (2)
+lhsmtool_posix: 1788120504.320463 [118428]: Action completed, notifying coordinator cookie=0x6a952061, FID=[0x200000bd3:0x43:0x0], hp_flags=0 err=2
+lhsmtool_posix: 1788120504.325305 [118474]: processing file 'd254b.sanity-hsm/f254b.sanity-hsm-46'
+lhsmtool_posix: 1788120504.325741 [118481]: processing file 'd254b.sanity-hsm/f254b.sanity-hsm-53'
+lhsmtool_posix: 1788120504.327749 [118480]: processing file 'd254b.sanity-hsm/f254b.sanity-hsm-52'
+lhsmtool_posix: 1788120504.328121 [118479]: processing file 'd254b.sanity-hsm/f254b.sanity-hsm-51'
+lhsmtool_posix: 1788120504.328337 [118475]: processing file 'd254b.sanity-hsm/f254b.sanity-hsm-47'
+lhsmtool_posix: 1788120504.329356 [118431]: llapi_hsm_action_begin() on '/mnt/lustre2/.lustre/fid/0x200000bd3:0x46:0x0' failed: No such file or directory (2)
+lhsmtool_posix: 1788120504.329477 [118431]: Action completed, notifying coordinator cookie=0x6a952064, FID=[0x200000bd3:0x46:0x0], hp_flags=0 err=2
+lhsmtool_posix: 1788120504.333719 [118418]: llapi_hsm_action_end() on '/mnt/lustre2/.lustre/fid/0x200000bd3:0x39:0x0' failed: No such file or directory (2)
+lhsmtool_posix: 1788120504.334910 [118423]: llapi_hsm_action_end() on '/mnt/lustre2/.lustre/fid/0x200000bd3:0x3e:0x0' failed: No such file or directory (2)
+lhsmtool_posix: 1788120504.337764 [118422]: llapi_hsm_action_end() on '/mnt/lustre2/.lustre/fid/0x200000bd3:0x3d:0x0' failed: No such file or directory (2)
+lhsmtool_posix: 1788120504.339743 [118420]: llapi_hsm_action_begin() on '/mnt/lustre2/.lustre/fid/0x200000bd3:0x3b:0x0' failed: No such file or directory (2)
+lhsmtool_posix: 1788120504.339826 [118420]: Action completed, notifying coordinator cookie=0x6a952059, FID=[0x200000bd3:0x3b:0x0], hp_flags=0 err=2
+lhsmtool_posix: 1788120504.351017 [118425]: llapi_hsm_action_end() on '/mnt/lustre2/.lustre/fid/0x200000bd3:0x40:0x0' failed: No such file or directory (2)
+lhsmtool_posix: 1788120504.361726 [118427]: llapi_hsm_action_begin() on '/mnt/lustre2/.lustre/fid/0x200000bd3:0x42:0x0' failed: No such file or directory (2)
+lhsmtool_posix: 1788120504.362439 [118427]: Action completed, notifying coordinator cookie=0x6a952060, FID=[0x200000bd3:0x42:0x0], hp_flags=0 err=2
+lhsmtool_posix: 1788120504.392700 [118421]: llapi_hsm_action_end() on '/mnt/lustre2/.lustre/fid/0x200000bd3:0x3c:0x0' failed: No such file or directory (2)
+lhsmtool_posix: 1788120504.411999 [118426]: llapi_hsm_action_end() on '/mnt/lustre2/.lustre/fid/0x200000bd3:0x41:0x0' failed: No such file or directory (2)
+lhsmtool_posix: 1788120504.412959 [118432]: llapi_hsm_action_begin() on '/mnt/lustre2/.lustre/fid/0x200000bd3:0x47:0x0' failed: No such file or directory (2)
+lhsmtool_posix: 1788120504.413047 [118432]: Action completed, notifying coordinator cookie=0x6a952065, FID=[0x200000bd3:0x47:0x0], hp_flags=0 err=2
+lhsmtool_posix: 1788120504.422117 [118419]: llapi_hsm_action_end() on '/mnt/lustre2/.lustre/fid/0x200000bd3:0x3a:0x0' failed: No such file or directory (2)
+lhsmtool_posix: 1788120504.431363 [118429]: llapi_hsm_action_begin() on '/mnt/lustre2/.lustre/fid/0x200000bd3:0x44:0x0' failed: No such file or directory (2)
+lhsmtool_posix: 1788120504.433600 [118429]: Action completed, notifying coordinator cookie=0x6a952062, FID=[0x200000bd3:0x44:0x0], hp_flags=0 err=2
+lhsmtool_posix: 1788120504.441597 [118428]: llapi_hsm_action_end() on '/mnt/lustre2/.lustre/fid/0x200000bd3:0x43:0x0' failed: No such file or directory (2)
+lhsmtool_posix: 1788120504.444879 [118447]: llapi_hsm_action_begin() on '/mnt/lustre2/.lustre/fid/0x200000bd3:0x53:0x0' failed: No such file or directory (2)
+lhsmtool_posix: 1788120504.445667 [118447]: Action completed, notifying coordinator cookie=0x6a952071, FID=[0x200000bd3:0x53:0x0], hp_flags=0 err=2
+lhsmtool_posix: 1788120504.466593 [118431]: llapi_hsm_action_end() on '/mnt/lustre2/.lustre/fid/0x200000bd3:0x46:0x0' failed: No such file or directory (2)
+lhsmtool_posix: 1788120504.466995 [118440]: llapi_hsm_action_begin() on '/mnt/lustre2/.lustre/fid/0x200000bd3:0x4d:0x0' failed: No such file or directory (2)
+lhsmtool_posix: 1788120504.467061 [118440]: Action completed, notifying coordinator cookie=0x6a95206b, FID=[0x200000bd3:0x4d:0x0], hp_flags=0 err=2
+lhsmtool_posix: 1788120504.467569 [118420]: llapi_hsm_action_end() on '/mnt/lustre2/.lustre/fid/0x200000bd3:0x3b:0x0' failed: No such file or directory (2)
+lhsmtool_posix: 1788120504.471174 [118424]: llapi_hsm_action_begin() on '/mnt/lustre2/.lustre/fid/0x200000bd3:0x3f:0x0' failed: No such file or directory (2)
+lhsmtool_posix: 1788120504.471280 [118424]: Action completed, notifying coordinator cookie=0x6a95205d, FID=[0x200000bd3:0x3f:0x0], hp_flags=0 err=2
+lhsmtool_posix: 1788120504.475587 [118427]: llapi_hsm_action_end() on '/mnt/lustre2/.lustre/fid/0x200000bd3:0x42:0x0' failed: No such file or directory (2)
+lhsmtool_posix: 1788120504.478441 [118442]: llapi_hsm_action_begin() on '/mnt/lustre2/.lustre/fid/0x200000bd3:0x4f:0x0' failed: No such file or directory (2)
+lhsmtool_posix: 1788120504.478521 [118442]: Action completed, notifying coordinator cookie=0x6a95206d, FID=[0x200000bd3:0x4f:0x0], hp_flags=0 err=2
+lhsmtool_posix: 1788120504.487814 [118444]: llapi_hsm_action_begin() on '/mnt/lustre2/.lustre/fid/0x200000bd3:0x51:0x0' failed: No such file or directory (2)
+lhsmtool_posix: 1788120504.487944 [118444]: Action completed, notifying coordinator cookie=0x6a95206f, FID=[0x200000bd3:0x51:0x0], hp_flags=0 err=2
+lhsmtool_posix: 1788120504.497866 [118432]: llapi_hsm_action_end() on '/mnt/lustre2/.lustre/fid/0x200000bd3:0x47:0x0' failed: No such file or directory (2)
+lhsmtool_posix: 1788120504.501007 [118453]: llapi_hsm_action_begin() on '/mnt/lustre2/.lustre/fid/0x200000bd3:0x59:0x0' failed: No such file or directory (2)
+lhsmtool_posix: 1788120504.501141 [118453]: Action completed, notifying coordinator cookie=0x6a952077, FID=[0x200000bd3:0x59:0x0], hp_flags=0 err=2
+lhsmtool_posix: 1788120504.513848 [118436]: llapi_hsm_action_begin() on '/mnt/lustre2/.lustre/fid/0x200000bd3:0x49:0x0' failed: No such file or directory (2)
+lhsmtool_posix: 1788120504.513957 [118436]: Action completed, notifying coordinator cookie=0x6a952067, FID=[0x200000bd3:0x49:0x0], hp_flags=0 err=2
+lhsmtool_posix: 1788120504.514130 [118429]: llapi_hsm_action_end() on '/mnt/lustre2/.lustre/fid/0x200000bd3:0x44:0x0' failed: No such file or directory (2)
+lhsmtool_posix: 1788120504.521674 [118440]: llapi_hsm_action_end() on '/mnt/lustre2/.lustre/fid/0x200000bd3:0x4d:0x0' failed: No such file or directory (2)
+lhsmtool_posix: 1788120504.522027 [118447]: llapi_hsm_action_end() on '/mnt/lustre2/.lustre/fid/0x200000bd3:0x53:0x0' failed: No such file or directory (2)
+lhsmtool_posix: 1788120504.525494 [118452]: llapi_hsm_action_begin() on '/mnt/lustre2/.lustre/fid/0x200000bd3:0x58:0x0' failed: No such file or directory (2)
+lhsmtool_posix: 1788120504.525597 [118452]: Action completed, notifying coordinator cookie=0x6a952076, FID=[0x200000bd3:0x58:0x0], hp_flags=0 err=2
+lhsmtool_posix: 1788120504.526081 [118449]: llapi_hsm_action_begin() on '/mnt/lustre2/.lustre/fid/0x200000bd3:0x55:0x0' failed: No such file or directory (2)
+lhsmtool_posix: 1788120504.526140 [118449]: Action completed, notifying coordinator cookie=0x6a952073, FID=[0x200000bd3:0x55:0x0], hp_flags=0 err=2
+lhsmtool_posix: 1788120504.529135 [118438]: llapi_hsm_action_begin() on '/mnt/lustre2/.lustre/fid/0x200000bd3:0x4b:0x0' failed: No such file or directory (2)
+lhsmtool_posix: 1788120504.529304 [118438]: Action completed, notifying coordinator cookie=0x6a952069, FID=[0x200000bd3:0x4b:0x0], hp_flags=0 err=2
+lhsmtool_posix: 1788120504.530787 [118461]: llapi_hsm_action_begin() on '/mnt/lustre2/.lustre/fid/0x200000bd3:0x5d:0x0' failed: No such file or directory (2)
+lhsmtool_posix: 1788120504.530877 [118461]: Action completed, notifying coordinator cookie=0x6a95207b, FID=[0x200000bd3:0x5d:0x0], hp_flags=0 err=2
+lhsmtool_posix: 1788120504.532721 [118424]: llapi_hsm_action_end() on '/mnt/lustre2/.lustre/fid/0x200000bd3:0x3f:0x0' failed: No such file or directory (2)
+lhsmtool_posix: 1788120504.546029 [118442]: llapi_hsm_action_end() on '/mnt/lustre2/.lustre/fid/0x200000bd3:0x4f:0x0' failed: No such file or directory (2)
+lhsmtool_posix: 1788120504.546061 [118450]: llapi_hsm_action_begin() on '/mnt/lustre2/.lustre/fid/0x200000bd3:0x56:0x0' failed: No such file or directory (2)
+lhsmtool_posix: 1788120504.546156 [118450]: Action completed, notifying coordinator cookie=0x6a952074, FID=[0x200000bd3:0x56:0x0], hp_flags=0 err=2
+lhsmtool_posix: 1788120504.546291 [118454]: llapi_hsm_action_begin() on '/mnt/lustre2/.lustre/fid/0x200000bd3:0x5a:0x0' failed: No such file or directory (2)
+lhsmtool_posix: 1788120504.546373 [118454]: Action completed, notifying coordinator cookie=0x6a952078, FID=[0x200000bd3:0x5a:0x0], hp_flags=0 err=2
+lhsmtool_posix: 1788120504.546661 [118456]: llapi_hsm_action_begin() on '/mnt/lustre2/.lustre/fid/0x200000bd3:0x5b:0x0' failed: No such file or directory (2)
+lhsmtool_posix: 1788120504.547661 [118456]: Action completed, notifying coordinator cookie=0x6a952079, FID=[0x200000bd3:0x5b:0x0], hp_flags=0 err=2
+lhsmtool_posix: 1788120504.548272 [118448]: llapi_hsm_action_begin() on '/mnt/lustre2/.lustre/fid/0x200000bd3:0x54:0x0' failed: No such file or directory (2)
+lhsmtool_posix: 1788120504.548338 [118448]: Action completed, notifying coordinator cookie=0x6a952072, FID=[0x200000bd3:0x54:0x0], hp_flags=0 err=2
+lhsmtool_posix: 1788120504.551862 [118437]: llapi_hsm_action_begin() on '/mnt/lustre2/.lustre/fid/0x200000bd3:0x4a:0x0' failed: No such file or directory (2)
+lhsmtool_posix: lhsmtool_posix: 1788120504.552248 [118439]: llapi_hsm_action_begin() on '/mnt/lustre2/.lustre/fid/0x200000bd3:0x4c:0x0' failed: No such file or directory (2)
+lhsmtool_posix: 1788120504.552301 [118439]: Action completed, notifying coordinator cookie=0x6a95206a, FID=[0x200000bd3:0x4c:0x0], hp_flags=0 err=2
+lhsmtool_posix: 1788120504.553460 [118451]: llapi_hsm_action_begin() on '/mnt/lustre2/.lustre/fid/0x200000bd3:0x57:0x0' failed: No such file or directory (2)
+lhsmtool_posix: 1788120504.553563 [118451]: Action completed, notifying coordinator cookie=0x6a952075, FID=[0x200000bd3:0x57:0x0], hp_flags=0 err=2
+1788120504.551978 [118430]: llapi_hsm_action_begin() on '/mnt/lustre2/.lustre/fid/0x200000bd3:0x45:0x0' failed: No such file or directory (2)
+lhsmtool_posix: 1788120504.553655 [118430]: Action completed, notifying coordinator cookie=0x6a952063, FID=[0x200000bd3:0x45:0x0], hp_flags=0 err=2
+lhsmtool_posix: 1788120504.551897 [118441]: llapi_hsm_action_begin() on '/mnt/lustre2/.lustre/fid/0x200000bd3:0x4e:0x0' failed: No such file or directory (2)
+lhsmtool_posix: 1788120504.553721 [118441]: Action completed, notifying coordinator cookie=0x6a95206c, FID=[0x200000bd3:0x4e:0x0], hp_flags=0 err=2
+lhsmtool_posix: 1788120504.552009 [118437]: Action completed, notifying coordinator cookie=0x6a952068, FID=[0x200000bd3:0x4a:0x0], hp_flags=0 err=2
+lhsmtool_posix: 1788120504.563810 [118466]: llapi_hsm_action_begin() on '/mnt/lustre2/.lustre/fid/0x200000bd3:0x5f:0x0' failed: No such file or directory (2)
+lhsmtool_posix: 1788120504.563946 [118466]: Action completed, notifying coordinator cookie=0x6a95207d, FID=[0x200000bd3:0x5f:0x0], hp_flags=0 err=2
+lhsmtool_posix: 1788120504.564439 [118443]: llapi_hsm_action_begin() on '/mnt/lustre2/.lustre/fid/0x200000bd3:0x50:0x0' failed: No such file or directory (2)
+lhsmtool_posix: 1788120504.564511 [118443]: Action completed, notifying coordinator cookie=0x6a95206e, FID=[0x200000bd3:0x50:0x0], hp_flags=0 err=2
+lhsmtool_posix: 1788120504.564645 [118470]: llapi_hsm_action_begin() on '/mnt/lustre2/.lustre/fid/0x200000bd3:0x63:0x0' failed: No such file or directory (2)
+lhsmtool_posix: 1788120504.564696 [118470]: Action completed, notifying coordinator cookie=0x6a952081, FID=[0x200000bd3:0x63:0x0], hp_flags=0 err=2
+lhsmtool_posix: 1788120504.564804 [118458]: llapi_hsm_action_begin() on '/mnt/lustre2/.lustre/fid/0x200000bd3:0x5c:0x0' failed: No such file or directory (2)
+lhsmtool_posix: 1788120504.564858 [118458]: Action completed, notifying coordinator cookie=0x6a95207a, FID=[0x200000bd3:0x5c:0x0], hp_flags=0 err=2
+lhsmtool_posix: 1788120504.565320 [118444]: llapi_hsm_action_end() on '/mnt/lustre2/.lustre/fid/0x200000bd3:0x51:0x0' failed: No such file or directory (2)
+lhsmtool_posix: 1788120504.565731 [118462]: llapi_hsm_action_begin() on '/mnt/lustre2/.lustre/fid/0x200000bd3:0x5e:0x0' failed: No such file or directory (2)
+lhsmtool_posix: 1788120504.565761 [118462]: Action completed, notifying coordinator cookie=0x6a95207c, FID=[0x200000bd3:0x5e:0x0], hp_flags=0 err=2
+lhsmtool_posix: 1788120504.565871 [118467]: llapi_hsm_action_begin() on '/mnt/lustre2/.lustre/fid/0x200000bd3:0x60:0x0' failed: No such file or directory (2)
+lhsmtool_posix: 1788120504.565927 [118467]: Action completed, notifying coordinator cookie=0x6a95207e, FID=[0x200000bd3:0x60:0x0], hp_flags=0 err=2
+lhsmtool_posix: 1788120504.567624 [118468]: llapi_hsm_action_begin() on '/mnt/lustre2/.lustre/fid/0x200000bd3:0x61:0x0' failed: No such file or directory (2)
+lhsmtool_posix: 1788120504.567712 [118468]: Action completed, notifying coordinator cookie=0x6a95207f, FID=[0x200000bd3:0x61:0x0], hp_flags=0 err=2
+lhsmtool_posix: 1788120504.568075 [118446]: llapi_hsm_action_begin() on '/mnt/lustre2/.lustre/fid/0x200000bd3:0x52:0x0' failed: No such file or directory (2)
+lhsmtool_posix: 1788120504.568135 [118446]: Action completed, notifying coordinator cookie=0x6a952070, FID=[0x200000bd3:0x52:0x0], hp_flags=0 err=2
+lhsmtool_posix: 1788120504.570111 [118473]: llapi_hsm_action_begin() on '/mnt/lustre2/.lustre/fid/0x200000bd3:0x66:0x0' failed: No such file or directory (2)
+lhsmtool_posix: 1788120504.570209 [118473]: Action completed, notifying coordinator cookie=0x6a952084, FID=[0x200000bd3:0x66:0x0], hp_flags=0 err=2
+lhsmtool_posix: 1788120504.570370 [118453]: llapi_hsm_action_end() on '/mnt/lustre2/.lustre/fid/0x200000bd3:0x59:0x0' failed: No such file or directory (2)
+lhsmtool_posix: 1788120504.570808 [118433]: llapi_hsm_action_begin() on '/mnt/lustre2/.lustre/fid/0x200000bd3:0x48:0x0' failed: No such file or directory (2)
+lhsmtool_posix: 1788120504.570839 [118433]: Action completed, notifying coordinator cookie=0x6a952066, FID=[0x200000bd3:0x48:0x0], hp_flags=0 err=2
+lhsmtool_posix: 1788120504.571024 [118469]: llapi_hsm_action_begin() on '/mnt/lustre2/.lustre/fid/0x200000bd3:0x62:0x0' failed: No such file or directory (2)
+lhsmtool_posix: 1788120504.571083 [118469]: Action completed, notifying coordinator cookie=0x6a952080, FID=[0x200000bd3:0x62:0x0], hp_flags=0 err=2
+lhsmtool_posix: 1788120504.572133 [118436]: llapi_hsm_action_end() on '/mnt/lustre2/.lustre/fid/0x200000bd3:0x49:0x0' failed: No such file or directory (2)
+lhsmtool_posix: lhsmtool_posix: 1788120504.573128 [118472]: llapi_hsm_action_begin() on '/mnt/lustre2/.lustre/fid/0x200000bd3:0x65:0x0' failed1788120504.573112 [118471]: llapi_hsm_action_begin() on '/mnt/lustre2/.lustre/fid/0x200000bd3:0x64:0x0' failed: No such file or directory (2)
+: No such file or directory (2)
+lhsmtool_posix: 1788120504.573215 [118472]: Action completed, notifying coordinator cookie=0x6a952083, FID=[0x200000bd3:0x65:0x0], hp_flags=0 err=2
+lhsmtool_posix: 1788120504.573202 [118471]: Action completed, notifying coordinator cookie=0x6a952082, FID=[0x200000bd3:0x64:0x0], hp_flags=0 err=2
+lhsmtool_posix: lhsmtool_posix: 1788120504.576273 [118478]: llapi_hsm_action_begin() on '/mnt/lustre2/.lustre/fid/0x200000bd3:0x6b:0x0' failed: No such file or directory (2)
+lhsmtool_posix: 1788120504.576357 [118478]: Action completed, notifying coordinator cookie=0x6a952089, FID=[0x200000bd3:0x6b:0x0], hp_flags=0 err=2
+1788120504.576127 [118452]: llapi_hsm_action_end() on '/mnt/lustre2/.lustre/fid/0x200000bd3:0x58:0x0' failed: No such file or directory (2)
+lhsmtool_posix: 1788120504.576156 [118449]: llapi_hsm_action_end() on '/mnt/lustre2/.lustre/fid/0x200000bd3:0x55:0x0' failed: No such file or directory (2)
+lhsmtool_posix: 1788120504.577931 [118438]: llapi_hsm_action_end() on '/mnt/lustre2/.lustre/fid/0x200000bd3:0x4b:0x0' failed: No such file or directory (2)
+lhsmtool_posix: 1788120504.578623 [118476]: llapi_hsm_action_begin() on '/mnt/lustre2/.lustre/fid/0x200000bd3:0x69:0x0' failed: No such file or directory (2)
+lhsmtool_posix: 1788120504.580074 [118476]: Action completed, notifying coordinator cookie=0x6a952087, FID=[0x200000bd3:0x69:0x0], hp_flags=0 err=2
+lhsmtool_posix: 1788120504.583463 [118450]: llapi_hsm_action_end() on '/mnt/lustre2/.lustre/fid/0x200000bd3:0x56:0x0' failed: No such file or directory (2)
+lhsmtool_posix: 1788120504.583603 [118461]: llapi_hsm_action_end() on '/mnt/lustre2/.lustre/fid/0x200000bd3:0x5d:0x0' failed: No such file or directory (2)
+lhsmtool_posix: 1788120504.583673 [118479]: llapi_hsm_action_begin() on '/mnt/lustre2/.lustre/fid/0x200000bd3:0x6c:0x0' failed: No such file or directory (2)
+lhsmtool_posix: 1788120504.583702 [118479]: Action completed, notifying coordinator cookie=0x6a95208a, FID=[0x200000bd3:0x6c:0x0], hp_flags=0 err=2
+lhsmtool_posix: 1788120504.578002 [118477]: llapi_hsm_action_begin() on '/mnt/lustre2/.lustre/fid/0x200000bd3:0x6a:0x0' failed: No such file or directory (2)
+lhsmtool_posix: 1788120504.583838 [118477]: Action completed, notifying coordinator cookie=0x6a952088, FID=[0x200000bd3:0x6a:0x0], hp_flags=0 err=2
+lhsmtool_posix: 1788120504.583899 [118480]: llapi_hsm_action_begin() on '/mnt/lustre2/.lustre/fid/0x200000bd3:0x6d:0x0' failed: No such file or directory (2)
+lhsmtool_posix: 1788120504.583953 [118480]: Action completed, notifying coordinator cookie=0x6a95208b, FID=[0x200000bd3:0x6d:0x0], hp_flags=0 err=2
+lhsmtool_posix: 1788120504.584944 [118474]: llapi_hsm_action_begin() on '/mnt/lustre2/.lustre/fid/0x200000bd3:0x67:0x0' failed: No such file or directory (2)
+lhsmtool_posix: 1788120504.585013 [118474]: Action completed, notifying coordinator cookie=0x6a952085, FID=[0x200000bd3:0x67:0x0], hp_flags=0 err=2
+lhsmtool_posix: 1788120504.586031 [118475]: llapi_hsm_action_begin() on '/mnt/lustre2/.lustre/fid/0x200000bd3:0x68:0x0' failedlhsmtool_posix: 1788120504.586268 [118454]: llapi_hsm_action_end() on '/mnt/lustre2/.lustre/fid/0x200000bd3:0x5a:0x0' failed: No such file or directory (2)
+: No such file or directory (2)
+lhsmtool_posix: 1788120504.586646 [118475]: Action completed, notifying coordinator cookie=0x6a952086, FID=[0x200000bd3:0x68:0x0], hp_flags=0 err=2
+lhsmtool_posix: 1788120504.586902 [118448]: llapi_hsm_action_end() on '/mnt/lustre2/.lustre/fid/0x200000bd3:0x54:0x0' failed: No such file or directory (2)
+lhsmtool_posix: 1788120504.587215 [118456]: llapi_hsm_action_end() on '/mnt/lustre2/.lustre/fid/0x200000bd3:0x5b:0x0' failed: No such file or directory (2)
+lhsmtool_posix: 1788120504.594899 [118430]: llapi_hsm_action_end() on '/mnt/lustre2/.lustre/fid/0x200000bd3:0x45:0x0' failed: No such file or directory (2)
+lhsmtool_posix: 1788120504.594987 [118481]: llapi_hsm_action_begin() on '/mnt/lustre2/.lustre/fid/0x200000bd3:0x6e:0x0' failed: No such file or directory (2)
+lhsmtool_posix: 1788120504.595059 [118481]: Action completed, notifying coordinator cookie=0x6a95208c, FID=[0x200000bd3:0x6e:0x0], hp_flags=0 err=2
+lhsmtool_posix: 1788120504.595174 [118451]: llapi_hsm_action_end() on '/mnt/lustre2/.lustre/fid/0x200000bd3:0x57:0x0' failed: No such file or directory (2)
+lhsmtool_posix: 1788120504.595217 [118439]: llapi_hsm_action_end() on '/mnt/lustre2/.lustre/fid/0x200000bd3:0x4c:0x0' failed: No such file or directory (2)
+lhsmtool_posix: 1788120504.596534 [118437]: llapi_hsm_action_end() on '/mnt/lustre2/.lustre/fid/0x200000bd3:0x4a:0x0' failed: No such file or directory (2)
+lhsmtool_posix: 1788120504.596746 [118441]: llapi_hsm_action_end() on '/mnt/lustre2/.lustre/fid/0x200000bd3:0x4e:0x0' failed: No such file or directory (2)
+lhsmtool_posix: 1788120504.597722 [118466]: llapi_hsm_action_end() on '/mnt/lustre2/.lustre/fid/0x200000bd3:0x5f:0x0' failed: No such file or directory (2)
+lhsmtool_posix: 1788120504.600084 [118458]: llapi_hsm_action_end() on '/mnt/lustre2/.lustre/fid/0x200000bd3:0x5c:0x0' failed: No such file or directory (2)
+lhsmtool_posix: 1788120504.600600 [118470]: llapi_hsm_action_end() on '/mnt/lustre2/.lustre/fid/0x200000bd3:0x63:0x0' failed: No such file or directory (2)
+lhsmtool_posix: 1788120504.600851 [118462]: llapi_hsm_action_end() on '/mnt/lustre2/.lustre/fid/0x200000bd3:0x5e:0x0' failed: No such file or directory (2)
+lhsmtool_posix: 1788120504.602064 [118443]: llapi_hsm_action_end() on '/mnt/lustre2/.lustre/fid/0x200000bd3:0x50:0x0' failed: No such file or directory (2)
+lhsmtool_posix: 1788120504.606994 [118467]: llapi_hsm_action_end() on '/mnt/lustre2/.lustre/fid/0x200000bd3:0x60:0x0' failed: No such file or directory (2)
+lhsmtool_posix: 1788120504.608574 [118468]: llapi_hsm_action_end() on '/mnt/lustre2/.lustre/fid/0x200000bd3:0x61:0x0' failed: No such file or directory (2)
+lhsmtool_posix: 1788120504.613211 [118446]: llapi_hsm_action_end() on '/mnt/lustre2/.lustre/fid/0x200000bd3:0x52:0x0' failed: No such file or directory (2)
+lhsmtool_posix: 1788120504.613984 [118469]: llapi_hsm_action_end() on '/mnt/lustre2/.lustre/fid/0x200000bd3:0x62:0x0' failed: No such file or directory (2)
+lhsmtool_posix: 1788120504.614555 [118473]: llapi_hsm_action_end() on '/mnt/lustre2/.lustre/fid/0x200000bd3:0x66:0x0' failed: No such file or directory (2)
+lhsmtool_posix: 1788120504.615359 [118471]: llapi_hsm_action_end() on '/mnt/lustre2/.lustre/fid/0x200000bd3:0x64:0x0' failed: No such file or directory (2)
+lhsmtool_posix: 1788120504.617142 [118433]: llapi_hsm_action_end() on '/mnt/lustre2/.lustre/fid/0x200000bd3:0x48:0x0' failed: No such file or directory (2)
+lhsmtool_posix: 1788120504.620556 [118478]: llapi_hsm_action_end() on '/mnt/lustre2/.lustre/fid/0x200000bd3:0x6b:0x0' failed: No such file or directory (2)
+lhsmtool_posix: 1788120504.620781 [118476]: llapi_hsm_action_end() on '/mnt/lustre2/.lustre/fid/0x200000bd3:0x69:0x0' failed: No such file or directory (2)
+lhsmtool_posix: 1788120504.621344 [118472]: llapi_hsm_action_end() on '/mnt/lustre2/.lustre/fid/0x200000bd3:0x65:0x0' failed: No such file or directory (2)
+lhsmtool_posix: 1788120504.629017 [118477]: llapi_hsm_action_end() on '/mnt/lustre2/.lustre/fid/0x200000bd3:0x6a:0x0' failed: No such file or directory (2)
+lhsmtool_posix: 1788120504.629133 [118480]: llapi_hsm_action_end() on '/mnt/lustre2/.lustre/fid/0x200000bd3:0x6d:0x0' failed: No such file or directory (2)
+lhsmtool_posix: 1788120504.629500 [118479]: llapi_hsm_action_end() on '/mnt/lustre2/.lustre/fid/0x200000bd3:0x6c:0x0' failed: No such file or directory (2)
+lhsmtool_posix: 1788120504.630267 [118474]: llapi_hsm_action_end() on '/mnt/lustre2/.lustre/fid/0x200000bd3:0x67:0x0' failed: No such file or directory (2)
+lhsmtool_posix: 1788120504.632299 [118475]: llapi_hsm_action_end() on '/mnt/lustre2/.lustre/fid/0x200000bd3:0x68:0x0' failedlhsmtool_posix: 1788120504.632345 [118481]: llapi_hsm_action_end() on '/mnt/lustre2/.lustre/fid/0x200000bd3:0x6e:0x0' failed: No such file or directory (2)
+: No such file or directory (2)
+exiting: Terminated

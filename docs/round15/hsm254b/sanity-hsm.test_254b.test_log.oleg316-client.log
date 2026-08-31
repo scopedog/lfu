@@ -1,0 +1,27 @@
+== sanity-hsm test 254b: Request counters are correctly incremented and decremented ========================================================== 16:06:37 (1788120397)
+Will launch 54 requests of each type
+Starting copytool 'agt1' on 'oleg316-client.virtnet' with cmdline 'lhsmtool_posix --archive-format=v2 --hsm-root=/tmp/arc1/sanity-hsm.test_254b/ --daemon --pid-file=/var/run/lhsmtool_posix.pid  "/mnt/lustre2"'
+Checking archive requests
+Copytool is suspended on oleg316-client.virtnet
+Waiting 90s for '54'
+Waiting 80s for '54'
+Waiting 70s for '54'
+Waiting 60s for '54'
+Waiting 50s for '54'
+Waiting 40s for '54'
+Waiting 20s for '54'
+Waiting 10s for '54'
+Waiting 0s for '54'
+Update not seen after 90s: want '54' got '0'
+ sanity-hsm test_254b: @@@@@@ FAIL: Expected 54 (!= 0) active archive requests 
+  Trace dump:
+  = /home/green/git/lustre-release/lustre/tests/test-framework.sh:7496:error()
+  = /home/green/git/lustre-release/lustre/tests/sanity-hsm.sh:4945:test_254b()
+  = /home/green/git/lustre-release/lustre/tests/test-framework.sh:7873:run_one()
+  = /home/green/git/lustre-release/lustre/tests/test-framework.sh:7936:run_one_logged()
+  = /home/green/git/lustre-release/lustre/tests/test-framework.sh:7750:run_test()
+  = /home/green/git/lustre-release/lustre/tests/sanity-hsm.sh:4956:main()
+Dumping lctl log to /tmp/testlogs//sanity-hsm.test_254b.*.1788120501.log
+rsync: chown "/tmp/testlogs/.sanity-hsm.test_254b.debug_log.oleg316-server.1788120501.log.USKBIJ" failed: Operation not permitted (1)
+rsync: chown "/tmp/testlogs/.sanity-hsm.test_254b.dmesg.oleg316-server.1788120501.log.vAuouV" failed: Operation not permitted (1)
+rsync error: some files/attrs were not transferred (see previous errors) (code 23) at main.c(1668) [generator=3.1.3]
