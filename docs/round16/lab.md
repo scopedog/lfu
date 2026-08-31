@@ -72,3 +72,16 @@ COMPLETION section, and `time_t` "misspelled").
 `libscan_zfs.c` again has **no compile anywhere local** — no ZFS on the lab
 VM, no headers on the workstation.  This round's change there is the projid
 valid-bit restructure and two comments; Gerrit's ZFS builders are the check.
+
+## Pushed
+
+2026-08-31, both branches to `review` `refs/for/master`: `r16-work` (15
+commits) and `r16-pair` (68413 + 68414).  Patchsets now:
+
+    68094/68095 PS15   68156-68159 PS14   68160 PS15   68163 PS13
+    68288 PS8          68413/68414 PS5    68415-68420 PS6
+
+**68231 stayed at PS4** — byte-identical tree, so Gerrit took no new
+patchset — and **68340 was not in this round**.  `lu-20650-since` and
+`lu-20648-onto-20647` were moved onto the pushed tips.  All 64 replies
+posted and every thread resolved, read back to confirm.

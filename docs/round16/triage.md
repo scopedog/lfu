@@ -1,5 +1,9 @@
 # Round 16 triage — the AI sweep of 2026-08-30/31
 
+**PUSHED 2026-08-31.**  The stack is at PS15/PS14/PS13, the pair at PS5, the
+changelog series at PS6.  All 64 replies posted and every thread resolved,
+verified by reading them back (64 replied, 0 unresolved).
+
 64 unanswered AI comments on the current patchsets, across 16 of the 19
 changes (68158, 68231 and 68340 drew none).  Every one below was checked against
 the tree before being classified.
