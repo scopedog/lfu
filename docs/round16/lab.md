@@ -50,8 +50,16 @@ around `chattr +i` as root.
 
 ## conf-sanity 165, 166
 
-See below; 166 is where 68288's `$got.raw` correction lands, and it is the
-check that had been vacuous.
+`/tmp/14-conf-r16.sh`, ONLY_REPEAT=2, log `/tmp/conf-r16.log`:
+
+    165  PASS x2   (54s, 37s)
+    166  PASS x2   (1s, 0s)
+
+166 is fast but not vacuous — both iterations print "client sees 21 names
+over 20 objects" and "--fid2path resolved 20 objects from 21 names,
+hardlink once", which is the whole assertion set.  This is where 68288's
+`$got.raw` correction lands: the "must be paths, not FIDs" check now runs
+against the unfiltered output, where a FID could actually appear.
 
 ## Build
 
