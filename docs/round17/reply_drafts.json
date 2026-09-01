@@ -1,0 +1,536 @@
+{
+ "68095": [
+  {
+   "full": "37dda141_8d9d56eb",
+   "short": "37dda141",
+   "path": "lustre/utils/liblustreapi_pfind.c",
+   "line": 2448,
+   "ps": 15,
+   "msg": "Kept the name; the inverted sense is now spelled out in the function comment."
+  },
+  {
+   "full": "13a35e04_8199dd1e",
+   "short": "13a35e04",
+   "path": "lustre/utils/liblustreapi_pfind.c",
+   "line": 2568,
+   "ps": 15,
+   "msg": "DONE"
+  }
+ ],
+ "68156": [
+  {
+   "full": "fab8ec72_18e1fd0f",
+   "short": "fab8ec72",
+   "path": "Documentation/man3/llapi_scan_namespace.3",
+   "line": 48,
+   "ps": 14,
+   "msg": "DONE"
+  },
+  {
+   "full": "af0db1f1_c8637b4b",
+   "short": "af0db1f1",
+   "path": "Documentation/man3/llapi_scan_namespace.3",
+   "line": 270,
+   "ps": 14,
+   "msg": "DONE"
+  },
+  {
+   "full": "c83c49c3_301545f9",
+   "short": "c83c49c3",
+   "path": "include/lustre/lustreapi.h",
+   "line": 714,
+   "ps": 14,
+   "msg": "DONE"
+  },
+  {
+   "full": "ac3c6de6_51690a5b",
+   "short": "ac3c6de6",
+   "path": "lustre/utils/libscan_ldiskfs.c",
+   "line": 44,
+   "ps": 14,
+   "msg": "DONE"
+  },
+  {
+   "full": "48bdbc10_f3497ff0",
+   "short": "48bdbc10",
+   "path": "lustre/utils/lustreapi_scan_backend.h",
+   "line": 125,
+   "ps": 14,
+   "msg": "DONE"
+  }
+ ],
+ "68157": [
+  {
+   "full": "19f141f9_475a7256",
+   "short": "19f141f9",
+   "path": "lustre/utils/liblustreapi_pfind.c",
+   "line": 2739,
+   "ps": 14,
+   "msg": "Style on code moved verbatim from lfs.c; editing it would destroy the verbatim-move property that makes the diff reviewable."
+  },
+  {
+   "full": "48d2a0fd_8f04adef",
+   "short": "48d2a0fd",
+   "path": "lustre/utils/liblustreapi_pfind.c",
+   "line": 2930,
+   "ps": 14,
+   "msg": "Style on code moved verbatim from lfs.c; editing it would destroy the verbatim-move property that makes the diff reviewable."
+  }
+ ],
+ "68158": [
+  {
+   "full": "ab6eedfa_f1b98520",
+   "short": "ab6eedfa",
+   "path": "lustre/utils/lfs_find_parse.c",
+   "line": 1101,
+   "ps": 14,
+   "msg": "Style on code moved verbatim from lfs.c; editing it would destroy the verbatim-move property that makes the diff reviewable."
+  },
+  {
+   "full": "b85a8fe2_d6bd9721",
+   "short": "b85a8fe2",
+   "path": "lustre/utils/lfs_find_parse.c",
+   "line": 1109,
+   "ps": 14,
+   "msg": "Style on code moved verbatim from lfs.c; editing it would destroy the verbatim-move property that makes the diff reviewable."
+  },
+  {
+   "full": "3d75ea9d_d0689ec2",
+   "short": "3d75ea9d",
+   "path": "lustre/utils/lfs_find_parse.c",
+   "line": 1117,
+   "ps": 14,
+   "msg": "Style on code moved verbatim from lfs.c; editing it would destroy the verbatim-move property that makes the diff reviewable."
+  },
+  {
+   "full": "884e047d_890c1f31",
+   "short": "884e047d",
+   "path": "lustre/utils/lfs_find_parse.c",
+   "line": 1530,
+   "ps": 14,
+   "msg": "Style on code moved verbatim from lfs.c; editing it would destroy the verbatim-move property that makes the diff reviewable."
+  },
+  {
+   "full": "3cf17c17_3fa861b5",
+   "short": "3cf17c17",
+   "path": "lustre/utils/lfs_find_parse.c",
+   "line": 1658,
+   "ps": 14,
+   "msg": "Style on code moved verbatim from lfs.c; editing it would destroy the verbatim-move property that makes the diff reviewable."
+  },
+  {
+   "full": "6b8a3a18_f8fcdaa7",
+   "short": "6b8a3a18",
+   "path": "lustre/utils/lfs_find_parse.c",
+   "line": 1660,
+   "ps": 14,
+   "msg": "Style on code moved verbatim from lfs.c; editing it would destroy the verbatim-move property that makes the diff reviewable."
+  },
+  {
+   "full": "7e1739bf_adfd4813",
+   "short": "7e1739bf",
+   "path": "lustre/utils/lfs_find_parse.c",
+   "line": 1661,
+   "ps": 14,
+   "msg": "Style on code moved verbatim from lfs.c; editing it would destroy the verbatim-move property that makes the diff reviewable."
+  },
+  {
+   "full": "74c62895_b94aa865",
+   "short": "74c62895",
+   "path": "lustre/utils/lfs_find_parse.c",
+   "line": 1662,
+   "ps": 14,
+   "msg": "Style on code moved verbatim from lfs.c; editing it would destroy the verbatim-move property that makes the diff reviewable."
+  },
+  {
+   "full": "1d421d70_429b9364",
+   "short": "1d421d70",
+   "path": "lustre/utils/lfs_find_parse.c",
+   "line": 1670,
+   "ps": 14,
+   "msg": "Style on code moved verbatim from lfs.c; editing it would destroy the verbatim-move property that makes the diff reviewable."
+  },
+  {
+   "full": "2e4bdd15_a8a52a73",
+   "short": "2e4bdd15",
+   "path": "lustre/utils/lfs_find_parse.c",
+   "line": 1671,
+   "ps": 14,
+   "msg": "Style on code moved verbatim from lfs.c; editing it would destroy the verbatim-move property that makes the diff reviewable."
+  },
+  {
+   "full": "026af662_3f23b964",
+   "short": "026af662",
+   "path": "lustre/utils/lfs_find_parse.c",
+   "line": 1675,
+   "ps": 14,
+   "msg": "Style on code moved verbatim from lfs.c; editing it would destroy the verbatim-move property that makes the diff reviewable."
+  }
+ ],
+ "68159": [
+  {
+   "full": "8ac2878f_e710aeec",
+   "short": "8ac2878f",
+   "path": "Documentation/man3/llapi_find_device.3",
+   "line": 92,
+   "ps": 14,
+   "msg": "DONE"
+  },
+  {
+   "full": "7b88705b_03f33005",
+   "short": "7b88705b",
+   "path": "lustre/utils/liblustreapi_pfind.c",
+   "line": 3206,
+   "ps": 14,
+   "msg": "DONE"
+  },
+  {
+   "full": "de93d86e_658031b3",
+   "short": "de93d86e",
+   "path": "lustre/utils/liblustreapi_pfind.c",
+   "line": 3521,
+   "ps": 14,
+   "msg": "Documented in llapi_find_device(3) instead: counting times undecided would answer nothing for every striped file."
+  }
+ ],
+ "68160": [
+  {
+   "full": "a8944be2_dafa3f4c",
+   "short": "a8944be2",
+   "path": "Documentation/man3/llapi_find_device.3",
+   "line": 1,
+   "ps": 15,
+   "msg": "DONE"
+  }
+ ],
+ "68163": [
+  {
+   "full": "cc416ff2_d9d8cdec",
+   "short": "cc416ff2",
+   "path": "Documentation/man3/llapi_scan_device.3",
+   "line": 1,
+   "ps": 13,
+   "msg": "DONE"
+  },
+  {
+   "full": "065fbc0b_b1a87c3d",
+   "short": "065fbc0b",
+   "path": "config/lustre-build-zfs.m4",
+   "line": 250,
+   "ps": 13,
+   "msg": "DONE"
+  },
+  {
+   "full": "ccf9de29_c356b82d",
+   "short": "ccf9de29",
+   "path": "lustre/utils/liblustreapi_scan_device.c",
+   "line": 776,
+   "ps": 13,
+   "msg": "DONE"
+  }
+ ],
+ "68288": [
+  {
+   "full": "ac08f143_74d1aee1",
+   "short": "ac08f143",
+   "path": "/COMMIT_MSG",
+   "line": 33,
+   "ps": 8,
+   "msg": "DONE"
+  },
+  {
+   "full": "7bb70878_9707d5f1",
+   "short": "7bb70878",
+   "path": "Documentation/man8/lfind.8",
+   "line": 8,
+   "ps": 8,
+   "msg": "DONE"
+  },
+  {
+   "full": "6a06b72f_8b87e36a",
+   "short": "6a06b72f",
+   "path": "Documentation/man8/lfind.8",
+   "line": 130,
+   "ps": 8,
+   "msg": "DONE"
+  },
+  {
+   "full": "1d303ab4_57d6ccd5",
+   "short": "1d303ab4",
+   "path": "lustre/utils/liblustreapi_pfind.c",
+   "line": 3075,
+   "ps": 8,
+   "msg": "DONE"
+  },
+  {
+   "full": "0fda8c12_783da4de",
+   "short": "0fda8c12",
+   "path": "lustre/utils/liblustreapi_pfind.c",
+   "line": 3099,
+   "ps": 8,
+   "msg": "Kept: unreachable here, but live from the --changelog patch on, where a record carries no inode number."
+  }
+ ],
+ "68413": [
+  {
+   "full": "c9bda014_e5f68775",
+   "short": "c9bda014",
+   "path": "lustre/mdd/mdd_changelog.c",
+   "line": 51,
+   "ps": 5,
+   "msg": "DONE"
+  },
+  {
+   "full": "b8772d34_0f02cc36",
+   "short": "b8772d34",
+   "path": "lustre/mdd/mdd_changelog.c",
+   "line": 80,
+   "ps": 5,
+   "msg": "DONE"
+  }
+ ],
+ "68415": [
+  {
+   "full": "28ece513_0669dbcb",
+   "short": "28ece513",
+   "path": "Documentation/man3/llapi_scan_changelog.3",
+   "line": 76,
+   "ps": 6,
+   "msg": "DONE"
+  },
+  {
+   "full": "76df3e5e_ee91eb11",
+   "short": "76df3e5e",
+   "path": "lustre/utils/liblustreapi_scan_changelog.c",
+   "line": 436,
+   "ps": 6,
+   "msg": "DONE"
+  },
+  {
+   "full": "5292db1d_c87bce79",
+   "short": "5292db1d",
+   "path": "lustre/utils/liblustreapi_scan_changelog.c",
+   "line": 545,
+   "ps": 6,
+   "msg": "DONE"
+  },
+  {
+   "full": "5441df70_206b50eb",
+   "short": "5441df70",
+   "path": "lustre/utils/liblustreapi_scan_changelog.c",
+   "line": 706,
+   "ps": 6,
+   "msg": "DONE"
+  },
+  {
+   "full": "4e135ff9_ce793fac",
+   "short": "4e135ff9",
+   "path": "lustre/utils/liblustreapi_scan_changelog.c",
+   "line": 798,
+   "ps": 6,
+   "msg": "DONE"
+  }
+ ],
+ "68416": [
+  {
+   "full": "1f0fff10_b3ee8c6c",
+   "short": "1f0fff10",
+   "path": "lustre/utils/liblustreapi_scan.c",
+   "line": 676,
+   "ps": 6,
+   "msg": "DONE"
+  },
+  {
+   "full": "db00c964_336f143a",
+   "short": "db00c964",
+   "path": "lustre/utils/liblustreapi_scan.c",
+   "line": 727,
+   "ps": 6,
+   "msg": "Declined: llapi_scan_rec_path() answers -ERANGE where this answers -ENAMETOOLONG, which the man page states."
+  },
+  {
+   "full": "7cc6358d_14f04b45",
+   "short": "7cc6358d",
+   "path": "lustre/utils/liblustreapi_scan.c",
+   "line": 746,
+   "ps": 6,
+   "msg": "DONE -- noted in the kernel-doc and llapi_scan_fid(3); no scratch-block variant, that needs a public struct."
+  },
+  {
+   "full": "466cb29f_179e0843",
+   "short": "466cb29f",
+   "path": "lustre/utils/liblustreapi_scan.c",
+   "line": 825,
+   "ps": 6,
+   "msg": "DONE"
+  },
+  {
+   "full": "9ae545d1_9fe1e368",
+   "short": "9ae545d1",
+   "path": "lustre/utils/liblustreapi_scan.c",
+   "line": 850,
+   "ps": 6,
+   "msg": "DONE -- documented which sp_want values the -ESTALE guarantee covers, rather than paying an ioctl per object."
+  },
+  {
+   "full": "4ae6a0e5_62734846",
+   "short": "4ae6a0e5",
+   "path": "lustre/utils/lustreapi_internal.h",
+   "line": 363,
+   "ps": 6,
+   "msg": "DONE"
+  }
+ ],
+ "68417": [
+  {
+   "full": "53bb1a2b_fdec16b2",
+   "short": "53bb1a2b",
+   "path": "Documentation/man3/Makefile.am",
+   "line": 29,
+   "ps": 6,
+   "msg": "Deferred: adding a section makes checkpatch-man lint the whole page, which fails on 46 pre-existing items. Own patch."
+  },
+  {
+   "full": "fb06db27_01364bf7",
+   "short": "fb06db27",
+   "path": "Documentation/man3/llapi_find_since.3",
+   "line": 102,
+   "ps": 6,
+   "msg": "DONE"
+  },
+  {
+   "full": "bee16bcb_37ad6d0d",
+   "short": "bee16bcb",
+   "path": "include/lustre/lustreapi.h",
+   "line": 481,
+   "ps": 6,
+   "msg": "False positive: time_t is the correct type here."
+  },
+  {
+   "full": "cf96d311_79ff3cae",
+   "short": "cf96d311",
+   "path": "lustre/utils/lfs_find_parse.c",
+   "line": 902,
+   "ps": 6,
+   "msg": "DONE"
+  },
+  {
+   "full": "eb5939c8_f4669330",
+   "short": "eb5939c8",
+   "path": "lustre/utils/liblustreapi_pfind.c",
+   "line": 3993,
+   "ps": 6,
+   "msg": "DONE"
+  }
+ ],
+ "68418": [
+  {
+   "full": "02960867_41103b48",
+   "short": "02960867",
+   "path": "lustre/utils/liblustreapi_pfind.c",
+   "line": 2463,
+   "ps": 6,
+   "msg": "DONE"
+  },
+  {
+   "full": "3d0299b2_c05a7a47",
+   "short": "3d0299b2",
+   "path": "lustre/utils/liblustreapi_pfind.c",
+   "line": 3099,
+   "ps": 6,
+   "msg": "DONE"
+  },
+  {
+   "full": "52f04fea_392f8888",
+   "short": "52f04fea",
+   "path": "lustre/utils/liblustreapi_pfind.c",
+   "line": 4218,
+   "ps": 6,
+   "msg": "DONE"
+  },
+  {
+   "full": "4711011a_34cc7aff",
+   "short": "4711011a",
+   "path": "lustre/utils/liblustreapi_pfind.c",
+   "line": 4312,
+   "ps": 6,
+   "msg": "DONE"
+  }
+ ],
+ "68419": [
+  {
+   "full": "8656cfdd_cc07e8db",
+   "short": "8656cfdd",
+   "path": "/COMMIT_MSG",
+   "line": 63,
+   "ps": 6,
+   "msg": "DONE"
+  },
+  {
+   "full": "8c3c160f_c4e2f58a",
+   "short": "8c3c160f",
+   "path": "lustre/utils/liblustreapi_pfind.c",
+   "line": 3832,
+   "ps": 6,
+   "msg": "DONE"
+  },
+  {
+   "full": "11d9a284_dadffc14",
+   "short": "11d9a284",
+   "path": "lustre/utils/liblustreapi_pfind.c",
+   "line": 3894,
+   "ps": 6,
+   "msg": "DONE"
+  },
+  {
+   "full": "4a4f68e7_917360b9",
+   "short": "4a4f68e7",
+   "path": "lustre/utils/liblustreapi_pfind.c",
+   "line": 3989,
+   "ps": 6,
+   "msg": "DONE"
+  },
+  {
+   "full": "852a7170_613c2de6",
+   "short": "852a7170",
+   "path": "lustre/utils/liblustreapi_pfind.c",
+   "line": 4560,
+   "ps": 6,
+   "msg": "DONE"
+  },
+  {
+   "full": "1413b6e2_1bfc3142",
+   "short": "1413b6e2",
+   "path": "lustre/utils/liblustreapi_pfind.c",
+   "line": 4638,
+   "ps": 6,
+   "msg": "DONE"
+  }
+ ],
+ "68420": [
+  {
+   "full": "acb1618c_6aff835c",
+   "short": "acb1618c",
+   "path": "Documentation/man1/lfs-find.1",
+   "line": 784,
+   "ps": 6,
+   "msg": "DONE"
+  },
+  {
+   "full": "88bfadaf_b079481b",
+   "short": "88bfadaf",
+   "path": "lustre/tests/sanity.sh",
+   "line": 22564,
+   "ps": 6,
+   "msg": "DONE"
+  },
+  {
+   "full": "21d7a451_5674f7c1",
+   "short": "21d7a451",
+   "path": "lustre/tests/sanity.sh",
+   "line": 22792,
+   "ps": 6,
+   "msg": "DONE"
+  }
+ ]
+}

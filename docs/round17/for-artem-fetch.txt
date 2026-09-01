@@ -1,0 +1,49 @@
+Round 17 (2026-09-01) — fetching the latest patchsets
+
+The 16-commit stack (LU-20603 -> LU-20650; LU-20624/68231 is its base, so
+this one fetch brings all sixteen):
+
+  git fetch https://review.whamcloud.com/fs/lustre-release refs/changes/20/68420/7 && \
+      git checkout -b lfu-r17 FETCH_HEAD
+
+  tip 904ead550e93ea460bb372bcef70c224804868d2
+
+The mdd/mdc pair (LU-20647 + LU-20648) — a separate root off master, so it
+needs its own fetch:
+
+  git fetch https://review.whamcloud.com/fs/lustre-release refs/changes/14/68414/6 && \
+      git checkout -b lfu-r17-pair FETCH_HEAD
+
+  tip 07d9be3096246c39a9c03ee97c09e0ba9bd0d351
+
+LU-20643 / 68340, standalone and unchanged since round 15:
+
+  git fetch https://review.whamcloud.com/fs/lustre-release refs/changes/40/68340/3 && \
+      git checkout -b lu-20643 FETCH_HEAD
+
+  tip ac220948b2a1827c31d08895d9a8d66cb0fc3e1e
+
+Notes:
+- These refs are the patchsets live as of 2026-09-01, and every one of the
+  nineteen changes holds jenkins Verified+1 on them.  They are not stable:
+  the next round moves them, and a stale ref fetches an old patchset
+  silently rather than failing.  Check the tip hash above against what you
+  get if it matters.
+- The two branches share no history, so they cannot be checked out into one
+  tree as-is.  Combining them conflicts in lustre/tests/sanity.sh, where
+  160aa-160ad and 160y/160z sit adjacent and share a closing tail --
+  stripping the conflict markers leaves a file that does not parse.
+- Any change number works the same way, e.g. refs/changes/56/68156/15 for
+  the ldiskfs scanner and everything under it.
+
+What changed in round 17, if you have the round-16 tree already:
+- llapi_scan_device() gained no new API, but struct llapi_scan_rec gained
+  sr_owner_fid and LLAPI_SCAN_OWNER at the END of the structure, so a
+  consumer compiled against round 16 keeps its field offsets.
+- lfs find --changelog now counts a nameless record as undecided rather
+  than matching it against "", and refuses -uid/-gid/--mdt-count/--mdt-hash
+  under --resolve where the record cannot answer them.
+- A foreign layout smaller than 32 bytes is no longer refused, so --foreign
+  sees files it previously missed.
+- lfind --device --fid2path against a mount of another filesystem is now
+  refused rather than answered with that filesystem's paths.
