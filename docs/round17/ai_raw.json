@@ -1,0 +1,651 @@
+{
+ "cur": {
+  "68095": 15,
+  "68156": 14,
+  "68157": 14,
+  "68413": 5,
+  "68416": 6,
+  "68420": 6,
+  "68419": 6,
+  "68414": 5,
+  "68418": 6,
+  "68288": 8,
+  "68415": 6,
+  "68158": 14,
+  "68163": 13,
+  "68159": 14,
+  "68160": 15,
+  "68417": 6,
+  "68094": 15,
+  "68231": 4,
+  "68340": 3
+ },
+ "comments": {
+  "68095": [
+   {
+    "id": "37dda141_8d9d56eb",
+    "ps": 15,
+    "path": "lustre/utils/liblustreapi_pfind.c",
+    "line": 2448,
+    "author": "aireview",
+    "msg": "This isn't a bug, but the return convention is the opposite of the one its neighbours use. find_check_layout(), find_check_foreign(), find_check_stripe_size() and find_value_cmp() all return 1 for accepted and -1 for rejected -- that is what `decision` means in cb_find_init(). Here 1 means rejected.\n\nA reader who reaches for the local convention gets the sense inverted. Would find_prefilter() returning bool, or naming it for what a true answer means (find_reject_dirent(), say), read more safely alongside them?",
+    "in_reply_to": null
+   },
+   {
+    "id": "13a35e04_8199dd1e",
+    "ps": 15,
+    "path": "lustre/utils/liblustreapi_pfind.c",
+    "line": 2568,
+    "author": "aireview",
+    "msg": "Letting a non-Lustre directory keep its record means the objects under it now reach printf_format_string() for the first time, and the %L directives are not quiet about them.\n\nFor a file, printf_format_lustre() takes the d == -1 branch:\n\n    layout = llapi_layout_get_by_path(path, 0);\n    if (layout == NULL) {\n        llapi_error(LLAPI_MSG_ERROR, errno,\n                    \"error: cannot get file layout\\n\");\n\nOff Lustre that ioctl answers ENOTTY, so `lfs find /mnt/lustre -printf '%p %Lc\\n'` over a tmpfs-under-Lustre tree emits one error line per file on stderr; %Li, %Lo, %Lp and %LS go the same way, and %LF hits the same thing through llapi_path2fid(). The default message level is LLAPI_MSG_MAX, so none of it is suppressed.\n\nBefore this patch none of that was reachable -- cb_get_dirstripe()'s ENOTTY came out of cb_find_init() as an error and llapi_semantic_traverse() did `if (ret) goto err`, so the directory was neither printed nor descended.\n\nThe directive output itself is fine (*wrote stays 0), so it is only the noise. Should an object with no Lustre layout leave the directive empty without complaining, now that the walk reaches them?",
+    "in_reply_to": null
+   }
+  ],
+  "68156": [
+   {
+    "id": "fab8ec72_18e1fd0f",
+    "ps": 14,
+    "path": "Documentation/man3/llapi_scan_namespace.3",
+    "line": 48,
+    "author": "aireview",
+    "msg": "(minor) This paragraph walks struct llapi_scan_param field by field -- sp_size, sp_max_depth, sp_thread_count, sp_flags, sp_padding, then sp_want and sp_filter below -- and the patch adds sp_stats to that structure without adding it here.\n\nllapi_scan_device.3 sends a reader here for it: \"sp is the same parameter structure llapi_scan_namespace(3) takes, and is documented there\". A sentence saying what sp_stats is and that a namespace scan does not fill it would close the loop, the way NOTES in the new page does for sp_max_depth and LLAPI_SCAN_F_STOP_ON_ERROR.",
+    "in_reply_to": null
+   },
+   {
+    "id": "af0db1f1_c8637b4b",
+    "ps": 14,
+    "path": "Documentation/man3/llapi_scan_namespace.3",
+    "line": 270,
+    "author": "aireview",
+    "msg": "(minor) The commit message says this page \"gains the pointer to this page\", but SEE ALSO further down still lists only lfs-find(1), llapi_layout_get_by_xattr(3) and lustreapi(7). llapi_scan_device.3 lists llapi_scan_namespace(3) in its SEE ALSO; should the reference go both ways?",
+    "in_reply_to": null
+   },
+   {
+    "id": "c83c49c3_301545f9",
+    "ps": 14,
+    "path": "include/lustre/lustreapi.h",
+    "line": 714,
+    "author": "aireview",
+    "msg": "(suggestion) The invariant is stated unconditionally, but sum(ss_class) is taken over LLAPI_SCAN_CLS_MAX, which is the caller's compiled-in value. This structure is size-versioned like the rest of the API, so a caller built against today's enum keeps working when a class is added -- except that ss_size comes back clamped to that caller's own sizeof, so it has no way to see that objects landed in a class its array does not have, and the arithmetic quietly stops adding up. llapi_scan_device_test asserts exactly this sum.\n\nEither noting that it holds while the caller's LLAPI_SCAN_CLS_MAX matches the library's, or handing back the class count the library actually used, would keep the guarantee the rest of the record makes.",
+    "in_reply_to": null
+   },
+   {
+    "id": "ac3c6de6_51690a5b",
+    "ps": 14,
+    "path": "lustre/utils/libscan_ldiskfs.c",
+    "line": 44,
+    "author": "aireview",
+    "msg": "(typo) enum llapi_scan_xattr has six entries, so scan_want_xattr() can ask for five beyond trusted.lma -- LOV, LMV, SOM, LINK and HSM -- not four. The count reads as if trusted.hsm were not one of them.",
+    "in_reply_to": null
+   },
+   {
+    "id": "48bdbc10_f3497ff0",
+    "ps": 14,
+    "path": "lustre/utils/lustreapi_scan_backend.h",
+    "line": 125,
+    "author": "aireview",
+    "msg": "(minor) Is \"nothing lies at or beyond this chunk\" what *done means to the core? scan_ldiskfs_scan_chunk() sets it before it scans anything, on the chunk whose end_ino reaches s_inodes_count -- the chunk that carries the tail of the inode table and does deliver objects. scan_worker_run() reads it the same way, moving sd_end to idx + 1 rather than idx, so this chunk stays inside the range.\n\nSo the flag means \"this is the last chunk\", not \"this chunk is empty\". A second backend written to the wording here could set it one chunk early, and a future core written to the wording could drop the last chunk's objects. Worth spelling out which one it is.",
+    "in_reply_to": null
+   }
+  ],
+  "68157": [
+   {
+    "id": "19f141f9_475a7256",
+    "ps": 14,
+    "path": "lustre/utils/liblustreapi_pfind.c",
+    "line": 2739,
+    "author": "hpdd-checkpatch",
+    "msg": "(style)  Prefer 'fallthrough;' over fallthrough comment\n",
+    "in_reply_to": null
+   },
+   {
+    "id": "48d2a0fd_8f04adef",
+    "ps": 14,
+    "path": "lustre/utils/liblustreapi_pfind.c",
+    "line": 2930,
+    "author": "hpdd-checkpatch",
+    "msg": "(style)  else is not generally useful after a break or return\n",
+    "in_reply_to": null
+   }
+  ],
+  "68158": [
+   {
+    "id": "ab6eedfa_f1b98520",
+    "ps": 14,
+    "path": "lustre/utils/lfs_find_parse.c",
+    "line": 1101,
+    "author": "hpdd-checkpatch",
+    "msg": "(style)  Prefer 'fallthrough;' over fallthrough comment\n",
+    "in_reply_to": null
+   },
+   {
+    "id": "b85a8fe2_d6bd9721",
+    "ps": 14,
+    "path": "lustre/utils/lfs_find_parse.c",
+    "line": 1109,
+    "author": "hpdd-checkpatch",
+    "msg": "(style)  Prefer 'fallthrough;' over fallthrough comment\n",
+    "in_reply_to": null
+   },
+   {
+    "id": "3d75ea9d_d0689ec2",
+    "ps": 14,
+    "path": "lustre/utils/lfs_find_parse.c",
+    "line": 1117,
+    "author": "hpdd-checkpatch",
+    "msg": "(style)  Prefer 'fallthrough;' over fallthrough comment\n",
+    "in_reply_to": null
+   },
+   {
+    "id": "884e047d_890c1f31",
+    "ps": 14,
+    "path": "lustre/utils/lfs_find_parse.c",
+    "line": 1530,
+    "author": "hpdd-checkpatch",
+    "msg": "(style)  line length of 82 exceeds 80 columns\n",
+    "in_reply_to": null
+   },
+   {
+    "id": "3cf17c17_3fa861b5",
+    "ps": 14,
+    "path": "lustre/utils/lfs_find_parse.c",
+    "line": 1658,
+    "author": "hpdd-checkpatch",
+    "msg": "(style)  Too many leading tabs - consider code refactoring\n",
+    "in_reply_to": null
+   },
+   {
+    "id": "6b8a3a18_f8fcdaa7",
+    "ps": 14,
+    "path": "lustre/utils/lfs_find_parse.c",
+    "line": 1660,
+    "author": "hpdd-checkpatch",
+    "msg": "(style)  line length of 87 exceeds 80 columns\n",
+    "in_reply_to": null
+   },
+   {
+    "id": "7e1739bf_adfd4813",
+    "ps": 14,
+    "path": "lustre/utils/lfs_find_parse.c",
+    "line": 1661,
+    "author": "hpdd-checkpatch",
+    "msg": "(style)  line length of 93 exceeds 80 columns\n",
+    "in_reply_to": null
+   },
+   {
+    "id": "74c62895_b94aa865",
+    "ps": 14,
+    "path": "lustre/utils/lfs_find_parse.c",
+    "line": 1662,
+    "author": "hpdd-checkpatch",
+    "msg": "(style)  Too many leading tabs - consider code refactoring\n",
+    "in_reply_to": null
+   },
+   {
+    "id": "1d421d70_429b9364",
+    "ps": 14,
+    "path": "lustre/utils/lfs_find_parse.c",
+    "line": 1670,
+    "author": "hpdd-checkpatch",
+    "msg": "(style)  'sprintf' may be misspelled - perhaps 'snprintf'?\n",
+    "in_reply_to": null
+   },
+   {
+    "id": "2e4bdd15_a8a52a73",
+    "ps": 14,
+    "path": "lustre/utils/lfs_find_parse.c",
+    "line": 1671,
+    "author": "hpdd-checkpatch",
+    "msg": "(style)  'strcpy' may be misspelled - perhaps 'strlcpy'?\n\n(style)  line length of 89 exceeds 80 columns\n",
+    "in_reply_to": null
+   },
+   {
+    "id": "026af662_3f23b964",
+    "ps": 14,
+    "path": "lustre/utils/lfs_find_parse.c",
+    "line": 1675,
+    "author": "hpdd-checkpatch",
+    "msg": "(style)  'strcpy' may be misspelled - perhaps 'strlcpy'?\n\n(style)  line length of 81 exceeds 80 columns\n",
+    "in_reply_to": null
+   }
+  ],
+  "68159": [
+   {
+    "id": "8ac2878f_e710aeec",
+    "ps": 14,
+    "path": "Documentation/man3/llapi_find_device.3",
+    "line": 92,
+    "author": "aireview",
+    "msg": "(minor) llapi_find_device() returns llapi_scan_device()'s value unchanged, so a caller also sees -ENOPKG (backend refused the target) and -EIO, neither of which is listed, and -ENOTSUP for \"this build has no scanning backend\" as well as for the refusals described here.\n\nllapi_scan_device.3 makes a point of the first distinction -- \"a caller that skips its work where a build cannot scan at all must not also skip it on a node that can\" -- and reusing -ENOTSUP for a rejected predicate takes that distinction away from callers of this function. Worth listing the pass-through errors here, and saying that -ENOTSUP now carries both meanings?",
+    "in_reply_to": null
+   },
+   {
+    "id": "7b88705b_03f33005",
+    "ps": 14,
+    "path": "lustre/utils/liblustreapi_pfind.c",
+    "line": 3206,
+    "author": "aireview",
+    "msg": "(defect) This floor is sizeof(struct lov_user_md_v1), 32 bytes, and it runs before the magic is looked at -- so the foreign arm below, whose own floor is offsetof(struct lov_foreign_md, lfm_value) == 16, can never see a buffer smaller than 32. find_rec_to_lmd() applies the same 32-byte floor before it even calls this.\n\nA foreign LOV EA that small is legal and creatable:\n\n    llapi_file_create_foreign() accepts any 0 < len\n    lod_verify_striping() checks LOV_USER_MAGIC_FOREIGN\n    against offsetof(lfm_value), before the 32-byte\n    check that covers the normal magics\n\nSo `lfs setstripe --foreign=none --xattr=abc file` stores 19 bytes of trusted.lov. A scan then takes the no-layout path, find_device_cb() calls find_lmm_set_default(), and find_check_foreign() reads LOV_USER_MAGIC_V1 -- so --foreign misses the file and --stripe-count / --pool answer it off the forged default. That is the same silent wrong answer the SEL and SPECIFIC arms were added to avoid.\n\nWould making the floor per-magic work -- offsetof(lfm_value) for foreign, sizeof(lov_user_md_v1) elsewhere -- since the switch already reads only lmm_magic, which needs 4 bytes?",
+    "in_reply_to": null
+   },
+   {
+    "id": "de93d86e_658031b3",
+    "ps": 14,
+    "path": "lustre/utils/liblustreapi_pfind.c",
+    "line": 3521,
+    "author": "aireview",
+    "msg": "(minor) The comment names \"a size or a time\", but only the size and the block count end up counted. With fc_lustre_fs 0, find_decide() computes\n\n    for_mds = lustre_fs ? (S_ISREG(...) && stripe_count) : 0;\n\nso find_time_check() runs with mds false and find_value_cmp() returns a definite 1 or -1 rather than the 0 that means \"ask the OST\". A striped regular file's -atime/-mtime/-ctime is therefore settled from the MDT inode's copy, which is the stale one -- over a mount the same predicate would force the glimpse.\n\nUnlike --size, nothing marks it fc_undecided, so the answer differs from llapi_find() with no indication. Should a time predicate on a striped regular file be counted the way a size is, or, if answering from the MDT's copy is the intent, should llapi_find_device.3 say so where it currently mentions only a size and a block count?",
+    "in_reply_to": null
+   }
+  ],
+  "68160": [
+   {
+    "id": "a8944be2_dafa3f4c",
+    "ps": 15,
+    "path": "Documentation/man3/llapi_find_device.3",
+    "line": 1,
+    "author": "aireview",
+    "msg": "(style) Not a bug, but the .TH date stays at 2026-08-20 although this patch changes the page's text and its SEE ALSO list. lfs-find.1 in the same patch gets its date bumped for a strictly smaller edit, and llapi_scan_device.3 is left at 2026-08-19 for the same kind of edit. Worth making the three consistent when the patch is refreshed.",
+    "in_reply_to": null
+   }
+  ],
+  "68163": [
+   {
+    "id": "cc416ff2_d9d8cdec",
+    "ps": 13,
+    "path": "Documentation/man3/llapi_scan_device.3",
+    "line": 1,
+    "author": "aireview",
+    "msg": "(style) Not a bug, but the .TH date is still the parent patch's 2026-08-19 while this revision adds a \"Finding a target that is named by label\" subsection and five new ERRORS entries. lfind.8 alongside it carries 2026-08-30. Should this one move with the content?",
+    "in_reply_to": null
+   },
+   {
+    "id": "065fbc0b_b1a87c3d",
+    "ps": 13,
+    "path": "config/lustre-build-zfs.m4",
+    "line": 250,
+    "author": "aireview",
+    "msg": "(minor) Is the \"Not Found\" half of this condition still reachable? \"[Not Found]\" is only ever assigned to $zfsinc up at line 211, and $zfsinc is no longer one of the candidates the loop walks. The two that are left are either empty -- caught by the `test -z` continue on the line above -- or a `-DLIB_ZPOOL_BUILD -I...` string, so the comparison looks like it can only ever be true now.\n\nDropping it would leave just the `enable_zfs_scan = no` first-match guard, which is the part that still does something.",
+    "in_reply_to": null
+   },
+   {
+    "id": "ccf9de29_c356b82d",
+    "ps": 13,
+    "path": "lustre/utils/liblustreapi_scan_device.c",
+    "line": 776,
+    "author": "aireview",
+    "msg": "(style) This isn't a bug, but the macro now reads `symbol` and `name` out of the enclosing function while still taking `handle` and `ops` as parameters, so what it touches is no longer visible at the call site. The previous spelling was self-contained.\n\nPassing them in would keep that property:\n\n    #define SCAN_DLSYM(buf, name, ops, func) ...\n\nWhile there, `handle` is always `(ops)->sb_dl_handle` at every call, so it could go too.",
+    "in_reply_to": null
+   }
+  ],
+  "68288": [
+   {
+    "id": "ac08f143_74d1aee1",
+    "ps": 8,
+    "path": "/COMMIT_MSG",
+    "line": 33,
+    "author": "aireview",
+    "msg": "(defect) Is this paragraph right that another filesystem always answers -ENOENT? FID sequences are not unique across filesystems. FID_SEQ_ROOT is a constant (lustre_idl.h: 0x200000007), so the root FID is [0x200000007:0x1:0x0] on every Lustre filesystem, and scan_classify() calls it LLAPI_SCAN_CLS_VISIBLE, so an MDT scan hands it to the resolver.\n\nNormal FIDs collide too: every filesystem's sequence controller starts from the same constant, LUSTRE_SEQ_SPACE_RANGE = { .lsr_start = FID_SEQ_NORMAL } in fid_lib.c, installed by seq_server_init() in fid_handler.c.\n\nSo the wrong mount does not report every object nameless and exit zero -- it prints paths of unrelated files. See the note on liblustreapi_pfind.c.",
+    "in_reply_to": null
+   },
+   {
+    "id": "7bb70878_9707d5f1",
+    "ps": 8,
+    "path": "Documentation/man8/lfind.8",
+    "line": 8,
+    "author": "aireview",
+    "msg": "(minor) MOUNT ends up in roman and the closing bracket in bold here, unlike DEVICE/NAME/FILTER on the neighbouring lines:\n\n    [--fid2path MOUNT]      <- MOUNT upright, ] bold\n\n.RB takes alternating roman/bold, so the fourth argument \"]\" is bold and the third is roman. Something like\n\n    .RB [ \\-\\-fid2path\n    .IR MOUNT ]\n\nkeeps the value italic. Same on the other three SYNOPSIS lines.",
+    "in_reply_to": null
+   },
+   {
+    "id": "6a06b72f_8b87e36a",
+    "ps": 8,
+    "path": "Documentation/man8/lfind.8",
+    "line": 130,
+    "author": "aireview",
+    "msg": "(defect) The wrong-filesystem paragraph promises more than the code delivers. \"No sequence of this target lives there\" is not true: FID_SEQ_ROOT and FID_SEQ_DOT_LUSTRE are constants shared by every Lustre filesystem, and normal sequences overlap because each filesystem's controller starts at FID_SEQ_NORMAL. Those lookups succeed on the wrong mount and print paths from it. See the note on liblustreapi_pfind.c.",
+    "in_reply_to": null
+   },
+   {
+    "id": "1d303ab4_57d6ccd5",
+    "ps": 8,
+    "path": "lustre/utils/liblustreapi_pfind.c",
+    "line": 3075,
+    "author": "aireview",
+    "msg": "(defect) \"A FID from another filesystem does not reach here: no FLD range covers its sequence\" does not seem to hold, and the failure mode is a silently wrong answer rather than a missing one.\n\nSequences are not unique per filesystem. Every filesystem's controller is initialised from the same constant:\n\n    fid_lib.c:  LUSTRE_SEQ_SPACE_RANGE = { .lsr_start = FID_SEQ_NORMAL, .lsr_end = ~0 }\n    fid_handler.c: seq->lss_space = ... LUSTRE_SEQ_SPACE_RANGE;\n\nso fsA and fsB both hand out MDT/OST super-sequences from FID_SEQ_NORMAL, and fld_client_lookup() on fsB finds a range for a sequence fsA also uses. Nothing in __ll_fid2path() -> fld_client_lookup() checks which filesystem the FID came from.\n\nThe root FID makes it concrete without needing any collision at all: FID_SEQ_ROOT is 0x200000007 in lustre_idl.h, so [0x200000007:0x1:0x0] names the root of every Lustre filesystem, and scan_classify() returns LLAPI_SCAN_CLS_VISIBLE for it. `lfind --device <MDT> --fid2path /mnt/otherfs` with no type filter therefore prints /mnt/otherfs as a path found on the scanned target, prc == 0, exit status 0. .lustre resolves the same way (FID_SEQ_DOT_LUSTRE is also a constant), and any normal FID that happens to exist on the other filesystem resolves to whatever file holds it there.\n\nThe same sentence is in the Return: block of llapi_scan_rec_path() in liblustreapi_scan.c and in lfind(8).\n\nCould the mount be checked against the target before the scan starts -- the scan already knows the target's label, and llapi_search_fsname() on fp_fid2path_mnt gives the mount's fsname -- so a mount of the wrong filesystem is refused up front rather than answered wrongly?",
+    "in_reply_to": null
+   },
+   {
+    "id": "0fda8c12_783da4de",
+    "ps": 8,
+    "path": "lustre/utils/liblustreapi_pfind.c",
+    "line": 3099,
+    "author": "aireview",
+    "msg": "(minor) Can this arm run? scan_rec_obj() in liblustreapi_scan_device.c sets sr_valid = LLAPI_SCAN_INO | ... unconditionally for every record it builds, and find_device_cb() is the only caller that passes a non-NULL fc_unresolved, so the LLAPI_SCAN_INO branch above always wins.\n\nIf it ever did fire it would be counted into the end-of-run \"%llu matching objects have no pathname and were not printed\" message, which reads oddly for a run that was printing FIDs and never asked for pathnames.",
+    "in_reply_to": null
+   }
+  ],
+  "68340": [
+   {
+    "id": "274aa3e0_60fa2baf",
+    "ps": 3,
+    "path": "lustre/utils/liblustreapi_pfind.c",
+    "line": 290,
+    "author": "hnishida",
+    "msg": "Confirmed, and the arithmetic is exactly as you have it: the byte gap is 144, sizeof(struct lov_user_md_v1) is 32, so the typed difference is 4 and the last byte written is lmdlen + 283. llapi_get_lum_file_fd()'s buf is on the stack, so that one is 284 bytes past it.\n\nSeparate patch, as you suggest: it predates this change and wants its own ticket. It will stack on this one, being the same function.",
+    "in_reply_to": "a95aa0bf_1fc9987d"
+   },
+   {
+    "id": "3292a030_06c84685",
+    "ps": 3,
+    "path": "lustre/utils/liblustreapi_pfind.c",
+    "line": 297,
+    "author": "hnishida",
+    "msg": "Done. The comment and the commit message now say lmd_st stops at the end of stx_mtime, and that stx_rdev_major onwards is the previous conversion's.",
+    "in_reply_to": "5718a783_ec918e9e"
+   },
+   {
+    "id": "a9468d98_71eba4f1",
+    "ps": 3,
+    "path": "lustre/utils/liblustreapi_pfind.c",
+    "line": 430,
+    "author": "hnishida",
+    "msg": "Done. Both paths are one memset to offsetof(typeof(*lmd), lmd_lmm) now, and the lmd_lmmsize/lmd_padding assignments are gone with it.",
+    "in_reply_to": "4dd1c9fd_aca537af"
+   }
+  ],
+  "68413": [
+   {
+    "id": "c9bda014_e5f68775",
+    "ps": 5,
+    "path": "lustre/mdd/mdd_changelog.c",
+    "line": 51,
+    "author": "aireview",
+    "msg": "(minor) Is LU-19296 the right boundary here? 5b85a4eb7510 only added this callback and the MDT/MDC plumbing; it did not touch how the record is written.\n\nThe 80-byte write came from a15eb4f132 (\"LU-13055 mdd: per-user changelog names and mask\", v2.14.53), which introduced CHANGELOG_USER_REC2 and changed mdd_changelog_user_register() to set\n\n    rec->cur_hdr.lrh_len = sizeof(*rec);\n\non a struct llog_changelog_user_rec2 * before picking the type. So a 40-byte record can only have been written by a server older than 2.14.53, not older than 2.17.0 - about three releases of difference for anyone reading this to work out which upgrades can still hold a short record.",
+    "in_reply_to": null
+   },
+   {
+    "id": "b8772d34_0f02cc36",
+    "ps": 5,
+    "path": "lustre/mdd/mdd_changelog.c",
+    "line": 80,
+    "author": "aireview",
+    "msg": "(minor) The count here is the destination's 30 bytes, while cur_name is 16. Under the premise the comment above states - no guaranteed NUL inside cur_name - this reads on into cur_padding2/cur_padding3.\n\nIt cannot fault (offset 40 + 30 is still inside the 80-byte record) and mdd_changelog_user_register() zeroes the record, so every name a Lustre server writes still copies correctly. But it leaves the copy unbounded on the same field the compare two lines up was just bounded on; sizeof(rec->cur_name) would make the pair consistent.",
+    "in_reply_to": null
+   }
+  ],
+  "68415": [
+   {
+    "id": "28ece513_0669dbcb",
+    "ps": 6,
+    "path": "Documentation/man3/llapi_scan_changelog.3",
+    "line": 76,
+    "author": "aireview",
+    "msg": "For a CL_RENAME, sr_fid is not the object that moved. mdd_rename() passes the destination object as the changelog target:\n\n    mdd_changelog_ns_store(env, mdd, CL_RENAME, cl_flags,\n                           mdd_tobj, mdd_tpobj, tpattr, lf, ...)\n\nwith mdd_tobj commented as \"(possible) target object\" and lf the source FID, which becomes cr_sfid. So `mv a b` over an existing b delivers sr_fid = b's replaced object and sr_src_fid = the object that was renamed, and when b did not exist sr_fid is absent entirely.\n\nSince the page's premise is that sr_fid identifies the object, worth stating which of the two a rename record names.",
+    "in_reply_to": null
+   },
+   {
+    "id": "76df3e5e_ee91eb11",
+    "ps": 6,
+    "path": "lustre/utils/liblustreapi_scan_changelog.c",
+    "line": 436,
+    "author": "aireview",
+    "msg": "For a CLF_RENAME record cr_namelen covers both names, not just the target one.\n\n    /* mdd_dir.c, mdd_changelog_rec_ext_rename() */\n    changelog_rec_name(rec)[rec->cr_namelen] = '\\0';\n    strscpy(changelog_rec_sname(rec), sname->ln_name, extsize);\n    rec->cr_namelen += extsize;\n\nThe copy still reads back as the target name, since the embedded NUL is carried over, but it allocates and stores the source name after it. lustre_rsync.c bounds the same field with strnlen(changelog_rec_name(rec), rec->cr_namelen); worth doing the same here.",
+    "in_reply_to": null
+   },
+   {
+    "id": "5292db1d_c87bce79",
+    "ps": 6,
+    "path": "lustre/utils/liblustreapi_scan_changelog.c",
+    "line": 545,
+    "author": "aireview",
+    "msg": "fid_is_sane() does not reject a CL_MARK, so the comment above and the per-event fallback do not cover it.\n\nmdd_changelog_write_header() writes only the 32-bit half of the union:\n\n    rec->cr.cr_markerflags = mdd->mdd_cl.mc_flags | markerflags;\n\nout of a buffer that lu_buf_alloc()/OBD_ALLOC_LARGE zeroed, so cr_tfid becomes f_seq = CLM_START (0x10000), f_oid = 0, f_ver = 0. FID_SEQ_IGIF is 12 and FID_SEQ_IGIF_MAX is 0xffffffff, so fid_is_igif() is true and fid_is_sane() returns true. Compiling the real headers against 0x10000, 0x10001, 0x20000, 0x110001 and 0x40000 gives sane=1 for all five.\n\nThe reader sees those records: mdc_changelog.c skips on cr_type only when crs_user_mask is non-zero, and it is set only by OBD_IOC_CHANGELOG_FILTER, which the sc_user == NULL branch below never issues. That is the mode llapi_scan_changelog_test runs in without -u.\n\nSo while coalescing, every CL_MARK with the same marker flags lands in one cache entry and only the last is delivered, scan_cl_absorb() sets LLAPI_SCAN_FID over a value that is not a FID, and with LLAPI_SCAN_CL_F_CLEAR the swallowed marks' records are purged. Should this test cr_type != CL_MARK as well?",
+    "in_reply_to": null
+   },
+   {
+    "id": "5441df70_206b50eb",
+    "ps": 6,
+    "path": "lustre/utils/liblustreapi_scan_changelog.c",
+    "line": 706,
+    "author": "aireview",
+    "msg": "This size test cannot be false: scl.sc_size was set to sizeof(scl) two lines up, and offsetof(..., sc_stats) is smaller. The comment explains the test as guarding a read past a short caller's structure, but the bounded memcpy has already zero-filled anything the caller did not supply, so scl.sc_padding is 0 for exactly the case the test is meant to exclude.\n\nEither drop the size term and check scl.sc_padding alone, as scan_param_padding_ok() does for the other two entry points, or read sc->sc_size before it is overwritten.",
+    "in_reply_to": null
+   },
+   {
+    "id": "4e135ff9_ce793fac",
+    "ps": 6,
+    "path": "lustre/utils/liblustreapi_scan_changelog.c",
+    "line": 798,
+    "author": "aireview",
+    "msg": "This isn't a bug, but ss_seen counts the record that ended the range: the sc_endrec test below runs after the increment, so a scan bounded by sc_endrec reports one more record examined than it processed.\n\nMore broadly, struct llapi_scan_stats documents that on a completed scan ss_seen == ss_filtered + ss_skipped + sum(ss_class), and this scanner fills neither ss_skipped nor ss_class, while ss_seen counts events and ss_emitted counts objects when coalescing. Worth saying in llapi_scan_changelog(3) what these mean for a changelog, since the identity in the header cannot hold here.",
+    "in_reply_to": null
+   }
+  ],
+  "68416": [
+   {
+    "id": "1f0fff10_b3ee8c6c",
+    "ps": 6,
+    "path": "lustre/utils/liblustreapi_scan.c",
+    "line": 676,
+    "author": "aireview",
+    "msg": "(minor) linkno is fixed at 0, so a hardlinked object is gathered at whichever link the MDT lists first. llapi_scan_rec_path()'s kernel-doc says so (\"A hardlinked object has one pathname per link; the first is returned\"), but neither this block nor llapi_scan_fid.3 does, and it matters more here: the commit message names a subtree restriction that prefix-matches sr_path as the intended consumer, so a file linked both inside and outside that subtree is included or not according to which link came back.",
+    "in_reply_to": null
+   },
+   {
+    "id": "db00c964_336f143a",
+    "ps": 6,
+    "path": "lustre/utils/liblustreapi_scan.c",
+    "line": 727,
+    "author": "aireview",
+    "msg": "(suggestion) llapi_scan_rec_path() a hundred lines below does these same three steps - llapi_fid2path_at(), skip the leading slashes, compose `<mnt>/<rel>` with the root special case - and the commit message argues against exactly this kind of second copy. A record built here would let it be reused:\n\n    struct llapi_scan_rec tmp = { .sr_fid = *fid,\n                                  .sr_valid = LLAPI_SCAN_FID };\n\n    rc = llapi_scan_rec_path(mnt_fd, mnt_path, &tmp, path, sizeof(path));\n\nAn overlong result then reports -ERANGE rather than -ENAMETOOLONG, which the man page would have to follow.",
+    "in_reply_to": null
+   },
+   {
+    "id": "7cc6358d_14f04b45",
+    "ps": 6,
+    "path": "lustre/utils/liblustreapi_scan.c",
+    "line": 746,
+    "author": "aireview",
+    "msg": "(suggestion) common_param_init() is a per-scan cost for the other entry points - llapi_find_with_cb() and llapi_find_device() each call it once - but it lands per object here. It calloc()s offsetof(lmd_lmm) + XATTR_SIZE_MAX (64K) for fp_lmd plus lmv_user_md_size(256, LMV_USER_MAGIC_SPECIFIC) (~6K) for fp_lmv_md, so a changelog reader calling this per FID zeroes and frees ~70K per record with no way to amortize it, struct find_param being internal. The cost paragraph in the commit message lists the fid2path, the statx and the open but not this.\n\nWould a variant taking a caller-held scratch block be worth it, or at least a note that the call allocates per object?",
+    "in_reply_to": null
+   },
+   {
+    "id": "466cb29f_179e0843",
+    "ps": 6,
+    "path": "lustre/utils/liblustreapi_scan.c",
+    "line": 825,
+    "author": "aireview",
+    "msg": "(defect) The open runs whatever sp_want asked for, but scan_rec_gather() returns at its first line when nothing in LLAPI_SCAN_MDT_MASK is set:\n\n    if (!(want & LLAPI_SCAN_MDT_MASK))\n        return 0;\n\nLLAPI_SCAN_TYPE is not in that mask, so a caller passing sp_want = LLAPI_SCAN_TYPE - the name-only mode lustreapi.h advertises as performing no ioctl per object - pays a descriptor here that is never read, and inherits the ways it can fail. open_parent() wants O_RDONLY on the parent, so a FID resolving under a 0711 directory the caller does not own comes back -EACCES with no record delivered, even though sr_path, sr_name and sr_mode were complete before this point.\n\nCould the whole block move under `if (want & LLAPI_SCAN_MDT_MASK)`?",
+    "in_reply_to": null
+   },
+   {
+    "id": "9ae545d1_9fe1e368",
+    "ps": 6,
+    "path": "lustre/utils/liblustreapi_scan.c",
+    "line": 850,
+    "author": "aireview",
+    "msg": "(minor) This is skipped in the same case the open above is wasted in. With sp_want holding nothing from LLAPI_SCAN_MDT_MASK, scan_rec_gather() returns before scan_rec_mdt() runs, LLAPI_SCAN_FID is never set, and the guard never fires - so a name-only caller gets a record for whatever holds the name now, with no error.\n\nThe kernel-doc above and llapi_scan_fid.3 both state -ESTALE without qualification. Worth either saying which sp_want values the guarantee covers, or fetching the FID regardless of the demand mask.",
+    "in_reply_to": null
+   },
+   {
+    "id": "4ae6a0e5_62734846",
+    "ps": 6,
+    "path": "lustre/utils/lustreapi_internal.h",
+    "line": 363,
+    "author": "aireview",
+    "msg": "(minor) llapi_scan_device() does not widen 0 the same way:\n\n    dev.sd_want = sp != NULL && sp->sp_want != 0 ? sp->sp_want : ~0ULL;\n\nand lustreapi.h says so in as many words - \"0 means the scanner's own default, which is not the same for both\". As written this reads as though editing the macro changes every entry point. Naming the two mount-side ones would match the code.",
+    "in_reply_to": null
+   }
+  ],
+  "68417": [
+   {
+    "id": "53bb1a2b_fdec16b2",
+    "ps": 6,
+    "path": "Documentation/man3/Makefile.am",
+    "line": 29,
+    "author": "aireview",
+    "msg": "(suggestion) Documentation/man7/lustreapi.7 indexes the library's entry points by topic, and neither llapi_find_since() nor the llapi_scan_*/llapi_find_device() pages the earlier patches in this series added appear in it. Would a \"Namespace scanning\" .SS listing them all fit here, so the new API is reachable from the library's own index page?",
+    "in_reply_to": null
+   },
+   {
+    "id": "fb06db27_01364bf7",
+    "ps": 6,
+    "path": "Documentation/man3/llapi_find_since.3",
+    "line": 102,
+    "author": "aireview",
+    "msg": "(minor) The \"filesystem or mount point cannot be found\" half of this looks like it is -ENODEV rather than -ENOENT. Both lookups end in get_root_path(), which starts at `rc = -ENODEV` and returns that when no Lustre mount matches:\n\n    llapi_search_fsname() -> get_root_path(WANT_FSNAME|WANT_ERROR, ...)\n    llapi_search_mounts()  -> get_root_path(WANT_PATH, ...)\n\nOnly the realpath() failure above them yields -ENOENT. The -ENODEV entry just above says it means \"no MDT of that filesystem is visible\", so a caller switching on the return value has no entry that covers a path outside Lustre.\n\nWhile here: -ENAMETOOLONG (the snprintf of the caller's spelling) and -ENOMEM (the MDT array and common_param_init()) are also reachable and not listed.",
+    "in_reply_to": null
+   },
+   {
+    "id": "bee16bcb_37ad6d0d",
+    "ps": 6,
+    "path": "include/lustre/lustreapi.h",
+    "line": 481,
+    "author": "hpdd-checkpatch",
+    "msg": "(style)  'time_t' may be misspelled - perhaps 'timeout_t'?\n",
+    "in_reply_to": null
+   },
+   {
+    "id": "cf96d311_79ff3cae",
+    "ps": 6,
+    "path": "lustre/utils/lfs_find_parse.c",
+    "line": 902,
+    "author": "aireview",
+    "msg": "(minor) This table and the one -newerXt uses further down in the same file now accept different time spellings, and nothing says so. --since adds the ISO \"T\" forms but drops \"%H:%M\" and \"%H:%M:%S\" (\"sometime today\"), which lfs-find.1 documents for a reference time, so `lfs find --newerct 14:30` works and `lfs find --since 14:30` is an error.\n\nThe bare \"%s\" being dropped is explained by the commit message; the today-relative forms are not. Could the two tables share one definition, with only the entries that genuinely have to differ removed?\n\nRelated: the diagnostic below names only the m/h/d units, but the switch also accepts s, w and y.",
+    "in_reply_to": null
+   },
+   {
+    "id": "eb5939c8_f4669330",
+    "ps": 6,
+    "path": "lustre/utils/liblustreapi_pfind.c",
+    "line": 3993,
+    "author": "aireview",
+    "msg": "The comment says a walk \"would compose dir//name\", but that is what a walk actually prints. param_callback() copies the argument verbatim, trailing slash and all, and llapi_semantic_traverse() appends to it:\n\n    len = strlen(path);          /* \"/mnt/lustre/sub/\" -> 16 */\n    path[len] = 0;\n    strcat(path, \"/\");\n    strcat(path, dent->d_name);   /* \"/mnt/lustre/sub//f\" */\n\nSo stripping the slash here is the one thing that makes --since differ from the same search without it:\n\n    lfs find /mnt/lustre/sub/            -> /mnt/lustre/sub//f\n    lfs find /mnt/lustre/sub/ --since 2h -> /mnt/lustre/sub/f\n\nGNU find prints the doubled separator too. Is the strip meant to be a deliberate improvement over the walk, or should the spelling be kept as given so the two answers stay byte-identical? Either way the comment reads as though it makes them agree.",
+    "in_reply_to": null
+   }
+  ],
+  "68418": [
+   {
+    "id": "02960867_41103b48",
+    "ps": 6,
+    "path": "lustre/utils/liblustreapi_pfind.c",
+    "line": 2463,
+    "author": "aireview",
+    "msg": "(defect) Should a record that carries no name count as undecided rather than be matched against the empty string? find_device_prefilter() returns 2 for exactly this case and its caller bumps fds_undecided.\n\nmdd_changelog_data_store_by_fid() leaves cr_namelen at 0, so CL_CLOSE, CL_SETATTR, CL_TRUNC and CL_LAYOUT all arrive nameless -- a file created before the window and written inside it is the ordinary case, not a corner one. `lfs find /mnt --changelog all -name '*.o'` then silently drops every one of them, `! -name '*.o'` silently keeps every one, and neither the undecided nor the unresolved count says anything happened.\n\nThe comment's \"no ordinary pattern matches\" doesn't quite hold either: fnmatch(\"*\", \"\") succeeds, so `-name '*'` keeps them.",
+    "in_reply_to": null
+   },
+   {
+    "id": "3d0299b2_c05a7a47",
+    "ps": 6,
+    "path": "lustre/utils/liblustreapi_pfind.c",
+    "line": 3099,
+    "author": "aireview",
+    "msg": "(style) This isn't a bug, but both arms do the same increment. Hoisting it reads as \"always count, print when the caller asked for a FID\":\n\n    if (fc->fc_fid_when_lost && (fc->fc_rec->sr_valid & LLAPI_SCAN_FID))\n            llapi_printf(LLAPI_MSG_NORMAL, DFID\"%c\", ...);\n    if (fc->fc_unresolved != NULL)\n            (*fc->fc_unresolved)++;",
+    "in_reply_to": null
+   },
+   {
+    "id": "52f04fea_392f8888",
+    "ps": 6,
+    "path": "lustre/utils/liblustreapi_pfind.c",
+    "line": 4218,
+    "author": "aireview",
+    "msg": "(defect) Should -uid/-gid and --mdt-count/--mdt-hash be in this list too? find_changelog_supported() returns 0 as soon as fp_resolve is set, so all four get past the refusal on the strength of the lookup, and the record routed here from find_since_cand_cb() has no lookup behind it.\n\n-uid/-gid: find_rec_to_lmd() leaves stx_uid/stx_gid at 0 with STATX_UID clear, and find_decide() compares them anyway. So `--changelog all --resolve -uid 0` prints every object unlinked since its event, and `! -uid 1000` keeps all of them.\n\n--mdt-count/--mdt-hash: a bare changelog record carries LLAPI_SCAN_TYPE but never LLAPI_SCAN_MODE (scan_cl_absorb() only ever ORs in TYPE), so fp_get_lmv is 0 and find_decide()'s whole `if (param->fp_get_lmv)` block is skipped -- the predicate is not answered from a zero, it is never evaluated at all. An event with no type at all (CL_CLOSE and friends) is not caught by find_prefilter()'s `type != S_IFDIR` test either, so those objects print whatever --mdt-count asked for.\n\n-projid lands in find_decide()'s `ret == -ENOTSUP && path == NULL` branch and -type is guarded a few lines into find_changelog_rec_cb(), so those two are already covered.",
+    "in_reply_to": null
+   },
+   {
+    "id": "4711011a_34cc7aff",
+    "ps": 6,
+    "path": "lustre/utils/liblustreapi_pfind.c",
+    "line": 4312,
+    "author": "aireview",
+    "msg": "(minor) This paragraph and the Return: below still describe --since alone. Under --changelog the object is not verified through the mount, the answer is not a subset of the plain search (an object gone since its event is in it), and @path is the filesystem rather than a subtree unless --resolve is given. -EINVAL is no longer unconditional for LLAPI_SINCE_NONE, and an unknown --changelog MDT name is a new -ENODEV.\n\nDocumentation/man3/llapi_find_since.3 has the same problem -- \"LLAPI_SINCE_NONE: no anchor, which is refused\" and \"An object that has been unlinked since its event ... is not in the answer\" are both false now. Should the man page and this block be refreshed in the same patch?",
+    "in_reply_to": null
+   }
+  ],
+  "68419": [
+   {
+    "id": "8656cfdd_cc07e8db",
+    "ps": 6,
+    "path": "/COMMIT_MSG",
+    "line": 63,
+    "author": "aireview",
+    "msg": "(minor) The find_device_supported() hunk isn't accounted for anywhere in the body. It does two things: it adds `--since-cookie` to the refusal, which belongs here, and it adds `--changelog` to it, which is a behaviour change to the option added in the preceding patch of the series -- before this, `lfind --changelog all` ran the target scan, printed everything the other predicates kept and exited 0.\n\nCould the body say what that hunk does, and could the `--changelog` half move to the patch that introduced the option so it lands with the code it fixes?",
+    "in_reply_to": null
+   },
+   {
+    "id": "8c3c160f_c4e2f58a",
+    "ps": 6,
+    "path": "lustre/utils/liblustreapi_pfind.c",
+    "line": 3832,
+    "author": "aireview",
+    "msg": "(style) This isn't a bug, but there are two comment blocks stacked here with no code between them, which reads as a leftover from an earlier merge of the two. They also disagree slightly -- the first talks about the stale check that lives in find_cookie_check(), not in this function. Fold them into one?",
+    "in_reply_to": null
+   },
+   {
+    "id": "11d9a284_dadffc14",
+    "ps": 6,
+    "path": "lustre/utils/liblustreapi_pfind.c",
+    "line": 3894,
+    "author": "aireview",
+    "msg": "(minor) When the cookie sits directly in the root directory, `tmp` is \"/<name>.new\", `sep` points at index 0, and `*sep = '\\0'` leaves `tmp` empty -- so `open(\"\", O_RDONLY | O_DIRECTORY)` fails with ENOENT and the directory fsync the commit message describes never happens.\n\nKeeping the separator (or using \"/\" when `sep == tmp`) would cover it.",
+    "in_reply_to": null
+   },
+   {
+    "id": "4a4f68e7_917360b9",
+    "ps": 6,
+    "path": "lustre/utils/liblustreapi_pfind.c",
+    "line": 3989,
+    "author": "aireview",
+    "msg": "(minor) `cookie` cannot be NULL here -- the only call site is inside `if (param->fp_since_cookie != NULL)` and passes that same pointer -- and the -ESTALE message below hands `cookie` to %s with no guard, so the two disagree about whether NULL is possible. Drop the test?",
+    "in_reply_to": null
+   },
+   {
+    "id": "852a7170_613c2de6",
+    "ps": 6,
+    "path": "lustre/utils/liblustreapi_pfind.c",
+    "line": 4560,
+    "author": "aireview",
+    "msg": "(minor) The comment says the index is taken \"whether or not the object is a match\", but the update sits below the `sr_valid & LLAPI_SCAN_FID` gate a few lines up, so a record with no target FID never reaches it.\n\nThose are not exotic: scan_cl_object() routes them to scan_cl_event() precisely because they are ordinary -- CL_MARK, and every `mv a b` where b did not already exist, since mdd_changelog_ns_store() zeroes cr_tfid there.\n\nThe effect is that the anchor lags the end of the log by whatever trailing run of such records the scan ended on, and the next run re-reads them to skip them again. Harmless as far as the answer goes, but the comment claims otherwise -- should the update move above the FID test, or the comment say \"whether or not the record names an object\"?",
+    "in_reply_to": null
+   },
+   {
+    "id": "1413b6e2_1bfc3142",
+    "ps": 6,
+    "path": "lustre/utils/liblustreapi_pfind.c",
+    "line": 4638,
+    "author": "aireview",
+    "msg": "(minor) The kernel-doc still says the search arrives \"with fp_since_kind set\", and the Return: block lists only the two old -EINVAL cases. fp_since_cookie now selects this path on its own, giving both anchors is a third -EINVAL, and a purged-past anchor is -ESTALE. Worth refreshing while the function is being changed?",
+    "in_reply_to": null
+   }
+  ],
+  "68420": [
+   {
+    "id": "acb1618c_6aff835c",
+    "ps": 6,
+    "path": "Documentation/man1/lfs-find.1",
+    "line": 784,
+    "author": "aireview",
+    "msg": "-type is neither in this refusal list nor always answerable, and the page does not say so.\n\nscan_cl_mode() gives a type only for CL_CREATE, CL_MKDIR, CL_RMDIR and CL_SOFTLINK, so an object whose events in the window are all data stores coalesces without LLAPI_SCAN_TYPE. find_changelog_rec_cb() then counts it undecided and drops it:\n\n    if (param->fp_type != 0 && checked_type == 0 &&\n        !(rec->sr_valid & LLAPI_SCAN_MODE)) {\n            st->fss_undecided++;\n            return 0;\n    }\n\nSo \"lfs find $MOUNT --changelog all -type f\" silently omits a file that was created before the window and written inside it, with only a count on stderr to say so. The --resolve entry below explains \"undecided\"; should this one mention that -type can land there without --resolve?",
+    "in_reply_to": null
+   },
+   {
+    "id": "88bfadaf_b079481b",
+    "ps": 6,
+    "path": "lustre/tests/sanity.sh",
+    "line": 22564,
+    "author": "aireview",
+    "msg": "(suggestion) --since takes four spellings and only two of them are covered here: a duration, and a bare index in the refusal arm below. A timestamp (--since 2026-08-25T18:00), the explicit epoch second (--since @NNN) and a refused spelling (--since -5, --since 2h30m) never reach set_since().\n\nSince \"a number that could be an index or an epoch second is never guessed at\" is the property the option is built around, a couple of lines asserting that @NNN and a bare NNN are read differently would pin it down.",
+    "in_reply_to": null
+   },
+   {
+    "id": "21d7a451_5674f7c1",
+    "ps": 6,
+    "path": "lustre/tests/sanity.sh",
+    "line": 22792,
+    "author": "aireview",
+    "msg": "These two run against the cookie the block above has just made stale, so both commands fail with ESTALE before the refusal they are aiming at is reached.\n\nWith --since 2h added, find_cookie_check() still runs and still returns -ESTALE, so the case passes even with the --since/--since-cookie test in llapi_find_since() removed. Same for the two-path line below: lfs_find()'s pathend - pathstart check could be deleted and the first path would still exit non-zero on the stale anchor.\n\nWould moving both up above the stale-anchor section (or giving them a fresh cookie) make them say what they mean?",
+    "in_reply_to": null
+   }
+  ]
+ }
+}
