@@ -133,8 +133,85 @@ object counts.
 lab built and the final tree touches only comment lines in
 `liblustreapi_scan_device.c`; no code line differs.
 
-**Not covered by this lab: the ZFS path.**  The guard opens the target a
-second time, and for ZFS that is a pool import.  `--fid2path` on ZFS means a
-stopped target, so import/export/import should be fine, but it was not
-exercised -- the lab is ldiskfs only, which is also what conf-sanity 166
-restricts itself to.
+## The ZFS lab, and the wrong answer I got twice from it
+
+`lfu-zfs-guard` on GCP (c3-standard-8, Rocky 9, OpenZFS 2.2.11 DKMS, three
+20 GB disks so the pools sit on real block devices), the round-17 stack built
+`--enable-server --with-zfs --disable-ldiskfs`.  Deleted when it finished.
+
+`lfind --device <ZFS OST> --fid2path <mount>` **hangs**.  I twice reported the
+cause as a libzpool deadlock from the guard opening the target a second time
+-- `scan_zfs_close()` drops the refcount to zero, so it runs `spa_export()`
+and `kernel_fini()`, and the scan's own open then has to `kernel_init()` and
+`spa_import()` again.  That was wrong.  The kernel stack says so plainly:
+
+    osc_ioc_fid2path -> obd_get_info -> osc_get_info
+                     -> ptlrpc_queue_wait -> wait_woken
+
+It is blocked resolving an **OST object FID through the OSC**, waiting on an
+RPC to an OST the client still lists ACTIVE while the lab has exported its
+pool to scan it.  Not libzpool, not the second open, not the guard.
+
+**What misled me, both my own errors.**  195 threads looked like a second
+`kernel_init()`; it is what *one* open costs, which I never measured.  And
+arm A (no `--fid2path`) passing while arm B hung looked like the extra open,
+when the other difference between them is that B resolves FIDs through the
+client.  The empty-target run that "did not reproduce" was the honest signal
+-- no objects, no FIDs to resolve, nothing to block on -- and I dismissed it
+as vacuous.
+
+**The real finding, which is worth keeping.**  `--fid2path` cannot be
+satisfied on a ZFS target at all: scanning one needs the pool exported, and an
+OST object's pathname resolves through the OSC to the owning file, which needs
+that OST reachable.  The two requirements are in direct conflict, and it
+blocks rather than failing.  That is a property of 68288 as pushed in round
+16, not a round-17 regression; ldiskfs never hits it because the target can
+stay mounted.  Now documented in `lfind.8`.
+
+**The guard was rewritten anyway**, because the rewrite is better code and
+because its ZFS behaviour can be inferred from a result I have.  The fsname
+comparison moved inside the scan's own open: `llapi_scan_device()` is a
+wrapper over `scan_device_run()`, which takes the mount's fsname and checks it
+right after `sb_open`.  One open, no export/import churn -- exactly what arm A
+does, which is proven to complete.  `scan_device_fsname()` is deleted.
+
+## Four lab-script faults, all the same shape
+
+Each produced a result that looked like a finding:
+
+1. `04z-guard.sh` destroyed and recreated `lfu-ost1` as `otherfs` at its step
+   3, so the *next* script's tests ran against a target whose fsname no longer
+   matched and took the refusal path instead of the one under test.
+2. `repro.sh` destroyed the pool holding a **registered** OST, then
+   `lfs setstripe -c -1` and wrote files -- which blocked forever on the
+   missing OST.  Fifteen minutes spent watching a filesystem I had broken.
+3. `repro2.sh` used an empty never-mounted target, so all three arms returned
+   0 lines and the run proved nothing either way.
+4. `repro3.sh` reuses a fixed OST index, and the index stays registered with
+   the MGS after the pool is destroyed -- so it works exactly once
+   (`The target service's index is already in use`).  Use a fresh index per
+   run.
+
+The shared lesson, which is the older "assert the shape, not just that two
+runs agree" in another form: **a lab script that mutates its own fixture
+cannot be trusted, and a script that mutates the fixture for the next script
+is worse.**  Build the fixture once, then leave it alone across every arm.
+
+## Verified before the push
+
+- ldiskfs, on the final single-open build: conf-sanity **165 PASS x2, 166
+  PASS x2**, 0 skips, and the guard script 3/3 (a mismatched `otherfs:MDT0000`
+  refused with `-EXDEV`, a matching `lustre:MDT0000` not refused, and 4
+  internal objects proving the scan really ran).
+- sanity 157c/160aa-160ad/160y/160z **14/14** on the earlier build; that code
+  is untouched by the single-open rewrite.
+- `make -C lustre/utils` clean under `-Wall -Werror`; `mdd.ko` compiles.
+- checkpatch per patch: no new findings beyond the file's NULL-comparison
+  house style, no ERRORs.
+- 16 + 2 Change-Ids, both bases unchanged at 5afbab284e.
+
+## Pushed 2026-09-01
+
+68095/68160 PS16, 68156-68159 PS15, 68163 PS14, 68288 PS9, 68415-68420 PS7,
+68413/68414 PS6.  68094 (PS15), 68231 (PS4) and 68340 (PS3) were not touched
+this round and keep their existing votes.
