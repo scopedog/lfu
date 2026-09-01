@@ -42,6 +42,38 @@ HSM, and stops at the first object on an OST.
 precisely when the target cannot answer, so one object it could not place
 would stop the whole search there.
 
+## `--paths`: no mount at all
+
+Added the same evening.  `--fid2path` still needs a mount -- not to resolve
+anything, but as the filesystem the paths hang from and for the
+wrong-filesystem comparison -- and a filesystem whose only MDT is the target
+being scanned has none to give.  For a single-MDT **ZFS** filesystem that is
+every scan of its MDT, the pool having to be exported.
+
+`--paths` composes the same names with no mount, printing them relative to
+the filesystem root.  Nothing is asked of any running service.  Measured with
+the whole filesystem torn down -- no client, no MDT, no OST -- scanning the
+raw backing image: **8/8, identical to what the client saw beforehand.**
+
+It is an MDT target only, and refused on an OST rather than answered with
+every object nameless: an OST object is named by the file that owns it, and
+that name lives on an MDT.  It cannot be combined with `--fid2path`.
+
+The change was small because the walk never needed the mount: the map path
+was merely gated behind `fc_mnt_fd >= 0`.
+
+## A missing device said the wrong thing
+
+`scan_backend_kind()` answers ZFS for anything that is not a block device or
+a regular file -- right for a dataset name, which does not stat, and wrong
+for `/dev/mapper/gone`.  A mistyped or torn-down device was reported as a
+**missing ZFS backend**, sending the reader after a package instead of at the
+name they typed.  Now `cannot scan '<dev>': No such file or directory`.  Only
+a leading `/` separates the two cases, a dataset name never having one.
+
+Predicted when the round-18 refusal was being designed, and acted on only
+when a failing test produced the confusing message for real.
+
 ## Two documented limits, both counted rather than hidden
 
 - An OST object no file owns yet -- precreated, never written -- carries no
@@ -56,7 +88,8 @@ would stop the whole search there.
 |---|---|---|
 | OST via trusted.fid | 12/12; conf-sanity 167 PASS x2 | 10/10, identical to the client's list |
 | MDT via linkea walk | 9/9 offline, = mounted baseline | 10/10, identical to the client's list |
-| conf-sanity 165, 166 | PASS x2 each, 0 skips | -- |
+| conf-sanity 165, 166, 167 | PASS x2 each, 0 skips | -- |
+| `--paths`, whole filesystem down | 8/8, identical to the client's list | (same code path) |
 
 Build clean under `-Wall -Werror`; no new checkpatch findings; no ERRORs.
 
