@@ -8,6 +8,29 @@ false positive.
 Branches: `r16-work` (16-commit stack) and `r16-pair` (mdd/mdc), with
 `backup-pre-r17-2026-09-01` / `backup-pre-r17-pair-2026-09-01` beside them.
 
+## The lab found a defect in the 68288 fix
+
+The first lab build passed sanity 14/14 but failed the targeted check for the
+new wrong-filesystem guard: it never fired.
+
+`mkfs.lustre` encodes registration state in the target label's separator --
+`fsname-MDT0000` once registered, `fsname:MDT0000` never mounted,
+`fsname=MDT0000` after writeconf, `fsname+MDT0000` after `--nolocallogs`.
+`scan_device_fsname()` split on `strrchr(label, '-')`, so it found an fsname
+for one of the four and `-ENODATA` for the other three, and the "nothing to
+compare, carry on" fallback then let the scan run.  The form it got wrong,
+`:`, is the one a device scan is most likely to meet: a target that has never
+been mounted.
+
+`scan_ldiskfs_label()`, twenty lines away, already had this right -- the
+target part is the last eight characters, and it reads all four separators.
+The fix now uses the same rule and additionally requires the backend to have
+recognised the target (`tt_flags`).
+
+Worth remembering: this was a second, wrong parser written next to a correct
+one, and no amount of desk review had caught it.  Only a target formatted and
+never mounted shows it.
+
 ## Verified defects fixed
 
 | Change | Finding |
@@ -70,8 +93,48 @@ Branches: `r16-work` (16-commit stack) and `r16-pair` (mdd/mdc), with
   empty string are refused.
 - 16 Change-Ids, base unchanged at 5afbab284e.
 
-## Not yet run
+## The lab run
 
-The behavioural lab.  sanity 160aa/160ac and conf-sanity 165/166 have not been
-run against this round, and the 68288 wrong-filesystem refusal wants two
-filesystems to exercise properly.
+On `rhel9.7-server-mgs-mds-clone`, tree `~/lustre-160ac` branch `lab-r17` =
+the 16-commit stack with the mdd/mdc pair cherry-picked; `git diff lab-r16
+lab-r17` is this round and nothing else.  MDSCOUNT=2, OSTCOUNT=1, ldiskfs,
+`ONLY_REPEAT=2`.
+
+The installed binaries were confirmed to be this round by grepping the
+installed `lfs` for strings only round 17 introduces -- the version string
+reads `2.17.57_62_g20e1f0f`, a stale configure-time describe that says
+nothing.
+
+**sanity, on the final build: 14/14 PASS, 0 SKIP.**
+
+    157c PASS:2  160aa PASS:2  160ab PASS:2  160ac PASS:2
+    160ad PASS:2  160y PASS:2  160z PASS:2
+
+**The targeted checks**, for the defects with no subtest of their own
+(`15-r17-guard.sh`, `14-r17-targeted.sh` on the VM):
+
+- 68288: a never-mounted `otherfs:MDT0000` on a loop device is refused with
+  *"'/mnt/lustre' is a mount of 'lustre', not of 'otherfs'"*; a
+  `lustre:MDT0000` control is not refused, and `--internal` reports 4 objects
+  on it, so the control is not passing merely because the scan did nothing.
+- 68159: `lfs setstripe --foreign=none --xattr=abc` gives a 19-byte
+  `trusted.lov`, and `--foreign` finds the file.
+- 68095: a tmpfs under `/mnt/lustre` produces no `cannot get` lines on stderr
+  from `-printf '%p %Lc\n'`, and the walk still reaches both objects.
+
+**conf-sanity, on the final build: 165 PASS:2, 166 PASS:2, 0 SKIP.**  166 is
+the `--fid2path` case, so it also covers the guard's legitimate path: it
+created 20 objects under 21 names, resolved every one through a client
+mounted on the MDS, and counted the hardlink once.  It reports in 0-1s, which
+is the test being small and not the test being skipped -- the log carries the
+object counts.
+
+**One comment was reworded after the run.**  `git diff` between the tree the
+lab built and the final tree touches only comment lines in
+`liblustreapi_scan_device.c`; no code line differs.
+
+**Not covered by this lab: the ZFS path.**  The guard opens the target a
+second time, and for ZFS that is a pool import.  `--fid2path` on ZFS means a
+stopped target, so import/export/import should be fine, but it was not
+exercised -- the lab is ldiskfs only, which is also what conf-sanity 166
+restricts itself to.

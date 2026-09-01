@@ -1,0 +1,28 @@
+=== lfs version: lfs 2.17.57_62_g20e1f0f
+=== formatting and mounting (MDSCOUNT=2 FSTYPE=ldiskfs)
+=== ONLY=157c,160aa,160ab,160ac,160ad,160y,160z ONLY_REPEAT=2
+=== verdicts ===
+  PASS 157c (0s)
+  PASS 157c (1s)
+  PASS 160aa (18s)
+  PASS 160aa (18s)
+  PASS 160ab (7s)
+  PASS 160ab (7s)
+  PASS 160ac (9s)
+  PASS 160ac (9s)
+  PASS 160ad (3s)
+  PASS 160ad (3s)
+  PASS 160y (1s)
+  PASS 160y (2s)
+  PASS 160z (1s)
+  PASS 160z (2s)
+=== tally ===
+  157c  PASS:2 FAIL:0 SKIP:0
+  160aa  PASS:2 FAIL:0 SKIP:0
+  160ab  PASS:2 FAIL:0 SKIP:0
+  160ac  PASS:2 FAIL:0 SKIP:0
+  160ad  PASS:2 FAIL:0 SKIP:0
+  160y  PASS:2 FAIL:0 SKIP:0
+  160z  PASS:2 FAIL:0 SKIP:0
+  (SKIP must be 0 -- a skipped test proves nothing)
+LAB RUN DONE -- full log at /tmp/lab-r17.log
