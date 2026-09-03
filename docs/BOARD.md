@@ -136,6 +136,25 @@ rather than incidentally. The `--paths`+`--fid2path` arm doubles as end-to-end
 cover for finding (5)'s fix: it now prints the usage block and exits 1, where
 before it exited 4 in silence.
 
+### Settled: 68094 PS16 `lustre-initialization` is **not ours** (2026-09-03)
+
+The user pulled the logs. `mount -t lustre` for **mds2** on
+`trevis-156vm260` failed with `No such device` (19) and *"Are the lustre
+modules loaded?"*, and Auster exited.
+
+**Same session, same build, mds1 mounted and reported `Started
+lustre-MDT0000`** on its own node one line earlier. Identical binaries: one
+MDS node registers the `lustre` filesystem type and mounts, the other does
+not. vm260's dmesg carries 34 Lustre lines — all `lctl mark` DEBUG MARKERs,
+so libcfs and obdclass were live there; the last one is the mount command
+itself and then nothing.
+
+A per-node provisioning problem, not a code one. 68094 touches
+`lustre/utils/`, `lustreapi.h`, a man page and a test binary — **no kernel
+source at all** — and jenkins is Verified+1 on the build.
+
+The original note, kept because the reasoning was the useful part:
+
 ### Watch, not noise: 68094 PS16 `lustre-initialization` (2026-09-03)
 
 One enforced failure on the first sessions after round 19's push:
