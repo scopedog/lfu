@@ -169,8 +169,30 @@ weak evidence. It answers what it can see and cannot distinguish "not present
 because it passed" from "not present because it never ran". Ask the Janitor's
 own Gerrit comment, which names failures explicitly.
 
-**Not yet known:** the mechanism. Whether to refuse the combination in
-`llapi_scan_device()` or skip ZFS in `test_167` depends on it.
+**Mechanism found, fixed, and verified (2026-09-03).** The test never passed
+`--search`. An exported ZFS pool is found by reading vdev labels under a
+search path that defaults to `/dev`, and the framework's ZFS vdevs are
+*files in `$TMP`* (`ostvdevname 1` is `/tmp/lustre-ost1`), so
+`zpool_find_config()` found nothing and `lfind` answered `cannot open
+lustre-ost1/ost1: No such file or directory (2)`. The fix is one line in
+test_167's existing `export_zpool` branch:
+`search="--search $(dirname $(ostvdevname 1))"`, folded into LU-20637.
+**PASS 167 on ZFS**; 166/167/168 all pass on ldiskfs. Full account and the
+four measured-and-wrong hypotheses: `docs/round20/zfs-fid2path.md`.
+
+That settles the three items above:
+
+1. `db3e58ad` asked us to refuse `--fid2path` on ZFS. It works on ZFS; the
+   reviewer's premise was the failing test, and the test was at fault. The
+   correction already posted stands as posted — no further change.
+2. The `scan_device_run()` comment claims only that a second open is *not
+   free*, not that it deadlocks. A standalone program does the full double
+   `kernel_init`/`spa_import`/`dmu_objset_own`/disown/`spa_export`/
+   `kernel_fini` cycle twice against a real exported pool and returns. The
+   comment as written is supported by measurement.
+3. 68288's dropped paragraph said `--fid2path` cannot be satisfied on a ZFS
+   target at all. It cannot be: it is satisfied, 20 objects named. Leaving
+   it out was right, for the wrong reason.
 
 ### Settled: 68094 PS16 `lustre-initialization` is **not ours** (2026-09-03)
 
