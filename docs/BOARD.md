@@ -136,6 +136,25 @@ rather than incidentally. The `--paths`+`--fid2path` arm doubles as end-to-end
 cover for finding (5)'s fix: it now prints the usage block and exits 1, where
 before it exited 4 in silence.
 
+### Watch, not noise: 68094 PS16 `lustre-initialization` (2026-09-03)
+
+One enforced failure on the first sessions after round 19's push:
+`review-dne-part-1`, session `4912e6ca`, *"ran 2 tests. 1 tests failed:
+lustre-initialization"*. Lustre never came up.
+
+**Not called noise yet, and not called ours.** Against it being ours: jenkins
+is Verified+1 with a successful build, 68094 touches no kernel module, and the
+failure came from **RHEL 10.1** while the announced enforced list has
+`review-dne-part-1 on el9.7-x86_64` — a distro that was not in the plan.
+Against dismissing it: it is on the change carrying the scanner API, and
+`lustre-initialization` is not in the known-noise list.
+
+**The inference to avoid:** it is the only change with an enforced failure,
+which looks like the one-change cluster that means a real defect. It is not —
+the CI had barely started, every change had one or two of ~30 sessions
+reported and **zero** "Passed enforced" anywhere. Re-check once the sweep has
+run.
+
 **Reviews still owed:** 68418 and 68288 both died on API overload (ten
 retries at `529`, zero tokens); an earlier 68418 attempt died at a `500`
 after $2.77. 68156 is running. Run `lreview` **one at a time** — three
