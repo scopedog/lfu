@@ -1,7 +1,11 @@
 import json, re, subprocess, sys, os, datetime
 STATE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'seen.json')
+# Every change of ours in review.  A change pushed and not added here is
+# INVISIBLE to this watch -- which is how 68340 stayed out of the 2026-08-27
+# morning check.  68616 and 68617 are the two preparatory changes round 19
+# added at the bottom of the stack.
 CHANGES = [68094,68095,68156,68157,68158,68159,68160,68163,68231,68288,68340,
-           68413,68414,68415,68416,68417,68418,68419,68420]
+           68413,68414,68415,68416,68417,68418,68419,68420,68616,68617]
 Q = " OR ".join("change:%d" % c for c in CHANGES)
 
 def fetch():
