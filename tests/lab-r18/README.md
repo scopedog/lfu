@@ -88,3 +88,33 @@ record for that FID is the HLINK, which names it `g2`.
 searches "have to look at the other names before dropping the object". Whether
 the asymmetry is intended is not the lab's call, so the arms report it as a
 NOTE and assert nothing either way.
+
+## A public header change needs `lustre/tests` rebuilt too
+
+`make -C lustre/utils` is the quick incremental rebuild, and it is **not
+enough when a field is added to a public struct**. `llapi_scan_test` lives in
+`lustre/tests/` and compiles its own `sizeof(struct llapi_scan_param)`, so a
+stale binary and a fresh library disagree about the struct's length.
+
+Round 20 hit exactly that: `sanity` 157c's test6 passes `sizeof(sp) + 8` and
+expects `-EINVAL`. The stale test computed 56 + 8 = 64, the new library's
+struct *is* 64 with `sp_fsname`, so the library correctly accepted it and the
+test called it a failure. `make -C lustre/tests && make install` there, and it
+passes twice.
+
+Worth knowing because the failure looks like a logic regression in the very
+code the round changed, and it is not.
+
+## And the diff must be cumulative, not incremental
+
+`git checkout -- .` in `~/lustre-r18` reverts to the committed state — the 21
+patches `git am` applied — **not** to whatever the previous round left. So a
+delta generated between two later branches applies onto the wrong base and
+silently drops everything in between.
+
+Round 20 hit this too: applying only the round-19→round-20 delta left a tree
+with round 20's fixes and none of round 19's, and the cookie arms failed 5 of
+8 with round 19's own bugs. Generate the diff from the branch the patches were
+made from (`r19-backup-0903`), so it carries every round at once.
+
+The arms caught it; a green `sanity` run alongside them did not.
