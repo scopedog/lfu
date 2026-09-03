@@ -94,6 +94,31 @@ event's fields the coalesced record carries, and `lfs-find.1` says which name
 Three commits changed: **68415**, **68419**, **68420**. Every other commit is
 byte-identical by `git range-diff`, and no checkpatch count moved.
 
+### 68156's review (2026-09-03) — five findings, five real, five fixed
+
+10.4M tokens, $9.81, 27m38s. Every one verified against the tree first.
+
+| # | Finding | Fix |
+|---|---|---|
+| 1 | The device scanner stamped `trusted.lmv` — a directory's **actual** stripe — with `LMV_USER_MAGIC`, which the tree uses for a **default** LMV (`cb_get_dirstripe()` sets it exactly when `fp_get_default_lmv` is asked for). `llite/dir.c:2274` fills `LMV_MAGIC_V1`, so the two scanners gave one striped directory two values in the same field — against `sr_lmv`'s promise that it means one thing whichever scanner filled it | `LMV_MAGIC_V1` |
+| 2 | `sb_dl_handle` assigned after `dlopen()` and never read; both error paths use the local handle, and 68163 only carries it as context | field removed |
+| 3 | `LLAPI_SCAN_PARENT` never named in `llapi_scan_device.3` — and `sr_parent_fid` was written unconditionally while `sr_owner_fid` twenty lines on memsets itself when insane | memset + a `.TP` |
+| 4 | Missing words in the `ss_class` sentence in `lustreapi.h` | reworded to match the man page |
+| 5 | The `llapi_test_utils` `run_test_tbl()` split unexplained in the message | sentence added |
+
+**Finding 1 is a contract broken, not a wrong answer observed** —
+`lmv_dump_user_lmm()` is reached only from the `getstripe`/`getdirstripe`
+walk callbacks (`liblustreapi.c:3597`, `:3688`), never from a scan record. It
+is what *would* break: the magic decides its `(Default)` prefix and which
+fields a bare `-v` shows. Stated that way in the commit message rather than
+claiming user-visible breakage.
+
+Verified: `-Werror` clean, every checkpatch count at baseline, `sanity`
+56El/157c/160aa–ad/160y/160z **PASS ×2, zero skips**, both arms suites
+**8/8 and 14/14**, and the final tree diff carries only the intended changes
+— the extra commit `range-diff` flagged was context-only, checked rather
+than assumed.
+
 **Reviews still owed:** 68418 and 68288 both died on API overload (ten
 retries at `529`, zero tokens); an earlier 68418 attempt died at a `500`
 after $2.77. 68156 is running. Run `lreview` **one at a time** — three
