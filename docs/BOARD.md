@@ -62,6 +62,43 @@ to `1 errors, 0 warnings, 2 checks`. Every man page under `Documentation` was
 checked before and after: **378 pages, and `lustreapi.7` is the only one whose
 count changes.**
 
+### Round 19, unpushed (2026-09-03)
+
+`lreview` — the Gerrit AI review run locally, before pushing — found three
+defects on **68419**. All three verified against the tree, none already fixed,
+none noise. Fixed, with a before/after measurement on the lab for each:
+
+| Finding | Consequence before the fix |
+|---|---|
+| The cookie header's root read with `%s` | A search root with a space read back truncated, so **every run after the first exited `-EINVAL`**, naming a path the caller never gave |
+| `%4x` on the MDT number | `-MDT0000_UUID` and `-MDT00001` **anchored MDT0000** at an index never written for it, suppressing the whole answer at exit 0 |
+| `-ESTALE` absent from `llapi_find_since.3` | The error the option is built around, missing from the only place an API caller would look |
+
+A fourth fell out of the regression arms: the old guard
+`if (*num == '-' || *num == '+')` inspects only `num[0]`, so
+`lustre-MDT000-1` put the sign at index 3 and `%4x` read `000` — the exact
+case that guard's comment said it stopped.
+
+`tests/lab-r18/05-arms-cookie.sh` pins all of it and is itself validated
+against a build without the fix, where it fails 5 of 8 while the one arm that
+must pass either way still passes. **The discriminator is
+`liblustreapi.so`, not `lfs`** — `find_cookie_read()` is in the library.
+
+The lab's own `-name` asymmetry is **documented rather than fixed** (the
+user's call, 2026-09-03): the log is coalesced to one record per object, so
+the only name `-name` can match is the object's *latest* event's, and the
+pathname printed is its *first* name. `llapi_scan_changelog.3` now says which
+event's fields the coalesced record carries, and `lfs-find.1` says which name
+`-name` tests. No behaviour change.
+
+Three commits changed: **68415**, **68419**, **68420**. Every other commit is
+byte-identical by `git range-diff`, and no checkpatch count moved.
+
+**Reviews still owed:** 68418 and 68288 both died on API overload (ten
+retries at `529`, zero tokens); an earlier 68418 attempt died at a `500`
+after $2.77. 68156 is running. Run `lreview` **one at a time** — three
+concurrently is self-inflicted contention.
+
 **As of 2026-09-02 17:48 every one of the nineteen carries `maloo Verified-1`**
 — all of them the LU-20598 `sanity-sec` roll-up, not a defect of ours. That
 now blocks landing: the Maloo annotation has stopped being free and needs the
