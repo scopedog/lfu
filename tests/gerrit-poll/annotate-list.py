@@ -26,12 +26,24 @@ CHANGES = [68094, 68095, 68156, 68157, 68158, 68159, 68160, 68163, 68231,
            68288, 68340, 68413, 68414, 68415, 68416, 68417, 68418, 68419,
            68420, 68616, 68617]
 
-# LU-20598: sanity-sec in review-dne-selinux-ssk-part-2, deterministic and
-# tree-wide.  26 of 37 other owners' changes hit it too, which is the
-# argument for annotating rather than chasing it.
+# LU-20598, open: "sanity-sec test_27e: Timeout occurred after 258 minutes,
+# last suite running was sanity-sec".  It is a SESSION TIMEOUT, not a subtest
+# assertion -- sanity-sec is merely the suite the clock ran out in, and the
+# minute count tracks the session budget (241-243 on ours, 258 in the
+# ticket).  Tree-wide: 26 of 37 other owners' changes hit it too, which is
+# the argument for annotating rather than chasing it.
+#
+# The catch this cannot solve: Gerrit's message says only "1 tests failed:
+# sanity-sec", the same words a real sanity-sec assertion failure would
+# produce.  The timeout is visible only in Maloo.  So a row below is a
+# CANDIDATE for the annotation and not a confirmed one -- open the session
+# and look for the timeout line before annotating it as LU-20598.
 KNOWN = {"suite": "review-dne-selinux-ssk-part-2",
          "tests": {"sanity-sec"},
-         "ticket": "LU-20598"}
+         "ticket": "LU-20598",
+         "subtest": "test_27e",
+         "signature": "Timeout occurred after N minutes, "
+                      "last suite running was sanity-sec"}
 
 SESSION = re.compile(r"https://testing\.whamcloud\.com/test_sessions/"
                      r"[0-9a-f-]+")
@@ -98,8 +110,13 @@ def main():
             print("  %-6s PS%-3s %-34s %-22s %s"
                   % (num, ps, suite, ",".join(tests), url))
 
-    print("=== TO ANNOTATE as %s (%d sessions)" % (KNOWN["ticket"], len(known)))
+    print("=== CANDIDATES for %s / %s (%d sessions)"
+          % (KNOWN["ticket"], KNOWN["subtest"], len(known)))
     show(known) if known else print("  none")
+    if known:
+        print("  ^ confirm in Maloo before annotating: LU-20598 is a session")
+        print("    TIMEOUT (%s)," % KNOWN["signature"])
+        print("    and Gerrit words it the same as a real sanity-sec failure.")
 
     print()
     print("=== OTHER enforced failures -- NOT accounted for (%d)" % len(other))

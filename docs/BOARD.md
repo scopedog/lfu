@@ -173,7 +173,7 @@ now stale at PS6.
 
 | Ticket | What it is | Where we see it |
 |---|---|---|
-| **LU-20598** | `sanity-sec` fails in `review-dne-selinux-ssk-part-2` | Every change, deterministically. The only thing producing `maloo −1` on the series. 26 of 37 other owners' changes hit it too |
+| **LU-20598** | A **session timeout**, not an assertion — the ticket's summary is *"sanity-sec test_27e: Timeout occurred after 258 minutes, last suite running was sanity-sec"*, open. Ours read 241–243 min; `sanity-sec` is only the suite the clock ran out in | Every change, deterministically. The only thing producing `maloo −1` on the series. 26 of 37 other owners' changes hit it too. Gerrit words it *"1 tests failed: sanity-sec"*, indistinguishable from a real failure — check Maloo for the timeout line |
 | **LU-20523** | MDS LBUG in `tgt_grant_sanity_check()` when the ZFS MDT quota is lowered below the outstanding client grant — `sanity` **805** and **807a**. Open, filed 2026-07-25 by Oleg Drokin, affects 2.17.0 / 2.15.8 | The `%% CRASHED %%` sessions in `review-dne-zfs-part-1`. Read off 68418's crash dump 2026-09-02 |
 | **LU-17857** | `sanityn test_cleanup: Autotest time out` | `review-dne-*-part-5`, six of our changes so far |
 | **LU-19027** | `sanity` 271d/271f `-1 resend occured` | Data-on-MDT read-on-open |
