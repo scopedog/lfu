@@ -119,6 +119,23 @@ Verified: `-Werror` clean, every checkpatch count at baseline, `sanity`
 — the extra commit `range-diff` flagged was context-only, checked rather
 than assumed.
 
+### conf-sanity test_168, --paths (2026-09-03)
+
+`--paths` had **no test at all** — 166 and 167 both exercise only
+`--fid2path` — which is what 68288's review flagged. `test_168` scans an MDT
+in service **with no mount given**, the case a filesystem whose only MDT is
+the target has to be named in, and asserts one path per object rather than one
+per name (20 objects from 21 names), the hardlinked object once, no FID where
+a path was asked for, and **no mount point in the answer** — root-relative
+being what separates `--paths` from `--fid2path`, and a mounted prefix meaning
+the wrong composer ran. Plus both refusals: on an OST, and together with
+`--fid2path`.
+
+**`PASS 168 (11s)`**, and both refusals verified to fire for their own reasons
+rather than incidentally. The `--paths`+`--fid2path` arm doubles as end-to-end
+cover for finding (5)'s fix: it now prints the usage block and exits 1, where
+before it exited 4 in silence.
+
 **Reviews still owed:** 68418 and 68288 both died on API overload (ten
 retries at `529`, zero tokens); an earlier 68418 attempt died at a `500`
 after $2.77. 68156 is running. Run `lreview` **one at a time** — three
