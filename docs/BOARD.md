@@ -136,6 +136,42 @@ rather than incidentally. The `--paths`+`--fid2path` arm doubles as end-to-end
 cover for finding (5)'s fix: it now prints the usage block and exits 1, where
 before it exited 4 in silence.
 
+### `--fid2path` does not work on ZFS, and I got this wrong twice (2026-09-03)
+
+**`conf-sanity test_167` fails on every ZFS configuration on PS10** —
+`conf-sanity4@zfs` and all twenty `conf-sanity-special@zfs` variants — with
+*"lfind --fid2path on a stopped lustre-ost1/ost1 failed"* (janitor job 69464).
+It passes on ldiskfs.
+
+**How I got it wrong.** On PS9 (job 69322) I read the results page, saw
+`test_167` absent from the failure and skip listings, and concluded it had
+passed on ZFS. It had not run: the highest `conf-sanity4@zfs` subtest
+referenced there is 166 and the `special@zfs` sessions were skipped. Absence
+meant *not run*, not *passed*. PS10 touched `conf-sanity.sh` by adding
+`test_168`, the Janitor re-selected the touched subtests, and 167 reached ZFS
+for the first time.
+
+**What that bad inference was used for**, all of which now needs revisiting:
+
+1. **AI comment `db3e58ad` was declined on it** — the reviewer asked us to
+   refuse `--fid2path` on ZFS, and I replied that the premise was gone. A
+   correction is posted on the thread. **The reviewer was right.**
+2. **The `scan_device_run()` comment was rewritten** in round 20 to drop the
+   libzpool deadlock claim, on the same evidence. The failure is a failure and
+   not a hang, so the deadlock claim is still neither proved nor disproved —
+   but it is no longer *disproved*, which is what I claimed.
+3. **68288's commit message lost a paragraph** saying `--fid2path` cannot be
+   satisfied on a ZFS target at all. That paragraph may simply have been
+   right.
+
+**Lesson for the tooling:** a `WebFetch` summary of a large results page is
+weak evidence. It answers what it can see and cannot distinguish "not present
+because it passed" from "not present because it never ran". Ask the Janitor's
+own Gerrit comment, which names failures explicitly.
+
+**Not yet known:** the mechanism. Whether to refuse the combination in
+`llapi_scan_device()` or skip ZFS in `test_167` depends on it.
+
 ### Settled: 68094 PS16 `lustre-initialization` is **not ours** (2026-09-03)
 
 The user pulled the logs. `mount -t lustre` for **mds2** on
