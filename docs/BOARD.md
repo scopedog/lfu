@@ -30,8 +30,12 @@ Stack order (bottom first). `PS` is the current patch set.
 | LU-20650 | [68419](https://review.whamcloud.com/c/fs/lustre-release/+/68419) | 7 | lfs: find --since-cookie, per-MDT anchor | jenkins+1 |
 | LU-20650 | [68420](https://review.whamcloud.com/c/fs/lustre-release/+/68420) | 7 | tests: sanity cases for find's changelog flags | jenkins+1 |
 
-All three `maloo−1`s are the LU-20598 `sanity-sec` roll-up, not a defect of
-ours. `adilger` left the series' only human vote, `Code-Review+1` on 68413 PS2,
+**As of 2026-09-02 17:48 every one of the nineteen carries `maloo Verified-1`**
+— all of them the LU-20598 `sanity-sec` roll-up, not a defect of ours. That
+now blocks landing: the Maloo annotation has stopped being free and needs the
+user's login. The vote arrives with a message that says *"Passed enforced test
+review-dne-part-3"*, so read the -1 against the session list and not against
+the sentence attached to it. `adilger` left the series' only human vote, `Code-Review+1` on 68413 PS2,
 now stale at PS6.
 
 ## Not ours: other people's tickets that show up in our CI

@@ -1,0 +1,29 @@
+Round 16 (2026-08-31) — fetching the latest patchsets
+
+The 16-commit stack (LU-20603 -> LU-20650; LU-20624/68231 is its base, so
+this one fetch brings all sixteen):
+
+  git fetch https://review.whamcloud.com/fs/lustre-release refs/changes/20/68420/6 && \
+      git checkout -b lfu-r16 FETCH_HEAD
+
+The mdd/mdc pair (LU-20647 + LU-20648) — a separate root off master, so it
+needs its own fetch:
+
+  git fetch https://review.whamcloud.com/fs/lustre-release refs/changes/14/68414/5 && \
+      git checkout -b lfu-r16-pair FETCH_HEAD
+
+LU-20643 / 68340, standalone and unchanged this round:
+
+  git fetch https://review.whamcloud.com/fs/lustre-release refs/changes/40/68340/3 && \
+      git checkout -b lu-20643 FETCH_HEAD
+
+Notes:
+- These refs are the patchsets live as of 2026-08-31. They are not stable:
+  the next round moves them, and a stale ref fetches an old patchset
+  silently rather than failing.
+- The two branches share no history, so they cannot be checked out into one
+  tree as-is. Combining them conflicts in lustre/tests/sanity.sh, where
+  160aa-160ad and 160y/160z sit adjacent and share a closing tail --
+  stripping the conflict markers leaves a file that does not parse.
+- Any change number works the same way, e.g. refs/changes/56/68156/14 for
+  the ldiskfs scanner and everything under it.
