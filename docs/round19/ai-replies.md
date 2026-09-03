@@ -19,45 +19,58 @@ A thread's state is its **last** comment's flag. Computed properly:
 
 The user scoped this round to the 49.
 
-## Posted 2026-09-03 — 10 replies, each verified against `r16-work` first
+## Posted 2026-09-03 — 47 replies, each verified against `r16-work` first
 
-| Change | PS | id | Verdict |
+Every one of the 49 in scope was read and checked against the tree before it
+got an answer. **42 were already addressed by round 18** and got `Done.`; one
+got a reason; **seven are still live and were left open**.
+
+| Change | PS | Posted | Left open |
 |---|---|---|---|
-| 68094 | 15 | `f6fb41f2` | Done — page now says to copy `sr_lmmsize` bytes and decode the copy |
-| 68094 | 15 | `a882d6a1` | Done — `llapi_scan_namespace (3)` is in `lustreapi.7` |
-| 68094 | 15 | `3869d04f` | Done — "Whole seconds since the epoch" added |
-| 68094 | 15 | `4186b3bf` | Half — dead `fp_min_depth` test removed; premise declined, `lfs find` does not go through this API |
-| 68094 | 15 | `62b01bbb` | Declined — `HAS_STDATOMIC` is for C11 `<stdatomic.h>`, not the `__atomic_*` builtins |
-| 68095 | 16 | `f60143a3` | Done — the message gained the printf/ENOTTY paragraph |
-| 68095 | 16 | `38890fd7` | Done — now tests `!= -ENOTTY && != -ENODATA && != -ENOTSUP` |
-| 68156 | 15 | `f9cd7c3b` | Done — ERRORS names the `ss_size` `-EINVAL` |
-| 68156 | 15 | `b84ccc7a` | Done — `libscan_ldiskfs_a_CPPFLAGS` is empty |
-| 68156 | 15 | `e21bfd46` | Done — `sb_worker_init` degrades like the `pthread_create` arm |
+| 68094 | 15 | 5 | — |
+| 68095 | 16 | 2 | — |
+| 68156 | 15 | 3 | `907b17a6` |
+| 68158 | 9 | — | `f82298cf`, `1343a02c` |
+| 68159 | 15 | 3 | — |
+| 68160 | 10 | 3 | `3af3a80a`, `6fd1845c` |
+| 68163 | 14 | — | `16169694` |
+| 68231 | 2 | 1 | — |
+| 68288 | 9 | 3 | `222a9f0d` |
+| 68415 | 7 | 9 | — |
+| 68416 | 7 | 2 | — |
+| 68417 | 7 | 3 | — |
+| 68418 | 7 | 7 | — |
+| 68419 | 7 | 3 | — |
+| 68420 | 7 | 3 | — |
 
-68095 is now fully answered. 68094 and 68156 have only their older-patchset
-threads left.
+Three replies carried a reason rather than `Done.`:
 
-## What the verification turned up — not everything was addressed
+- **68094 `4186b3bf`** — half: the dead `fp_min_depth` test is gone, the
+  premise declined, `lfs find` does not go through this API.
+- **68094 `62b01bbb`** — declined: `HAS_STDATOMIC` is for C11
+  `<stdatomic.h>`, not the `__atomic_*` builtins.
+- **68288 `db3e58ad`** — the premise is gone. It asked us to refuse
+  `--fid2path` on ZFS because `lfind(8)` said it was impossible; round 19
+  deleted that stale paragraph, and `conf-sanity` test_167 passes on
+  `conf-sanity4@zfs`.
 
-Round 18 fixed most of these, but **not all**, so a blanket `Done.` would have
-been publicly wrong. Two found so far that are still live:
+## The seven left open, and why
 
-- **68156 `907b17a6`** — `EXT2_COMPR_FL` and `EXT2_NODUMP_FL` are still in the
-  `so_flags` mask. The point stands: a namespace scan takes `sr_attr_flags`
-  from what the MDT declares, which is only IMMUTABLE/APPEND/ENCRYPTED, so the
-  same file answers `--attrs d` differently depending on which scanner ran.
-  Needs a decision — mask it to what a namespace scan can produce, or state
-  that a device scan is deliberately a superset.
-- **68158 `f82298cf`** — the header still reads *"or -1 if there is none"* for
-  both `@pathstartp` and `@pathendp`, and −1 in `@pathendp` means something
-  else: no option followed the paths, so the range runs to `argc`.
-  `1343a02c` is partly addressed — `@stopped` is now documented, but the
-  `Return:` line still says "0 on success".
+A thread whose finding is still live should not get an answer until it has
+one. These are round-20 work:
 
-**These are round-20 work, not replies.** A thread whose finding is still open
-should not get an answer until it has one.
+| Where | What |
+|---|---|
+| 68156 `907b17a6` | `EXT2_COMPR_FL`/`EXT2_NODUMP_FL` still in the `so_flags` mask, so `--attrs d` answers differently depending on which scanner ran |
+| 68158 `f82298cf` | header still says *"or -1 if there is none"* for `@pathendp`, where −1 means the range runs to `argc` |
+| 68158 `1343a02c` | `@stopped` is documented now, but `Return:` still says "0 on success" |
+| 68160 `3af3a80a` | the message still says nothing about the `conf-sanity.sh` hunk, a third of the diff |
+| 68160 `6fd1845c` | the `lfind` block still sits between `lfs_SOURCES` and `lfs_CFLAGS` |
+| 68163 `16169694` | a `stat()` failure still routes to the ZFS backend, so a mistyped device on an ldiskfs-only build reports `-ENOTSUP` and names ZFS |
+| 68288 `222a9f0d` | still no public way for an out-of-tree caller to match a mount to a scanned target |
 
-## Remaining
+## Remaining beyond this round
 
-39 of the 49 unverified. Each needs reading and checking against the tree
-before it can be answered; the two above are why.
+**88 open threads**, of which 81 sit on much older patchsets (68415–68420
+**PS1** alone is 57). Those want the same treatment and a comment-and-verdict
+file of their own.
