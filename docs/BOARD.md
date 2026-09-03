@@ -4,12 +4,14 @@ Every ticket and Gerrit id in play, and the ones that are *not* ours. Regenerate
 the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
 **2026-09-02**.
 
-## Ours: nineteen changes in review
+## Ours: nineteen in review, plus two preparatory changes built and unpushed
 
 Stack order (bottom first). `PS` is the current patch set.
 
 | Ticket | Gerrit | PS | Subject | Votes |
 |---|---|---|---|---|
+| LU-4315 | *unpushed* | — | contrib: let SEE ALSO carry subsections | — |
+| LU-19982 | *unpushed* | — | doc: fix lustreapi.7 SEE ALSO order and AVAILABILITY | — |
 | LU-20624 | [68231](https://review.whamcloud.com/c/fs/lustre-release/+/68231) | 4 | utils: fix stale fd in cb_get_dirstripe | jenkins+1, maloo−1 |
 | LU-20603 | [68094](https://review.whamcloud.com/c/fs/lustre-release/+/68094) | 15 | llapi: namespace scanner API | jenkins+1, maloo−1 |
 | LU-20605 | [68095](https://review.whamcloud.com/c/fs/lustre-release/+/68095) | 16 | llapi: build find on the scan record | jenkins+1 |
@@ -29,6 +31,36 @@ Stack order (bottom first). `PS` is the current patch set.
 | LU-20650 | [68418](https://review.whamcloud.com/c/fs/lustre-release/+/68418) | 7 | lfs: find --changelog, the log as source | jenkins+1 |
 | LU-20650 | [68419](https://review.whamcloud.com/c/fs/lustre-release/+/68419) | 7 | lfs: find --since-cookie, per-MDT anchor | jenkins+1 |
 | LU-20650 | [68420](https://review.whamcloud.com/c/fs/lustre-release/+/68420) | 7 | tests: sanity cases for find's changelog flags | jenkins+1 |
+
+### The two preparatory changes (2026-09-03)
+
+Round 18 adds a `Namespace Scanning` subsection to
+`Documentation/man7/lustreapi.7`, which makes checkpatch audit the whole page:
+**46 pre-existing findings**, so 68094, 68156, 68288, 68415 and 68416 showed
+~48 each where they showed 1–2.
+
+**42 of the 46 are checkpatch disagreeing with a landed upstream change.**
+`e558bbedc1 LU-19982 doc: Group lustreapi.7 functions by category` (Malkeet
+Singh, 2026-05-14, reviewed by Drokin, Dilger and Kansal) grouped the SEE ALSO
+references into `.SS` subsections. `contrib/scripts/checkpatch-man.pl`'s
+SEE ALSO checker accepts only a flat sorted run of `.BR page (N),` lines, so
+every subsection's description line and every `.PP` is reported as a malformed
+reference — 28 + 14 warnings. Flattening the page to satisfy it would revert
+LU-19982, so the fix is to the tool.
+
+| Count | Finding | Real? |
+|---|---|---|
+| 28 | `SEE ALSO lines must be of the following form` | No — every `.SS` prose line and `.PP` |
+| 14 | `'.PP' should end with ','` | No — same cause |
+| 2 | sort order (`llapi_pcc_state_get`, `llapi_fid_hash`) | **Yes** |
+| 1+1 | AVAILABILITY names `.B lustre (8)` | **Yes** |
+| 1 | ERROR: missing `release X.X.0`/`commit` for SUBJECT | Left — the page dates itself to 0.9.1 |
+| 1 | CHECK: non-standard manual section | Left — the user's standing call |
+
+After both changes `lustreapi.7` goes from `1 errors, 42 warnings, 4 checks`
+to `1 errors, 0 warnings, 2 checks`. Every man page under `Documentation` was
+checked before and after: **378 pages, and `lustreapi.7` is the only one whose
+count changes.**
 
 **As of 2026-09-02 17:48 every one of the nineteen carries `maloo Verified-1`**
 — all of them the LU-20598 `sanity-sec` roll-up, not a defect of ours. That
