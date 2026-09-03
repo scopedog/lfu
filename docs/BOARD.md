@@ -178,6 +178,17 @@ now stale at PS6.
 | **LU-17857** | `sanityn test_cleanup: Autotest time out` | `review-dne-*-part-5`, six of our changes so far |
 | **LU-19027** | `sanity` 271d/271f `-1 resend occured` | Data-on-MDT read-on-open |
 
+**`sanityn` test_51d**, seen on 68340 PS3 as a `sanity-dom` failure
+(`review-dne-part-4`, session `9df28be8`, 2026-08-29). `sanity-dom` runs
+`sanityn` as a sub-suite, so Gerrit's `sanity-dom,sanity-quota` misnames it —
+nothing in `sanity-dom`'s own subtests failed. *"rss before: 824, after 860,
+some pages remained"*, an mmap/layout-lock test asserting `Rss` is exactly
+zero after revocation. **Categorically not ours**: 68340 is 18 lines in
+`lustre/utils/liblustreapi_pfind.c` and 51d is `dd` + `multiop` + `smaps`,
+with no path between them. LU-10584 is the identical signature but
+Resolved/Fixed in 2.10.6 (2018), so there is nothing open to annotate
+against.
+
 Plus the unticketed regulars with Janitor 30-day rates in the hundreds:
 `sanity-pcc` 1c/1d, `recovery-small` 155, `sanity-lfsck` 18c, `sanity-hsm` 12u,
 `sanity-quota` 86, `sanity` 45 and 311. See the `lfu-autotest-known-noise`
