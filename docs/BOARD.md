@@ -4,33 +4,33 @@ Every ticket and Gerrit id in play, and the ones that are *not* ours. Regenerate
 the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
 **2026-09-02**.
 
-## Ours: nineteen in review, plus two preparatory changes built and unpushed
+## Ours: twenty-one changes in review (round 19 pushed 2026-09-03)
 
 Stack order (bottom first). `PS` is the current patch set.
 
 | Ticket | Gerrit | PS | Subject | Votes |
 |---|---|---|---|---|
-| LU-4315 | *unpushed* | — | contrib: let SEE ALSO carry subsections | — |
-| LU-19982 | *unpushed* | — | doc: fix lustreapi.7 SEE ALSO order and AVAILABILITY | — |
-| LU-20624 | [68231](https://review.whamcloud.com/c/fs/lustre-release/+/68231) | 4 | utils: fix stale fd in cb_get_dirstripe | jenkins+1, maloo−1 |
-| LU-20603 | [68094](https://review.whamcloud.com/c/fs/lustre-release/+/68094) | 15 | llapi: namespace scanner API | jenkins+1, maloo−1 |
-| LU-20605 | [68095](https://review.whamcloud.com/c/fs/lustre-release/+/68095) | 16 | llapi: build find on the scan record | jenkins+1 |
-| LU-20606 | [68156](https://review.whamcloud.com/c/fs/lustre-release/+/68156) | 15 | llapi: scan an ldiskfs target directly | jenkins+1 |
-| LU-20611 | [68157](https://review.whamcloud.com/c/fs/lustre-release/+/68157) | 15 | llapi: split cb_find_init's decider out | jenkins+1 |
-| LU-20611 | [68158](https://review.whamcloud.com/c/fs/lustre-release/+/68158) | 15 | lfs: share find's predicate parsing | jenkins+1 |
-| LU-20611 | [68159](https://review.whamcloud.com/c/fs/lustre-release/+/68159) | 15 | llapi: run find over a device scan | jenkins+1 |
-| LU-20611 | [68160](https://review.whamcloud.com/c/fs/lustre-release/+/68160) | 16 | utils: lfind, find over a target | jenkins+1 |
-| LU-20613 | [68163](https://review.whamcloud.com/c/fs/lustre-release/+/68163) | 14 | llapi: ZFS backend for llapi_scan_device | jenkins+1 |
-| LU-20637 | [68288](https://review.whamcloud.com/c/fs/lustre-release/+/68288) | 9 | llapi: name a device scan's objects | jenkins+1 |
+| LU-4315 | [68616](https://review.whamcloud.com/c/fs/lustre-release/+/68616) | 1 | contrib: let SEE ALSO carry subsections | new |
+| LU-19982 | [68617](https://review.whamcloud.com/c/fs/lustre-release/+/68617) | 1 | doc: fix lustreapi.7 SEE ALSO order and AVAILABILITY | new |
+| LU-20624 | [68231](https://review.whamcloud.com/c/fs/lustre-release/+/68231) | 5 | utils: fix stale fd in cb_get_dirstripe | jenkins+1, maloo−1 |
+| LU-20603 | [68094](https://review.whamcloud.com/c/fs/lustre-release/+/68094) | 16 | llapi: namespace scanner API | jenkins+1, maloo−1 |
+| LU-20605 | [68095](https://review.whamcloud.com/c/fs/lustre-release/+/68095) | 17 | llapi: build find on the scan record | jenkins+1 |
+| LU-20606 | [68156](https://review.whamcloud.com/c/fs/lustre-release/+/68156) | 16 | llapi: scan an ldiskfs target directly | jenkins+1 |
+| LU-20611 | [68157](https://review.whamcloud.com/c/fs/lustre-release/+/68157) | 16 | llapi: split cb_find_init's decider out | jenkins+1 |
+| LU-20611 | [68158](https://review.whamcloud.com/c/fs/lustre-release/+/68158) | 16 | lfs: share find's predicate parsing | jenkins+1 |
+| LU-20611 | [68159](https://review.whamcloud.com/c/fs/lustre-release/+/68159) | 16 | llapi: run find over a device scan | jenkins+1 |
+| LU-20611 | [68160](https://review.whamcloud.com/c/fs/lustre-release/+/68160) | 17 | utils: lfind, find over a target | jenkins+1 |
+| LU-20613 | [68163](https://review.whamcloud.com/c/fs/lustre-release/+/68163) | 15 | llapi: ZFS backend for llapi_scan_device | jenkins+1 |
+| LU-20637 | [68288](https://review.whamcloud.com/c/fs/lustre-release/+/68288) | 10 | llapi: name a device scan's objects | jenkins+1 |
 | LU-20643 | [68340](https://review.whamcloud.com/c/fs/lustre-release/+/68340) | 3 | utils: clear stale lmd fields on reuse | jenkins+1, maloo−1 |
 | LU-20647 | [68413](https://review.whamcloud.com/c/fs/lustre-release/+/68413) | 6 | mdd: look up a changelog user of either record type | jenkins+1 |
 | LU-20648 | [68414](https://review.whamcloud.com/c/fs/lustre-release/+/68414) | 6 | mdc: fix changelog mask composition | jenkins+1 |
-| LU-20649 | [68415](https://review.whamcloud.com/c/fs/lustre-release/+/68415) | 7 | llapi: a changelog as an Object Stream | jenkins+1 |
-| LU-20650 | [68416](https://review.whamcloud.com/c/fs/lustre-release/+/68416) | 7 | llapi: fill a scan record for one FID | jenkins+1 |
-| LU-20650 | [68417](https://review.whamcloud.com/c/fs/lustre-release/+/68417) | 7 | lfs: find --since, from the changelog | jenkins+1 |
-| LU-20650 | [68418](https://review.whamcloud.com/c/fs/lustre-release/+/68418) | 7 | lfs: find --changelog, the log as source | jenkins+1 |
-| LU-20650 | [68419](https://review.whamcloud.com/c/fs/lustre-release/+/68419) | 7 | lfs: find --since-cookie, per-MDT anchor | jenkins+1 |
-| LU-20650 | [68420](https://review.whamcloud.com/c/fs/lustre-release/+/68420) | 7 | tests: sanity cases for find's changelog flags | jenkins+1 |
+| LU-20649 | [68415](https://review.whamcloud.com/c/fs/lustre-release/+/68415) | 8 | llapi: a changelog as an Object Stream | jenkins+1 |
+| LU-20650 | [68416](https://review.whamcloud.com/c/fs/lustre-release/+/68416) | 8 | llapi: fill a scan record for one FID | jenkins+1 |
+| LU-20650 | [68417](https://review.whamcloud.com/c/fs/lustre-release/+/68417) | 8 | lfs: find --since, from the changelog | jenkins+1 |
+| LU-20650 | [68418](https://review.whamcloud.com/c/fs/lustre-release/+/68418) | 8 | lfs: find --changelog, the log as source | jenkins+1 |
+| LU-20650 | [68419](https://review.whamcloud.com/c/fs/lustre-release/+/68419) | 8 | lfs: find --since-cookie, per-MDT anchor | jenkins+1 |
+| LU-20650 | [68420](https://review.whamcloud.com/c/fs/lustre-release/+/68420) | 8 | tests: sanity cases for find's changelog flags | jenkins+1 |
 
 ### The two preparatory changes (2026-09-03)
 
@@ -140,6 +140,26 @@ before it exited 4 in silence.
 retries at `529`, zero tokens); an earlier 68418 attempt died at a `500`
 after $2.77. 68156 is running. Run `lreview` **one at a time** — three
 concurrently is self-inflicted contention.
+
+### The push, 2026-09-03
+
+Round 19 went to Gerrit with the user's word. **Two new changes — 68616
+(LU-4315) and 68617 (LU-19982)** — and new patchsets for the sixteen in the
+main chain. Every existing Change-Id was mapped to its change before pushing;
+a lost one would have created a duplicate instead of a patchset.
+
+Checked first, and worth checking: **68415's parent on Gerrit is 68288**, and
+68340/68413/68414 hang off 65345 outside the main chain, so `r16-work`
+matched the chain exactly and nothing was reparented. 65345 is MERGED and is
+our base commit. Our base is an ancestor of `review/master`, which has moved
+on — not rebased onto it, per [[gerrit-etiquette]].
+
+**68413 was deliberately NOT pushed.** Its `lu-20647-r18` branch is
+**functionally identical to PS6** — the code matches once comments are
+stripped, the only differences being two relocated comments — and its commit
+message is 44 lines against PS6's 60. Pushing would spend a patchset
+(≈30 test sessions, ≈150 machine-hours) to shuffle two comments and *lose*
+16 lines of explanation. PS6 is the better revision and stands.
 
 **As of 2026-09-02 17:48 every one of the nineteen carries `maloo Verified-1`**
 — all of them the LU-20598 `sanity-sec` roll-up, not a defect of ours. That
