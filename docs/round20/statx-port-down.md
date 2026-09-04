@@ -153,3 +153,33 @@ whole fixture has to be one script that never remounts. And the
 framework wants `OST_FS_MKFS_OPTS="-I 256"`, not `OSTOPT`: it wraps the
 value in `--mkfsoptions` itself, and pre-quoting it makes `mkfs.lustre`
 exit "Not enough arguments".
+
+## Round 21 complete, 2026-09-04
+
+All 41 findings across the eleven reviews are closed: 7 substantive
+fixes (documented above and in the fix queue) plus 18 in the tail, with
+one declined.
+
+The tail's most consequential items were not the prose:
+
+- **get_projid() logged once per object** at LLAPI_MSG_ERROR while every
+  caller already reported the failure itself. Demoted to DEBUG.
+- **`scan_backend_kind()`'s leading-slash arm was dead** --
+  `scan_device_exists()` answers -errno for such a name first.
+- **`llapi_scan_rec_path()` returned -EINVAL for an unopened mount**,
+  the same errno the page tells callers to read as "this object has no
+  name" -- a consumer following the page would count every record
+  nameless and exit 0. Now -EBADF.
+- **conf-sanity's OST refusal check passed whenever the command failed
+  for any reason** -- a ZFS OST, an absent lfind, a remote OSS. Now
+  gated on ldiskfs and matched against the refusal message.
+- **`--ost` was refused under `--resolve` although the lookup can answer
+  it**; only `--mdt` genuinely cannot, and for a different reason.
+- **lfs-find.1 documented four user-visible options in the tests patch**,
+  three commits after the options themselves. Moved to their own
+  commits; the tip's page is byte-identical, only the placement changed.
+
+Declined: prefixing `get_projid`/`scan_rec_dirent`/`scan_rec_gather`.
+The static-library collision is real, but `lustreapi_internal.h`
+already carries `get_root_path()` and friends with the same exposure,
+so prefixing only ours would be an inconsistency, not a fix.
