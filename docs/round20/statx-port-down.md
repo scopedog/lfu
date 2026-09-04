@@ -183,3 +183,21 @@ Declined: prefixing `get_projid`/`scan_rec_dirent`/`scan_rec_gather`.
 The static-library collision is real, but `lustreapi_internal.h`
 already carries `get_root_path()` and friends with the same exposure,
 so prefixing only ours would be an inconsistency, not a fix.
+
+## 0008 left whole, deliberately
+
+`LU-20611 lfs: share find's predicate parsing` is 2177 added / 1988
+deleted, and **78% of the new `lfs_find_parse.c` is byte-identical to
+what left `lfs.c`** -- git cannot show it as a rename because `lfs.c`
+survives, so a reviewer sees two thousand lines rather than a move.
+Splitting it into "move verbatim" then "the edits that make it shared"
+would make it a ~200-line read.
+
+Decided 2026-09-04 not to: the split is a review convenience, not a
+correctness fix, and rewriting a commit reviewers may already have read
+costs more than it saves at this point. Worth doing if the size is ever
+raised in review.
+
+For the record, the series is 17,250 insertions across 18 patches, and
+rounds 20 and 21 together added 293 of them (+1.7%) -- the size is the
+feature's, not the review fixes'.
