@@ -117,3 +117,39 @@ Re-verified after every change: 18 commits, 18 Change-Ids identical,
 every commit builds in isolation, checkpatch warning counts unchanged,
 `sanity` 16/16 PASS 0 FAIL 0 SKIP, `llapi_scan_test` 11/11,
 `llapi_scan_device_test` 7/7, and the attrs and nameless-record guards.
+
+### 0012: an OST formatted `-I 256` had no owners at all
+
+lreview's severity-medium finding, verified in the OSD source and then on
+a real target. `osd_xattr_set_pfid()` takes the `LDISKFS_INODE_SIZE > 256`
+early return only for larger inodes; at 256 or below it removes
+`XATTR_NAME_FID` and packs the parent into the LMA as
+`struct lustre_ost_attrs`, saying so with `LMAC_STRIPE_INFO`.
+`lustre_loa_swab()` confirms `loa_parent_fid` is little-endian on disk
+under that same flag, so it reads exactly as `scan_decode_lma()` already
+reads the LMA.
+
+`scan_owner()` now falls back to it. The LMA buffer is already in hand,
+so there is no second xattr read; the length is checked against the end
+of `loa_parent_fid` rather than the whole structure, because `loa_comp_*`
+follow it under a different flag and are not wanted.
+
+Measured on an OST formatted `-I 256` (`OST_FS_MKFS_OPTS="-I 256"`,
+inode size confirmed 256), four files, OST offline and the MDT and client
+still up so `--fid2path` could resolve:
+
+| | owners | `lfind --fid2path` |
+|---|---|---|
+| before | 0 of 33 | "33 matching objects have no pathname" |
+| after | 4 of 33 | all four paths printed, 29 unnamed |
+
+The 29 are precreated objects no file owns yet, which is the right
+answer. And on a default `-I 512` OST the `trusted.fid` path is
+untouched: 3 files, 3 owners, 3 paths.
+
+**Two fixture traps cost several attempts.** `llmount.sh` reformats, so
+any second call throws away the `-I 256` OST and the files on it — the
+whole fixture has to be one script that never remounts. And the
+framework wants `OST_FS_MKFS_OPTS="-I 256"`, not `OSTOPT`: it wraps the
+value in `--mkfsoptions` itself, and pre-quoting it makes `mkfs.lustre`
+exit "Not enough arguments".
