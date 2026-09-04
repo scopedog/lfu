@@ -74,3 +74,46 @@ the ported tree to close it.
 Distributing a change across a series cannot alter the tip's behaviour if
 the tip's tree is unchanged; the per-commit builds are what the
 distribution actually had to earn.
+
+## Round 21 fixes, 2026-09-04 (branch `statx-port-fixed`)
+
+lreview on the ported series returned findings on six of eleven patches
+(five runs died on a session limit, at $0.00, and were re-queued). Fixed
+so far:
+
+- **0009: a segfault.** `find_device_prefilter()`'s nameless arm called
+  `find_prefilter()` with `sr_name` NULL, which reached
+  `fnmatch(pattern, NULL)`. Reproduced: all 33 OST objects have a NULL
+  name, `fnmatch("foo", NULL)` faults on glibc 2.34, and removing the
+  guard from the tip makes `lfind --device <ost> -name foo` segfault.
+  The guard existed only from 0016, seven commits later, so 0009..0015
+  carried a live crash. Moved to 0009; 0016 now only extends its comment.
+
+  The reviewer's suggested fix (pass `&named`) was **wrong**: matching ""
+  returns FNM_NOMATCH, so the object would be *rejected* rather than
+  counted undecided — the behaviour the code's own comment calls wrong.
+
+- **0006/0011: `SCAN_DEV_ATTR_MASK` over-claimed.** Replaced with a
+  per-backend `so_attrs_mask` carved from `so_padding`. Declared mask
+  0x874 -> 0x830 with the reported attributes and immutable count
+  unchanged.
+
+- **0012: a gap in the bit sequence, mine.** `LLAPI_SCAN_OWNER` sat at
+  0x0010000000000000 with `GEN` at 0x0000800000000000, leaving four bits
+  unexplained until 0013 filled them. `OWNER` now takes the next bit
+  (0x0001000000000000) — it belongs with the target-scanner group anyway,
+  being `sr_owner_fid` from `trusted.fid` — and the event block shifts up.
+  Verified: the high half doubles with no gap at **every** commit.
+
+Plus the commit-message and man-page corrections those three implied.
+
+**A commit was lost and recovered.** Amending on a *conflict* stop folds
+the staged resolution into the previous commit and deletes the one being
+applied: the series went 18 -> 17 with LU-20649 absorbed into LU-20637.
+Caught by counting commits, recovered from the reflog. See
+`lfu-scripted-rebase` in memory.
+
+Re-verified after every change: 18 commits, 18 Change-Ids identical,
+every commit builds in isolation, checkpatch warning counts unchanged,
+`sanity` 16/16 PASS 0 FAIL 0 SKIP, `llapi_scan_test` 11/11,
+`llapi_scan_device_test` 7/7, and the attrs and nameless-record guards.
