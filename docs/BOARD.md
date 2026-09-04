@@ -265,6 +265,106 @@ review-dne-part-3"*, so read the -1 against the session list and not against
 the sentence attached to it. `adilger` left the series' only human vote, `Code-Review+1` on 68413 PS2,
 now stale at PS6.
 
+## Round 20, unpushed — the state at 2026-09-04 00:00
+
+Everything below is **local**. Nothing pushed. 18 changes on `r16-work`,
+18 Change-Ids, builds under `-Werror`, lab green.
+
+### The 56El regression is fixed — it blocked the whole stack
+
+`sanity 56El` failed on 68095 and every change above it, both backends,
+from round 19's CI onward. **Root cause found by lreview on 68095**:
+`-printf` sets `gather_all`, which sends every object through the
+project-id fetch, and 68095 made the walk descend off Lustre — where
+both arms of `get_projid()` answer `ENOTTY`:
+
+| object | fetch | fails |
+|---|---|---|
+| symlink, device node | `LL_IOC_PROJECT` on the parent | **any kernel** — it is Lustre's own ioctl |
+| regular file, dir | `FS_IOC_FSGETXATTR` | client **older than Linux 6.0** |
+
+CI is rocky8.10 at 4.18; the lab is rhel9.7 at 5.14, which is why it
+passed here all night. Fixed in 68095, carried through 68157 and 68159.
+Proved by swapping `liblustreapi.so`: **unfixed exit 25 / 347 bytes of
+stderr, fixed exit 0 / none**, and the test fails against the unfixed
+library.
+
+### adilger is reviewing the series
+
+| change | verdict |
+|---|---|
+| **68094** | **15 comments** — four would restructure the API, see below |
+| **68095** | **approved**: "very reasonable, and correctly extracts the code from `lfs find` instead of duplicating it" — plus 2 minor, both fixed |
+| 68231, 68616, 68617 | 1 each, not yet triaged |
+
+He says he is "just going through the series" and may not hold the same
+view by the end, so more are coming.
+
+**Four of 68094's comments are open decisions for the user**, and three
+are alternative answers to one question:
+
+1. `sp_size`/`sr_size` as a version number should be `sp_want`/`sr_valid`
+   negotiation, `OBD_CONNECT_*` style — a newer caller against an older
+   library is refused today even asking only for old fields;
+2. an array-filling call beside the per-object callback, so a 1MiB
+   inode-table read is not a million callbacks;
+3. piggy-back on `struct statx` rather than a similar bespoke record;
+4. FlatBuffers or Cap'n Proto — the wire-format question held 2026-08-19.
+
+One is marked a defect and is timely: the record carries **second**
+resolution while LU-1158 converts the tree to nanoseconds, and its
+helpers have landed. It is answered for free by 3.
+
+Two are mechanical, real and premature: `sr_`/`sp_` collide (four
+headers, and `md_op_spec`), and seven consecutive `__u32`s put **4 hidden
+padding bytes** before `sr_lmm`. Both are worth doing once the struct
+settles.
+
+### lreview, run locally before pushing
+
+Serial, one at a time. Six done, six to go.
+
+| change | findings | outcome | cost |
+|---|---|---|---|
+| 68094 | 4 | 3 real — **caught a fix of mine that fixed nothing**, reverted | $8.42 |
+| 68095 | 2 | **found the 56El root cause** | — |
+| 68415 | 4 | 3 fixed, 1 held (API shape) | $9.13 |
+| 68416 | 4 | 4 fixed | $4.32 |
+| 68417 | 3 | 3 fixed — severity medium | $11.68 |
+| 68420 | 5 | 4 fixed, 1 held against adilger | $8.06 |
+| 68158, 68160, 68157, 68231, 68616, 68617 | — | queued | — |
+
+**One unresolved conflict between reviewers.** lreview on 68420 wants the
+client version gates back (an old client exits from getopt and the case
+*fails* rather than skips); adilger had just removed them (the script
+matches the client it runs on). Kept adilger's answer. `CLIENT_VERSION`
+is read off the client host, not the script, and `sanity.sh` uses it 30
+times — so the mismatch lreview describes is expressible. **A question
+for the user to put to him.**
+
+### Also fixed this round
+
+- **68415**: a symlink came back from the changelog scanner with no size
+  and no valid bit, where both sibling scanners answer for one.
+- **68416**: `llapi_scan_fid()` cannot check `@mnt_fd` belongs to the
+  same filesystem as `@fid` — the wrong mount gathers a complete record
+  for an unrelated object at rc 0. Documented, as its sibling already is.
+  And ~70KB of calloc per object moved behind the demand mask.
+- **68417**: one unreadable object ended the whole search; encrypted
+  files lost every alternate name (`<mnt>//a/f` failed the subtree test).
+- **68414**: all three threads were already fixed.
+- **All 89 open AI threads** are triaged and closed.
+
+### Still open
+
+- adilger's four API questions, and his nanosecond defect.
+- The `--since` duplicate-lines trade-off (a seen-FID set costs memory
+  proportional to the answer).
+- **Two patches have no test driving them**: `llapi_scan_changelog_test`
+  is built but nothing runs it, and nothing exercises `llapi_scan_fid()`
+  at all — where their three siblings each landed a suite case with the
+  scanner. Owed a test patch of its own.
+
 ## Not ours: other people's tickets that show up in our CI
 
 | Ticket | What it is | Where we see it |
