@@ -14,8 +14,13 @@ That gap is now costing other people's attention:
 | 68616's four AI threads | reported open again on PS2 | all four fixed in round 20 |
 | 68617's AI thread | reported open again on PS1 | fixed in round 20 — the page already reads `.\" Added in commit 0.9.1`, and `checkpatch-man` already gives the `0 errors, 0 warnings, 1 checks` the comment asks for |
 | 68095's `977519ad` | the Gerrit AI spent a full review finding the 56El root cause | found and fixed hours earlier by lreview |
+| `conf-sanity4@zfs test_167` | **failing**, 2026-09-04 01:56, flagged "new failures unique to this patch" | fixed in 68288 — the ZFS branch passes `--search $(dirname $(ostvdevname 1))`, because the framework's vdev is a file in `$TMP` and the scan looks under `/dev` |
 
-The last row is the clearest waste: **two independent reviewers spent a
+That is now **two** CI tests red on Gerrit and green here — 56El on
+every change from 68095 up, and test_167 on every ZFS config — so the
+series cannot show a clean run whatever else is done to it.
+
+The AI row is the clearest waste: **two independent reviewers spent a
 full pass each arriving at the same bug**, because the fix for it is
 sitting on this machine.
 
