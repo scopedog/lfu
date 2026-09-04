@@ -144,3 +144,89 @@ example below it follows from the narrower statement unchanged.
 | 68420 `ff135a8f` | test | already fixed in PS9 |
 | 68420 `8675182e` | man page | already fixed |
 | 68420 `bb69b7c6` | man page | already fixed |
+
+---
+
+# The fixes, 2026-09-04
+
+Seven fixed across two commits; the three already-fixed threads replied to and
+resolved on Gerrit. Series still 18 commits, 18 distinct Change-Ids, `lfs`,
+`lfind` and `liblustreapi` build under `-Werror`.
+
+## `2926fe9e` — the root is escaped, not written raw
+
+`find_ck_escape()` maps `\` to `\\` and newline to `\n`. **Both sides escape
+and the reader compares the escaped forms**, so nothing decodes — a comparison
+only needs the mapping to be injective, which is also the reason backslash is
+escaped.
+
+**Proved against the unfixed build**, not just exercised. `find_cookie_read()`
+and `find_cookie_write()` were lifted verbatim by regex from the tree at HEAD
+and from the worktree into a standalone harness (they touch only libc), so the
+control runs the *real* pre-fix text rather than a reimplementation:
+
+| root | old | new |
+|---|---|---|
+| `/mnt/lustre/plain` | rc=0 | rc=0 |
+| `/mnt/lustre/my data` | rc=0 | rc=0 |
+| `/mnt/lustre/a`⏎`b` | **rc=-22**, "a cookie for a search under '/mnt/lustre/a'" | rc=0, anchor 42 |
+| `/mnt/lustre/back\slash` | rc=0 | rc=0 |
+
+The newline row is the reported bug reproduced: a path the caller never gave.
+
+**The cross-version test earned a second fix.** A cookie written by the *old*
+build for a backslash root is refused by the new one — expected, and harmless
+since the format is unlanded — but the message read
+
+    is a cookie for a search under '/mnt/lustre/back\slash',
+      not under '/mnt/lustre/back\slash'
+
+because it compared the escaped header text against the raw root. Both sides
+now print the escaped spelling, which also keeps a newline from breaking the
+line meant to name it.
+
+## `d1c134a5` — both silent refusals now speak
+
+`find_cookie_check()` extracted the same way, with `find_cl_oldest()` stubbed
+and `mdt_count` 0 so the early refusals are reachable:
+
+| case | old | new |
+|---|---|---|
+| empty name | rc=-22, **silent** | rc=-22, "--since-cookie needs the name of a file" |
+| a directory *(control)* | "is not a regular file" | unchanged |
+| name too long | rc=-36, **silent** | rc=-36, "too long to write beside" |
+
+## `797f62e9`, `3eb08208` — two diagnostics
+
+The `--resolve` refusal names both anchored spellings. The cookie wrapper is
+restricted to what `fopen()` passed up: `find_cookie_read()`'s only two
+`-EINVAL` returns both print their own message, enumerated at the `return`
+sites, and the escape's `-ENAMETOOLONG` still gets the wrapper.
+
+## `2a56e006`, `48df9797` — the man page
+
+All eight `set_since()` spellings are listed, including the today-relative
+forms the function's own error text offers. `-name` is tested against the
+latest event **that carried a name**, with the CL_CLOSE case stated.
+
+`groff -ww` and `checkpatch-man` show the same findings before and after — the
+`register '"' not defined` warning at what is now line 1045 is pre-existing.
+
+## `b18c8800` — the message
+
+Four paragraphs rewritten against master rather than against a patchset: the
+`local x=$(...)` split (160aa is added whole here), "the refusals the round
+added", and two describing `find_decide()`'s FID printing and the
+`fnmatch(NULL)` fix, both of which live in **other patches of the series**.
+110 lines to 106, and the two dropped paragraphs were the cross-patch ones.
+
+## A trap worth naming: `--amend -F` does not stage
+
+Three of the four 68419 fixes sat **unstaged** through three `git commit
+--amend -F msg` calls, which took the message and left the code behind.
+`git rebase --continue` caught it only because it refused to proceed with a
+dirty tree. `git show HEAD:<file> | grep -c find_ck_escape` said `0`.
+
+**`--amend` without `-a` or a prior `git add` amends the message only** — and
+the working tree still looks right, so every build and every harness run in
+between passed against code that was not in the commit.
