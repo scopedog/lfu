@@ -201,3 +201,29 @@ raised in review.
 For the record, the series is 17,250 insertions across 18 patches, and
 rounds 20 and 21 together added 293 of them (+1.7%) -- the size is the
 feature's, not the review fixes'.
+
+## Readiness, 2026-09-04
+
+| | |
+|---|---|
+| commits / Change-Ids | 18 / all 18 identical to the originals |
+| every commit builds in isolation | 18/18, `-Werror` |
+| checkpatch, per patch | exact parity with the pre-round series |
+| `sanity` 56El,157c,160aa-ad,160y,160z x2 | 16 PASS, 0 FAIL, 0 SKIP |
+| `conf-sanity` 165,166,167,168 | 4 PASS, 0 FAIL |
+| review findings | 41 closed: 40 fixed, 1 declined with reasons |
+
+**168 caught a flaw in this round's own fix.** The OST-refusal assertion
+added to it printed nothing when it passed, so the log could not tell
+"ran and passed" from "the gate skipped it" -- the same vacuity the fix
+was for. Verified by hand first (exit 1, message matched), then made the
+test say so: the summary now reads "... hardlink once and refused on an
+OST". A check that cannot be seen to have run is not much better than
+one that cannot fail.
+
+**Known gap, disclosed rather than closed:** the two ZFS fixes -- the SA
+handle leak on the xattr path and the errno split -- have never
+executed. `ENABLE_ZFS='no'` on this lab, so they are compile-checked
+against libzfs 2.2 headers and reasoned against ZFS's own `sa.c`, and
+nothing more. Both are on error paths; the leak's path needs a corrupt
+SA header and is not reachable on demand.
