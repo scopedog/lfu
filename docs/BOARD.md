@@ -2,35 +2,35 @@
 
 Every ticket and Gerrit id in play, and the ones that are *not* ours. Regenerate
 the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
-**2026-09-02**.
+**2026-09-05**.
 
-## Ours: twenty-one changes in review (round 19 pushed 2026-09-03)
+## Ours: twenty-one changes in review (round 21 pushed 2026-09-04)
 
 Stack order (bottom first). `PS` is the current patch set.
 
 | Ticket | Gerrit | PS | Subject | Votes |
 |---|---|---|---|---|
-| LU-4315 | [68616](https://review.whamcloud.com/c/fs/lustre-release/+/68616) | 1 | contrib: let SEE ALSO carry subsections | new |
-| LU-19982 | [68617](https://review.whamcloud.com/c/fs/lustre-release/+/68617) | 1 | doc: fix lustreapi.7 SEE ALSO order and AVAILABILITY | new |
-| LU-20624 | [68231](https://review.whamcloud.com/c/fs/lustre-release/+/68231) | 5 | utils: fix stale fd in cb_get_dirstripe | jenkins+1, maloo−1 |
-| LU-20603 | [68094](https://review.whamcloud.com/c/fs/lustre-release/+/68094) | 16 | llapi: namespace scanner API | jenkins+1, maloo−1 |
-| LU-20605 | [68095](https://review.whamcloud.com/c/fs/lustre-release/+/68095) | 17 | llapi: build find on the scan record | jenkins+1 |
-| LU-20606 | [68156](https://review.whamcloud.com/c/fs/lustre-release/+/68156) | 16 | llapi: scan an ldiskfs target directly | jenkins+1 |
-| LU-20611 | [68157](https://review.whamcloud.com/c/fs/lustre-release/+/68157) | 16 | llapi: split cb_find_init's decider out | jenkins+1 |
-| LU-20611 | [68158](https://review.whamcloud.com/c/fs/lustre-release/+/68158) | 16 | lfs: share find's predicate parsing | jenkins+1 |
-| LU-20611 | [68159](https://review.whamcloud.com/c/fs/lustre-release/+/68159) | 16 | llapi: run find over a device scan | jenkins+1 |
-| LU-20611 | [68160](https://review.whamcloud.com/c/fs/lustre-release/+/68160) | 17 | utils: lfind, find over a target | jenkins+1 |
-| LU-20613 | [68163](https://review.whamcloud.com/c/fs/lustre-release/+/68163) | 15 | llapi: ZFS backend for llapi_scan_device | jenkins+1 |
-| LU-20637 | [68288](https://review.whamcloud.com/c/fs/lustre-release/+/68288) | 10 | llapi: name a device scan's objects | jenkins+1 |
+| LU-4315 | [68616](https://review.whamcloud.com/c/fs/lustre-release/+/68616) | 3 | contrib: let SEE ALSO carry subsections | jenkins+1, maloo+1 |
+| LU-19982 | [68617](https://review.whamcloud.com/c/fs/lustre-release/+/68617) | 2 | doc: fix lustreapi.7 SEE ALSO order and AVAILABILITY | jenkins+1, maloo+1 |
+| LU-20624 | [68231](https://review.whamcloud.com/c/fs/lustre-release/+/68231) | 6 | utils: fix stale fd in cb_get_dirstripe | jenkins+1, **adilger+1** |
+| LU-20603 | [68094](https://review.whamcloud.com/c/fs/lustre-release/+/68094) | 17 | llapi: namespace scanner API | jenkins+1 |
+| LU-20605 | [68095](https://review.whamcloud.com/c/fs/lustre-release/+/68095) | 18 | llapi: build find on the scan record | jenkins+1 |
+| LU-20606 | [68156](https://review.whamcloud.com/c/fs/lustre-release/+/68156) | 17 | llapi: scan an ldiskfs target directly | jenkins+1 |
+| LU-20611 | [68157](https://review.whamcloud.com/c/fs/lustre-release/+/68157) | 17 | llapi: split cb_find_init's decider out | jenkins+1 |
+| LU-20611 | [68158](https://review.whamcloud.com/c/fs/lustre-release/+/68158) | 17 | lfs: share find's predicate parsing | jenkins+1 |
+| LU-20611 | [68159](https://review.whamcloud.com/c/fs/lustre-release/+/68159) | 17 | llapi: run find over a device scan | jenkins+1 |
+| LU-20611 | [68160](https://review.whamcloud.com/c/fs/lustre-release/+/68160) | 18 | utils: lfind, find over a target | jenkins+1 |
+| LU-20613 | [68163](https://review.whamcloud.com/c/fs/lustre-release/+/68163) | 16 | llapi: ZFS backend for llapi_scan_device | jenkins+1 |
+| LU-20637 | [68288](https://review.whamcloud.com/c/fs/lustre-release/+/68288) | 11 | llapi: name a device scan's objects | jenkins+1, janitor−1 |
 | LU-20643 | [68340](https://review.whamcloud.com/c/fs/lustre-release/+/68340) | 3 | utils: clear stale lmd fields on reuse | jenkins+1, maloo−1 |
-| LU-20647 | [68413](https://review.whamcloud.com/c/fs/lustre-release/+/68413) | 6 | mdd: look up a changelog user of either record type | jenkins+1 |
-| LU-20648 | [68414](https://review.whamcloud.com/c/fs/lustre-release/+/68414) | 6 | mdc: fix changelog mask composition | jenkins+1 |
-| LU-20649 | [68415](https://review.whamcloud.com/c/fs/lustre-release/+/68415) | 8 | llapi: a changelog as an Object Stream | jenkins+1 |
-| LU-20650 | [68416](https://review.whamcloud.com/c/fs/lustre-release/+/68416) | 8 | llapi: fill a scan record for one FID | jenkins+1 |
-| LU-20650 | [68417](https://review.whamcloud.com/c/fs/lustre-release/+/68417) | 8 | lfs: find --since, from the changelog | jenkins+1 |
-| LU-20650 | [68418](https://review.whamcloud.com/c/fs/lustre-release/+/68418) | 8 | lfs: find --changelog, the log as source | jenkins+1 |
-| LU-20650 | [68419](https://review.whamcloud.com/c/fs/lustre-release/+/68419) | 8 | lfs: find --since-cookie, per-MDT anchor | jenkins+1 |
-| LU-20650 | [68420](https://review.whamcloud.com/c/fs/lustre-release/+/68420) | 8 | tests: sanity cases for find's changelog flags | jenkins+1 |
+| LU-20647 | [68413](https://review.whamcloud.com/c/fs/lustre-release/+/68413) | 6 | mdd: look up a changelog user of either record type | jenkins+1, maloo−1 |
+| LU-20648 | [68414](https://review.whamcloud.com/c/fs/lustre-release/+/68414) | 6 | mdc: fix changelog mask composition | jenkins+1, maloo−1 |
+| LU-20649 | [68415](https://review.whamcloud.com/c/fs/lustre-release/+/68415) | 9 | llapi: a changelog as an Object Stream | jenkins+1 |
+| LU-20650 | [68416](https://review.whamcloud.com/c/fs/lustre-release/+/68416) | 9 | llapi: fill a scan record for one FID | jenkins+1 |
+| LU-20650 | [68417](https://review.whamcloud.com/c/fs/lustre-release/+/68417) | 9 | lfs: find --since, from the changelog | **jenkins−1** |
+| LU-20650 | [68418](https://review.whamcloud.com/c/fs/lustre-release/+/68418) | 9 | lfs: find --changelog, the log as source | **jenkins−1** |
+| LU-20650 | [68419](https://review.whamcloud.com/c/fs/lustre-release/+/68419) | 9 | lfs: find --since-cookie, per-MDT anchor | **jenkins−1** |
+| LU-20650 | [68420](https://review.whamcloud.com/c/fs/lustre-release/+/68420) | 9 | tests: sanity cases for find's changelog flags | **jenkins−1** |
 
 ### The two preparatory changes (2026-09-03)
 
@@ -265,9 +265,49 @@ review-dne-part-3"*, so read the -1 against the session list and not against
 the sentence attached to it. `adilger` left the series' only human vote, `Code-Review+1` on 68413 PS2,
 now stale at PS6.
 
-## Round 20, unpushed — the state at 2026-09-04 00:00
+## 68094 and adilger, as of 2026-09-05
 
-Everything below is **local**. Nothing pushed. 18 changes on `r16-work`,
+**PS17 carries the statx record.** `struct llapi_scan_rec`'s eleven
+stat-shaped fields are one embedded `lstatx_t sr_stx`, the low
+`LLAPI_SCAN_*` bits are aliases of the kernel's `STATX_*` values, and the
+API's own 21 bits sit above bit 31. That is on Gerrit — 68094 PS17 and
+every change above it, up to 68420 PS9 — not only on `statx-port`.
+
+Answered to adilger on 68094 PS16, in two inline replies:
+
+| his comment | the answer given |
+|---|---|
+| consumer vs scanner thread counts | the same threads: `sp_thread_count` sizes one pool and the callback runs on the worker that produced the record — N scanners calling the consumer directly, not N producers feeding one |
+| bulk records instead of a callback per object | measured: ~13 ns to copy one 512-byte record into a caller's array against ~1 ns for the callback, before the layout, linkea and name it points at; and the per-object handoff is libext2fs's shape (`ext2fs_get_next_inode_full()` returns one inode, already copied out of the block buffer), not something this API adds on top of a batch |
+| "unfortunate to expose a new `struct llapi_scan_rec`" — use `struct statx` or `lov_user_mds_data_v2` | statx, and the switch was already under way. **`lov_user_mds_data_v2` is not a fixed size**, which is the reason it is not the base |
+
+His nanosecond defect (`b3ce6f88`) is closed by the same change: the
+conversion that dropped `tv_nsec` on all four timestamps no longer
+exists.
+
+**Still open from his 15**, and unanswered on Gerrit:
+
+- `sp_size`/`sr_size` versioning vs `sp_want`/`sr_valid` negotiation —
+  the biggest one, and untouched by the statx work;
+- FlatBuffers / Cap'n Proto, the wire-format question held 2026-08-19 and
+  decided off the meeting as not ours. He expects it in *this* API, and
+  it is the premise of the comment the statx switch answered;
+- the `sr_`/`sp_` prefix collision and the 4 hidden padding bytes — both
+  real, both cheap, both worth doing once the shape settles.
+
+He has given **68231 a Code-Review+1**, his first vote on the series.
+
+### CI on the 2026-09-04 push
+
+`68417`, `68418`, `68419`, `68420` are **jenkins Verified−1** on PS9
+(build 131103 FAILURE) — not yet diagnosed. Janitor timeouts on
+`sanity1@ldiskfs+DNE` (68094) and `sanity2@ldiskfs+DNE`, plus
+`sanity3@zfs` 398g on 68417; 398g is not ours, see the not-ours list.
+
+
+## Rounds 20 and 21 — pushed 2026-09-04 (18 changes, 18 new patchsets)
+
+Recorded below as it stood at 2026-09-04 00:00, before the push. 18 changes on `r16-work`,
 18 Change-Ids, builds under `-Werror`, lab green.
 
 ### The 56El regression is fixed — it blocked the whole stack
