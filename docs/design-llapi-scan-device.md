@@ -97,12 +97,12 @@ inode, tier 1 an inline xattr, tier 2 an external EA block.
 | Field | Device source | Tier | Notes |
 |---|---|---|---|
 | `sr_fid` | `trusted.lma` → `lma_self_fid` | 1 | always read: classification needs it |
-| `sr_mode`, `sr_nlink` | `i_mode`, `i_links_count` | 0 | |
-| `sr_uid`, `sr_gid` | `i_uid`+`i_uid_high`, `i_gid`+`i_gid_high` | 0 | |
-| `sr_size_bytes` | `i_size` | 0 | **the target's own size**, not the file's |
-| `sr_blocks` | `i_blocks_lo`+`l_i_blocks_high` | 0 | likewise |
-| `sr_atime`/`mtime`/`ctime`/`btime` | inode + `*_extra` | 0 | |
-| `sr_attr_flags` | `i_flags` | 0 | ext4's bits are `STATX_ATTR_*`'s for all five names LFU supports |
+| `sr_stx.stx_mode`, `stx_nlink` | `i_mode`, `i_links_count` | 0 | |
+| `sr_stx.stx_uid`, `stx_gid` | `i_uid`+`i_uid_high`, `i_gid`+`i_gid_high` | 0 | |
+| `sr_stx.stx_size` | `i_size` | 0 | **the target's own size**, not the file's |
+| `sr_stx.stx_blocks` | `i_blocks_lo`+`l_i_blocks_high` | 0 | likewise |
+| `sr_stx.stx_atime`/`mtime`/`ctime`/`btime` | inode + `*_extra` | 0 | whole `struct statx_timestamp`, so the nanoseconds survive |
+| `sr_stx.stx_attributes` | `i_flags` | 0 | ext4's bits are `STATX_ATTR_*`'s for all five names LFU supports; `stx_attributes_mask` must be set with it |
 | `sr_lmm`, `sr_lmmsize` | `trusted.lov` | 1–2 | raw, as on the namespace side |
 | `sr_lmv`, `sr_lmvsize` | `trusted.lmv` | 1–2 | raw |
 | `sr_mdt_index` | superblock label `s_volume_name` | 0 | `fsname-MDT0000`, as `ldiskfs_label_read()` reads it; one value for the whole scan, and it also settles MDT vs OST (§5.1) |

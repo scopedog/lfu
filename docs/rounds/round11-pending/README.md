@@ -216,7 +216,7 @@ Gerrit revision and keep their patchset and votes — 68094, 68095, 68156, 68157
   user's call.
 - ~~No lab run.~~ **DONE 2026-08-27 — the fix is verified on a 4-MDT lab.**
   `tests/lab-dne166/`, results in
-  [`bench-data/2026-08-27/dne166-lab.txt`](../../bench-data/2026-08-27/dne166-lab.txt).
+  [`bench-data/2026-08-27/dne166-lab.txt`](../../../bench-data/2026-08-27/dne166-lab.txt).
   Pre-fix: **PASS then FAIL, with autotest's message verbatim** (*"--fid2path
   lost 19 paths"*). Post-fix: **4/4 PASS**. 165 and 166 also pass in sequence.
   The mechanism was measured, not assumed: a stock DNE filesystem ships a ROOT

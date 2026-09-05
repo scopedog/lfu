@@ -226,7 +226,7 @@ already say `lfind`; `lfsscan` is the alternative if a reviewer objects.
       takes `-`, `:` and `=` (a writeconf'd or never-mounted OST scanned as
       an MDT and returned nothing); xattr read failures now skip and count
       the object instead of misclassifying it or passing the MDT size as
-      authoritative; `sr_attr_flags` masked to the five bits that really
+      authoritative; `sr_stx.stx_attributes` masked to the five bits that really
       are `STATX_ATTR_*` (htree dirs reported AUTOMOUNT); `sr_mdt_index`
       gated on a parsed MDT label, not any label; a `pthread_create`
       failure degrades to fewer workers instead of returning an error after

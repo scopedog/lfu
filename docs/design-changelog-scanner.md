@@ -156,7 +156,7 @@ it.
 So the record this module can fill for free is exactly:
 
 ```
-sr_fid  sr_parent_fid  sr_name  sr_uid  sr_gid   + the event itself
+sr_fid  sr_parent_fid  sr_name  stx_uid  stx_gid  + the event itself
 ```
 
 Everything else in `struct llapi_scan_rec` is either absent — with its
@@ -190,7 +190,7 @@ So `CL_CREATE` means a regular file, `CL_MKDIR` and `CL_RMDIR` a directory,
 character, fifo or socket", which is not an `S_IFMT`.
 
 This is the changelog's version of what `LLAPI_SCAN_TYPE` already means for a
-namespace walk: *"only the S_IFMT of sr_mode, from the dirent; no I/O behind
+namespace walk: *"only the S_IFMT of sr_stx.stx_mode, from the dirent; no I/O behind
 it"* (`lustreapi.h:576-577`) **[verified]**. The module sets `LLAPI_SCAN_TYPE`
 from the event where the event decides it, and leaves it clear otherwise —
 so `-type f` is answerable for free on a creation and needs a lookup on a
@@ -259,7 +259,7 @@ for. Highest bit in use today is `LLAPI_SCAN_GEN 0x02000000`
 | `sr_src_fid`, `sr_src_parent_fid`, `sr_src_name` | the rename extension |
 | `sr_jobid` | the jobid extension |
 
-`sr_event_time` deliberately does **not** land in `sr_mtime`. An event time
+`sr_event_time` deliberately does **not** land in `sr_stx.stx_mtime`. An event time
 and a modification time are different facts, and a consumer filtering on
 `--mtime` must not be handed one when it asked for the other.
 

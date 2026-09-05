@@ -127,7 +127,7 @@ Three things the record as first written could not do. All are additive.
    - LMV for directories, `sr_lmv`/`sr_lmvsize` with `LLAPI_SCAN_LMV`, since
      `--mdt-count`, `--hash-type`, `--foreign` and the nlink rule all read it.
    - `LLAPI_SCAN_LAZY_SIZE` / `LAZY_BLOCKS`: `OBD_MD_FLLAZYSIZE` says the value
-     in `sr_size_bytes` is a lazy one, which is what `--lazy` consumes. This is
+     in `sr_stx.stx_size` is a lazy one, which is what `--lazy` consumes. This is
      the size finding from the LU-20603 lab, made usable.
 
 `sp_want` and `sp_filter` are `llapi_scan_namespace()`'s spelling of phases 2

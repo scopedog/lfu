@@ -1,5 +1,10 @@
 # TheLustreCollective/lustre PR #186 — the first consumer of llapi_scan_device()
 
+> **A dated record, 2026-08-27.** Kept as it was written. It predates the
+> statx switch of 2026-09-04, so the record fields it names -- `sr_size_bytes`,
+> `sr_blocks` -- are today `sr_stx.stx_size` and `sr_stx.stx_blocks`. The FFI
+> question it settles is unaffected.
+
 Artem's `lfu-dashboard` branch (head `25577fd5`), an OTel MDT file-age histogram
 that calls `llapi_scan_device()` through hand-written Rust FFI. Reviewed
 2026-08-27. This is the first code outside our series to use the API, so it is

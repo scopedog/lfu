@@ -181,7 +181,7 @@ share.
 **Guess two, wrong:** `find_prefilter()` was skipping records that had no type.
 
 **What the data said.** A twenty-line program that read the coalesced stream and
-printed `sr_valid` and `sr_mode` per record:
+printed `sr_valid` and the mode per record:
 
 ```
 	fid=[0x200007161:0x3f:0x0] valid=0x14204001 TYPE=yes mode=0000000(zero) evt=11 name=afile

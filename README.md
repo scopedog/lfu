@@ -174,6 +174,8 @@ superseded material, each marked as such. The table below is the highlights.
 
 | Doc | Contents |
 |-----|----------|
+| [`docs/BOARD.md`](docs/BOARD.md) | **The board.** Every ticket, Gerrit id, patch set and vote in play, the CI state, and the tickets that are not ours. The page to read before re-deriving any of that |
+| [`docs/rounds/`](docs/rounds/) | **The review rounds**, one directory each: what the reviewers said, what was verified, what was fixed, what was replied |
 | [`Documentation/man8/lfind.8`](Documentation/man8/lfind.8) | **`lfind(8)` — the user-facing reference.** Backends, options, all 33 filters, the *unknown* outcome, exit statuses. Written in upstream's `Documentation/man8/` style for submission as-is |
 | [`docs/architecture.md`](docs/architecture.md) | The HLD design, plus analysis and a suggested build order |
 | [`docs/design-ldiskfs-scanner.md`](docs/design-ldiskfs-scanner.md) | **ldiskfs device scanner — first wave.** Design + prototype results |

@@ -62,7 +62,7 @@ to `1 errors, 0 warnings, 2 checks`. Every man page under `Documentation` was
 checked before and after: **378 pages, and `lustreapi.7` is the only one whose
 count changes.**
 
-### Round 19, unpushed (2026-09-03)
+### Round 19, before the push (2026-09-03)
 
 `lreview` — the Gerrit AI review run locally, before pushing — found three
 defects on **68419**. All three verified against the tree, none already fixed,
@@ -178,7 +178,7 @@ lustre-ost1/ost1: No such file or directory (2)`. The fix is one line in
 test_167's existing `export_zpool` branch:
 `search="--search $(dirname $(ostvdevname 1))"`, folded into LU-20637.
 **PASS 167 on ZFS**; 166/167/168 all pass on ldiskfs. Full account and the
-four measured-and-wrong hypotheses: `docs/round20/zfs-fid2path.md`.
+four measured-and-wrong hypotheses: `docs/rounds/round20/zfs-fid2path.md`.
 
 That settles the three items above:
 

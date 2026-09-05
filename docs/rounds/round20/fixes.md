@@ -1,6 +1,6 @@
 # Round 20: the five open bugs, fixed
 
-All five from `docs/round19/open-bugs.md`, each verified against the tree
+All five from `docs/rounds/round19/open-bugs.md`, each verified against the tree
 before and after.
 
 ## 1. `sp_filter` could be copied torn and then called — 68094 + 3 sites

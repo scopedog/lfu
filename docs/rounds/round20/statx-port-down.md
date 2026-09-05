@@ -1,7 +1,7 @@
 # Porting the statx record down into the series — 2026-09-04
 
 The statx change was implemented and lab-verified as **one commit at the
-tip** (`docs/round20/statx-record.md`). Gerrit reviews each change on its
+tip** (`docs/rounds/round20/statx-record.md`). Gerrit reviews each change on its
 own and lreview reviews each commit in isolation, so it had to be
 distributed across the ten of eighteen commits that introduce the code it
 touches. Result: branch `statx-port`, 18 commits.

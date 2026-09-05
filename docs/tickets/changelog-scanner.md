@@ -63,7 +63,7 @@ caller can ask what an event recorded rather than what is true now.
 
 The record gains {{sr_event_type}}, {{_flags}}, {{_time}}, {{_index}} and
 {{_prev}}, the rename source and a job id, behind three new validity bits. An
-event time is not an object time, so it does not land in {{sr_mtime}}.
+event time is not an object time, so it does not land in {{sr_stx.stx_mtime}}.
 
 Object mode holds events in a FID-keyed cache and delivers one record per
 object once it has been quiet, so a file written a hundred times is one record
@@ -102,7 +102,7 @@ The old `lu-changelog-scan` commit touched six files that are **not** part of
 the changelog scanner: `llapi_scan_namespace.3`, `lfs_find_parse.c/.h`,
 `liblustreapi_pfind.c`, `liblustreapi_scan_device.c` and `libscan_ldiskfs.c`.
 Their changed lines were byte-identical to
-`docs/round10-pending/round10-code.patch`.
+`docs/rounds/round10-pending/round10-code.patch`.
 
 `38e691a616` is the same work rebuilt on top of the round-10 stack with those
 six dropped, so they are carried by their proper parent commits instead. The
@@ -134,7 +134,8 @@ it yet. A reviewer will ask.
 
 ### Two upstream bugs came out of building it
 
-Both filed, both fixed and unpushed: **LU-20647** (a plainly registered
-changelog user cannot be looked up) and **LU-20648** (`--mask` dropped for a
-user who has none). Neither is caused by this work; the scanner reaches the
+Both filed and fixed: **LU-20647** (a plainly registered changelog user
+cannot be looked up) and **LU-20648** (`--mask` dropped for a user who has
+none). Both are on Gerrit as of the 2026-09-04 push -- 68413 and 68414, on
+master rather than in the stack. Neither is caused by this work; the scanner reaches the
 changelog through the same ioctl and hit them first.
