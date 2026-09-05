@@ -297,6 +297,49 @@ exists.
 
 He has given **68231 a Code-Review+1**, his first vote on the series.
 
+### Held for the next round: two lreview findings on PS17 (2026-09-05)
+
+`lreview` on `cd2c36e8f1` — the first review PS17 has had, the Gerrit AI
+having fired on ps3–ps16 and never on ps17. **2 findings, severity low**,
+$8.97. Both verified, both deliberately unfixed: 68094 is the bottom of an
+18-commit stack, so two sentences of qualification cost a full rebase and
+repush. Bundle them with adilger's versioning answer.
+
+| # | Finding | State |
+|---|---|---|
+| 1 | The header says a scan wanting nothing outside `LLAPI_SCAN_DIRENT_MASK` does no ioctl per object, and that `sp_filter` runs before any I/O. Neither holds where `readdir` leaves `d_type` unset: `llapi_semantic_traverse()` (`liblustreapi_pfind.c:5960`) calls `get_lmd_info_fd()` in its readdir loop, ahead of `cb_init`. ext4 without `filetype`, XFS `ftype=0`, and the non-Lustre trees. | **Verified in the tree.** A doc claim to qualify, not a code bug |
+| 2 | Four implicit padding bytes before `sr_lmm` (three consecutive `__u32`); an explicit `sr_padding` would make the hole visible and reusable | Real — and it is adilger's `2294e6ed` restated, already held above until the struct settles |
+
+The record is **352 bytes at 68094 and 512 at the tip**: it grows as later
+commits append fields, so a size quoted without its commit means nothing.
+
+### The batch API, built 2026-09-05 (unpushed)
+
+`llapi_scan_namespace_open()` / `llapi_scan_next()` / `llapi_scan_close()`,
+commit `047658ab63` on `statx-port-fixed`, answering adilger's bulk-records
+comment. A layer over the callback API: the scan runs on its own thread and
+its callback copies each record, with everything it points at, into the batch
+being filled.
+
+Measured on the lab against a real mount: **+0.4% at four threads, +0.5% at
+one** with the 1024 default, against **+17.6%** for a batch of 1. Off Lustre,
+where per-object work is a cached `lstat()`, +5–8% — the upper bound.
+
+lreview found three, all real, all fixed: a single-consumer contract that was
+neither documented nor enforced (**a heap overflow reproduced under ASan on
+the unfixed build, 5 runs of 5**), an arena that kept only its largest chunk
+(worth +1.4% → +0.4%), and `(const void **)` casts punning typed pointers
+under `-O2` with no `-fno-strict-aliasing`.
+
+Verified: 16/16 unit tests on a real mount, the equality stress IDENTICAL in
+all ten arms on 20,021 objects and again on a tree carrying 1000 layouts and
+an LMV, sanity 56El/157c/160aa-ad 6 PASS 0 FAIL. Numbers in
+`bench-data/2026-09-05/`.
+
+**Open**: whether it goes as a change of its own on top of 68420 or is
+squashed into 68094 — asked of adilger in the drafted reply, which is not
+posted.
+
 ### CI on the 2026-09-04 push
 
 `68417`, `68418`, `68419`, `68420` are **jenkins Verified−1** on PS9
