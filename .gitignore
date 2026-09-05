@@ -20,3 +20,6 @@ docs/local/
 
 # the HLD is Whamcloud's document, not ours to publish: keep it local
 docs/*.pdf
+# Whamcloud's HLD: never in this repo, under any name or path
+docs/**/lfu-hld.pdf
+docs/**/*High_Level_Design*.pdf

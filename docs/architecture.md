@@ -1,6 +1,6 @@
 # LFU architecture
 
-**Source of truth: `reference/lfu-hld.pdf` — "Lustre Find Utility (LFU)
+**Source of truth: the Dilger HLD (`docs/local/`, not in this repo) — "Lustre Find Utility (LFU)
 Architecture", Andreas Dilger, v0.1, 2026-04-03**, with
 `reference/lug2026-lustre-218-and-beyond-dilger.pdf` slides 20–22 (LUG 2026,
 2026-04-28) as the public summary. Target release **Lustre 2.19+ (TLC)**.

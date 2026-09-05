@@ -1,7 +1,7 @@
 # Open questions
 
 Reconciled against `reference/lfu-requirements.pdf` (Confluence export) and
-`reference/lfu-hld.pdf` (Dilger HLD v0.1, 2026-04-03). Resolved items kept with
+the Dilger HLD v0.1, 2026-04-03 (`docs/local/`, not in this repo). Resolved items kept with
 their answers.
 
 > **Questions are referred to by name, not by number** (changed 2026-08-06 — the

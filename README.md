@@ -9,7 +9,7 @@ third-party integration.
 
 - **Jira epic (WC):** [LU-20462](https://jira.whamcloud.com/browse/LU-20462) — Open, assignee Artem Blagodarenko, created 2026-07-08
 - **Tracking ticket (TLC):** TLU-186 — In Progress
-- **High-level design:** [`docs/reference/lfu-hld.pdf`](docs/reference/lfu-hld.pdf) — Dilger, v0.1, 2026-04-03 — **source of truth**
+- **High-level design:** Dilger, v0.1, 2026-04-03 — **source of truth**. Whamcloud's document: it is not in this public repo, and the working copy lives in `docs/local/`
 - **Requirements:** [`docs/reference/lfu-requirements.pdf`](docs/reference/lfu-requirements.pdf) (Confluence [78741505](https://thelustrecollective.atlassian.net/wiki/spaces/Lustre/pages/78741505) export, 2026-08-05)
 - **Public summary:** [`docs/reference/lug2026-lustre-218-and-beyond-dilger.pdf`](docs/reference/lug2026-lustre-218-and-beyond-dilger.pdf) — LUG 2026, slides 20–22 are LFU
 - **Not yet obtained:** LU-17814 (source of the client namespace scanner), LU-16742 / LU-17820 (LMR), LU-16524

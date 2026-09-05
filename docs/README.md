@@ -156,7 +156,7 @@ it. The repository is public: check what a commit publishes before making it.
 
 ## Also
 
-- [`reference/`](reference/) — `lfu-hld.pdf`, the requirements export, and the LUG deck
+- [`reference/`](reference/) — the requirements export and the LUG deck. The HLD is Whamcloud's and is not published here; it lives in `docs/local/`
 - [`../bench-data/`](../bench-data/) — raw logs every measurement record links to
 - [`../patches/`](../patches/) — the kernel patch stack the OSD work applies
 - [`../tests/`](../tests/) — the lab harnesses, `gpoll.py`, and the arm scripts

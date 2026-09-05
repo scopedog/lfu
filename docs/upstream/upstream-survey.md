@@ -5,7 +5,7 @@ Reference tree: `../lustre-release` @ `v2_17_55-2-gd717692511`.
 The point of this doc is to separate *"LFU needs to invent this"* from *"this
 already exists and needs exposing"*.
 
-Written before the HLD (`reference/lfu-hld.pdf`) was available, so it reads the
+Written before the HLD (`docs/local/`, not in this repo) was available, so it reads the
 tree kernel-first. The HLD's initial scanner is a **userspace libext2fs device
 reader** that touches none of this. The findings below stay accurate and still
 matter — they describe the *later* OSD API scanner path (`architecture.md` §6b)

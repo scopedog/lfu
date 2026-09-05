@@ -3,7 +3,7 @@
 **Module:** `lfu_input_ldiskfs` — the initial LFU Input Scanner Module.
 **Parent architecture:** [`architecture.md`](architecture.md) §6a; module contract
 in §1, build-order step 3 in §12.
-**Sources:** `reference/lfu-hld.pdf` §"ldiskfs Device Input Scanner Module";
+**Sources:** the Dilger HLD (`docs/local/`, not in this repo) §"ldiskfs Device Input Scanner Module";
 `reference/lug2026-lustre-218-and-beyond-dilger.pdf` slide 21.
 **Status:** design proposal, v0.1. No code yet.
 
