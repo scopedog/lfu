@@ -2,7 +2,28 @@
 
 Every ticket and Gerrit id in play, and the ones that are *not* ours. Regenerate
 the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
-**2026-09-05**.
+**2026-09-06**.
+
+## Round 22, unpushed (2026-09-06)
+
+The five new AI threads on **68616** and **68617** — the reviews that landed
+on the current patchsets after round 21's push. All five verified, all five
+fixed; `docs/rounds/round22/ai-threads-68616-68617.md`.
+
+- 68616 `e2548ac1` — a `.SS` closed the run for ordering but not for the
+  trailing-comma test, so a run ending `.BR aaa (3),` passed silently
+- 68616 `eef5b8a3` — `.P` and `.LP` are exact synonyms of `.PP` in man(7),
+  and a `.P` was reported as a malformed reference
+- 68616 `dd3a74a3` — a capturing group left `$1` holding `l`/`ustre`
+- 68617 `94839f00`, `dc2321c4` — two commit-message counts measured off the
+  wrong page state (`5 checks` is 4; the `release`→`commit` baseline is
+  `1/0/2`, not `1/2/4`)
+
+389 pages swept before and after: not one count moved. checkpatch clean.
+
+**The unpushed pile is now three rounds deep**: round 20 on 68340/68413/
+68414, round 21's seven on 68419/68420 (which still owe a lab run), and
+these five.
 
 ## Ours: twenty-one changes in review (round 21 pushed 2026-09-04)
 
