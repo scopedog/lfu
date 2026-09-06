@@ -4,6 +4,22 @@ Every ticket and Gerrit id in play, and the ones that are *not* ours. Regenerate
 the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
 **2026-09-06**.
 
+## The directory pass stops opening the target twice (2026-09-06)
+
+68288 `8d405103`, deferred on 2026-09-04 and now done. The map was a scan of
+its own, so `--paths`/`--fid2path` opened the target twice — on ZFS an import
+and an export each time — and on an OST the second open read one object and
+threw the map away. It is now a **pre-pass on the same open**:
+`scan_device_sweep()` lifted out of `scan_device_run()`, plus
+`struct scan_prepass` and `scan_device_run_prepass()`, with
+`scan_device_run()` kept as a wrapper so no earlier patch changes. The OST
+refusal now comes from the target's label before either sweep runs, which is
+the question the comment said we were not asking.
+
+Measured: `--paths` now costs the same opens as a plain search (2 and 2, was
+4). `llapi_scan_device_test` 7/7, `conf-sanity 165` PASS ×2.
+`docs/rounds/round22/8d405103-prepass.md`.
+
 ## The find-device page claimed a lookup per object (2026-09-06)
 
 68288 `91527192`, verified in all three parts and fixed: the NOTES said each
