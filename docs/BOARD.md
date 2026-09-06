@@ -4,6 +4,20 @@ Every ticket and Gerrit id in play, and the ones that are *not* ours. Regenerate
 the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
 **2026-09-06**.
 
+## `--since` prints each path once: LLAPI_SCAN_CL_F_ONCE (2026-09-06)
+
+68417 `cda04667`, the thread that was **the user's call**, settled and built:
+a new library flag on 68415, used by 68417/68418/68419. Coalescing collapses
+an object only within `sc_min_age`, so `--since 30d` printed a daily-written
+file ~30 times. The set is 16 bytes a slot against a `scan_dirmap` this series
+already ships at 288, and it saves the duplicate `llapi_scan_fid()`.
+
+Reviewing the diff caught the first version turning a duplicate into a
+**miss** — a pre-window burst marked the object delivered and suppressed the
+one inside the window. The `--since` window cut and the cookie anchor both
+moved into `sc_filter`, ahead of the suppression.
+`docs/rounds/round22/cda04667-once-flag.md`. **Lab run still owed.**
+
 ## New patch: the trailing-slash trim (2026-09-06)
 
 `LU-20605 llapi: trim a start point's trailing slashes` — `02d913438a`, on
