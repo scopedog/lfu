@@ -4,6 +4,18 @@ Every ticket and Gerrit id in play, and the ones that are *not* ours. Regenerate
 the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
 **2026-09-06**.
 
+## The AI review backlog is empty (2026-09-06)
+
+**34 replies posted; 40 open AI threads down to 7**, and all seven are
+deliberate, each with a reply saying why — 68095 `937bc492`, 68156
+`ab78d3de` (adilger's last word), 68159 `e6fb45c4`, 68288 `8d405103`,
+68417 `122b863e` and `cda04667` (**the user's call**), 68420 `39df2275`.
+
+Every fix from rounds 20–22 is unpushed, so the replies say **"Lands in the
+next patchset"** rather than `Done.` — a `Done.` on an unpushed fix would be
+a false claim. "Already fixed in a later patchset" is used only where the
+current patchset genuinely carries it (68340, 68413 ps1, 68414).
+
 ## Round 22, part 2: 68094 and 68095's first AI review (2026-09-06)
 
 Seven threads, **the first the Gerrit AI has posted on ps17/ps18**. All seven
