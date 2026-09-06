@@ -4,6 +4,17 @@ Every ticket and Gerrit id in play, and the ones that are *not* ours. Regenerate
 the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
 **2026-09-06**.
 
+## A filtered record stalled `_CLEAR` (2026-09-06)
+
+68415 `e21128ea`, the second defect of the evening AI round, verified and
+fixed: `sc_filter` rejecting a record left `sl_accepted` behind, so a consumer
+filtering with `LLAPI_SCAN_CL_F_CLEAR` never cleared and the registered user's
+backlog grew without bound. One assignment, plus the man-page half the comment
+did not ask for — `_CLEAR` no longer means "never ahead of `cb`" but "never
+ahead of the consumer", which widens what clearing may destroy.
+`docs/rounds/round22/e21128ea-filter-clear.md`. No lab run (the user's call);
+clearing needs a changelog user, which needs 68413/68414 in the same tree.
+
 ## `--since` prints each path once: LLAPI_SCAN_CL_F_ONCE (2026-09-06)
 
 68417 `cda04667`, the thread that was **the user's call**, settled and built:
