@@ -4,6 +4,35 @@ Every ticket and Gerrit id in play, and the ones that are *not* ours. Regenerate
 the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
 **2026-09-06**.
 
+## Round 22, part 2: 68094 and 68095's first AI review (2026-09-06)
+
+Seven threads, **the first the Gerrit AI has posted on ps17/ps18**. All seven
+verified, all seven real; five fixed, two answered in the message.
+`docs/rounds/round22/ai-threads-68094-68095.md`.
+
+- **`6813c461`** — `sp_want = STATX_INO` returned `stx_ino=0` with the bit
+  clear, though the public header promises the whole low half and the ioctl
+  fills it. `STATX_INO|STATX_SIZE` answered the same field correctly, which
+  is what makes it a defect. Measured on the lab; fixed in the MDT mask.
+- **`440a87f7`** — an object with **no** project id matched neither
+  `--projid 0` nor `! --projid 0`, against the arm's own comment. Reproduced
+  on the lab (the symlink was in neither answer, now in exactly one).
+- `0397b439` the `lmd_fid` clear moved out of the shared helper; `7611a1a0`
+  `LLAPI_MSG_DEBUG` quiets nothing (comment + message corrected, behaviour
+  left); `d191189e` comment moved back to its function; `36c4ca49` and
+  `937bc492` answered in the commit message — the latter with a measured
+  three-way comparison showing new, old and `find(1)` all differ.
+
+**Rebase hazard, met again:** `LU-20611` *moves* the project-id block, the
+conflict resolution took the incoming side, and the fix committed one patch
+earlier was dropped from every commit after it. Caught by grepping the
+finished tree — see [[lfu-scripted-rebase]].
+
+Verified: `range-diff` shows three commits changed in content (two more
+differ only in context); `-Werror` clean; checkpatch 0/0; `sanity` 56El,
+157c, 160aa–160ad **PASS ×2, zero skips**; rounds 19/21 arms still 8/0 and
+17/0.
+
 ## The lab round 21 owed: RUN and green (2026-09-06)
 
 68419/68420's seven fixes, paired A/B against the pushed PS9 build:
