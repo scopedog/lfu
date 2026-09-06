@@ -16,7 +16,11 @@ own `stack_trap` deletes, so **no CI artefact says why**. Fixed: stderr to
 `$got.err`, quoted in the failure, as 166 and 168 already do. Built the lab
 tree with `--enable-zfs` (2.2.11) and 167 **passes here**, so it is
 environment-dependent — CI runs ZFS 2.3.2 on rocky8.10/9.6.
-`docs/rounds/round22/janitor-167-zfs.md`. No guess applied.
+The test also now **asserts the export happened**: `export_zpool()` is an
+`||` chain that leaves the pool imported and still answers 0 when anything of
+it is in `/proc/mounts`, and a held pool is refused by the scan by design —
+the leading hypothesis for the CI failure, and now its own error message.
+`docs/rounds/round22/janitor-167-zfs.md`. No guess applied to the code.
 
 ## The directory pass stops opening the target twice (2026-09-06)
 

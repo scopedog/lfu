@@ -61,10 +61,34 @@ which is exactly what test_166 and test_168 already do. The next CI round will
 say whether the pool could not be found, the plugin could not be loaded, or
 the mount could not be reached, instead of only that it failed.
 
-Verified: PASS 167 on ZFS here with the patched test, syntax clean, checkpatch
-warnings unchanged, amended into 68288.
+And the test now **asserts its own precondition**. `export_zpool()` in
+test-framework is an `||` chain —
 
-**No guess was applied.** Two mechanisms are plausible from here — a libzpool
-2.3 difference in the import path, and `scan_zfs.so` not being reachable on
-the CI node — and both are cheap to confirm once the message is in the log,
-where guessing at either costs a full CI round.
+    ! $ZPOOL list -H $poolname || grep -q ^$poolname/ /proc/mounts ||
+        $ZPOOL export $opts $poolname
+
+— so a pool that is imported *and* has anything of itself in `/proc/mounts`
+is left imported and the function still answers 0. A pool this host holds is
+refused by the scan by design (`-EBUSY`, `/proc/spl/kstat/zfs/<pool>` is what
+tells it), so that state fails on lfind and says nothing about why. After the
+export the test now checks:
+
+    do_facet ost1 "! $ZPOOL list -H $poolname >/dev/null 2>&1" ||
+            error "$poolname is still imported after export_zpool"
+
+Verified: PASS 167 on ZFS here with the stderr change, syntax clean on the
+commit itself, checkpatch warnings unchanged, both amended into 68288. The
+assertion itself is **not lab-run** — it is reached only where the export did
+not happen, which is the state this VM never produced.
+
+**No guess was applied to the code under test.** Three mechanisms are
+plausible, ranked: the pool was never exported (`export_zpool`'s `||` chain,
+which the new assertion now names outright); a libzpool 2.3 difference in
+`zpool_find_config()`, where CI is 2.3.2 and this VM 2.2.11; and
+`scan_zfs.so` not being reachable on the CI node. The first two are told
+apart by one line of the next CI log.
+
+One hypothesis **was** falsified from here rather than guessed at:
+`ostvdevname()` returns `OSTDEV$num`, the vdev, while `ostdevname()` uses
+`OSTZFSDEV$num`, the dataset — so `--search $(dirname $(ostvdevname 1))` is
+well formed, and "the search path is garbage in CI" is out.
