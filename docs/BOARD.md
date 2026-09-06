@@ -4,6 +4,19 @@ Every ticket and Gerrit id in play, and the ones that are *not* ours. Regenerate
 the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
 **2026-09-06**.
 
+## The lab round 21 owed: RUN and green (2026-09-06)
+
+68419/68420's seven fixes, paired A/B against the pushed PS9 build:
+**11/6 unfixed → 17/0 fixed**, round 19's arms 8/0 on both, `sanity`
+160aa–160ad PASS ×2 with zero skips. The gate on pushing rounds 20/21 is
+therefore **cleared**. `docs/rounds/round22/lab-68419-68420.md`.
+
+Two corrections the lab forced, which the Gerrit replies must carry rather
+than a bare `Done.`: **`797f62e9`'s repro is wrong** (the shared parser
+refuses first, so only a direct `llapi_find_since()` caller reaches the
+message the fix changed), and **`d1c134a5`'s branch** needs a deep 4092–4095
+path, not one long component.
+
 ## Round 22, unpushed (2026-09-06)
 
 The five new AI threads on **68616** and **68617** — the reviews that landed
