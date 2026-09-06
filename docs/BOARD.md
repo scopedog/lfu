@@ -4,6 +4,20 @@ Every ticket and Gerrit id in play, and the ones that are *not* ours. Regenerate
 the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
 **2026-09-06**.
 
+## 68288's Janitor −1 is NOT fixed, it is instrumented (2026-09-06)
+
+`conf-sanity test_167` fails on **21 ZFS sessions** and passes on every
+ldiskfs one. The 2026-09-03 `--search` fix **is** in PS11 and is not enough —
+that "resolved" note was wrong. 165/166/168 all skip on ZFS, so 167 is the
+scanner's only ZFS coverage in CI.
+
+The blocker is that test_167 put `lfind`'s stdout and stderr in one file its
+own `stack_trap` deletes, so **no CI artefact says why**. Fixed: stderr to
+`$got.err`, quoted in the failure, as 166 and 168 already do. Built the lab
+tree with `--enable-zfs` (2.2.11) and 167 **passes here**, so it is
+environment-dependent — CI runs ZFS 2.3.2 on rocky8.10/9.6.
+`docs/rounds/round22/janitor-167-zfs.md`. No guess applied.
+
 ## The directory pass stops opening the target twice (2026-09-06)
 
 68288 `8d405103`, deferred on 2026-09-04 and now done. The map was a scan of
