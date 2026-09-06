@@ -4,6 +4,21 @@ Every ticket and Gerrit id in play, and the ones that are *not* ours. Regenerate
 the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
 **2026-09-06**.
 
+## A striped directory's shard became a path component (2026-09-06)
+
+68288 `af2ef8f0`, the evening round's other defect: verified, reproduced and
+fixed. `lfind --paths` printed `/shardtest/[0x200000400:0x2:0x0]:0/f1` where
+the filesystem has `/shardtest/f1`, and `--fid2path` reached it too, there
+being no fallback from the map. Fixed with a new record bit
+`LLAPI_SCAN_LMV_SHARD` and a nameless map entry the walk steps through, which
+is the shape `mdt_path_current()` already has.
+`docs/rounds/round22/af2ef8f0-dir-shards.md`.
+
+**Left for its own patch:** `-type d` still prints the shard as an object of
+its own. The principled fix is an `LLAPI_SCAN_CLS_*` class, which changes what
+a scan delivers by default. **The comment's repro line is wrong** — `-c 1`
+makes a plain directory here, `-c 2` is what makes shards.
+
 ## 68415's other four AI threads, all fixed (2026-09-06)
 
 `9e911017` (a comment claiming "what every event answers for", with four
