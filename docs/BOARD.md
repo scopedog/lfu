@@ -16,7 +16,16 @@ Reviewing the diff caught the first version turning a duplicate into a
 **miss** — a pre-window burst marked the object delivered and suppressed the
 one inside the window. The `--since` window cut and the cookie anchor both
 moved into `sc_filter`, ahead of the suppression.
-`docs/rounds/round22/cda04667-once-flag.md`. **Lab run still owed.**
+`docs/rounds/round22/cda04667-once-flag.md`.
+
+**RUN on the local VM and green** (`docs/rounds/round22/lab-once-flag.md`):
+100010 objects between one file's two events force the eviction the 600s
+`sc_min_age` cannot be faked into, and the paired arms on one build of the
+modules give **unfixed 2 lines, fixed 1**, with the run's own count of changed
+objects going 100022 -> 100021 — the duplicate lookup is not paid either. The
+library's test5 proves its premise first (2 arrivals without the flag,
+`sc_max_cached=1`) and then one with it. `sanity` 56El, 157c, 160aa-160ad
+**PASS x2, zero skips**.
 
 ## New patch: the trailing-slash trim (2026-09-06)
 
