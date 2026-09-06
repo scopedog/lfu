@@ -4,6 +4,21 @@ Every ticket and Gerrit id in play, and the ones that are *not* ours. Regenerate
 the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
 **2026-09-06**.
 
+## 68415's other four AI threads, all fixed (2026-09-06)
+
+`9e911017` (a comment claiming "what every event answers for", with four
+counterexamples in `scan_cl_absorb()`), `6cd44cc3` (`O_NOFOLLOW` is inert under
+`open_by_handle_at()`; `O_PATH` is what makes a symlink openable), `60b237d1`
+(the page cited a private symbol; it now uses the sibling's prose) and
+`62e0c7ba` (the test ran outside `TEST_REGISTER`/`run_tests()` — converted, so
+each case is forked and `-e`/`-o` select).
+
+While in the test, **the DNE trap from the lab is now diagnosed rather than
+suffered**: it says `... is on MDT0001, not the MDT0000 that -m names` instead
+of failing with "no CL_RENAME in the stream". Run on the VM: six cases pass
+forked, `-o`/`-e` select, the guard fires.
+`docs/rounds/round22/68415-remaining-threads.md`.
+
 ## A filtered record stalled `_CLEAR` (2026-09-06)
 
 68415 `e21128ea`, the second defect of the evening AI round, verified and
