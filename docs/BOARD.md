@@ -4,6 +4,15 @@ Every ticket and Gerrit id in play, and the ones that are *not* ours. Regenerate
 the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
 **2026-09-06**.
 
+## The find-device page claimed a lookup per object (2026-09-06)
+
+68288 `91527192`, verified in all three parts and fixed: the NOTES said each
+FID is resolved through the mount by `llapi_scan_rec_path(3)`, which for an
+MDT target never happens — the map composes and there is no fallback, and the
+mount is the prefix and the fsname check. `lfind(8)` had it right all along.
+`fp_paths` was undocumented and `-ENOTDIR`/`-EXDEV` were missing from ERRORS;
+both fixed. `docs/rounds/round22/91527192-find-device-page.md`.
+
 ## A striped directory's shard became a path component (2026-09-06)
 
 68288 `af2ef8f0`, the evening round's other defect: verified, reproduced and
