@@ -4,6 +4,18 @@ Every ticket and Gerrit id in play, and the ones that are *not* ours. Regenerate
 the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
 **2026-09-06**.
 
+## New patch: the trailing-slash trim (2026-09-06)
+
+`LU-20605 llapi: trim a start point's trailing slashes` — `02d913438a`, on
+top of the stack, **under LU-20605 rather than a new ticket**. `-name`
+against a start point spelled with a slash: 1 of 3 patterns correct before,
+3 of 3 after. `docs/rounds/round22/lfs-find-trailing-slash.md`.
+
+Settled against a **stock lfs built from the series base**: the doubled
+path separator is upstream and not ours (ticket held, see the memory), and
+68095's `-name` change was **not a regression** — stock matches nothing at
+all for such a start point.
+
 ## The AI review backlog is empty (2026-09-06)
 
 **34 replies posted; 40 open AI threads down to 7**, and all seven are
