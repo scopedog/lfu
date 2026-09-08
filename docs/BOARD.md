@@ -17,7 +17,35 @@ Untriaged: 68156 `a9942381` `4d552522` `7e92da87` `edaaad1a`, 68157
 `8516da85`, 68159 `ccbe7b56` `0aaa4e59`, 68160 `824b9aa9`, 68163 `a93f237a`
 `87ba1222` `de2957d5`.
 
-**Done: 68159 `ccbe7b56`** — see below. Sixteen to go.
+**Done: 68159 `ccbe7b56` and `0aaa4e59`** — see below. Fifteen to go.
+
+## A torn linkea made the object a non-match (2026-09-08)
+
+68159 `0aaa4e59`. `find_device_prefilter()`'s name loop broke out when an
+entry could not be read and fell through to `return 1` — a rejection — where
+the `nr == 0` case six lines above calls the same condition undecided. So an
+object whose linkea claimed three names and spelled one was reported as a
+non-match on a list nobody finished reading.
+
+Reachable because `scan_linkea_entry()` caps `leh_reccount` by the *smallest*
+entry that could fit, and entries are variable-length. Needs a genuinely torn
+`trusted.link` — both backends deliver the whole xattr — which is the
+condition `find_lmm_fits()` already exists for.
+
+Fixed into the no-name branch's shape. **Checked and not a second defect:**
+`nr == 1` with an unreadable entry 0 never reaches the loop, `scan_linkea()`
+returning before it sets `LLAPI_SCAN_LINKEA`.
+
+**Proved by lifting, not retyping** — `tests/lift/lift.py` cuts the three
+static functions out of the real sources, so the unfixed arm is the shipped
+text: **7 pass / 1 fail, then 8 / 0**. The first fixture was wrong (a short
+first name caps `nr` to 1 and the loop never runs) and reported three
+failures that were all fixture; the arms now assert the premise first.
+`docs/rounds/round22/0aaa4e59-torn-linkea.md`.
+
+**The rebase conflicted twice, usefully:** at 68159 the fields are still
+`sr_`, and the `lfsr_` rename is a later commit, so the hunk was resolved
+once in each spelling. Checked both directions afterwards.
 
 ## `--links` dropped a foreign directory on a device scan (2026-09-08)
 
