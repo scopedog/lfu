@@ -4,6 +4,38 @@ Every ticket and Gerrit id in play, and the ones that are *not* ours. Regenerate
 the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
 **2026-09-06**.
 
+## The record's lifetimes are documented per field (2026-09-08)
+
+From the user's question, not from a review comment.
+`llapi_scan_namespace(3)` said only "valid only for the duration of the
+callback"; it now has a **Lifetimes** subsection saying when each part stops
+being the object's, because the answers differ and two are shorter than that
+rule reads:
+
+- `sr_name` points **into** `sr_path`, not beside it.
+- A directory's `sr_path` is rewritten by **its own descent**, before any
+  callback below it runs — it does not last until its next sibling.
+- `sr_fd` for anything but a directory is closed **the moment the callback
+  returns**; a kept copy names a descriptor whose number is about to be
+  reused.
+- `sr_lmm`/`sr_lmv` last **longer** than the rule — until the next object's
+  gather — which is the more dangerous half. The record is honest within the
+  callback (no layout leaves `sr_lmm` NULL), but a kept pointer describes
+  whichever object was gathered most recently, and the gather clears the
+  magic without clearing the body.
+- The record itself is a stack local of the traversal callback, so even the
+  by-value fields need the struct copied.
+
+`llapi_scan_next(3)` is named as the exception for a consumer that needs a
+record to outlive delivery.
+
+**Split across two commits:** the section into 68094, the batch sentence into
+`llapi_scan_next`'s own commit, since the function does not exist at 68094.
+Checked that the cross-reference never precedes the page it names, and that
+no commit mixes `sr_` with `lfsr_` — this one needed **three** passes to get
+right, a second hunk having applied cleanly with the new spelling while the
+first conflicted.
+
 ## Replies posted for the sixteen (2026-09-08)
 
 Six `gerrit review --json` calls, one per (change, patchset), targeting the
