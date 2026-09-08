@@ -45,6 +45,47 @@ no commit mixes `sr_` with `lfsr_` — this one needed **three** passes to get
 right, a second hunk having applied cleanly with the new spelling while the
 first conflicted.
 
+## URGENT: the test-number collision HAS happened (2026-09-08)
+
+**adilger `5bcbf4dd`, 68156 ps16, same file and line as the AI's
+`a9942381`:** *"This test number is also being used in at least one other
+patch. It would be better to put this up at 300 or 400 to avoid contention
+(here and in the future)."*
+
+**So the decline posted at 15:38 is wrong and must be reversed.** It rested
+on "the collision it guards against hasn't happened" — the maintainer says it
+has, and said so on ps16, three days before the AI restated it. Both the
+maintainer and the AI have now asked for 300/400.
+
+**How the error happened, because it is the second time today:** the ten
+adilger threads on 68156 were listed this morning and classified as "a
+separate pile", then never read. The AI's `a9942381` and `4d552522` were both
+*restatements* of adilger comments sitting at the same lines, and both were
+answered without reading the originals. A restatement is not the comment.
+
+**Owed:** renumber 165-168 to 300-303 (or 400-403), correct the reply on
+`a9942381`, and answer `5bcbf4dd`.
+
+## The scan plugin is named scan_osd_ldiskfs.so (2026-09-08)
+
+adilger `bd5ac2cf` on 68156's COMMIT_MSG: *"it would be useful to name this
+consistently, like scan_osd_ldiskfs.so"*. Right, and it was our own stated
+precedent that we failed to follow — the loader's comment says "plugins
+beside mount_osd_ldiskfs.so, found the same way", and `mount_utils.c:511`
+loads `mount_osd_FSTYPE.so`, while ours dropped the `osd_`.
+
+Renamed in the loader, `Makefile.am` and `lustre.spec.in`; the `name` strings
+stay "ldiskfs"/"zfs" so the ENOTSUP message still reads properly, with the
+prefix in the path format. Split by backend: the ldiskfs half and the loader
+into 68156, the ZFS half into 68163 — and 68156's loader is **single-backend**
+(the `scan_backend_name[]` array arrives with 68163), so the two commits carry
+different shapes of the same rename.
+
+Verified per commit: `scan_osd_zfs.so` appears only from 68163, no
+un-prefixed name survives anywhere, and the renamed plugin genuinely loads —
+installed copy moved aside, no installed `scan_osd_ldiskfs.so` to fall back
+on — scanning 8 directories with `--links 2` still answering 3.
+
 ## fid_is_root() moved to the UAPI header (2026-09-08)
 
 **adilger's `3459fec3` on 68156 ps16 (5 Sep) was never answered** — the AI's
