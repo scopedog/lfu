@@ -17,8 +17,47 @@ Untriaged: 68156 `a9942381` `4d552522` `7e92da87` `edaaad1a`, 68157
 `8516da85`, 68159 `ccbe7b56` `0aaa4e59`, 68160 `824b9aa9`, 68163 `a93f237a`
 `87ba1222` `de2957d5`.
 
-**Done: 68159 `ccbe7b56` and `0aaa4e59`, 68156 `7e92da87`** — see below.
-Fourteen to go.
+**Done: 68159 `ccbe7b56` and `0aaa4e59`, 68156 `7e92da87` and `edaaad1a`** —
+see below. Thirteen to go.
+
+## OPEN FOR THE USER: the garbage-inode flag is never set (2026-09-08)
+
+Found while building a fixture for 68156 `edaaad1a`. `scan_ldiskfs_chunk()`
+catches `EXT2_ET_INODE_IS_GARBAGE` and its comment says a body "libext2fs
+calls garbage" is skipped — but `check_inode_block_sanity()` returns
+immediately unless `EXT2_SF_WARN_GARBAGE_INODES` is set, and
+`libscan_ldiskfs.c:271` sets only `EXT2_SF_SKIP_MISSING_ITABLE`. **Proved with
+a standalone probe: flag off, libext2fs refuses nothing; flag on, it refuses
+exactly the four corrupted inodes.** So that arm is unreachable today and a
+garbage inode is parsed as an object.
+
+**Not decided, deliberately.** Setting the flag makes the code do what it
+says, but `check_inode_block_sanity()` verifies a checksum and an extent
+header for *every inode read*, on the hot path of a scanner measured in
+millions of objects a second. A throughput question, wanting its own
+measurement.
+
+## An unreadable inode at a chunk boundary counted twice (2026-09-08)
+
+68156 `edaaad1a`. The skip arm `continue`d without asking `ino > end_ino`, so
+an unreadable inode just past the bound was consumed by this chunk and read
+again by the next; `ss_seen` and `ss_skipped` both took it twice. Checked
+against libext2fs's own source first: `*ino` is assigned after all three of
+those errors and before the return, unlike the earlier ones. A reserved inode
+that could not be read was also counted as an object; now it is not.
+
+**Measured on a real device** — a copy of the lab MDT with three of the four
+inodes in the block at chunk 0's boundary (inode 75001, `end_ino` 75000)
+overwritten: **unfixed 8 of 270 skipped, fixed 4 of 266.** Exactly double.
+`docs/rounds/round22/edaaad1a-chunk-boundary.md`.
+
+**A lab trap that invalidated three earlier readings:** the ldiskfs backend is
+a **dlopened plugin**, not part of `liblustreapi.so`, and
+`scan_backend_load()` tries `PLUGIN_DIR/scan_ldiskfs.so` *before*
+`$LUSTRE/utils/`. So `make lfind` + `LD_LIBRARY_PATH` — enough for anything in
+`liblustreapi` — silently ran the **installed** backend. To test a backend
+change: `make libscan_ldiskfs.la`, move `/usr/lib64/lustre/scan_ldiskfs.so`
+aside, set `LUSTRE=<tree>/lustre`, put it back after.
 
 ## The LMV buffer kept the last object's bytes (2026-09-08)
 
