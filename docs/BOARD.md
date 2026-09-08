@@ -45,7 +45,7 @@ no commit mixes `sr_` with `lfsr_` — this one needed **three** passes to get
 right, a second hunk having applied cleanly with the new spelling while the
 first conflicted.
 
-## URGENT: the test-number collision HAS happened (2026-09-08)
+## DONE: renumbered 165-168 to 300-303 (2026-09-08)
 
 **adilger `5bcbf4dd`, 68156 ps16, same file and line as the AI's
 `a9942381`:** *"This test number is also being used in at least one other
@@ -63,8 +63,24 @@ separate pile", then never read. The AI's `a9942381` and `4d552522` were both
 *restatements* of adilger comments sitting at the same lines, and both were
 answered without reading the originals. A restatement is not the comment.
 
-**Owed:** renumber 165-168 to 300-303 (or 400-403), correct the reply on
-`a9942381`, and answer `5bcbf4dd`.
+**All three done.** Renumbered to **300-303** across the whole stack with one
+scripted `rebase --exec` pass, `a9942381` corrected, `5bcbf4dd` answered.
+
+**The substitution had to be anchored in the tree and could be bare in the
+messages**, and knowing which is the whole job: `conf-sanity.sh` holds 14
+addresses containing `192.168.`, so a bare `\b168\b` would have rewritten
+them. Every message reference was enumerated first — sixteen lines, all ours
+— so bare was safe there. Checked after: 14 IPs before and 14 after, and the
+`EXCEPT_SLOW` duration comment (`# 8 22 40 165 (min)`) untouched.
+
+**A second pass was needed for `test_16N` in the messages:** `_` is a word
+character, so `\b166\b` never matched inside `test_166`. Caught by sweeping
+every commit rather than trusting the first pass.
+
+**Verified, not assumed:** `PASS 300 (45s)` on the lab, with
+`scan_osd_ldiskfs.so` installed — so the renumber and the plugin rename are
+both confirmed by a run, not by reading the diff. `Test-Parameters` now says
+`ONLY=300`.
 
 ## The scan plugin is named scan_osd_ldiskfs.so (2026-09-08)
 
