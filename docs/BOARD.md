@@ -4,6 +4,29 @@ Every ticket and Gerrit id in play, and the ones that are *not* ours. Regenerate
 the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
 **2026-09-06**.
 
+## Replies posted for the sixteen (2026-09-08)
+
+Six `gerrit review --json` calls, one per (change, patchset), targeting the
+patchset each comment was written on: 68156 ps17 (3), 68157 ps17 (4), 68158
+ps17 (3), 68159 ps17 (2), 68160 ps18 (1), 68163 ps16 (3). Read back
+afterwards — a thread's state is its **last** comment's flag, so counting the
+AI's own says nothing.
+
+**Fifteen resolved, one left open on purpose:** 68158 `46c9be5f`, the only
+pure decline, so the reviewer can push back on it. The other two declines
+(68157 `0a865f6a`, 68156 `7e92da87`) each came with a change and are resolved
+with the reason stated.
+
+Every reply says **"Lands in the next patchset."** — nothing is pushed, so
+`Done.` would have been a false claim. The cover message says so outright.
+
+**Not replied to:** 68156 `a9942381`, the renumbering skipped for the user.
+Answering it would be answering for a decision not made.
+
+AI threads still unresolved: **six** — that one plus the five older
+deliberate ones (68095 `937bc492`, 68156 `ab78d3de`, 68159 `e6fb45c4`,
+68417 `122b863e`, 68420 `39df2275`).
+
 ## The 17 AI comments: 16 closed, 1 skipped (2026-09-08)
 
 **Worked through in one pass.** Six were real defects, four of them
