@@ -82,6 +82,47 @@ every commit rather than trusting the first pass.
 both confirmed by a run, not by reading the diff. `Test-Parameters` now says
 `ONLY=300`.
 
+## Both scanners fill the stats, and the struct says it is extensible (2026-09-08)
+
+adilger `5aae920f` and `15a0778a`, answered together — same struct, same
+complaint.
+
+**`5aae920f` — "make this extensible" was already true and written down
+nowhere.** `ss_size` negotiates exactly as `lfsp_size` does: the library
+writes back `min(ss_size, sizeof)` with `LLAPI_SCAN_STATS_MIN_SIZE` as the
+floor, so counters appended later leave an older caller reading its own
+fields. `llapi_scan_device.3` now says so.
+
+**Deferred, with the reason:** the aggregates he wants (total size/blocks,
+histograms, per-UID/GID/PRJID) and the **stats mask** to select them are one
+patch and want building together. Totals change what a *namespace* scan must
+read per object — a device scan has size and blocks in hand, a walk fetches
+them only when asked — so the mask is what makes them affordable, and a mask
+with nothing behind it is a promise.
+
+**`15a0778a` — the namespace scanner now fills stats too.** His prediction
+about staleness was already true: the comment said "the namespace scanner
+does not use it" while the **changelog scanner already did**
+(`liblustreapi_scan_changelog.c:1134`). The struct comment now describes the
+field and names no scanner.
+
+**Why the walk never filled it, which is the honest answer:**
+`struct llapi_scan_stats` and `lfsp_stats` are introduced by **68156**, not
+68094 — the field arrived with the code that needed it. So the fix lands in
+68156 as well; it cannot go in 68094, where the struct does not exist.
+
+Counted atomically, `llapi_scan_namespace()` running its callback on every
+thread at once where the device scan merges per-worker counters at the end.
+**Measured:** 201 objects exact at 1, 4 and 8 threads;
+`seen == filtered + skipped + sum(class)` holds in every arm; a filter
+rejecting every third gives 7 seen / 5 emitted / 2 filtered.
+`tests/lab-r18/ns_stats.c`.
+
+**One stale cross-reference this created and caught:** the `lfsp_search`
+paragraph said it was "the same case" as `lfsp_stats` — unread by a walk.
+Stats are now read by both, so that sentence was wrong the moment this
+landed. Fixed in 68163.
+
 ## A no-LMA object is answered with its IGIF (2026-09-08)
 
 adilger `e3aae0e0`, third part: *"the right place to return
