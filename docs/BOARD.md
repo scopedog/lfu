@@ -27,7 +27,16 @@ rule reads:
   by-value fields need the struct copied.
 
 `llapi_scan_next(3)` is named as the exception for a consumer that needs a
-record to outlive delivery.
+record to outlive delivery, and **its own page gained the two things the
+implementation shows and the prose did not**: the batch is released at the
+**top** of the following `llapi_scan_next()`, before that call waits for the
+scan rather than when it returns — so handing a batch to a worker thread and
+calling again to overlap the next fill releases what the worker is reading,
+and the `-EBUSY` that refuses a second *caller* does not refuse a *reader*
+racing one. And the arena is **rewound, not freed**, so such a reader finds
+the following batch's bytes rather than a fault. What that page already had
+was right: everything is deep-copied, and `lfsr_parent_fd`/`lfsr_fd` are −1
+because a batch cannot carry a descriptor the callback closed.
 
 **Split across two commits:** the section into 68094, the batch sentence into
 `llapi_scan_next`'s own commit, since the function does not exist at 68094.
