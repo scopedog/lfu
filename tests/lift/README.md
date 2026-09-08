@@ -27,3 +27,16 @@ the loop under test never runs. The buffer needs room for `claimed`
 minimum-sized entries while the entries actually in it are long enough to run
 off the end. The first three arms assert that premise before anything reads
 into it.
+
+## `lmv_stale.c` — 68156 `7e92da87`
+
+Drives `scan_lmv_to_user()` over one buffer twice: a foreign directory with a
+2048-byte value, then a 4-stripe directory. The shard area a consumer sizing
+`lum_objects[]` by `lum_stripe_count` would read used to hold **96 of 96
+bytes** of the foreign value.
+
+    python3 lift_lmv.py <tree> lifted_lmv.inc
+
+**Unfixed 3 pass / 1 fail, fixed 4 / 0.**
+
+`lifted*.inc` is generated — regenerate it, do not commit it.

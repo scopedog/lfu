@@ -28,10 +28,11 @@ def lift(path, name):
         i += 1
     sys.exit("unbalanced braces for %s" % name)
 
-T = sys.argv[1]
-out = []
-out.append(lift(T + "/lustre/utils/liblustreapi_scan_device.c", "scan_linkea_entry"))
-out.append(lift(T + "/lustre/utils/liblustreapi_pfind.c", "find_prefilter"))
-out.append(lift(T + "/lustre/utils/liblustreapi_pfind.c", "find_device_prefilter"))
-open(sys.argv[2], "w").write("".join(out))
-print("lifted %d bytes" % sum(len(x) for x in out))
+if __name__ == "__main__":
+    T = sys.argv[1]
+    out = []
+    out.append(lift(T + "/lustre/utils/liblustreapi_scan_device.c", "scan_linkea_entry"))
+    out.append(lift(T + "/lustre/utils/liblustreapi_pfind.c", "find_prefilter"))
+    out.append(lift(T + "/lustre/utils/liblustreapi_pfind.c", "find_device_prefilter"))
+    open(sys.argv[2], "w").write("".join(out))
+    print("lifted %d bytes" % sum(len(x) for x in out))

@@ -17,7 +17,35 @@ Untriaged: 68156 `a9942381` `4d552522` `7e92da87` `edaaad1a`, 68157
 `8516da85`, 68159 `ccbe7b56` `0aaa4e59`, 68160 `824b9aa9`, 68163 `a93f237a`
 `87ba1222` `de2957d5`.
 
-**Done: 68159 `ccbe7b56` and `0aaa4e59`** — see below. Fifteen to go.
+**Done: 68159 `ccbe7b56` and `0aaa4e59`, 68156 `7e92da87`** — see below.
+Fourteen to go.
+
+## The LMV buffer kept the last object's bytes (2026-09-08)
+
+68156 `7e92da87`, both halves verified. `scan_lmv_to_user()` cleared only the
+48-byte header of a worker's one reused 4096-byte buffer, so a directory's
+shard area held whatever the last object left — **96 of 96 bytes, measured,
+a preceding foreign directory's opaque value**. A consumer sizing
+`lum_objects[]` by `lum_stripe_count` (as `lmv_dump_user_lmm()` does) reads
+it; `rec->lfsr_lmv` points straight at that buffer. Fixed by clearing as far
+as such a read can reach, bounded by the room. `sw_lmv` is now a union of the
+two structures it holds, not a bare `char[]` the call site casts both ways.
+
+**Declined:** reporting `lmv_user_md_size(count, SPECIFIC)` to make the two
+scanners' sizes agree. A walk answers 144 with real shard FIDs, a device scan
+48 with none — it cannot fill `lum_mds` without an FLD lookup. Agreeing on
+144 would hand back zeroed FIDs as answers. Documented instead, in the record
+comment and `llapi_scan_device.3`: `lum_objects[]` is measured by
+`sr_lmvsize`, never by the count. `tests/lift/lmv_stale.c`, **3 pass / 1 fail
+→ 4 / 0**. `docs/rounds/round22/7e92da87-lmv-size.md`.
+
+**Two traps worth not repeating.** A non-raw Python string turned `\fI` into
+a real form feed and the man page rendered `lmv_user_md_size(IcountR, ...)` —
+caught by rendering the page, not by reading the diff; the tree is swept and
+clean. And the fixup landing on 68156 **without** a conflict was the warning:
+the `lfsr_` rename is a later commit, so the new comment named a field that
+does not exist at that commit. Text now reads `sr_` there and `lfsr_` at the
+tip, checked both ways.
 
 ## A torn linkea made the object a non-match (2026-09-08)
 
