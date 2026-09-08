@@ -203,7 +203,7 @@ deleted**, so the tip held the comment twice and still built clean. Nothing
 but comparing the finished tree against the pre-fold tree would have found
 it. Sweep every commit, not just the tip.
 
-## SKIPPED FOR THE USER: renumbering conf-sanity 165-168 (2026-09-08)
+## DECLINED: renumbering conf-sanity 165-168 (2026-09-08)
 
 68156 `a9942381`, the only one of the seventeen not closed. The AI asks for a
 large round number with gaps — test_300 or test_400 — so two patches adding to
@@ -213,15 +213,32 @@ this suite in parallel do not both take the next free small number.
 jumps to `200a`, so 165-168 are precisely "the next four free". 300 and 400 are
 both clear (200a-e, 250, 802a are the neighbours).
 
-**Not decided, because it renames things you use.** The cost is a sweep of 25
+**Declined on the practice, and the reply is posted and resolved.** Every
+conf-sanity test added upstream in the last eighteen months took the next
+free number (156, 157a, 160-162, 164) or a suffixed variant of a related one
+(73c-f, 82c, 28b, 88a, 123aj) — **not one jumped to a large round number**,
+so 300/400 is a preference rather than this suite's convention. A parallel
+patch taking 165 conflicts *textually* in `conf-sanity.sh` when the second
+rebases, so the collision is detected and costs one renumber if it happens,
+rather than certainly now. And `test_167` carries the CI history the Janitor
+−1 on 68288 is being chased through.
+
+**A claim of mine that was wrong, corrected here:** 165-168 do *not* sit
+beside related tests. conf-sanity 160-164 are MGS/nid/registration tests; the
+`lfs find` tests are in `sanity.sh`. There is no grouping argument for
+keeping the numbers, and the case rests on the practice evidence alone.
+
+**The cost, had it gone the other way:** The cost is a sweep of 25
 references in the tree, 7 in the series' commit messages and Test-Parameters
 (`ONLY=165`), the LU-20637 Jira thread on test_167, this board, the round
 records, and ten memory files — plus the shorthand "conf-sanity 165/166/168"
 that has been the working vocabulary for weeks. Renaming that is your call,
 not a style fix to apply quietly.
 
-If the answer is yes it is mechanical, and the moment to do it is before the
-next push rather than after.
+Resolved rather than left open, unlike 68158 `46c9be5f`: this is a style
+preference contradicted by the history and had been raised twice with no
+answer, where `46c9be5f` is a design point that new information could
+reasonably change.
 
 ## OPEN FOR THE USER: the garbage-inode flag is never set (2026-09-08)
 
