@@ -18,7 +18,19 @@ Untriaged: 68156 `a9942381` `4d552522` `7e92da87` `edaaad1a`, 68157
 `87ba1222` `de2957d5`.
 
 **Done: 68159 `ccbe7b56` and `0aaa4e59`, 68156 `7e92da87` and `edaaad1a`,
-68157 all four** — see below. Ten to go.
+68157 all four, 68160 `824b9aa9`** — see below. Nine to go.
+
+## lfind printed every option error twice (2026-09-08)
+
+68160 `824b9aa9`. `lfs_find_parse()` prints its own diagnostic and documents
+that the caller must set `opterr = 0`; `lfs.c:15867` does, `lfind`'s `main()`
+did not, so glibc's default of 1 printed a second one. Reproduced, fixed,
+reproduced fixed — once each for `--bogus` and a short `-Q`, and a good run
+still answers. The contract's other half needed nothing:
+`lfind_parse_target()` compares strings rather than calling `getopt()`, so
+`optind` is still 1 when the parser is reached, and setting `opterr` ahead of
+it suppresses no diagnostic of its own.
+`docs/rounds/round22/824b9aa9-opterr.md`.
 
 ## 68157's four, all on one comment (2026-09-08)
 
