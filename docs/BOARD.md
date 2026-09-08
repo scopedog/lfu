@@ -18,8 +18,22 @@ Untriaged: 68156 `a9942381` `4d552522` `7e92da87` `edaaad1a`, 68157
 `87ba1222` `de2957d5`.
 
 **Done: 68159 `ccbe7b56` and `0aaa4e59`, 68156 `7e92da87` and `edaaad1a`,
-68157 all four, 68160 `824b9aa9`, 68156 `4d552522`, 68158's three** — see
-below. **Four to go:** 68156 `a9942381`, 68163's three.
+68157 all four, 68160 `824b9aa9`, 68156 `4d552522`, 68158's three, 68163's
+three** — see below. **One to go:** 68156 `a9942381`, the test-number style
+note.
+
+## 68163's three, unlooked-at since ps16 (2026-09-08)
+
+The three that predate the evening round and that every sweep missed. All
+real. `87ba1222`: two `-EINVAL` entries in ERRORS, the pool case folded into
+the argument-check entry so there is one per errno. `de2957d5`: `sp_search`
+was on neither page — `llapi_scan_device(3)` sends readers to
+`llapi_scan_namespace(3)` for the structure and that page's field walk left
+it out; `sp_stats` was already the model for how to say it. `a93f237a`: four
+paragraphs of the commit message justified the patch against an earlier
+revision of itself, which a reader from `git log` cannot see; rewritten to
+state the leading-slash rule once and its consequences.
+`docs/rounds/round22/68163-three.md`.
 
 ## `lfs> find` searched the word "find" (2026-09-08)
 
