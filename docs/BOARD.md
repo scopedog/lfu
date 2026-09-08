@@ -4,7 +4,27 @@ Every ticket and Gerrit id in play, and the ones that are *not* ours. Regenerate
 the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
 **2026-09-06**.
 
-## The AI backlog is NOT empty: 17 untriaged (2026-09-08)
+## The 17 AI comments: 16 closed, 1 skipped (2026-09-08)
+
+**Worked through in one pass.** Six were real defects, four of them
+user-visible: a foreign directory dropped by `--links`, a torn linkea reported
+as a non-match, an LMV buffer leaking the previous object's bytes, a chunk
+boundary double-counting, `lfind` printing every option error twice, and
+`lfs> find` searching the word "find". Three were declined with reasons on the
+evidence (the `-ENOTSUP` sentinel, the depth check's second copy, making the
+two scanners' LMV sizes agree). The rest were comments, man pages and commit
+messages that said something untrue.
+
+**Two findings came out of the work rather than the queue:**
+`EXT2_SF_WARN_GARBAGE_INODES` is never set, so `EXT2_ET_INODE_IS_GARBAGE` is
+unreachable as shipped — open for the user, below. And `-printf %Lc` prints a
+foreign directory's `lfm_length` as a stripe count, upstream and unfixed.
+
+Every fix is folded into its own change with a message paragraph, checkpatch
+is clean over all 21 commits, the whole stack builds, and the day's diff
+builds and runs on the lab. **All unpushed.**
+
+## The AI backlog was NOT empty: 17 untriaged (2026-09-08)
 
 The 2026-09-06 evening round left 14 unlooked-at, and **68163 carries three
 more that predate it** (ps16) and were missed by every sweep since. Current
@@ -19,8 +39,8 @@ Untriaged: 68156 `a9942381` `4d552522` `7e92da87` `edaaad1a`, 68157
 
 **Done: 68159 `ccbe7b56` and `0aaa4e59`, 68156 `7e92da87` and `edaaad1a`,
 68157 all four, 68160 `824b9aa9`, 68156 `4d552522`, 68158's three, 68163's
-three** — see below. **One to go:** 68156 `a9942381`, the test-number style
-note.
+three** — see below. **Seventeen triaged, sixteen closed; one skipped for
+the user:** 68156 `a9942381`.
 
 ## 68163's three, unlooked-at since ps16 (2026-09-08)
 
@@ -118,6 +138,26 @@ for the `find_respell()` it carried — **re-added the one-liner I had just
 deleted**, so the tip held the comment twice and still built clean. Nothing
 but comparing the finished tree against the pre-fold tree would have found
 it. Sweep every commit, not just the tip.
+
+## SKIPPED FOR THE USER: renumbering conf-sanity 165-168 (2026-09-08)
+
+68156 `a9942381`, the only one of the seventeen not closed. The AI asks for a
+large round number with gaps — test_300 or test_400 — so two patches adding to
+this suite in parallel do not both take the next free small number.
+
+**The premise is exactly right.** Upstream's base stops at `test_164` and then
+jumps to `200a`, so 165-168 are precisely "the next four free". 300 and 400 are
+both clear (200a-e, 250, 802a are the neighbours).
+
+**Not decided, because it renames things you use.** The cost is a sweep of 25
+references in the tree, 7 in the series' commit messages and Test-Parameters
+(`ONLY=165`), the LU-20637 Jira thread on test_167, this board, the round
+records, and ten memory files — plus the shorthand "conf-sanity 165/166/168"
+that has been the working vocabulary for weeks. Renaming that is your call,
+not a style fix to apply quietly.
+
+If the answer is yes it is mechanical, and the moment to do it is before the
+next push rather than after.
 
 ## OPEN FOR THE USER: the garbage-inode flag is never set (2026-09-08)
 
