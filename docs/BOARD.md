@@ -45,6 +45,34 @@ no commit mixes `sr_` with `lfsr_` — this one needed **three** passes to get
 right, a second hunk having applied cleanly with the new spelling while the
 first conflicted.
 
+## fid_is_root() moved to the UAPI header (2026-09-08)
+
+**adilger's `3459fec3` on 68156 ps16 (5 Sep) was never answered** — the AI's
+`4d552522` was restating it, and replying to the restatement is not replying
+to him. He asked why `fid_is_root()` is not usable here and said the inline
+can be moved to the UAPI header, or split into a `lustre_fid_server.h`.
+
+**My reply to the AI earlier today was bad reasoning and has been overtaken.**
+It gave as the objection that the move would mean deleting the server-side
+definition — which *is* the move, not a blocker, and he had already said so.
+
+Done properly: `LU_ROOT_FID` (`uapi/.../lustre_fid.h:30`) and `lu_fid_eq()`
+(`:363`) are both already public, so the helper is a one-liner over things
+userspace has. It now lives in the UAPI header **without `unlikely()`**, that
+header being compiled in userspace, and is gone from
+`lustre/include/lustre_fid.h`, which includes the UAPI one — so llite, lmv,
+lod, mdd and mdt are untouched. `scan_classify()` calls it instead of
+open-coding `lu_fid_eq()` against `LU_ROOT_FID`.
+
+**Built the kernel side, not just userspace:** llite, mdt, lod, mdd and lmv
+all recompiled and relinked clean, which is the check a shared-header move
+needs. `tests/lift/root_fid.c` still 4/4.
+
+Reply posted by the user on `3459fec3`, left unresolved for him to close.
+
+**Loose end:** the AI's `4d552522` is resolved carrying the superseded claim
+that the move could not be made.
+
 ## Replies posted for the sixteen (2026-09-08)
 
 Six `gerrit review --json` calls, one per (change, patchset), targeting the
