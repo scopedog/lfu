@@ -18,8 +18,31 @@ Untriaged: 68156 `a9942381` `4d552522` `7e92da87` `edaaad1a`, 68157
 `87ba1222` `de2957d5`.
 
 **Done: 68159 `ccbe7b56` and `0aaa4e59`, 68156 `7e92da87` and `edaaad1a`,
-68157 all four, 68160 `824b9aa9`, 68156 `4d552522`** — see below.
-**Seven to go:** 68156 `a9942381`, 68158's three, 68163's three.
+68157 all four, 68160 `824b9aa9`, 68156 `4d552522`, 68158's three** — see
+below. **Four to go:** 68156 `a9942381`, 68163's three.
+
+## `lfs> find` searched the word "find" (2026-09-08)
+
+68158's three. The middle one, `25ba086d`, is a **reachable user-visible
+bug**, not the contract note it was offered as: `execute_line()`
+(`parser.c:384`) sets `optind = 0` for the interactive shell, `prev_optind`
+seeded from that, and `lfs> find /tmp -maxdepth 0` answered
+`failed for 'find': No such file or directory` before printing `/tmp`. It
+searched `argv[0]`. Verbatim upstream (`5afbab284e:lfs.c:7256`), but our
+patch documents a contract untrue of an in-tree caller. Fixed with
+`optind ? optind : 1` — not a guess: glibc reads 0 as "reinitialise" and
+scans from `argv[1]` anyway.
+
+`8516da85`: added `lfs_find_parse_init()` beside the `fini()` already owed,
+and switched both front ends to it. `lfind`'s copy of the initialiser was
+**already one field short** — three of the four named, `fp_min_depth` left
+implicit.
+
+**`46c9be5f` declined on evidence:** `lfind` calls `llapi_find_device()` and
+never walks, so `--mindepth`/`--maxdepth` are refused outright and the
+predicted second copy of the range check never has to be written. Moving it
+would make `lfind` complain that 3 > 1 for options it does not support,
+ahead of the message that says so. `docs/rounds/round22/68158-three.md`.
 
 ## The root test ignored f_ver (2026-09-08)
 
