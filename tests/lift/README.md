@@ -40,3 +40,16 @@ bytes** of the foreign value.
 **Unfixed 3 pass / 1 fail, fixed 4 / 0.**
 
 `lifted*.inc` is generated — regenerate it, do not commit it.
+
+## `root_fid.c` — 68156 `4d552522`
+
+Drives `scan_classify()` over four FIDs. The root with a non-zero `f_ver` used
+to classify as namespace-visible, where `fid_is_root()` — a whole-struct
+`lu_fid_eq()` — says it is not.
+
+    python3 lift_root.py <tree> lifted_root.inc
+
+**Unfixed 3 pass / 1 fail, fixed 4 / 0.**
+
+Note `scan_classify()`'s second argument is `have_lma`: pass `true`, or every
+arm answers `CLS_NO_LMA` and the harness reports the code broken.

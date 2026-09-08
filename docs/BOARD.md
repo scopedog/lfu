@@ -18,7 +18,28 @@ Untriaged: 68156 `a9942381` `4d552522` `7e92da87` `edaaad1a`, 68157
 `87ba1222` `de2957d5`.
 
 **Done: 68159 `ccbe7b56` and `0aaa4e59`, 68156 `7e92da87` and `edaaad1a`,
-68157 all four, 68160 `824b9aa9`** — see below. Nine to go.
+68157 all four, 68160 `824b9aa9`, 68156 `4d552522`** — see below.
+**Seven to go:** 68156 `a9942381`, 68158's three, 68163's three.
+
+## The root test ignored f_ver (2026-09-08)
+
+68156 `4d552522`, and both of its points hold. `fid_is_namespace_visible()`
+reaches the root through `fid_is_root()` = `lu_fid_eq()` against
+`LU_ROOT_FID`, and `lu_fid_eq()` is a **whole-struct memcmp**; our
+`fid_seq_is_root(seq) && f_oid == FID_OID_ROOT` ignored `f_ver`, so a root
+FID with a non-zero `f_ver` was called namespace-visible where the MDT would
+not. `scan_decode_lma()` swaps and stores `f_ver` off a live device, so it is
+not structurally zero.
+
+**Declined the suggested mechanism** — moving `fid_is_root()` into the UAPI
+header, which would collide, `lustre/include/lustre_fid.h:133` including it,
+so the server-side definition would have to go in the same patch. **Done
+instead:** `lu_fid_eq(&lma->lma_self_fid, &LU_ROOT_FID)`, both pieces already
+public, exact rather than approximate.
+
+`tests/lift/root_fid.c`: **3 pass / 1 fail → 4 / 0**, with the echo-client
+root — the case the spelled-out test existed for — unchanged. Byte-identical
+answer on a healthy MDT. `docs/rounds/round22/4d552522-root-fid.md`.
 
 ## lfind printed every option error twice (2026-09-08)
 
