@@ -82,6 +82,40 @@ every commit rather than trusting the first pass.
 both confirmed by a run, not by reading the diff. `Test-Parameters` now says
 `ONLY=300`.
 
+## A no-LMA object is answered with its IGIF (2026-09-08)
+
+adilger `e3aae0e0`, third part: *"the right place to return
+inode/generation would be as an IGIF FID"*. Right, and the tree agrees —
+`osd_scrub.c:632` and `:2612` build exactly that for an inode with no LMA. We
+were handing out the parts and telling the consumer to assemble them, and
+**nothing consumed `lfsr_gen`**: across utils, tests, headers and man pages it
+was only ever produced.
+
+So `lfsr_fid` now carries the IGIF and `LLAPI_SCAN_FID` is set;
+`lfsr_gen`/`LLAPI_SCAN_GEN` are gone — which also deletes the field whose
+appending parts 1 and 2 of the same comment objected to, so one change answers
+all three. `lfsr_ino` stays: every object has it, and a ZFS object id is wider
+than an IGIF holds. `LLAPI_SCAN_GEN`'s bit is left unused rather than
+renumbering the ones above it.
+
+**The man page had claimed the opposite** — *"One is not invented for it here
+— reconstructing a FID is LFSCK's job"* — and now says an IGIF is not a
+reconstruction but the FID such an inode has.
+
+**Measured on a real no-LMA inode**, created straight on the ldiskfs side so
+it has no `trusted.lma`: unfixed prints `obj:159` with 3 objects named by id
+alone; fixed prints `[0x9f:0xdd8ab9ce:0x0]` and none.
+`llapi_scan_device_test` 7/7.
+
+**Three build traps in one item, all the same shape — a stale artefact
+answering.** conf-sanity 300 reformatted `/tmp/lustre-mdt1`, the scan fixture,
+so the unit test failed on an emptied device and looked like a regression;
+the untouched image scanning fine is what separated the two. Then a
+reverse-apply of one file left `lfsr_gen` used but undeclared, and
+`make >/dev/null 2>&1` hid the compile error, so a **stale .so answered the
+comparison and showed no difference**. Every arm since is timestamp-checked
+before it is believed.
+
 ## The scan plugin is named scan_osd_ldiskfs.so (2026-09-08)
 
 adilger `bd5ac2cf` on 68156's COMMIT_MSG: *"it would be useful to name this
