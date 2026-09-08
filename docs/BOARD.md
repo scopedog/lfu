@@ -82,6 +82,27 @@ every commit rather than trusting the first pass.
 both confirmed by a run, not by reading the diff. `Test-Parameters` now says
 `ONLY=300`.
 
+## 68617 gains a Fixes: tag (2026-09-08)
+
+arshad512 `c741cc44`, the last unresolved thread on 68617 and the only one
+from that reviewer: *"Should the be also in 'Fixes:' section?"*, anchored on
+the line citing `c5050e412572`.
+
+**Answerable without asking him.** That commit is cited as *evidence* — it is
+what lands v0.9.1, proving there is a commit version to name — not as the
+cause. The commit that wrote the wording is **`155cf6d41dac ("LU-4315 doc:
+updating ls-tu man page style")`**, which added the `.\" Added in release
+0.9.1` line; `9a14d75e0a` only moved the file. The tree carries 1699 `Fixes:`
+lines, so the tag is in keeping. Added before `Signed-off-by`, as the tree
+places it.
+
+**And a habit corrected.** Checkpatching `git show` output — which is what I
+did all day — indents the message four spaces and yields three phantom
+warnings per commit, including one telling me the `Fixes:` line was
+misformatted *while quoting it back verbatim*. Through
+`git format-patch -1 --stdout` the same commit is **0 errors, 0 warnings**.
+Much of today's "known noise" was this.
+
 ## stack_trap loses its EXIT and its justification (2026-09-08)
 
 adilger `f51bb905`, two style points, both right. `stack_trap`'s second
