@@ -82,6 +82,32 @@ every commit rather than trusting the first pass.
 both confirmed by a run, not by reading the diff. `Test-Parameters` now says
 `ONLY=300`.
 
+## The struct comments stop enumerating scanner capabilities (2026-09-08)
+
+adilger `462553a5` and `611473dd`, one fix — and the first is sharper than it
+reads. It is anchored on `lustreapi.h:763`, *"It offers no path and no name"*,
+so he is **disputing that sentence**, not volunteering a fact: an OST object
+keeps its MDT parent FID in `trusted.fid`, from which a pathname can be made.
+
+**Our own series falsifies it two patches later.** LU-20637 (68288) reads
+exactly that xattr as `lfsr_owner_fid` / `LLAPI_SCAN_OWNER` and names OST
+objects from it while the OST is down. So the comment went stale **inside its
+own series** — which is `611473dd`'s complaint demonstrated rather than
+predicted.
+
+Both blocks trimmed to the part that does not change: the filter sees only
+what the scan already had, and 0 means a default the two scanners do not
+share. The field-by-field lists go. **Nothing was lost** — both man pages
+already carried the filter-time contract verbatim, and
+`llapi_scan_namespace.3` already carried its own default in full, so the
+header was duplicating them. `llapi_scan_device.3` gains the one sentence it
+never had: what 0 means there.
+
+**An earlier read of mine was wrong and is corrected here:** I first took
+`462553a5` as "he is telling us something we already do, resolve it". It is a
+correction to a claim in the comment, and the fix is a trim, not a citation.
+Reading the anchor line is what changed the answer.
+
 ## Both scanners fill the stats, and the struct says it is extensible (2026-09-08)
 
 adilger `5aae920f` and `15a0778a`, answered together — same struct, same
