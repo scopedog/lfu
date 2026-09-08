@@ -82,6 +82,36 @@ every commit rather than trusting the first pass.
 both confirmed by a run, not by reading the diff. `Test-Parameters` now says
 `ONLY=300`.
 
+## stack_trap loses its EXIT and its justification (2026-09-08)
+
+adilger `f51bb905`, two style points, both right. `stack_trap`'s second
+argument defaults to EXIT (`test-framework.sh:7459`,
+`sigspec="${2:-EXIT}"`), and a `setupall` trap after `stopall` is the
+ordinary shape.
+
+**The number that makes it more than taste:** the base tree passes an
+explicit EXIT **18 times of 92**. This series had added **13 more**, taking
+the file to 31 of 106 — we were the main source of a minority style.
+Dropping ours leaves exactly the 18 that were already there, and the diff
+against the base is insertions only, so none of upstream's were touched.
+Five more in `sanity.sh` went the same way.
+
+Applied per commit with a `rebase --exec` pass, since the calls span several
+changes; scoped to lines this series added rather than a blanket sed.
+
+**Verified:** `conf-sanity 300` PASS, and the log shows the client restarting
+after the test body — the `setupall` trap firing, which is the thing a
+mangled trap would break. `sanity` 56El, 160aa–160ad PASS.
+
+**157c failed first, and it was the fourth stale artefact of the day.**
+`make` in `lustre/utils` does not rebuild `lustre/tests`, so
+`llapi_scan_test` still expected the record's old `sizeof` from before
+`lfsr_gen` was removed, and reported *"6 records did not carry sizeof(struct
+llapi_scan_rec)"* — which reads exactly like a real defect. Rebuilt: PASS,
+17 subtests. Worth naming that this was also the **first** run of the
+namespace test since the IGIF change; the earlier 7/7 was
+`llapi_scan_device_test` alone.
+
 ## The struct comments stop enumerating scanner capabilities (2026-09-08)
 
 adilger `462553a5` and `611473dd`, one fix — and the first is sharper than it
