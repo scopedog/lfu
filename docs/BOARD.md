@@ -4,6 +4,94 @@ Every ticket and Gerrit id in play, and the ones that are *not* ours. Regenerate
 the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
 **2026-09-06**.
 
+## The AI backlog is NOT empty: 17 untriaged (2026-09-08)
+
+The 2026-09-06 evening round left 14 unlooked-at, and **68163 carries three
+more that predate it** (ps16) and were missed by every sweep since. Current
+count from the REST API: 40 unresolved threads, of which 17 are AI comments
+with no reply, 5 are AI threads deliberately open with a reply on them, 17
+are adilger's and 1 is arshad512's.
+
+Untriaged: 68156 `a9942381` `4d552522` `7e92da87` `edaaad1a`, 68157
+`1e2c193e` `7280c834` `0f09897a` `0a865f6a`, 68158 `46c9be5f` `25ba086d`
+`8516da85`, 68159 `ccbe7b56` `0aaa4e59`, 68160 `824b9aa9`, 68163 `a93f237a`
+`87ba1222` `de2957d5`.
+
+**Done: 68159 `ccbe7b56`** — see below. Sixteen to go.
+
+## `--links` dropped a foreign directory on a device scan (2026-09-08)
+
+68159 `ccbe7b56`, verified and **reproduced on a real device scan**.
+`lmv_foreign_md.lfm_length` shares offset 4 with `lmv_user_md_v1
+.lum_stripe_count`, so `find_decide()`'s nlink gate read a foreign LMV's
+value length as a stripe count and asked for a stat. A walk pays one and
+answers correctly; a scan has neither path nor descriptor, so the object went
+undecided and was dropped **out of both `--links 2` and `! --links 2`** — the
+same shape as round 22's `--projid 0` defect.
+
+The gate is verbatim upstream (`5afbab284e:liblustreapi_pfind.c:2892`); what
+this series adds is the caller with nothing to stat. Fixed with the
+`lmv_is_foreign()` guard its three sibling arms already carry, folded into
+68159 (`81c5db1519`) with the scripted-rebase method, tree hash unchanged.
+
+Lab: `tests/lab-r18/09-arms-foreign-links.sh`, paired on one fixture —
+**unfixed 3 pass / 2 fail, fixed 5 / 0**.
+`docs/rounds/round22/ccbe7b56-foreign-nlink.md`.
+
+**Noticed, not fixed:** `-printf %Lc` prints `lfm_length` as a stripe count
+through the same aliasing. Upstream unchanged, a wrong number rather than a
+dropped object — its own ticket, with the doubled-separator one.
+
+## OWED: tell Artem the record layout moved (2026-09-07)
+
+`struct llapi_scan_rec` now begins with `lstatx_t sr_stx` (offset 0), so it
+casts to `struct statx *` and the Lustre fields follow past `0x100` —
+adilger's `613572f2` on 68094, taken literally at the user's call.
+`sr_size` moved from offset 0 to 256.
+
+**PR 186 mirrors this struct by hand in Rust FFI.** Every field shifts, and
+the failure is silent: during the lab run a consumer binary built against
+the old layout read `seen 0xf8` where the value is `0xfdcf00000eff` — no
+crash, no error, just wrong numbers. Two `static_assert`s (`offsetof == 0`,
+`sizeof(lstatx_t) == 256`) protect anything compiled against our header; a
+foreign-language binding gets nothing. Tell him before this lands, not
+after.
+
+Field order itself costs nothing: 100k objects, paired and alternating,
++0.02% full gather and −0.02% name-only (±0.31 ns/object).
+
+## OWED in LU-20649: lfsr_event_time drops the nanoseconds (2026-09-07)
+
+`liblustreapi_scan_changelog.c:615` does `co_time = r->cr_time >> 30`, so a
+changelog record's event time keeps whole seconds and loses the low 30 bits
+that hold the nanoseconds. Found while answering adilger's nanosecond
+comment (`b3ce6f88`) on 68094, and **promised in the reply** — *"That is in
+the changelog patch, LU-20649, and I will fix it there."*
+
+**The thread is resolved**, so Gerrit will not remind us. It is the same
+defect class he raised: a new interface that cannot carry the nanoseconds
+another series is adding (66551, LU-1158). The object timestamps are fine —
+`lfsr_stx` carries whole `struct statx_timestamp` — it is only the event
+time that truncates.
+
+## OWED upstream: a STATX_PROJID field (LU-12480, adilger's ask)
+
+`e586539f` on 68094, 2026-09-04: push `STATX_PROJID` into the upstream
+kernel so the scanner can drop its extra ioctl. Not a review finding and
+nothing blocks on it — a piece of upstream work he suggested we take on.
+
+Today `LLAPI_SCAN_PROJID` is one of the three fields gathered only when
+named, because `get_projid()` opens the file when it has no descriptor. A
+kernel that answered it would deliver it in the statx the MDT ioctl already
+fills, and the per-object open disappears.
+
+**The decision it will force:** `LLAPI_SCAN_PROJID` is a bit in this API's
+own high half, while the low half aliases the kernel's `STATX_*`. A kernel
+`STATX_PROJID` gives one field two names for the same number — unlike
+`STATX_INO` vs `LLAPI_SCAN_INO`, which are two different numbers. Alias,
+keep both, or deprecate ours; decide when the kernel side lands, and note
+it touches `sr_projid` in the record too.
+
 ## 68288's Janitor −1 is NOT fixed, it is instrumented (2026-09-06)
 
 `conf-sanity test_167` fails on **21 ZFS sessions** and passes on every
