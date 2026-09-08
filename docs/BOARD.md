@@ -17,8 +17,37 @@ Untriaged: 68156 `a9942381` `4d552522` `7e92da87` `edaaad1a`, 68157
 `8516da85`, 68159 `ccbe7b56` `0aaa4e59`, 68160 `824b9aa9`, 68163 `a93f237a`
 `87ba1222` `de2957d5`.
 
-**Done: 68159 `ccbe7b56` and `0aaa4e59`, 68156 `7e92da87` and `edaaad1a`** —
-see below. Thirteen to go.
+**Done: 68159 `ccbe7b56` and `0aaa4e59`, 68156 `7e92da87` and `edaaad1a`,
+68157 all four** — see below. Ten to go.
+
+## 68157's four, all on one comment (2026-09-08)
+
+`0a865f6a`, `7280c834`, `0f09897a` sit on the same block above
+`find_get_projid()`; `1e2c193e` is its commit message.
+
+**`0a865f6a`: the code is right, the comment was wrong.** `ENOTSUP` and
+`EOPNOTSUPP` really are one number, and `get_projid()` really does pass back
+`-errno` unconstrained — but the sentinel is returned *before* `get_projid()`
+is reached and only when `fc_path == NULL`, which is the same condition
+`find_decide()` decodes it under. An `-ENOTSUP` from the ioctl keeps a path
+and is reported as the error it is. `fc_path != NULL` with `fc_fdp == NULL`
+is unreachable — every site sets the two together. **Declined the code
+change**; fixed the comment, which named the *value* as the discriminator and
+would have led a reader to drop the guard as redundant.
+
+The other three: the stranded one-liner folded in, the "at this patch /
+arrives with LU-20611" schedule dropped (it pointed at this patch's own
+ticket for a caller it does not contain), and the message now names
+`struct find_ctx` and `find_get_projid()`.
+`docs/rounds/round22/68157-projid-comment.md`.
+
+**The rebase went wrong twice and the tree-hash check caught it.**
+`git log --grep` matched my own `fixup!` commit and the `edit` landed there;
+then resolving a later commit's conflict by taking the incoming side — right
+for the `find_respell()` it carried — **re-added the one-liner I had just
+deleted**, so the tip held the comment twice and still built clean. Nothing
+but comparing the finished tree against the pre-fold tree would have found
+it. Sweep every commit, not just the tip.
 
 ## OPEN FOR THE USER: the garbage-inode flag is never set (2026-09-08)
 
