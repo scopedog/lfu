@@ -4,6 +4,32 @@ Every ticket and Gerrit id in play, and the ones that are *not* ours. Regenerate
 the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
 **2026-09-06**.
 
+## Round 22 PUSHED: 20 changes, two of them new (2026-09-08)
+
+Pushed to Gerrit as `refs/for/master` off `5afbab284e`. Eighteen changes got a
+new patchset; **two are new numbers**, the work built after round 19:
+
+| | |
+|---|---|
+| **68726** | `LU-20603 llapi: pull a scan's records in batches` — the `llapi_scan_next()` layer |
+| **68727** | `LU-20605 llapi: trim a start point's trailing slashes` |
+
+Both are added to `tests/gerrit-poll/gpoll.py`. A change missing from that list
+is invisible to the watch, which is how 68340 stayed out of a morning check.
+
+The stack now reads 68616, 68617, 68231, 68094, 68095, 68156, 68157, 68158,
+68159, 68160, 68163, 68288, 68415, 68416, 68417, 68418, 68419, 68420, 68726,
+68727 — 68094 at PS18, 68095 at PS19, the changelog six at PS10.
+
+What went in: the whole of round 22 — the lreview sweep's 70 findings, the
+three commits that did not compile, `find_prefilter()`'s bool and
+`find_decide()`'s 0/-errno, `llapi_scan_fid()` reading through `mnt_fd`, the
+trim consolidated into `llapi_find_with_cb()`, and the four test gaps.
+
+**Owed:** the new tests have not been run. 157c, 157d and conf-sanity 300 need
+a lab; only the lifted `test14` has executed. Expect the usual Merge Conflict
+banner on the stacked changes, and LU-20598 `sanity-sec` noise.
+
 ## The missing test coverage, four of five closed (2026-09-08)
 
 Last of the open lreview findings. Four gaps closed, each in the commit that
