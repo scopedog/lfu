@@ -4,6 +4,57 @@ Every ticket and Gerrit id in play, and the ones that are *not* ours. Regenerate
 the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
 **2026-09-06**.
 
+## The ZFS arm run: the last gap closed, no change needed (2026-09-09)
+
+Round 23 was pushed with one arm unexercised — 304's ZFS half, the whole
+reason the test exists. It has now been run and it passes.
+
+The lab VM already had **ZFS 2.2.11** installed by DKMS, with `libzpool`
+headers and a source tree at `/usr/src/zfs-2.2.11`, so no ZFS build was
+needed. Lustre rebuilt from the pushed tree with `--with-zfs`.
+
+**`--with-zfs-obj` is required on a DKMS host.** The first configure said
+`zfs build directory... Not found` and disabled osd-zfs: DKMS keeps
+`zfs_config.h` under `/var/lib/dkms/zfs/<ver>/<kernel>/x86_64/`, not in the
+source tree, and the m4's DKMS branch only looks there when `zfssrc` is
+`${zfsdkms}/source`. Ours came from `/usr/src/zfs-2.2.11` instead. Not our
+bug and not worth a patch, but it costs an hour if you meet it cold.
+
+### What the build itself proved
+
+```
+checking zfs libzpool headers usable from userspace... -DLIB_ZPOOL_BUILD
+  -I /usr/src/zfs-2.2.11/lib/libspl/include ... -I .../include/os/linux/zfs
+```
+
+The check succeeded on a **real Lustre configure**, taking candidate 1 —
+`/usr/src/zfs-2.2.11` is a genuine source tree, so the source set applies.
+`scan_osd_zfs.so` was built and installed to `/usr/lib64/lustre/`. That is
+the regression case worth having: the m4 change does not break a normal ZFS
+build, and the backend still enables where it should.
+
+### The run
+
+`FSTYPE=zfs`, all three, and each did real work rather than passing on a
+guard:
+
+| | ZFS | ldiskfs |
+|---|---|---|
+| **300** | `--internal added 318 objects` | 255 |
+| **302** | `offline --fid2path named 20 objects by their owner` | same |
+| **304** | **`offline --paths named 20 objects on zfs`** | `on ldiskfs` |
+
+304 scanned `lustre-mdt1/mdt1` with the pool exported, which is the
+`export_zpool` + `--search $(dirname $(mdsvdevname 1))` path that had never
+executed. The only skip in the run was the framework's own `SLOW=no` list.
+
+**No code change came out of it** — the tests pass exactly as pushed.
+
+**Still not covered:** ZFS **2.3.x**. This VM is 2.2.11, so the `abd_os.h`
+case the configure fix was written for is proven only by the rocky8.10
+reproduction, where the packaged candidate failed and the new one succeeded.
+Autotest runs 2.3.2 and is where that path first executes for real.
+
 ## Round 23 PUSHED: 11 changes (2026-09-09)
 
 Pushed off `5afbab284e`. Ten of the twenty stacked changes were byte-identical
