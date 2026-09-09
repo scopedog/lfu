@@ -4,6 +4,30 @@ Every ticket and Gerrit id in play, and the ones that are *not* ours. Regenerate
 the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
 **2026-09-06**.
 
+## Round 23 PUSHED: 11 changes (2026-09-09)
+
+Pushed off `5afbab284e`. Ten of the twenty stacked changes were byte-identical
+to Gerrit and took no new patchset; 68413 went up as a sibling, as before.
+
+| | |
+|---|---|
+| **New patchset** | 68163 PS18, 68288 PS13, 68415 PS11, 68416–68420 PS11, 68726 PS2, 68727 PS2 |
+| **Sibling** | 68413 PS7 |
+| **Untouched** | 68616, 68617, 68231, 68094, 68095, 68156, 68157, 68158, 68159, 68160 |
+
+What went up: the three fixes for round 22's red (test17's registration, the
+ZFS configure candidate, 157d's `-m ALL`), the 27 lreview findings across two
+passes, and the two the VM found. 68413 delivers the comment folds its three
+answered AI threads promised.
+
+**Everything that could be run, was**: sanity 157c (10 cases) and 157d (8),
+conf-sanity 300, 302 and 304, all passing on a real single-node filesystem
+built from this tree. The one arm still unexercised is 304's ZFS half, which
+needs a ZFS lab; autotest is where it first runs.
+
+Expect the Merge Conflict banner on the stacked changes and LU-20598
+`sanity-sec`. `gpoll.py` already covers every id here.
+
 ## The VM run, then lreview again: 11 more findings (2026-09-09)
 
 Tested before reviewing, on the user's instruction, and both halves paid.
