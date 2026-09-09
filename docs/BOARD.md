@@ -4,6 +4,56 @@ Every ticket and Gerrit id in play, and the ones that are *not* ours. Regenerate
 the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
 **2026-09-06**.
 
+## Round 23 prepared: 11 changes, half the stack untouched (2026-09-09)
+
+Not pushed. Three fixes folded into the series, plus 68413 PS7.
+
+**68413 gets its PS7 rather than a BUILD.** Its `Verified-1` is noise on both
+counts: `sanity-sec` is LU-20598, and the `sanityn` failure on
+review-dne-part-5 cannot be this patch — `sanityn.sh` never mentions
+changelogs, and 68413 touches only `mdd_changelog_user_lookup_cb()` and its own
+`sanity.sh` case. A retest would likely clear it. But the 09-02 AI review left
+three comments, **all three already answered with "Lands in the next
+patchset"**, and those changes were sitting on `lu-20647-r18` undelivered.
+Retesting PS6 would spend a full round on a patchset about to be superseded;
+pushing PS7 retriggers everything anyway and delivers what was promised.
+
+The earlier reason for holding 68413 — functionally identical to PS6, "two
+relocated comments" — has been overtaken: those relocations *are* what the
+review asked for.
+
+**The commit message took the middle path.** PS6 was 60 lines and the AI called
+it too long for a 15-line change; `lu-20647-r18` cut it to 44 but dropped two
+things worth keeping. PS7 is 53: it opens with what the patch does, and keeps
+both *"every other MDD walker already takes both types"* and *"only the
+`cf_user_id != 0` path changes behaviour ... the client parses `cl<N>` into an
+ID"*, which is what a reviewer needs to size the risk.
+
+**PS7's non-comment diff against PS6 is empty**, so PS6's jenkins `Verified+1`
+carries. The two stacked comment blocks the fold left behind are merged into
+one.
+
+### What the push spends
+
+Ten of the twenty stacked changes are byte-identical to what is on Gerrit and
+take no new patchset:
+
+| | |
+|---|---|
+| **New patchset (10)** | 68163→PS18, 68288→PS13, 68415→PS11, 68416→PS11, 68417→PS11, 68418→PS11, 68419→PS11, 68420→PS11, 68726→PS2, 68727→PS2 |
+| **Untouched (10)** | 68616, 68617, 68231, 68094, 68095, 68156, 68157, 68158, 68159, 68160 |
+| **Sibling** | 68413→PS7, off `5afbab284e` as before |
+
+The push is two commands, because 68413 is not in the chain:
+
+```
+git -C lustre-scanfid  push review lab/spgot:refs/for/master
+git -C lustre-lu20647  push review HEAD:refs/for/master
+```
+
+Expect the usual Merge Conflict banner on the stacked changes and LU-20598
+`sanity-sec` noise. **Still unrun:** 157c, 157d, conf-sanity 300 and 302.
+
 ## sanity 157d: register with a mask, not a restack (2026-09-09)
 
 157d failed on every config with
