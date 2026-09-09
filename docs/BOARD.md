@@ -4,6 +4,52 @@ Every ticket and Gerrit id in play, and the ones that are *not* ours. Regenerate
 the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
 **2026-09-06**.
 
+## The missing test coverage, four of five closed (2026-09-08)
+
+Last of the open lreview findings. Four gaps closed, each in the commit that
+introduces what it tests; the fifth — a direct API test for
+`llapi_find_device()` — turned out not to be a gap.
+
+**The `-EBUSY` case could not fail.** `test14` asked for a second consumer
+between two `llapi_scan_next()` calls, where the guard does not apply, so the
+ASan overflow the guard exists for was never in reach. It now *makes* the
+window: a filter that sleeps holds the scan back so the consumer's third call
+blocks — two calls first, the layer filling one batch ahead — and the overlap
+is **measured**, not assumed. A machine too slow to land the second call
+inside the window reports the case as unreachable rather than failing.
+
+Proved off Lustre by lifting the harness's Lustre gate (see
+`tests/lift/README.md`): eight runs, `-EBUSY` every one, 0.8s each because the
+filter really held the scan. **Before the rework the same run took 2ms** and
+never reached the guard — which is exactly the reviewer's point, measured.
+
+**`llapi_scan_fid()` gets `test17`**, so sanity 157c runs it: one record for a
+known FID checked against the client's pathname and basename, a filter that
+skips (a success with nothing delivered), the argument refusals including the
+`-EBADF` a negative `mnt_fd` must answer rather than the `-EINVAL` that also
+means *this FID has no name*, `lfsp_thread_count > 1`, and a FID that resolves
+to nothing.
+
+**`llapi_scan_changelog_test` was built and never run.** sanity 157d runs it,
+making its directory on MDT0 itself rather than leaving the binary to notice
+that a DNE mkdir below a striped root put its events in another MDT's log.
+
+**conf-sanity 300 covers `--internal`, `--local` and `--target`.**
+`--internal` is the same scan without the class filter, so the answer without
+it has to be a subset and strictly smaller — a target reporting none of its
+own objects passes a count test and fails the point. `--local` and `--target`
+are checked where the suite has already stopped everything: each must name the
+target it could not find rather than scan something else.
+
+**Not a gap:** `llapi_find_device()` has no direct API test, but conf-sanity
+300 drives it end to end through `lfind --device` — the predicates, the
+plain-argument form, `--device=VALUE`, the two-targets refusal. What was
+missing were the three selectors above, which are now there.
+
+**Unrun.** None of the four needs anything exotic, but this host has no Lustre
+mount, so only the lifted `test14` has actually executed. 157c, 157d and
+conf-sanity 300 are owed a lab.
+
 ## The trim moves into llapi_find_with_cb() — two copies, not three (2026-09-08)
 
 Third of the open lreview findings. The reviewer asked for the trailing-slash
