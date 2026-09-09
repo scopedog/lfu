@@ -4,6 +4,44 @@ Every ticket and Gerrit id in play, and the ones that are *not* ours. Regenerate
 the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
 **2026-09-06**.
 
+## Next: porting the OSD scanner into Lustre (2026-09-09)
+
+Design written, no code: [`design-osd-port.md`](design-osd-port.md).
+
+**The seam already fits.** `src/lfu_scan_kmdt.c` implements
+`open/close/worker_init/worker_fini/scan_chunk`; the plugin interface that
+shipped in round 23 is `sb_open/sb_close/sb_worker_init/sb_worker_fini/
+sb_scan_chunk`. Same five entry points, arrived at independently. So the kernel
+scanner becomes a **third backend** beside ldiskfs and ZFS, and everything above
+`llapi_scan_device()` — the predicates, `lfind(8)`, `--fid2path`, `--paths`, the
+man pages — is unchanged. What it buys is the one thing neither device backend
+can do: **scan a target that is still in service.**
+
+**Four decisions, with recommendations:**
+
+- **The Jinshan collision.** LU-20591 (68018/68019/68020) is still `NEW`, 68019
+  and 68020 untouched since 08-31 and 08-14. The old plan — build `DOIF_ATTR`
+  under their `scrub_iterate_objects()` — would make our landing date theirs.
+  Recommend instead separating the **OSD-layer work from the UAPI** and landing
+  the OSD layer alone: it speeds their walk too (they pay `dt_locate()` +
+  `dt_attr_get()` per object), so it is cooperative rather than rival.
+- **The wire record stays `lfu_wire_rec`**, not `llapi_scan_rec`: 168 B vs
+  504 B is 239 MB/s vs 716 MB/s at the measured 1.42M obj/s, and the API record
+  carries pointers that cannot cross the boundary.
+- **Filter pushdown in v1, tier 0 first.** Without it `--size +1G` over 4e9
+  objects copies 672 GB to find a thousand. Tier 1 waits for `DORA_XATTR`.
+- **`lfu.ko`, and the kernel owns the parallelism** — the prototype already
+  forces `-j 1` for the reason.
+
+**"Make `lfs find` work with it" is three different things** (§4): `lfind` on a
+live target (L1, nearly free given the seam), `lfs find` on a server (L2), and
+`lfs find` on a client offloading to every MDT over `OBD_IDX_READ` (L3, the
+HLD's actual design and about the size of everything done so far). **L1 vs L3 is
+the user's call and changes the work by an order of magnitude.**
+
+**First moves, none of them code:** settle "cost to existing users" by reading
+`osd_iit_iget()`; put the group-A split to Andreas and Jinshan; decide L1/L3.
+
 ## The ZFS arm run: the last gap closed, no change needed (2026-09-09)
 
 Round 23 was pushed with one arm unexercised — 304's ZFS half, the whole
