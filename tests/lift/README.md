@@ -72,3 +72,21 @@ The harness runs all three both ways over a plain directory tree and compares
         ./at_mntfd /tmp/t
 
 Six cases, all agreeing, including that `rel` survives the split unmodified.
+
+## Running `llapi_scan_test`'s batch cases off Lustre
+
+`llapi_test_utils.c` refuses a `-d` that is not a Lustre mount, which is right
+for the suite and in the way of a batch case that needs no Lustre at all —
+tests 11-14 are a namespace walk plus the batch layer. To exercise one here,
+copy the three files out of the tree and gate the check:
+
+        rc = getenv("LIFT_NO_LUSTRE") != NULL ? 0 :
+             llapi_search_mounts(lustre_dir, 0, fsmountdir, fsname);
+
+then build against the tree's `liblustreapi.so` and run
+`LIFT_NO_LUSTRE=1 ./lift -d /tmp/somewhere -t 14`. **The gate stays in the
+copy** — it is how the case is watched, not part of the case.
+
+It is what proved test14's `-EBUSY` window: eight runs, `second_rc=-16` every
+time, 0.8s each because the slow filter really did hold the scan. Before the
+rework the same run took 2ms and never reached the guard.
