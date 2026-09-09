@@ -4,6 +4,66 @@ Every ticket and Gerrit id in play, and the ones that are *not* ours. Regenerate
 the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
 **2026-09-06**.
 
+## The CI had no ZFS scan backend: ZFS 2.3 moved a header (2026-09-09)
+
+conf-sanity 302 failed on every ZFS config with
+
+```
+lfind: lustre-ost1/ost1: Operation not supported
+```
+
+Not the test, not `--search`. The janitor's own build console says it:
+
+```
+checking zfs source directory... /usr/local/src/zfs-2.3.2
+checking zfs devel headers... -I /usr/local/usr/include/libspl -I /usr/local/usr/include/libzfs
+checking zfs libzpool headers usable from userspace... no: llapi_scan_device will have no zfs backend
+```
+
+`ZFS_SCAN_ENABLED` was off, so `scan_backend[SCAN_BACKEND_ZFS]` was NULL and
+`scan_device_run_prepass()` returned `-ENOTSUP`. ldiskfs 302 passed
+throughout; only ZFS failed, on every ZFS session.
+
+### Two causes, and the first hypothesis was wrong
+
+The guess was that the source-tree candidate omitted `-I $zfsobj`, the build
+directory holding `zfs_config.h`. **Measured against real ZFS 2.3.2 sources:
+false** — that candidate compiles clean without it, even under `-Wall
+-Werror`. The truth is two things at once:
+
+1. **`/usr/local/src/zfs-2.3.2` is not a source tree.** ZFS installs its
+   kernel headers to `kerneldir = $(prefix)/src/zfs-$(VERSION)/include`, which
+   with `--prefix=/usr/local` is exactly that path. Our guard tests
+   `$zfssrc/include/os/linux/zfs`, a source-tree-only path, so the source
+   candidate was never tried.
+2. **ZFS 2.3's `sys/abd.h` includes `sys/abd_os.h`**, and upstream installs
+   `abd_os.h` *only* into the kernel header tree — never into the userspace
+   devel headers (`include/Makefile.am`: `nobase_libzfs_HEADERS = $(COMMON_H)
+   $(USER_H)`, while `abd_os.h` is in `kernel_sys_HEADERS`). So the packaged
+   candidate died on `sys/abd.h:34: fatal error: sys/abd_os.h`. 2.2.2's
+   `abd.h` does not include it, which is why this never showed up locally.
+
+### The fix, and it is measured on all three layouts
+
+A third candidate pairing the packaged devel headers with `$zfssrc/include`.
+Verified by regenerating `configure` from the changed m4 and running the
+generated logic against a faithful 2.3.2 install built from the release
+tarball:
+
+| layout | candidate | before | after |
+|---|---|---|---|
+| real 2.3.2 source tree | 1 (source) | yes | yes |
+| packaged 2.2.2, no `$zfssrc` | 2 (devel) | yes | yes |
+| **the CI: kerneldir + devel, 2.3.2** | **3 (new)** | **no** | **yes** |
+
+`aclocal -I config && autoconf` regenerates cleanly and the new branch reaches
+the generated `configure`.
+
+**conf-sanity 302 also gets the skip test_300 already has.** A build whose
+configure found no headers legitimately has no backend, and `-ENOTSUP` is that
+build rather than a target the scan could not read. 302 failed hard where its
+sibling skips; it now matches.
+
 ## test17 registered where it is defined: five Verified-1 cleared (2026-09-09)
 
 Round 22 came back red three ways. This is the first: 68416, 68417, 68418,
