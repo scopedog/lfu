@@ -102,10 +102,9 @@ In scope: the OSD iterator extensions for ldiskfs and ZFS, {{lfu.ko}}, and
 tests including a differential run against the userspace device scanner on a
 quiescent target, which is a stronger oracle than either scanner has alone.
 
-Not in scope: reaching this from {{lfind}} on the server or {{lfs find}} on a
-client, which are separate tickets;
-exporting scan requests from a client over the wire, which is the HLD's Client
-Bulk RPC Filter Rule Module; and WBCFS, pending a decision.
+Not in scope, each with its own ticket: reaching this from {{lfind}} on the
+server, and from {{lfs find}} on a client, which is the HLD's Client Bulk RPC
+Filter Rule Module. Nor WBCFS, pending a decision on whether it is wanted.
 
 h3. Relationship to LU-20591
 
