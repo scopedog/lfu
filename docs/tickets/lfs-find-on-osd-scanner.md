@@ -28,6 +28,10 @@ LFU: 'lfs find' offloaded to the servers over bulk RPC
 
 ## Description (paste verbatim into Jira)
 
+Copy everything between the two markers, and nothing else.
+
+<!-- ===== PASTE FROM HERE ===== -->
+
 h3. What this is
 
 {{lfs find}} on a client, sending the search to every MDT instead of walking
@@ -68,6 +72,12 @@ streams, apply the residue predicates locally, and print. Predicates needing a
 pathname become answerable again here, unlike on a server side scan, because a
 client can resolve a FID to a name.
 
+Two consequences of merging. Output order changes from traversal order to
+object order interleaved across the MDTs; nothing in find's contract promises
+an order, but the manual page should say so rather than let a script discover
+it. And an incomplete answer has to be loud: if one target fails part way
+through, that is an error naming it, never a listing that is quietly short.
+
 h3. Phasing
 
 The HLD sets it out: usable first by administrators from a client rather than
@@ -80,8 +90,9 @@ h3. Scope
 In scope: the server side export and its access control; the client side
 receiver; the connect flag and the per scan negotiation; {{lfs find}} issuing,
 merging and applying residue; the rule deciding *when* to offload, and the
-fallback to a namespace walk when it does not apply; and tests, including the
-same search run both ways, which must agree.
+fallback to a namespace walk when it does not apply; the manual page, including
+that output order is unspecified when a search is offloaded; and tests,
+including the same search run both ways, which must agree.
 
 Offload is an optimisation, not a mode. {{lfs find}} must never refuse a search
 it accepts today: where a predicate describes a walk, or the server is too old,
@@ -122,6 +133,8 @@ that prevents it runs on the server against attributes the client never sees.
 That is why the administrator only phase is worth having: it separates
 transport correctness from access control correctness and lets each be tested
 on its own.
+
+<!-- ===== PASTE TO HERE ===== -->
 
 ---
 
