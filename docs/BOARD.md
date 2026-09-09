@@ -4,6 +4,46 @@ Every ticket and Gerrit id in play, and the ones that are *not* ours. Regenerate
 the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
 **2026-09-06**.
 
+## `osd_iit_iget()` read: attribute capture is free for existing users (2026-09-09)
+
+The last question gating LU-20720's first patch, answered by reading rather
+than measuring. **Free, and the `rec-attr` patch already has the right shape.**
+
+`osd_iit_iget()` has exactly two callers, already distinguished by a boolean:
+
+| caller | who | `is_scrub` |
+|---|---|---|
+| `osd_scrub_next()` | OI Scrub and LFSCK | `true` |
+| `osd_preload_next()` | the otable iterator | `false` |
+
+Four gates keep the cost off everyone who did not ask:
+
+1. the scrub call site passes `NULL` for the attribute out-parameter
+2. the capture is `if (la != NULL && rc >= 0)` — scrub never enters it
+3. the otable call site passes NULL too unless `dev->od_otable_it->ooi_want_attr`,
+   so an otable consumer that asked for a bare FID (LFSCK, `attr == 0`) also pays
+   nothing
+4. and when it *does* run, the inode is already instantiated between
+   `osd_iget()` and `iput()` — the capture is nine field copies off a hot
+   cacheline, no extra I/O
+
+**The structural choice is the one that matters most, and it was made right.**
+The attributes go in a *parallel* array, `struct lu_attr ooc_attr[64]` inside
+`osd_otable_cache`, **not** by widening `struct osd_idmap_cache`. That struct
+has 14 uses in `osd_handler.c`, including `oti_ins_cache`, the per-thread insert
+cache on the transaction path — widening it would have taxed the whole OSD to
+serve the scanner. Cost as built is ~100 B × 64 ≈ 6.5 KB **per otable
+iterator**, not per object.
+
+**And the question turned out smaller than its framing.** Block parsing took the
+fast path off `osd_iit_iget()` entirely — `osd_iit_iget_raw()` reads the inode
+table directly and never builds an inode — so this function is now the
+*fallback* for what raw parsing cannot decode, plus the singleton path. The
+answer is still needed, because the fallback has to produce records identical to
+the raw path, but it is not the hot path any more.
+
+**Nothing now blocks A1.**
+
 ## LU-20720, LU-20721, LU-20722 filed: the 2.19 work (2026-09-09)
 
 | | |

@@ -125,10 +125,14 @@ one question that could force a redesign rather than a revision.
 
 ## Notes for us, not for Jira
 
-**The first move is not code.** One thing wants settling before A1 is written:
-**cost to existing users** — can attribute capture happen inside
-`osd_iit_iget()` without slowing OI Scrub and LFSCK, which share the path?
-Answerable by reading code today, and it shapes the patch.
+**Cost to existing users: answered 2026-09-09 by reading the code.** Free, and
+the `rec-attr` patch already has the right shape — see the board entry. Four
+gates, in order: the scrub call site passes `NULL`; the capture is
+`if (la != NULL && rc >= 0)`; the otable call site passes NULL again unless
+`ooi_want_attr`; and the attributes live in a *parallel* `ooc_attr[64]` array in
+`osd_otable_cache` rather than in a fattened `struct osd_idmap_cache` — which
+matters, because that struct has 14 uses in `osd_handler.c` including
+`oti_ins_cache` on the transaction path.
 
 **Still split group A from group B** as separate reviewable changes. That was
 always the better review shape; the rival-UAPI argument was only an extra
