@@ -1,0 +1,26 @@
+# predicate: -mtime -1 -type f   target: lustre-MDT0000   runs: 5
+# arm count wall user sys
+stock 87944 5.446476979 0.51 4.91
+kernel 87946 .263896674 0.02 0.01
+stock 87944 5.394124483 0.46 4.69
+kernel 87946 .254156956 0.02 0.01
+stock 87944 5.295560216 0.46 4.72
+kernel 87946 .241363078 0.02 0.01
+stock 87944 5.301644955 0.49 4.75
+kernel 87946 .253815882 0.02 0.01
+stock 87944 5.406833540 0.48 4.73
+kernel 87946 .270358395 0.02 0.01
+# ---- summary (wall seconds, median and range) ----
+stock: median 5.394124483s  range 5.295560216-5.446476979s  counts {87944,}
+kernel: median .254156956s  range .241363078-.270358395s  counts {87946,}
+
+# setup: rhel9.7-server-mgs-mds-clone, single node (client == server), 4 vCPU,
+#   ldiskfs MDT on a loop device, 87,944 regular files under /mnt/lustre.
+# stock lfs find: ~/lustre-release @ f0978607c5 (upstream, no LFU), run on the
+#   node itself, so the per-object ioctl pays no network latency.
+# lfind: lu-20720 @ 8eb0dc0e5c through lfu.ko (private DOIF_PARALLEL iterator,
+#   block parse), no filter pushdown: every object crosses the ring and lfind
+#   filters in userspace.
+# count difference of 2: [0x200000400:0x1:0x0] and [0xe:0x0:0x0], nameless
+#   MDT objects (fid2path ENODATA) that a walk cannot reach; the device backend
+#   reports the same two -- the LU-20602 classifier limitation, not the ring.

@@ -4,6 +4,92 @@ Every ticket and Gerrit id in play, and the ones that are *not* ours. Regenerate
 the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
 **2026-09-06**.
 
+## The OSD scanner in the tree, and 21x over stock lfs find (2026-09-09)
+
+One day, on branch `lu-20720` in `lustre-scanfid` (off the round-23 tip,
+7 commits, **unpushed**). Measured, not projected.
+
+### What got built
+
+| | commit | state |
+|---|---|---|
+| **Group A** — the six OSD patches | 4 wip commits | applied cleanly to the series tip once in date order (`itable-readahead` precedes `itable-blockparse`); kernel build green; new iterator symbols in both `osd_ldiskfs.ko` and `osd_zfs.ko` |
+| **B1** — `lfu.ko` | `041fd7cbe6` | written fresh from the prototype's structure, filter left out, `lustre_lfu.h` as a clean UAPI header. Builds, loads, `/dev/lfu_scan` appears |
+| **C1+C2** — `libscan_kernel.c` | `8eb0dc0e5c` | the third backend, `scan_osd_kernel.so`; an in-service device routes here when `/dev/lfu_scan` exists |
+
+### Verified before measuring
+
+**Routing, by strace:** `lfind --local` opens `scan_osd_kernel.so` then
+`/dev/lfu_scan`. It is not the device backend quietly reading a mounted disk.
+
+**The oracle, one target:** MDT0000 scanned through the kernel and as a
+device, visible set **57 = 57, diff 0**. With `--internal` the device side
+reports 169 more, all IGIF FIDs (`[0x124f9:0x82b3b4f:0x0]`, seq = inode
+number) — LMA-less internal inodes the device scanner surfaces and
+`osd_iit_iget()` skips by design. Design-osd-scanner §1.1 row 3, confirmed.
+
+### The benchmark
+
+`rhel9.7-server-mgs-mds-clone`, **87,944 files**, predicate
+`-mtime -1 -type f`, five alternating pairs, caches dropped before each run.
+Stock `lfs find` is upstream `f0978607c5` with no LFU in it.
+
+| arm | median wall | range | user + sys | count |
+|---|---|---|---|---|
+| stock `lfs find` | **5.394 s** | 5.30–5.45 (±1.4%) | 0.5 + **4.7** | 87,944 |
+| `lfind` on the OSD scanner | **0.254 s** | 0.24–0.27 (±6%) | 0.02 + 0.01 | 87,946 |
+
+**21.2× on the median**, with the noise floor an order of magnitude below the
+gap. Raw data: `bench-data/2026-09-09/osd-vs-stock-lfs-find.txt`.
+
+**Three things the number is honest about:**
+
+- **It understates the walk's cost.** Single node, so the client is the
+  server and the 4.7 s of sys — one ioctl per object — pays no network
+  latency. A real client pays RPC round trips on top.
+- **It understates the scan's advantage.** No filter pushdown yet: every one
+  of 88k records crossed the ring and `lfind` filtered in userspace. B2 removes
+  that copy.
+- **The predicate had to be chosen.** `-type f` alone measured 88k files in
+  **0.08 s** on the walk — that is `d_type` from the dirent, no RPC, i.e.
+  readdir, not `lfs find`. `-mtime` forces the per-object gather, which is the
+  cost being compared. A benchmark that picked `-type` would have flattered
+  the walk by 60×.
+
+**The count difference of 2 is explained, and not ours.**
+`[0x200000400:0x1:0x0]` and `[0xe:0x0:0x0]` are nameless MDT objects —
+`fid2path` answers ENODATA — that a namespace walk cannot reach. The device
+backend reports the same two. That is the LU-20602 classifier limitation,
+shared by both LFU scanners and untouched by today's work.
+
+### Scoped out today, and why
+
+- **No filter pushdown (B2).** The compiled `struct lfu_filter` exists only
+  out-of-tree; upstream filters through the `lfsp_filter` callback. In-kernel
+  pushdown is a new UAPI, not a port.
+- **No xattrs across the ring (B3).** The core classifies from `trusted.lma`
+  and names from `trusted.link`, both via `so_xattr`. B1 synthesises the LMA
+  from the FID and flag bits; nothing else crosses. So no names, layouts or
+  SOM sizes through the kernel path yet — which is why the benchmark predicate
+  is an attribute one.
+- **The target is a module parameter.** One fixed target per load. It bit
+  immediately: `lfind --local` found three targets and the kernel scanned
+  **the MDT three times** (441 = 3 × 147). Per-open target selection is the
+  first thing owed before this leaves the lab.
+- **Routing falls back rather than refusing.** An in-service target goes to
+  the kernel only when `/dev/lfu_scan` exists; without the module the device
+  backends answer as before. LU-20722's stricter rule waits until `lfu.ko` is
+  standard on servers, so conf-sanity 301/303 keep passing meanwhile.
+
+### Two traps for the record
+
+`pkill -f "<string>"` inside an ssh command whose own line contains that
+string kills the ssh session — twice today. Split the pattern
+(`"while read f""id"`) so the command line never contains it.
+
+And `lfs df -i` lags creates by seconds; do not read a stalled population
+off it.
+
 ## `lfs find` on an offloaded scan: one thing needs redesigning (2026-09-09)
 
 [`design-lfs-find-offload.md`](design-lfs-find-offload.md). Asked after the
