@@ -4,6 +4,91 @@ Every ticket and Gerrit id in play, and the ones that are *not* ours. Regenerate
 the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
 **2026-09-06**.
 
+## The VM run, then lreview again: 11 more findings (2026-09-09)
+
+Tested before reviewing, on the user's instruction, and both halves paid.
+
+### The VM: everything passes, and it found two things reading could not
+
+Our tree built and installed on `rhel9.7-server-mgs-mds-clone`, a real
+single-node filesystem (MDT, two OSTs, client).
+
+| | |
+|---|---|
+| sanity **157c** | PASS, 10 cases — first execution ever |
+| sanity **157d** | PASS, 8 cases — after one real fix |
+| conf-sanity **300** | PASS — *"--internal added 255 objects"* |
+| conf-sanity **302** | PASS — *"offline --fid2path named 20 objects by their owner"* |
+| conf-sanity **304** | PASS — *"offline --paths named 20 objects on ldiskfs"* |
+
+**A stale `/usr/bin/lfind` from Sep 6** sat beside the fresh install, and
+`which lfind` is how conf-sanity 300, 302 and 304 find it. Removed. This is
+[[lfu-scan-plugin-trap]] in a new spelling: the thing on the path beats the
+thing you built, and the test says PASS either way.
+
+**test0 failed: "no CL_MKDIR in the stream".** 157d makes its directory with
+`lfs mkdir -i 0` *before* `changelog_register`, so that CL_MKDIR falls
+outside the user's window, and `make_events()` then hit EEXIST and never made
+another. Every other event type was present, which is why one assertion fired
+and not four. Fixed in the binary rather than by reordering the shell:
+`make_events()` now makes a directory of its own, named for the pid, so it no
+longer depends on the caller's sequencing.
+
+**The LU-20647 workaround is proven** — no "cannot set changelog filter"
+anywhere in the run.
+
+### lreview round 2
+
+**68163 — one finding, a real defect.** `scan_backend_kind()` routed by stat
+*type*: block device or regular file to ldiskfs, everything else to ZFS. So
+any existing path that is neither — a mount point, a directory, a character
+device — was read as a dataset name. Measured on the VM: `lfind --device
+/tmp` answered **"No such file or directory"** for a path that plainly
+exists, the ZFS backend having cut the name at its first slash. A leading
+slash now routes to ldiskfs before the stat, because a pool name cannot
+begin with one, and the same command answers **"Is a directory"**.
+
+**68288 — five findings, all low; the reviewer said no functional defect.**
+Two were ours from adding test_304 (the commit message never mentioned it,
+and a stray blank line). One was a real gap: striped-directory shards are a
+whole component the message never described — `LLAPI_SCAN_LMV_SHARD`, the LMV
+the pre-pass now pays for, and the empty-named map entry `scan_dirmap_path()`
+steps through. Two were placement: `scan_lmv_is_shard()` had been inserted
+between `scan_lmv_to_user()`'s block comment and that function, and `parent`
+was dereferenced in an initializer above the check meant to validate it.
+
+**68415 — five findings, and one was ours.**
+
+`sc_got` — added in round 1 to answer a reviewer — **was dead on arrival**.
+`SCAN_CLF_END(sc_got)` was missing from the size list, so
+`scan_cl_param_whole(104)` returned 96 and the copy stopped one field short:
+`sizeof` 104, `offsetof(sc_got)` 96, largest entry `sc_stats` 96. The field
+was NULL for every caller however they set it.
+
+**test7 now asserts it comes back**, and was proved against the unfixed
+build per [[lfu-lift-and-compare]]: with the list entry removed, 157d fails
+`sc_got came back 0`; with it restored, it passes.
+
+Two real `_CLEAR` defects, both pre-existing: `scan_cl_flush()` and the
+eviction path each did unlink, deliver, free unconditionally, so an object
+the consumer *refused* left the cache anyway and stopped being counted by
+`scan_cl_held_first()` — and `scan_cl_clear()` then purged records nothing
+had accepted, which a restart from `sc_startrec` cannot read back. Both now
+deliver first and unlink only on success; `sl_aged` is drained at teardown,
+so an object left linked is still freed.
+
+**One finding declined.** It claimed 157d leaks its changelog user because
+`changelog_register()` "only stack_traps the changelog_mask restore". It does
+not: that function's line 23 is `stack_trap "__changelog_deregister $facet
+$cl_user" EXIT`, and the VM run printed *"Deregistered changelog user #1"* at
+teardown. Wrong on the code and on the evidence.
+
+### What this says about the order
+
+The second review found a bug **in the fix the first review asked for**.
+Pushing after one pass would have shipped a field that could never be filled,
+with a man page describing it.
+
 ## lreview before the push: 16 findings, all fixed (2026-09-09)
 
 Run on the three changes with new content — 68163, 68288, 68415 — one at a
