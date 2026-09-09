@@ -4,6 +4,44 @@ Every ticket and Gerrit id in play, and the ones that are *not* ours. Regenerate
 the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
 **2026-09-06**.
 
+## find_prefilter() answers a bool; find_decide() answers 0 or an errno (2026-09-08)
+
+The user's call, on the one lreview finding I had left open: three
+neighbouring functions used `1` for three different things — *reject* out of
+`find_prefilter()`, *matched and printed* out of `find_decide()`, *do not
+descend* out of `cb_find_init()` — and the middle one lands in the same `ret`
+the last one returns.
+
+The user asked whether `find_prefilter()` should return a **negative** for
+reject. Argued against and they agreed with the alternative: negative already
+means *errno* everywhere in the file and in the library, so a negative that
+means "rejected, normally" would be the first place `if (rc < 0) return rc;`
+— the reflex at every call site here — turns a rejection into an error out of
+a public API. It also does not fit `find_device_prefilter()`, which needs
+three states.
+
+**What landed instead.**
+
+- `find_prefilter()` returns `bool`. It cannot fail — `fnmatch()` and a mode
+  test, no allocation, no I/O — so there is no errno to return and no way to
+  mistake its answer for one. Done in `LU-20605 llapi: build find on the scan
+  record`, the commit that adds it.
+- `find_decide()` returns `0` or a negative errno. The old fall-through `1`
+  for *matched* was read by none of its four callers — printing is the answer
+  — and it was the value that landed in `cb_find_init()`'s `ret`, safe only
+  because the `decided:` label overwrote it first. Done in `LU-20611 llapi:
+  split cb_find_init's decider out`.
+- The crossings tidied where the two conventions meet:
+  `find_device_prefilter()` spells its `1`/`2` explicitly, and the `== 0`
+  call sites became `!`.
+
+`find_device_prefilter()` keeps `int` and its `{0, 1, 2}`: three answers need
+one, and its `1` agrees with the bool's `true`.
+
+Both commit messages now state the contract. All 20 commits build, the header
+compiles, checkpatch gains nothing; `-maxdepth 1` — the one live user of the
+*do not descend* `1` — still stops where it should.
+
 ## lreview over the whole stack: 70 findings, three commits that did not build (2026-09-08)
 
 Ran `lreview` on commits 5 through 20 in turn, fixing each before moving on —
