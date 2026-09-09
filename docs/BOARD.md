@@ -4,6 +4,65 @@ Every ticket and Gerrit id in play, and the ones that are *not* ours. Regenerate
 the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
 **2026-09-06**.
 
+## Tomorrow: the RPC spike, and two owed items (2026-09-09, end of day)
+
+Branch `lu-20720` in `lustre-scanfid`, **6 commits off the round-23 tip,
+unpushed**. Lab torn down, VM off.
+
+### 1. `lfs find` over the wire — the spike (LU-20721)
+
+**Read the code before sizing it again: the transport is closer than the
+design said.** `design-osd-port.md` §4 treated `OBD_IDX_READ` as "largely
+exists"; what the code shows is that *the otable iterator already speaks the
+index-walk language*:
+
+- `dt_index_walk()` needs `init / load / next / key / key_size / rec / store`,
+  and the otable iterator implements **every one** (`osd_scrub.c:3856-3859`).
+  It was built as a `dt_index`; that is how LFSCK drives it.
+- The record fits the existing container format unchanged. `II_FL_NOKEY` and
+  `II_FL_VARREC` are already in the protocol, and the comment says *"we only
+  support fixed-size key & record"* — which is our case exactly: `struct
+  lfu_rec` is fixed at 168 bytes and `key_size()` returns `sizeof(__u64)`.
+- `rp_attrs` already carries `ii_attrs` from the request through to `init()`,
+  which is where our iterator flags would go.
+
+**So the server side is two soft things, not an architecture:**
+
+| | |
+|---|---|
+| the FID whitelist | `dt_index_read()` takes quota, layout-rbtree and normal FIDs; the otable is a *local* FID and is refused at the door |
+| `dt_otable_features` | declared with no initialiser (`dt_object.c:721`), so `dif_recsize_*` are zero. Needs real sizes and a `dt_index_feat_select()` branch |
+
+`osd_otable_it_key()` returns NULL, so a request must set `II_FL_NOKEY` —
+which is what that flag is for.
+
+**The client side is the genuinely new part**: MDC has no `OBD_IDX_READ`
+sender at all, only OSP does (`osp_object.c:1846`). Plus the ioctl, the bulk
+receive and the `lfs find` hook.
+
+**Do it on the three-node lab** (MGS/MDS `.10`, OSS `.20`, client `.101`). A
+loopback client cannot show the thing being measured: today's 4.7 s of system
+time was 88k ioctls, which over a wire is 88k round trips against a few
+hundred RPCs for the offload. Single-node makes both arms pay nothing for it.
+
+### 2. Per-open target selection
+
+`lfu.ko` takes its target as a module parameter, so one load serves one
+target. It bit on the first run: `lfind --local` found three targets and
+scanned the MDT **three times** (441 = 3 x 147). This blocks any honest
+`--local` and is the smaller of the two owed items.
+
+### 3. Xattrs across the ring (B3)
+
+The core classifies from `trusted.lma` and names from `trusted.link`, both
+through `so_xattr`. B1 synthesises the LMA from the FID and flag bits and
+carries nothing else, so the kernel path answers no names, layouts or SOM
+sizes yet. `rec(DORA_XATTR)` exists in group A and is unused by the module —
+this is wiring, not new design.
+
+**Order:** 2 and 3 are prerequisites for a useful `lfind`; 1 is independent of
+both and is where the interesting number is.
+
 ## The OSD scanner in the tree, and 21x over stock lfs find (2026-09-09)
 
 One day, on branch `lu-20720` in `lustre-scanfid` (off the round-23 tip,
