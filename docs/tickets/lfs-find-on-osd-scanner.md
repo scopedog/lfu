@@ -5,8 +5,9 @@
 ([`osd-scanner.md`](osd-scanner.md)).
 
 **Type:** Technical task · **Parent:** LU-20462 (the LFU epic) ·
-**Fix version:** 2.19 · **Depends on:** LU-20720 ·
-**Component:** none
+**Depends on:** LU-20720 ·
+**Component:** none · **Targets 2.19** (no Jira version exists for it yet;
+no LU-20462 subtask sets fixVersion)
 
 **Scope, settled 2026-09-09:** `lfs find` runs on a client and `lfind` runs on
 a server, so *"`lfs find` on the OSD scanner"* can only mean the client sending

@@ -20,11 +20,15 @@ Both Technical tasks under LU-20462, both Open. Drafts in
 client sending the search to the servers — the HLD's Server and Client Bulk RPC
 Filter Rule Modules, not a third backend under `llapi_scan_device()`.
 
-**Two things to fix on LU-20721.** Its *description* is the client-side text,
-but its **summary is the older server-local wording** — `LFU: run 'lfs find'
-predicates over the in-kernel OSD scanner`, where the draft now reads `LFU:
-'lfs find' offloaded to the servers over bulk RPC`. And **neither ticket has a
-fixVersion**; the drafts say 2.19.
+**LU-20721's summary was filed with the older server-local wording and has
+been corrected** to `LFU: 'lfs find' offloaded to the servers over bulk RPC`.
+
+**fixVersion stays empty, and that is correct.** There is no 2.19 version in
+the LU project — the only unreleased ones are `Upstream`, `Lustre 2.18.0` and
+`Lustre 2.15.9`, and 2.19 is created when its cycle opens. Checked: **no
+LU-20462 subtask sets fixVersion at all**, nor the epic, nor LU-20591. The
+drafts asking for 2.19 were wrong about the convention; they now record the
+release target as prose instead.
 
 **Markup verified rather than assumed**: `?expand=renderedFields` shows 9 and 7
 `<h3>` tags and 23 and 5 `<tt>` spans, with no literal `h3.` or `{{` left. The

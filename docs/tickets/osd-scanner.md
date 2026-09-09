@@ -6,7 +6,8 @@ Covers groups A and B of the port; the userspace and find side is the sibling
 ticket [`lfs-find-on-osd-scanner.md`](lfs-find-on-osd-scanner.md).
 
 **Type:** Technical task · **Parent:** LU-20462 (the LFU epic) ·
-**Fix version:** 2.19 · **Component:** none (the LU project defines none)
+**Component:** none · **Targets 2.19** (no Jira version exists for it yet;
+no LU-20462 subtask sets fixVersion) (the LU project defines none)
 
 **The Description below is Jira wiki markup, not Markdown.** Paste it verbatim
 and do not reflow it. Identifiers are in double braces because underscores
