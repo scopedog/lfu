@@ -54,7 +54,9 @@ with the {{LUDA_*}} flags, so this needs no new vtable and does not change
 LFSCK, which passes zero and keeps getting a bare FID.
 * private iterator instances, so several enumerators walk disjoint ranges at
 once. The default iterator is a per device singleton answering {{-EALREADY}} to
-a second {{init()}}.
+a second {{init()}}. A scan holding a private instance must also leave the
+scrub alone: an out of OSD consumer's {{fini()}} must not stop a scrub it never
+started.
 * on ldiskfs, reading the inode table directly instead of through
 {{ldiskfs_iget()}}, with a readahead window.
 
@@ -106,14 +108,6 @@ Not in scope: reaching this from {{lfind}} on the server (LU-20722), and from
 {{lfs find}} on a client (LU-20721), which is the HLD's Client Bulk RPC Filter
 Rule Module. Nor WBCFS, pending a decision on whether it is wanted.
 
-h3. Iterator changes shared with other consumers
-
-The OSD layer changes here are {{dt_it_ops}} semantics rather than user visible
-interface, so they benefit any consumer of the object table iterator, not only
-this scanner. {{DOIF_NOSCRUB}} comes from the LU-20591 work: it keeps an out of
-OSD consumer's {{fini()}} from stopping a scrub it never started, and it is
-taken rather than re derived.
-
 h3. Known risks
 
 * Foreground impact is unmeasured. A scan now consumes the server's CPU and
@@ -131,14 +125,14 @@ one question that could force a redesign rather than a revision.
 
 ## Notes for us, not for Jira
 
-**The first move is not code.** Two things want settling before A1 is written:
+**The first move is not code.** One thing wants settling before A1 is written:
+**cost to existing users** — can attribute capture happen inside
+`osd_iit_iget()` without slowing OI Scrub and LFSCK, which share the path?
+Answerable by reading code today, and it shapes the patch.
 
-1. **Cost to existing users** — can attribute capture happen inside
-   `osd_iit_iget()` without slowing OI Scrub and LFSCK, which share the path?
-   Answerable by reading code today, and it shapes the patch.
-2. **The group-A split** — put to Andreas and Jinshan as a question, not a
-   patch: can the iterator extensions land independently of the control
-   interface?
+**Still split group A from group B** as separate reviewable changes. That was
+always the better review shape; the rival-UAPI argument was only an extra
+reason for it, and it no longer applies.
 
 **Change breakdown** (from `design-osd-port.md` §5): A1 `rec()` attributes,
 A2 private iterators, A3 block parsing, A4 readahead, A5 xattrs from the
