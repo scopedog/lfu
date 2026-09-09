@@ -64,6 +64,57 @@ configure found no headers legitimately has no backend, and `-ENOTSUP` is that
 build rather than a target the scan could not read. 302 failed hard where its
 sibling skips; it now matches.
 
+### Proved on a Rocky 8.10 VM, and the CI's own config.log
+
+The workstation reproduction used a *fake* install tree and gcc 13. Two things
+were still guesses, and both were checked properly.
+
+**The CI's `config.log`, pulled from `source-and-binaries-rocky8.10-x86_64.tar.xz`,
+is the ground truth:**
+
+```
+configure:20716: gcc -c -g -O2 -Wall -Werror -Wno-gnu -D_GNU_SOURCE -DLIB_ZPOOL_BUILD
+  -I/usr/local/usr/include/libspl -I/usr/local/usr/include/libzfs
+  -I/usr/local/usr/include/libzpool conftest.c >&5
+/usr/local/usr/include/libzfs/sys/abd.h:34:10: fatal error: sys/abd_os.h: No such file or directory
+```
+
+`config.status` confirms the consequence: `ZFS_LIBZPOOL_INCLUDE=""`. And there
+is **exactly one** `LIB_ZPOOL_BUILD` compile in the whole log — the packaged
+set. The source candidate was never tried, so `$zfssrc/include/os/linux/zfs`
+does not exist on the CI, which is what a source tree would have.
+
+**`rocky8.10-mgs`, gcc 8.5.0 — the CI's own compiler.** ZFS 2.3.2 built from
+the release tarball and installed twice to reproduce the layout: kernel
+headers flattened into `/usr/local/src/zfs-2.3.2/include` (so
+`include/sys/abd_os.h` exists), userspace devel headers under
+`/usr/local/usr/include` (so `libzfs/sys/abd.h` exists and `abd_os.h` does
+not), `include/os` removed to match the guard's failure on the CI.
+
+Then Lustre's **real `configure`**, twice, same tree, only the m4 swapped:
+
+| arm | `checking zfs libzpool headers usable from userspace...` |
+|---|---|
+| unfixed | `no: llapi_scan_device will have no zfs backend` — **the CI's line verbatim** |
+| fixed | `-DLIB_ZPOOL_BUILD -I…libspl -I…libzfs -I…libzpool -I /usr/local/src/zfs-2.3.2/include` |
+
+And the last link, which a passing probe does not establish: **`libscan_zfs.c`
+itself compiles** under gcc 8.5 with exactly the include set the fixed
+configure chose, clean under `-g -O2 -Wall -Werror`. Without that, enabling
+the backend could have turned a silent skip into a build failure across all
+twenty changes.
+
+**One hypothesis died on the way.** Candidate 1 was thought to be failing under
+gcc 8; on a pristine 2.3.2 source tree it passes in every flag combination
+tried. It was never *run* — the guard skipped it.
+
+**Still unproven:** that `$zfssrc/include/sys/abd_os.h` exists on the CI
+specifically. It is inferred, not observed: `osd_handler.c` includes
+`<sys/spa.h>`, which reaches `abd.h` and so `abd_os.h`, and osd-zfs compiles
+there while `include/os/linux/zfs` is absent — so `-I$(ZFS)/include` must be
+supplying it. Should that inference be wrong, the new candidate is inert and
+the CI keeps skipping, which is where it already is.
+
 ## test17 registered where it is defined: five Verified-1 cleared (2026-09-09)
 
 Round 22 came back red three ways. This is the first: 68416, 68417, 68418,
