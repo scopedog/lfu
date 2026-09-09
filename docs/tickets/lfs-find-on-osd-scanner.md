@@ -79,8 +79,16 @@ h3. Scope
 
 In scope: the server side export and its access control; the client side
 receiver; the connect flag and the per scan negotiation; {{lfs find}} issuing,
-merging and applying residue; and tests, including the same search run as a
-namespace walk and as an offloaded scan, which must agree.
+merging and applying residue; the rule deciding *when* to offload, and the
+fallback to a namespace walk when it does not apply; and tests, including the
+same search run both ways, which must agree.
+
+Offload is an optimisation, not a mode. {{lfs find}} must never refuse a search
+it accepts today: where a predicate describes a walk, or the server is too old,
+or the negotiation declines, it walks instead. The decision therefore has to be
+complete before the first line of output, because once a record is printed
+there is no falling back, and a failure part way through an offloaded scan is
+an error rather than a silent switch.
 
 Not in scope: the scanner itself (LU-20720), and reaching it from a process on
 the server node (LU-20722).
@@ -97,6 +105,14 @@ opposite of what that asks for. The choice between candidate formats was
 deferred in August; this is what makes it urgent.
 * *Which predicates are residue,* and whether the split is fixed or negotiated
 per scan.
+* *Subtree scope.* A scan enumerates a target; {{lfs find}} takes a subtree, and
+nothing today expresses one to a scanner. Offloading a search of a small
+directory would enumerate every object on every MDT and discard almost all of
+them, which is slower than the walk it replaces. The server has the linkea and
+could test ancestry, but that is per object and defeats the cheap reject that
+makes pushing a filter down worth doing. Until there is a reason to believe
+subtree scans at scale are a real workload, the answer is to offload only where
+it plainly pays and walk otherwise.
 
 h3. Risk
 

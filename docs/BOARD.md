@@ -4,6 +4,48 @@ Every ticket and Gerrit id in play, and the ones that are *not* ours. Regenerate
 the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
 **2026-09-06**.
 
+## `lfs find` on an offloaded scan: one thing needs redesigning (2026-09-09)
+
+[`design-lfs-find-offload.md`](design-lfs-find-offload.md). Asked after the
+scope settled. **Mostly no; in one place emphatically yes.**
+
+**What does not move.** The predicate machinery already generalises — that was
+the point of the 2.18 split. `find_prefilter()`, `find_want()` and
+`find_decide()` behind `struct find_ctx`, which already copes with no namespace
+walked, no descriptors, and resolve-a-FID-or-print-it. So the HLD's "partially
+on the server with Filters on the client" is `find_decide()` over records, which
+is exactly what `llapi_find_device()` already does.
+
+**Scope is the real problem, and it is new.** A scan enumerates a *target*;
+`lfs find` takes a *subtree*. Nothing today expresses a subtree to a scanner —
+`lfsp_search` is ZFS vdev directories, `lfsp_max_depth` bounds a walk. So
+`lfs find /mnt/lustre -size +1G` offloads to a clear win, while
+`lfs find /mnt/lustre/home/alice -size +1G` would enumerate every object on
+every MDT and discard nearly all of them — **slower than the walk it replaces**.
+
+The server has the linkea and could test ancestry, but per object, which defeats
+the cheap reject that makes pushdown worth having. So `lfs find` needs an
+**offload decision rule**, and it should be dull: offload at the filesystem
+root, or when asked explicitly, and walk otherwise. A clever proxy that guesses
+wrong makes `lfs find` slower than today, which users notice and blame on the
+feature.
+
+**Offload is an optimisation, not a mode.** `lfind` refuses predicates it cannot
+answer; `lfs find` must never refuse what it accepts today. It falls back to the
+walk for `-maxdepth`/`-mindepth`, for an old server, for a declined
+negotiation. And the constraint that shapes the code: **once a record is
+printed there is no falling back**, so the decision must be complete before the
+first line of output, and a mid-scan failure is an error rather than a silent
+switch.
+
+**Merge:** output order changes from traversal to inode order interleaved
+across MDTs (manual page, not a surprise); an incomplete answer must be loud;
+and duplicates under migration cannot be solved by deduplicating four billion
+FIDs, so they need a *rule* — still the question for Andreas.
+
+**Two boxes are genuinely new** in the shape: the decision and the merge.
+Everything else is already in the tree.
+
 ## `osd_iit_iget()` read: attribute capture is free for existing users (2026-09-09)
 
 The last question gating LU-20720's first patch, answered by reading rather
