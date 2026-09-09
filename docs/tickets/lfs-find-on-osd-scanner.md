@@ -110,20 +110,23 @@ on its own.
 
 ## Notes for us, not for Jira
 
-**Correction to carry forward.** An earlier sketch proposed an
-`OBD_IDX_READ`-shaped request/response and concluded the ring was not needed for
-the remote path. The HLD says otherwise: the client is meant to use *the same
-Object Stream kernel API as the OSD*, fed by bulk RDMA. `OBD_IDX_READ` stays
-interesting as a wire mechanism *under* a ring-shaped client API — the HLD names
-no opcode, and `tgt_obd_idx_read()` already carries a resume cursor, an
-attribute mask and a bulk PUT — but it is not a replacement for the stream API.
+**The transport, from the HLD.** The client uses the same Object Stream kernel
+API as the OSD, fed by bulk RDMA. No opcode is named, so the mechanism
+underneath is open — `tgt_obd_idx_read()` is worth a look, since it already
+carries a resume cursor, an attribute mask and a bulk PUT, and its
+`dt_index_read()` path drives the same `dt_it_ops` the scanner extends.
 
-**Where the HLD is more specific than we had been:** negotiation is per-scan as
-well as per-connection, and the "partially on the server" case is called out
-explicitly, which makes the residue mechanism a requirement rather than a
-refinement.
+**Negotiation is per-scan as well as per-connection**, and the "partially on the
+server" case is called out explicitly. That makes the residue mechanism a
+requirement rather than a refinement, which is more than we had assumed.
 
-**The format question is now on the critical path.** Deferred on 2026-08-19 as
-not-ours and never evaluated. A fixed 168-byte struct is at odds with the HLD's
-"extensible binary data format", and the disagreement only bites once the record
-crosses a version boundary — which is exactly what this ticket does.
+**The wire format question is now on the critical path.** Deferred on 2026-08-19
+as not-ours and never evaluated. A fixed 168-byte struct is at odds with the
+HLD's "extensible binary data format", and the disagreement only bites once the
+record crosses a version boundary — which is exactly what this ticket does.
+Someone needs to own that evaluation before the record is committed to.
+
+**Where the care goes:** access control. Everything else here is plumbing that
+either works or does not. Result filtering by ACL, fileset and nodemap is the
+part where being wrong is a disclosure, and it is why the administrator-only
+phase earns its place.

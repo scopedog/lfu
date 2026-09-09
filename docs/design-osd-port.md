@@ -224,10 +224,9 @@ answers compared object by object.
 `docs/local/Lustre_Find_Utility-High_Level_Design.pdf`:
 
 - the client uses **the same Object Stream kernel API as the OSD**, fed by
-  **bulk RDMA** — so an earlier sketch here, that the remote path needs no ring
-  and should be an `OBD_IDX_READ`-shaped request/response, was wrong. That RPC
-  stays interesting as a mechanism *under* a ring-shaped client API; it is not a
-  replacement for it.
+  **bulk RDMA**, so the ring is the API at both ends rather than a local-only
+  detail. No opcode is named, so the mechanism underneath is open:
+  `OBD_IDX_READ` is a candidate *under* that API, not a replacement for it.
 - negotiation is **per-scan as well as per-connection**: `OBD_CONNECT2_FIND_UTILITY`
   at connect, then a Scan Request that settles "entirely on the server, partially
   on the server with Filters on the client, or not at all". The middle case makes
