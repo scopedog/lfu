@@ -82,8 +82,8 @@ receiver; the connect flag and the per scan negotiation; {{lfs find}} issuing,
 merging and applying residue; and tests, including the same search run as a
 namespace walk and as an offloaded scan, which must agree.
 
-Not in scope: the scanner itself, which is the sibling ticket, and reaching
-that scanner from a process on the server node, which is a separate ticket.
+Not in scope: the scanner itself (LU-20720), and reaching it from a process on
+the server node (LU-20722).
 
 h3. Open questions
 

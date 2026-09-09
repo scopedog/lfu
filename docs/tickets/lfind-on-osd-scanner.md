@@ -1,6 +1,6 @@
-# LU-XXXXX — `lfind` on a live target
+# LU-20722 — `lfind` on a live target
 
-**Status:** draft, not filed. Design: [`design-osd-port.md`](../design-osd-port.md)
+**Status:** filed as LU-20722 on 2026-09-09, Open, subtask of LU-20462. Design: [`design-osd-port.md`](../design-osd-port.md)
 §2 and §4 (level L1). The scanner itself is LU-20720
 ([`osd-scanner.md`](osd-scanner.md)); the client-side offload is LU-20721
 ([`lfs-find-on-osd-scanner.md`](lfs-find-on-osd-scanner.md)).

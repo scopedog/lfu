@@ -4,14 +4,22 @@ Every ticket and Gerrit id in play, and the ones that are *not* ours. Regenerate
 the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
 **2026-09-06**.
 
-## LU-20720 and LU-20721 filed: the 2.19 work (2026-09-09)
+## LU-20720, LU-20721, LU-20722 filed: the 2.19 work (2026-09-09)
 
 | | |
 |---|---|
 | **LU-20720** | `LFU: in-kernel OSD scanner` — the engine. Iterator attributes, private parallel iterators, block parsing, readahead, xattrs, in-kernel filtering |
 | **LU-20721** | `lfs find` offloaded to the servers — the client sends the search, servers scan and filter, records stream back. Depends on LU-20720 |
+| **LU-20722** | `lfind` on a live target — the third `llapi_scan_device()` backend, reading the stream instead of the device. Depends on LU-20720, independent of LU-20721 |
 
-Both Technical tasks under LU-20462, both Open. Drafts in
+**Build order is LU-20720, then LU-20722, then LU-20721.** LU-20722 is not on
+the client-side path, but it is the *only practical correctness oracle for
+LU-20720*: one quiescent target scanned as a device and through the kernel,
+answers compared object by object. It also exercises the Object Stream API
+against a local consumer before a client depends on it across a wire, which
+takes risk out of LU-20721.
+
+All three Technical tasks under LU-20462, all Open. Drafts in
 [`docs/tickets/`](tickets/), design in
 [`design-osd-port.md`](design-osd-port.md).
 
@@ -60,9 +68,6 @@ to.
 
 - **duplicate FIDs across merged streams** while a file migrates — unanswered in
   every HLD revision, and it gates the merge
-- whether to open the small third ticket, `lfind` against a live target. Not on
-  the path, but it is the cheapest oracle for LU-20720: scan one target as a
-  device and through the kernel, compare object by object
 - the LU-20591 conversation with Andreas and Jinshan, before LU-20720 code
 
 ## Next: porting the OSD scanner into Lustre (2026-09-09)
