@@ -1,11 +1,11 @@
-# LU-XXXXX — `lfs find` offloaded to the servers
+# LU-20721 — `lfs find` offloaded to the servers
 
-**Status:** draft, not filed. Design: [`design-osd-port.md`](../design-osd-port.md)
-§4 (level L3). The scanner itself is the sibling ticket
-[`osd-scanner.md`](osd-scanner.md).
+**Status:** filed as LU-20721 on 2026-09-09, Open, subtask of LU-20462. Design: [`design-osd-port.md`](../design-osd-port.md)
+§4 (level L3). The scanner itself is LU-20720
+([`osd-scanner.md`](osd-scanner.md)).
 
 **Type:** Technical task · **Parent:** LU-20462 (the LFU epic) ·
-**Fix version:** 2.19 · **Depends on:** the OSD scanner ticket ·
+**Fix version:** 2.19 · **Depends on:** LU-20720 ·
 **Component:** none
 
 **Scope, settled 2026-09-09:** `lfs find` runs on a client and `lfind` runs on

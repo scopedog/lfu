@@ -1,6 +1,6 @@
-# LU-XXXXX — the in-kernel OSD scanner
+# LU-20720 — the in-kernel OSD scanner
 
-**Status:** draft, not filed. Design: [`design-osd-port.md`](../design-osd-port.md),
+**Status:** filed as LU-20720 on 2026-09-09, Open, subtask of LU-20462. Design: [`design-osd-port.md`](../design-osd-port.md),
 scanner detail in [`design-osd-scanner.md`](../design-osd-scanner.md).
 Covers groups A and B of the port; the userspace and find side is the sibling
 ticket [`lfs-find-on-osd-scanner.md`](lfs-find-on-osd-scanner.md).

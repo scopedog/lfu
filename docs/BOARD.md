@@ -4,6 +4,63 @@ Every ticket and Gerrit id in play, and the ones that are *not* ours. Regenerate
 the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
 **2026-09-06**.
 
+## LU-20720 and LU-20721 filed: the 2.19 work (2026-09-09)
+
+| | |
+|---|---|
+| **LU-20720** | `LFU: in-kernel OSD scanner` — the engine. Iterator attributes, private parallel iterators, block parsing, readahead, xattrs, in-kernel filtering |
+| **LU-20721** | `lfs find` offloaded to the servers — the client sends the search, servers scan and filter, records stream back. Depends on LU-20720 |
+
+Both Technical tasks under LU-20462, both Open. Drafts in
+[`docs/tickets/`](tickets/), design in
+[`design-osd-port.md`](design-osd-port.md).
+
+**The scope was settled by the tool names.** `lfs find` runs on a client and
+`lfind` runs on a server, so "`lfs find` on the OSD scanner" can only mean the
+client sending the search to the servers — the HLD's Server and Client Bulk RPC
+Filter Rule Modules, not a third backend under `llapi_scan_device()`.
+
+**Two things to fix on LU-20721.** Its *description* is the client-side text,
+but its **summary is the older server-local wording** — `LFU: run 'lfs find'
+predicates over the in-kernel OSD scanner`, where the draft now reads `LFU:
+'lfs find' offloaded to the servers over bulk RPC`. And **neither ticket has a
+fixVersion**; the drafts say 2.19.
+
+**Markup verified rather than assumed**: `?expand=renderedFields` shows 9 and 7
+`<h3>` tags and 23 and 5 `<tt>` spans, with no literal `h3.` or `{{` left. The
+discipline from [[jira-wiki-markup]] held.
+
+### What the HLD re-read added
+
+Reading `docs/local/Lustre_Find_Utility-High_Level_Design.pdf` rather than
+recalling it settled four things:
+
+- the client uses **the same Object Stream kernel API as the OSD**, fed by
+  **bulk RDMA** — the ring is the API at both ends, not a local-only detail, and
+  no opcode is named
+- negotiation is **per-scan as well as per-connection**, and "partially on the
+  server with Filters on the client" is explicit — so the residue mechanism is a
+  requirement
+- access control is specified: POSIX UID/GID/ACL, **filesets and nodemaps**,
+  filtered server-side. The failure mode here is a disclosure, not a wrong answer
+- the HLD phases it itself — **administrators from a client first, regular users
+  later** — which defers permission filtering without deferring transport
+
+**And it puts the wire format on the critical path.** The HLD asks for an
+extensible binary format rather than monolithic structures; our record is a
+fixed 168-byte struct. [[lfu-wire-format]] was deferred on 2026-08-19 as
+not-ours and never evaluated. It needs an owner before the record is committed
+to.
+
+### Still open
+
+- **duplicate FIDs across merged streams** while a file migrates — unanswered in
+  every HLD revision, and it gates the merge
+- whether to open the small third ticket, `lfind` against a live target. Not on
+  the path, but it is the cheapest oracle for LU-20720: scan one target as a
+  device and through the kernel, compare object by object
+- the LU-20591 conversation with Andreas and Jinshan, before LU-20720 code
+
 ## Next: porting the OSD scanner into Lustre (2026-09-09)
 
 Design written, no code: [`design-osd-port.md`](design-osd-port.md).
