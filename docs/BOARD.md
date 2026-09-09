@@ -4,6 +4,36 @@ Every ticket and Gerrit id in play, and the ones that are *not* ours. Regenerate
 the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
 **2026-09-06**.
 
+## The trim moves into llapi_find_with_cb() — two copies, not three (2026-09-08)
+
+Third of the open lreview findings. The reviewer asked for the trailing-slash
+trim to move into `llapi_find_with_cb()` and for "the three other copies" to
+go. Half right, and the half that is wrong is worth writing down: **the four
+loops are the same shape doing three different jobs.**
+
+| | what it trims | why |
+|---|---|---|
+| `llapi_find()` | the walk's start point | `lfsr_name` points into the walked path |
+| `llapi_scan_namespace()` | the walk's start point | the same reason, its own copy since 68094 |
+| `llapi_scan_fid()` | `mnt_path` | a mount it then *composes* a name onto |
+| `llapi_find_since()` | the caller's spelling | a prefix it then *composes* names onto |
+
+Only the first two are about traversal, and only they funnel through
+`llapi_find_with_cb()`. The other two have no walk at all: a trailing slash
+there doubles a separator rather than hiding a basename, and folding them in
+would be a shape match, not a common cause — exactly the sort of tidy that
+reads well and breaks something a round later.
+
+So: the trim is now in `llapi_find_with_cb()`, the one way into the
+traversal. `llapi_find()` is a straight tail call again, `llapi_scan_namespace()`
+keeps only the copy its own `const char *` signature forces, and an external
+caller of the exported walk gets the fix without asking for it. The `--threads`
+path gets it too, which it did not have from the scanner side before.
+
+Verified off Lustre: `-name` matches a trailing-slash start point, no doubled
+separator below it, `/` keeps its slash, the threaded arm agrees with the
+serial one, and an over-long path still names itself before `-ENAMETOOLONG`.
+
 ## llapi_scan_fid() reads through mnt_fd, not through the composed path (2026-09-08)
 
 The second of the open lreview findings, and the user's call again.
