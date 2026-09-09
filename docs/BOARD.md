@@ -4,6 +4,92 @@ Every ticket and Gerrit id in play, and the ones that are *not* ours. Regenerate
 the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
 **2026-09-06**.
 
+## lreview before the push: 16 findings, all fixed (2026-09-09)
+
+Run on the three changes with new content — 68163, 68288, 68415 — one at a
+time, ~$8 and 12-19 minutes each. **Not one finding was about the three fixes
+that prompted the round**; lreview reviews the whole commit, so these had all
+survived their patchsets. That is the argument for running it: round 22 went
+up without it and came back red three ways.
+
+### 68163 — 3 findings, severity low
+
+`sp_search` in the commit message where the field is `lfsp_search`, and it
+appears nowhere in the tree as a standalone token — a leftover from the
+`lfsp_` rename. `llapi_scan_device_test.c` asserted `rc < 0` for a missing
+device where `-ENOTSUP`, the answer *before* the patch, passes too; tightened
+to `-ENOENT` after linking against the built library and measuring it (**−2,
+not −95**). `sb_open()`'s new `search` parameter documented in the struct's
+block comment.
+
+The "no single home" remark had one: `llapi_find_device.3` omitted `-EBUSY`,
+`-EMEDIUMTYPE`, `-ENODEV` and `-E2BIG`, and **all four are introduced by
+68163 itself**, so ERRORS grew there.
+
+### 68288 — 7 findings, severity medium, three of them real
+
+**The functional gap.** `llapi_find_device()` copied `lfsp_fsname` in and
+passed `mfs[0] ? mfs : NULL`, so the `-EXDEV` its own man page documents
+could not fire for a `--paths` caller. Now falls back to `spl.lfsp_fsname`.
+
+**Sweep state leaked.** `scan_device_sweep()` reset the cursor and the stop
+but not `sd_end`, which a worker *lowers* when it sees the last chunk — so
+the search inherited the pre-pass's bound. On an in-service MDT (conf-sanity
+301 and 303) an object allocated between the sweeps fell outside the search
+silently, not even in `ss_skipped`.
+
+**The header broke its own rule.** `lfsp_fsname` went in ahead of `lfsp_got`,
+moving it, against "a field appended here does not break the applications
+that do not use it". Measured after the move: `lfsp_got` is back at offset
+56, `lfsp_fsname` appended at 64, `sizeof` 72. An old caller's `lfsp_size` of
+64 now falls short of the 72 that gates `lfsp_fsname` and reads it as NULL —
+where before it passed the gate and had its `lfsp_got` pointer `strlen()`'d
+as an fsname.
+
+Plus the dead OST early-return in `scan_dirmap_cb()` (the label gates the
+pre-pass to MDTs, so it never fires — and would fail the whole call if it
+did), the `scan_dirmap_path()` comment claiming fid2path answers with a
+leading '/' when `mdt_path_current()` steps over it, and two commit-message
+paragraphs describing a two-open design the patch does not have.
+
+### 68415 — 6 findings, severity medium
+
+**The O_PATH answer was never lazy.** `ll_getattr_dentry()` glimpses unless
+`AT_STATX_DONT_SYNC`, O_PATH is invisible to `->getattr`, and `lli_lazysize`
+is substituted only under that flag — so `fstat()` on the O_PATH fd bought a
+strict size that was then labelled `LLAPI_SCAN_LAZY_SIZE`, and the second
+open bought nothing. `scan_cl_mdt_stat()` now uses `statx(AT_STATX_DONT_SYNC)`
+and reports `*lazy`; without `HAVE_STATX` there is no way to ask, so the
+fallback says the answer is strict rather than mislabelling it.
+
+`sc_size` larger than the struct with a zero tail is now accepted, as
+`scan_param_copyin()` does for the two sibling entry points. The unreachable
+`sc_user` test in the clear path is gone. `sc_got` is appended — `sc_padding`
+is a `__u32` and cannot hold a pointer — so one consumer can ask all three
+scanners what they will answer for.
+
+**And the comment beside the round's own 157d fix was wrong.** "-u is for the
+cases that clear" — there were no clearing cases. It now says `-u` puts the
+read on `llapi_changelog_start_user()`, the path that sets the server-side
+filter, which is exactly the path LU-20647 breaks and exactly why the
+registration needs `-m ALL`. The two now explain each other.
+
+### The coverage both reviewers asked for
+
+`llapi_scan_changelog_test` **test6** gives `_CLEAR` its first positive
+coverage — it was named only in test4's `-EINVAL` case, so nothing exercised
+`scan_cl_clear()`. It asserts on indices, not counts: a later scan may not
+deliver a record at or below the last index the clearing scan took. Counts
+would not say it, because the test's own workload keeps adding records.
+
+**conf-sanity 304** is the offline half of 303. 303 reads an MDT in service,
+which only ldiskfs allows, so the `--paths` pre-pass had never run on ZFS.
+304 stops the MDT and exports the pool, which is the one state both backends
+share.
+
+**Unrun, and that is now five.** 157c, 157d, conf-sanity 300, 302 and 304,
+plus `llapi_scan_changelog_test` test6. Autotest is where they first execute.
+
 ## Round 23 prepared: 11 changes, half the stack untouched (2026-09-09)
 
 Not pushed. Three fixes folded into the series, plus 68413 PS7.
