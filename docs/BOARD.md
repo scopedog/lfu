@@ -4,6 +4,42 @@ Every ticket and Gerrit id in play, and the ones that are *not* ours. Regenerate
 the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
 **2026-09-06**.
 
+## llapi_scan_fid() reads through mnt_fd, not through the composed path (2026-09-08)
+
+The second of the open lreview findings, and the user's call again.
+`llapi_scan_fid()` resolved the FID through `mnt_fd` and then read the object
+through `mnt_path + "/" + rel` on `AT_FDCWD`, so **one argument decided which
+filesystem was resolved and the other decided which was read**. The statx, the
+object's open and the parent's open all go through `mnt_fd` now, at the name
+`fid2path` answered.
+
+**What it buys.** An fd pins its mount; a path string is resolved afresh every
+time. A mount replaced between `llapi_root_path_open()` and the scan had the
+resolve read one filesystem and the gather another — rc 0, a complete record,
+nothing said. It also takes the mount prefix off every lookup, three per
+object, which over a changelog's worth of FIDs is what this entry point is
+for.
+
+**What it does not buy.** `mnt_path` is still required and still what
+`lfsr_path` is built from, so a wrong one still *mislabels* the answer. It
+just no longer decides what was *read*. The header and the page now say
+`mnt_fd` is the filesystem, `mnt_path` is the spelling.
+
+**The tightening, taken deliberately.** `llapi_fid2path_at()` uses `mnt_fd`
+only as an ioctl handle — `OBD_IOC_FID2PATH` on the superblock — so any
+descriptor in the filesystem worked. As a resolution base it has to be the
+mount root. `llapi_scan_fid.3` already named `llapi_root_path_open(3)`, which
+returns the root, and no caller in tree passes anything else; one that did
+answered before and answers `-ENOENT` now. Loud, not silent.
+
+**Three cases the absolute form did not have**, each a place to get it wrong:
+the mount root (`fid2path` says `/`, which strips to nothing → `"."`), an
+object directly under the mount (its parent *is* `mnt_fd`), and the in-place
+`rel` split that finds a nested object's parent without a second `PATH_MAX`
+buffer. None can be exercised without Lustre, so they are lifted into
+`tests/lift/at_mntfd.c` and run both ways over a plain tree: six cases, same
+`st_ino` each time, and `rel` unmodified after the split.
+
 ## find_prefilter() answers a bool; find_decide() answers 0 or an errno (2026-09-08)
 
 The user's call, on the one lreview finding I had left open: three
