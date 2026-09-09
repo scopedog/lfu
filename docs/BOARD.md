@@ -4,6 +4,61 @@ Every ticket and Gerrit id in play, and the ones that are *not* ours. Regenerate
 the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
 **2026-09-06**.
 
+## sanity 157d: register with a mask, not a restack (2026-09-09)
+
+157d failed on every config with
+
+```
+llapi_scan_changelog_test: cannot set changelog filter: No such file or directory (2)
+```
+
+**The board's earlier note was out of date on one point.** The upstream bug is
+not unfiled: it is **LU-20647 / 68413**, at PS6 with adilger's `Code-Review+1`.
+The trouble is where it sits. 68413's parent is `5afbab284e` — our series' own
+base — so it is a *sibling* of the chain, not an ancestor. Autotest for 68415
+builds the base plus 68094..68415 and never sees it, so 157d runs against a
+server that still has the bug.
+
+**Restacking was rejected.** Putting 68413 under 68094 rewrites every commit
+above it: twenty new patchsets, ~30 test sessions each, to work around a
+placement. Against [[gerrit-etiquette]] and [[gerrit-push-cadence]] both.
+
+**What the test actually needs is a changelog user the MDD can find.**
+`mdd_changelog_user_register()` (`mdd_device.c:1789`) picks the record type
+from its arguments: `mask || name` gives `CHANGELOG_USER_REC2`, and nothing
+gives the old `CHANGELOG_USER_REC`. The unfixed lookup matches only `REC2`.
+So `changelog_register -m ALL` produces a user the *unfixed* server can find,
+and `ALL` is `CHANGELOG_ALLMASK`, so nothing the test expects is filtered out.
+One line in 157d, and 68413 keeps its own 69-line test for the bug itself.
+
+**Scope is 157d alone.** Five tests in the stack register a changelog user —
+157d, 160aa, 160ab, 160ac, 160ad — but `lfs.c` never sets `sc_user`, so
+`lfs find --since/--changelog` takes `llapi_changelog_start()` and never
+issues the filter ioctl. Only 157d passes `-u`. That is exactly what the CI
+reported: 157d red, the 160a* series untouched.
+
+### Measured on a real MDD, and where the chain stops
+
+`rhel9.7-server-mgs-mds-clone`, MDT mounted, both registrations run:
+
+```
+cl1                               0 (1)
+cl2                               0 (0) mask=MARK,CREAT,MKDIR,...,NOPEN
+```
+
+`cl1` is the plain register — **no mask, so a `CHANGELOG_USER_REC`**. `cl2` is
+`-m ALL` — the full mask, so a `REC2`. The exact argument order test-framework
+generates (`changelog_register -n -m ALL`) is accepted by both the old and new
+`lctl` spellings; they share `jt_changelog_register`.
+
+**Not run, and worth saying:** that the *unfixed* lookup accepts the `REC2` the
+new registration makes. Its condition is a single `lrh_type !=
+CHANGELOG_USER_REC2 → skip`, so it does — but that is a code read. Showing it
+would mean building an unfixed server; the lab's tree already carries the fix,
+and `lfs changelog --user` there could not reach the filter at all without a
+client mounted. The other half needs no proof: the CI *is* the unfixed server,
+and it answered ENOENT for a plainly-registered user.
+
 ## The CI had no ZFS scan backend: ZFS 2.3 moved a header (2026-09-09)
 
 conf-sanity 302 failed on every ZFS config with
