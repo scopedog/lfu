@@ -4,7 +4,7 @@
 §2 and §4. Covers group C, levels L1 and L2; the scanner itself is the sibling
 ticket [`osd-scanner.md`](osd-scanner.md).
 
-**Type:** New Feature · **Parent:** LU-20462 (the LFU epic) ·
+**Type:** Technical task · **Parent:** LU-20462 (the LFU epic) ·
 **Fix version:** 2.19 · **Depends on:** the OSD scanner ticket ·
 **Component:** none
 
@@ -23,7 +23,7 @@ client side, this draft needs replacing rather than extending.
 ## Summary (plain text, not markup)
 
 ```
-llapi: run lfs find's predicates over a scan of a mounted target
+LFU: run 'lfs find' predicates over the in-kernel OSD scanner
 ```
 
 ## Description (paste verbatim into Jira)

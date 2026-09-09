@@ -5,7 +5,7 @@ scanner detail in [`design-osd-scanner.md`](../design-osd-scanner.md).
 Covers groups A and B of the port; the userspace and find side is the sibling
 ticket [`lfs-find-on-osd-scanner.md`](lfs-find-on-osd-scanner.md).
 
-**Type:** New Feature · **Parent:** LU-20462 (the LFU epic) ·
+**Type:** Technical task · **Parent:** LU-20462 (the LFU epic) ·
 **Fix version:** 2.19 · **Component:** none (the LU project defines none)
 
 **The Description below is Jira wiki markup, not Markdown.** Paste it verbatim
@@ -17,7 +17,7 @@ italicise outside them.
 ## Summary (plain text, not markup)
 
 ```
-osd: scan a mounted target's object table and export an Object Stream
+LFU: in-kernel OSD scanner
 ```
 
 ## Description (paste verbatim into Jira)
