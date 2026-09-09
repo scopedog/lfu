@@ -77,41 +77,28 @@ scan a serving target at all.
 
 ## 3. The four decisions
 
-### 3.1 The Jinshan collision — land the fast path first, decide the UAPI later
+### 3.1 No longer a collision — LU-20591 is following LFU
 
-Jinshan Xiong's **LU-20591** (68018 / 68019 / 68020) builds a scanner on the
-same `osd_otable_it` primitive: `OBD_IOC_SCRUB_ITER` + `llapi_obj_iterate()` +
-`lctl iterate_objects`. Checked 2026-09-09: **all three still `NEW`**, 68019 and
-68020 untouched since 2026-08-31 and 2026-08-14.
+**Superseded 2026-09-09.** This section argued how to sequence around Jinshan
+Xiong's LU-20591, which built a scanner on the same `osd_otable_it` primitive
+and looked like a rival UAPI. That is resolved: Jinshan has decided to follow
+LFU, so there is no competing interface to land around and no reason to
+sequence group A defensively.
 
-The earlier recommendation ([[lfu-upstream-collision]]) was to put `DOIF_ATTR`
-*under* their `scrub_iterate_objects()` rather than ship a rival UAPI. **Six
-weeks of no movement changes that**: building on a stalled series makes our
-landing date theirs.
+What survives from it is engineering rather than strategy:
 
-**Recommend instead: separate the OSD-layer work from the UAPI, and land the
-OSD layer on its own.**
-
-The iterator extensions — `DOIF_ATTR` through `rec()`'s existing `attr`
-argument, `DOIF_PARALLEL`, block parsing, readahead, `DOIF_NOSCRUB` — are
-`dt_it_ops` semantics, not user-visible interface. They make *any* consumer
-faster, theirs included: their walk does `dt_locate()` + `dt_attr_get()` per
-object, which is precisely what these remove. Landing them:
-
-- is cooperative rather than rival — it speeds up their series, not just ours;
-- settles the performance argument in-tree, where it is checkable;
-- leaves the UAPI question open without blocking on it;
-- and takes `DOIF_NOSCRUB` from them rather than re-deriving it, which is the
-  right acknowledgement.
-
-The cost is real and must be planned for: **Lustre reviewers do not take
-infrastructure with no consumer.** So group A lands *with* group B behind it in
-the same series, but as separate reviewable changes, and the conversation with
-Andreas and Jinshan happens on group A before group B is written.
-
-**Action before any code:** put the split to Andreas and Jinshan — "we have
-measured iterator extensions that make both scanners faster; can they land
-independently of whichever control interface wins?"
+- **Split group A from group B anyway**, as separate reviewable changes. The
+  iterator extensions are `dt_it_ops` semantics and are worth reviewing on their
+  own merits; that was always the better shape, independent of who else was
+  building on the primitive.
+- **`DOIF_NOSCRUB` still comes from LU-20591.** It stops an out-of-OSD
+  consumer's `fini()` from halting a scrub it never started. Take it with
+  attribution rather than re-derive it — **but confirm where it now lands**, since
+  if that series is not going forward we carry the patch ourselves.
+- **The measured lesson stands**: their walk paid `dt_locate()` + `dt_attr_get()`
+  per object, and `--size` on an MDT selecting `la_size` finds 0 for a striped
+  file. Only `trusted.som` has the whole-file size. That is a property of the
+  problem, not of their patch.
 
 ### 3.2 The wire record stays compact — it is not `llapi_scan_rec`
 
@@ -325,9 +312,9 @@ throughput numbers.
 
 1. **Settle "cost to existing users" by reading code** — it is the cheapest
    open question and it gates the shape of A1.
-2. **Put the group-A split to Andreas and Jinshan** — iterator extensions
-   landing independently of the control interface. This is a conversation, not
-   a patch, and it should happen before B is written.
+2. **Confirm where `DOIF_NOSCRUB` lands** — taken from LU-20591 with
+   attribution, or carried ourselves if that series is not going forward. It is
+   the one piece of that work we depend on.
 3. **Decide L1 vs L3 scope** (§4) — this is the user's call and it changes the
    size of the work by roughly an order of magnitude.
 4. Then A1.

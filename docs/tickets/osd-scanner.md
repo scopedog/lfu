@@ -106,13 +106,13 @@ Not in scope: reaching this from {{lfind}} on the server (LU-20722), and from
 {{lfs find}} on a client (LU-20721), which is the HLD's Client Bulk RPC Filter
 Rule Module. Nor WBCFS, pending a decision on whether it is wanted.
 
-h3. Relationship to LU-20591
+h3. Iterator changes shared with other consumers
 
-LU-20591 builds a scanner on the same {{osd_otable_it}} primitive, with a walk
-that calls {{dt_locate()}} and {{dt_attr_get()}} per object. The OSD layer
-changes here remove that path, so they make that series faster too. The intent
-is to land them independently of whichever control interface is preferred, and
-to take {{DOIF_NOSCRUB}} from LU-20591 rather than re derive it.
+The OSD layer changes here are {{dt_it_ops}} semantics rather than user visible
+interface, so they benefit any consumer of the object table iterator, not only
+this scanner. {{DOIF_NOSCRUB}} comes from the LU-20591 work: it keeps an out of
+OSD consumer's {{fini()}} from stopping a scrub it never started, and it is
+taken rather than re derived.
 
 h3. Known risks
 

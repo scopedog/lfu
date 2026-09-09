@@ -68,7 +68,11 @@ to.
 
 - **duplicate FIDs across merged streams** while a file migrates — unanswered in
   every HLD revision, and it gates the merge
-- the LU-20591 conversation with Andreas and Jinshan, before LU-20720 code
+- **where `DOIF_NOSCRUB` comes from.** LU-20591 is no longer a collision —
+  Jinshan has decided to follow LFU — so there is no rival interface to
+  sequence around. But that series is where `DOIF_NOSCRUB` lives, and it is the
+  one piece of it LU-20720 depends on: confirm whether it lands there with
+  attribution, or we carry it
 
 ## Next: porting the OSD scanner into Lustre (2026-09-09)
 
