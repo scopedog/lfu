@@ -53,3 +53,22 @@ to classify as namespace-visible, where `fid_is_root()` — a whole-struct
 
 Note `scan_classify()`'s second argument is `have_lma`: pass `true`, or every
 arm answers `CLS_NO_LMA` and the harness reports the code broken.
+
+## `at_mntfd.c` — llapi_scan_fid()'s move to `mnt_fd`
+
+`llapi_scan_fid()` used to resolve the FID through `mnt_fd` and then read the
+object through the composed absolute path, so the two arguments could name
+different filesystems. Every syscall now goes through `mnt_fd` at the name
+`fid2path` answered, which needs three cases the absolute form did not have:
+the mount root itself (`fid2path` says `/`, which strips to nothing), an
+object directly under the mount (its parent *is* `mnt_fd`), and the in-place
+split that finds a nested object's parent without a second buffer.
+
+The harness runs all three both ways over a plain directory tree and compares
+`st_ino`, so it needs no Lustre:
+
+        gcc -Wall -o at_mntfd at_mntfd.c
+        mkdir -p /tmp/t/d/sub && touch /tmp/t/top /tmp/t/d/sub/f2
+        ./at_mntfd /tmp/t
+
+Six cases, all agreeing, including that `rel` survives the split unmodified.
