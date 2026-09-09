@@ -4,6 +4,90 @@ Every ticket and Gerrit id in play, and the ones that are *not* ours. Regenerate
 the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
 **2026-09-06**.
 
+## lreview over the whole stack: 70 findings, three commits that did not build (2026-09-08)
+
+Ran `lreview` on commits 5 through 20 in turn, fixing each before moving on —
+70 findings, on top of the eight on the folded 68094 earlier the same day.
+The ones that mattered:
+
+**Three commits did not compile.**
+
+- **68156** (`LU-20606`, ldiskfs backend): `llapi_scan_device_test.c` used
+  `big` and `search`, both declared thirteen commits later. The union is now
+  declared here; `.lfsp_search` stays with the ZFS commit that introduces
+  `search`.
+- **68288-and-after** (`LU-20637`, name a device scan's objects): adding
+  `lfsp_fsname` ate the `/*` that opened `lfsp_got`'s comment, so **the
+  installed public header did not compile** from that commit until the
+  LU-20650 rewrite repaired it by accident.
+- **`--since`** (`LU-20650`): `st->fss_undecided` with no such member — mine,
+  from the layout fix below landing in a commit whose struct gains the field
+  one commit later.
+
+A sweep now builds `lustre/utils`, compiles `#include <lustre/lustreapi.h>`
+and syntax-checks the three test programs **at every one of the 20 commits**.
+All green. This class of defect has appeared in three separate rounds now;
+the sweep is the answer to it.
+
+**Six real defects in the code.**
+
+| Where | What |
+|---|---|
+| `liblustreapi_pfind.c` | An object whose layout could not be **read** was merged with one that has **no** layout and answered off a forged filesystem default — the outcome `find_lmm_fits()` accepts a short foreign EA to avoid, reached the other way round. Reachable for a torn composite EA and a byte-swapped `LOV_MAGIC_SEL`. `find_rec_layout()` now forges a default only for the no-layout case; the other is counted undecided. |
+| `liblustreapi_pfind.c` | `--ost` was missing from `find_changelog_needs_lookup()`, so `--changelog --resolve --ost` silently lost every object unlinked since its event — the case `--changelog` exists for — and cleared `fp_got_uuids` each time, re-looking-up the OSTs for the next object that did resolve. |
+| `libscan_zfs.c` | The ZFS backend declared `LLAPI_SCAN_SO_GEN`, so the core built an **IGIF from the low 32 bits of a dnode id** for every object with no LMA, against `llapi_scan_device.3` and the core's own comment. Two dnodes 2^32 apart with the same generation collide. `osd-zfs` creates `O`, `O/<seq>`, `d*` and `oi.N` with no LMA, and `--internal` delivers them. |
+| `liblustreapi_scan_changelog.c` | A `CL_MARK` was handed `lfsr_fid` = the mark's flag bitmask with `LLAPI_SCAN_FID` set: `cr_markerflags` shares the union with `cr_tfid`, and `CLM_ON\|CLM_START` is inside `FID_SEQ_IGIF`. With `_RESOLVE` the consumer opens by it. |
+| `lustreapi_internal.h` | `scan_param_whole()`'s `ends[]` had a stray second `lfsp_stats` **after** `lfsp_search`; the loop keeps the *last* entry that fits, so `lfsp_size == 56` copied 48 bytes and dropped `lfsp_search` — a ZFS pool on file vdevs then goes unfound. LU-20637 was silently repairing it later. |
+| `liblustreapi_scan_batch.c` | `scan_param_copyin()` is shallow, and `lfsp_got`/`lfsp_stats` are pointers the scan writes through — on its own thread, after `llapi_scan_namespace_open()` has returned, into whatever frame the caller's block lived in. The tree's own idiom is a stack-local stats block. The batch layer now drops both. |
+
+Plus `llapi_scan_fid()` answering `-EINVAL` for a negative `mnt_fd`, where
+`-EINVAL` also means *this FID has no name*: a consumer looping over a
+changelog with an unopened mount counted every object nameless and exited 0.
+`-EBADF` now, as `llapi_scan_rec_path()` already answers.
+
+**The device scanner never filled `lfsp_got`.** Same fold artefact as 68094's:
+the `known` block lived thirteen commits downstream of the entry point that
+documents it. Moved to LU-20606, narrowed to the bits that exist there and
+widened again in LU-20637, where `LLAPI_SCAN_OWNER` and `LLAPI_SCAN_LMV_SHARD`
+arrive.
+
+**Man pages.** `-k, --skip` lost its `.TP` twice over and rendered as running
+text; `--since-cookie` was documented twice, thirty identical lines; `--ost`
+and the object times were listed as always refused when they are refused only
+without `--resolve`, in `lfs-find.1`, `llapi_find_since.3` and the commit
+messages alike.
+
+**Open, for the user**
+
+- Return-convention refactor: `find_decide()` returns 1 for *matched* where
+  `find_prefilter()` returns 1 for *reject*. Safe today only because
+  `cb_find_init()` resets `ret`.
+- `llapi_scan_fid()` resolves through `mnt_path` but opens through `AT_FDCWD`;
+  the reviewer suggests `statx(mnt_fd, rel, ...)` so the two cannot name
+  different filesystems.
+- Put the trailing-slash trim in `llapi_find_with_cb()`, where every caller
+  funnels through, and drop the three other copies.
+- Tests: `llapi_find_device()`, `llapi_scan_fid()` and
+  `llapi_scan_changelog_test` have no suite entry; `lfind`'s `--local`,
+  `--target` and `--internal` are uncovered; and the `-EBUSY` batch test never
+  has the first consumer inside `llapi_scan_next()`, so the case that
+  reproduced the ASan overflow cannot fail.
+- Whether `test16` (which exercises `lfsp_got` on the callback API) should
+  move to the change that adds `lfsp_got`.
+
+**Declined, with reasons recorded**: the append-only objection to
+`lfsp_search`'s position (nothing has shipped; the struct is new in this
+series), the forward references to `--since`/`--changelog` from the commit
+that precedes them, and a `CLIENT_VERSION` gate on 160aa-160ad — adilger's own
+reply on `2a3ed73d` settles that one.
+
+Nothing is pushed. checkpatch is clean of anything but the known noise on all
+20; `lfs find` smoke-tests pass off Lustre, and `-printf %LP` prints `0` for a
+file with no project id, which is the claim the commit message got wrong.
+**Lab verification is still owed** — this host has no Lustre mount, so
+`llapi_scan_test`, `llapi_scan_device_test`, conf-sanity 300 and sanity
+56El/157c/160aa-160ad have not been run against the fixed tree.
+
 ## The record's lifetimes are documented per field (2026-09-08)
 
 From the user's question, not from a review comment.
