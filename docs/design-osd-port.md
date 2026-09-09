@@ -213,12 +213,33 @@ flag, and the cross-MDT merge.
 **duplicate FIDs across merged streams under LMR**. That needs putting to
 Andreas before L3 is scoped, not during.
 
-**Recommendation: scope L1 now, L2 as a small follow-on, and treat L3 as a
-separate project** with its own design. Doing L1 first is not a detour — L3's
-server half *is* L1's scanner, reached by a different transport.
+**Decided 2026-09-09: L3.** The tool names carry the split — `lfs find` runs on
+a client, `lfind` runs on a server — so "`lfs find` on the OSD scanner" can only
+mean the client sending the search to the servers. L1 is not dropped but is
+demoted to a separate small ticket, worth having chiefly as a **test oracle**:
+it is what lets one target be scanned as a device and through the kernel and the
+answers compared object by object.
 
-**This needs your decision**, because "make `lfs find` work with it" most
-naturally reads as L3, and L3 is roughly the size of everything done so far.
+**And the HLD is more specific than §4 was**, on a re-read of
+`docs/local/Lustre_Find_Utility-High_Level_Design.pdf`:
+
+- the client uses **the same Object Stream kernel API as the OSD**, fed by
+  **bulk RDMA** — so an earlier sketch here, that the remote path needs no ring
+  and should be an `OBD_IDX_READ`-shaped request/response, was wrong. That RPC
+  stays interesting as a mechanism *under* a ring-shaped client API; it is not a
+  replacement for it.
+- negotiation is **per-scan as well as per-connection**: `OBD_CONNECT2_FIND_UTILITY`
+  at connect, then a Scan Request that settles "entirely on the server, partially
+  on the server with Filters on the client, or not at all". The middle case makes
+  the residue mechanism a requirement, not a refinement.
+- access control is specified, not implied: POSIX UID/GID/ACL, **filesets and
+  nodemaps**, filtered server-side.
+- the HLD phases it itself — **administrators from a client first, regular users
+  later** — which is the lever that defers the hardest part without deferring the
+  transport.
+- it asks for an **extensible binary data format** rather than monolithic
+  structures. Our fixed 168-byte wire record is the opposite, and the format
+  question deferred on 2026-08-19 is now on the critical path.
 
 ---
 

@@ -235,6 +235,7 @@ footer p { max-width: none; }
     <li><a href="#param">The parameter block</a></li>
     <li><a href="#mask">The demand mask</a></li>
     <li><a href="#threads">Threads &amp; stopping</a></li>
+    <li><a href="#batch">Pulling batches</a></li>
     <li><a href="#filter">The pre-filter</a></li>
     <li><a href="#layout">Layouts</a></li>
     <li><a href="#fid">One object, by FID</a></li>
@@ -279,6 +280,7 @@ footer p { max-width: none; }
       <tbody>
         <tr><td>Search a mounted filesystem from a shell</td><td><code>lfs find</code></td><td class="side-c">client</td></tr>
         <tr><td>Search a mounted filesystem from a program</td><td><strong><code>llapi_scan_namespace()</code></strong></td><td class="side-c">client</td></tr>
+        <tr><td>Pull that scan's records in batches instead</td><td><code>llapi_scan_next()</code></td><td class="side-c">client</td></tr>
         <tr><td>Read an unmounted MDT or OST off its block device</td><td><code>llapi_scan_device()</code></td><td class="side-s">server</td></tr>
         <tr><td>Run <code>lfs find</code>'s predicates against such a device</td><td><code>llapi_find_device()</code>, or <code>lfind(8)</code></td><td class="side-s">server</td></tr>
         <tr><td>Fill a record for one object you already have a FID for</td><td><code>llapi_scan_fid()</code></td><td class="side-c">client</td></tr>
@@ -354,9 +356,9 @@ footer p { max-width: none; }
   <p>
     As a program it is the following, complete and compilable. Three things in
     it are the whole API in miniature: <code>sp_want</code> asks for exactly
-    the three fields the test reads, the callback checks
-    <code>sr_valid</code> before trusting any of them, and the username is
-    resolved once rather than per object.
+    the three fields the test reads, the callback checks the record's mask
+    before trusting any of them, and the username is resolved once rather than
+    per object.
   </p>
   <div class="code feature">
     <div class="code-head">recent.c &mdash; cc -o recent recent.c -llustreapi</div>
@@ -385,15 +387,20 @@ footer p { max-width: none; }
         <i>/* A field the scanner could not answer for is not a match.  Test
          * the bits; do not compare the fields against zero, because "no
          * answer" and "the answer is zero" are different things here.
+         *
+         * These three live in the embedded statx, so the mask that
+         * reports them is sr_stx.stx_mask -- and LLAPI_SCAN_UID and its
+         * kind ARE the STATX_* values, so one vocabulary asks and the
+         * right mask answers.
          */</i>
-        <b>if</b> ((rec-&gt;sr_valid &amp; WANT) != WANT)
+        <b>if</b> ((rec-&gt;sr_stx.stx_mask &amp; WANT) != WANT)
                 <b>return</b> 0;
 
-        <b>if</b> (!S_ISREG(rec-&gt;sr_mode))
+        <b>if</b> (!S_ISREG(rec-&gt;sr_stx.stx_mode))
                 <b>return</b> 0;
-        <b>if</b> (rec-&gt;sr_uid != r-&gt;uid)
+        <b>if</b> (rec-&gt;sr_stx.stx_uid != r-&gt;uid)
                 <b>return</b> 0;
-        <b>if</b> (rec-&gt;sr_mtime &lt; r-&gt;since)
+        <b>if</b> (rec-&gt;sr_stx.stx_mtime.tv_sec &lt; r-&gt;since)
                 <b>return</b> 0;
 
         printf(<i>"%s\n"</i>, rec-&gt;sr_path);
@@ -442,8 +449,8 @@ footer p { max-width: none; }
       <code>LLAPI_SCAN_TYPE</code> is free &mdash; it comes from the directory
       entry &mdash; but it is set only when the entry knew the object's type,
       which not every filesystem fills in. This scan pays for an ioctl anyway
-      to get <code>sr_uid</code> and <code>sr_mtime</code>, and
-      <code>sr_mode</code> arrives with them, so testing the full mode costs
+      to get <code>stx_uid</code> and <code>stx_mtime</code>, and
+      <code>stx_mode</code> arrives with them, so testing the full mode costs
       nothing extra and is always answerable. In a scan that wants
       <em>only</em> the type, ask for <code>LLAPI_SCAN_TYPE</code> and pay no
       ioctl at all.
@@ -511,10 +518,10 @@ footer p { max-width: none; }
   <p>
     Delivery does not mean the record is complete. The gather succeeding says
     the object was read, not that every field you asked for arrived &mdash;
-    which is what <code>sr_valid</code> is for. A file whose
+    which is what the masks are for. A file whose
     <code>i_extra_isize</code> does not reach <code>i_crtime</code> genuinely
-    has no birth time, and its record arrives with
-    <code>LLAPI_SCAN_BTIME</code> clear.
+    has no birth time, and its record arrives without
+    <code>STATX_BTIME</code> in <code>sr_stx.stx_mask</code>.
   </p>
   <p>
     One asymmetry is worth holding on to: the pre-filter sees only what the
@@ -528,16 +535,27 @@ footer p { max-width: none; }
 <section id="record">
   <h2>Reading the record</h2>
   <p>
-    <code>struct llapi_scan_rec</code> carries the object. Two fields make it
-    survivable across library versions, and one rule governs reading all the
-    others.
+    <code>struct llapi_scan_rec</code> carries the object. What
+    <code>stat(2)</code> answers for is an embedded <code>struct statx</code>,
+    in the form the MDT already fills; the Lustre-specific fields are the
+    record's own. Two fields make it survivable across library versions, and
+    one rule governs reading all the others.
+  </p>
+  <p>
+    The record <em>begins</em> with that statx, so a
+    <code>struct llapi_scan_rec *</code> may be cast to a
+    <code>struct statx *</code> and handed to anything that takes one.
+    <code>&amp;rec-&gt;sr_stx</code> says the same thing at the same cost; the
+    Lustre-specific fields follow past offset <code>0x100</code>.
   </p>
   <div class="tw">
     <table>
       <thead><tr><th>Field</th><th>Purpose</th></tr></thead>
       <tbody>
-        <tr><td><code>sr_size</code></td><td>How much of the record this scanner filled. Fields are only ever appended, so a consumer built against an older definition keeps working.</td></tr>
-        <tr><td><code>sr_valid</code></td><td>One <code>LLAPI_SCAN_*</code> bit per field, set only when the scanner could answer for that field.</td></tr>
+        <tr><td><code>sr_size</code></td><td>How much of the record this scanner filled. Fields are only ever appended, so a consumer built against an older definition keeps working. It sits after <code>sr_stx</code>, so it is found at an offset <code>sizeof(struct statx)</code> decides &mdash; see the note below.</td></tr>
+        <tr><td><code>sr_stx</code></td><td>The mode, nlink, uid, gid, size, blocks and the four timestamps &mdash; whole <code>struct statx_timestamp</code>, so an incremental scan keyed on <code>stx_mtime</code> has the nanoseconds the MDT recorded.</td></tr>
+        <tr><td><code>sr_stx.stx_mask</code></td><td>Which of <em>those</em> fields are set. The low 32 <code>LLAPI_SCAN_*</code> bits are the kernel's <code>STATX_*</code> values, aliased rather than copied, so the two cannot drift.</td></tr>
+        <tr><td><code>sr_valid</code></td><td>Which of the API's own fields are set &mdash; FID, layout, LMV, HSM, project id, class, the changelog event. These bits live above bit 31; <code>sr_valid</code>'s low half is reserved and always zero.</td></tr>
       </tbody>
     </table>
   </div>
@@ -548,17 +566,41 @@ footer p { max-width: none; }
       <em>could not answer</em> and a scanner that <em>answers zero</em> mean
       different things, and the record distinguishes them deliberately.
     </p>
+    <p>
+      Test it against the <em>right</em> mask: <code>sr_stx.stx_mask</code>
+      for anything inside the statx, <code>sr_valid</code> for the rest. Both
+      halves are named in one vocabulary, so <code>sp_want</code> takes either
+      &mdash; but a test of <code>sr_valid</code> against
+      <code>LLAPI_SCAN_SIZE</code> compiles cleanly and is always false.
+    </p>
+  </div>
+  <div class="note cost">
+    <span class="lbl">What the statx-first layout costs</span>
+    <p>
+      Every Lustre field sits at an offset <code>sizeof(struct statx)</code>
+      decides. The library asserts at build time that the statx is still the
+      256 bytes it has been since Linux 4.11, and that
+      <code>sr_stx</code> starts the record &mdash; because a statx that grew
+      would move the rest of the struct under a consumer already built against
+      it, and <code>sr_size</code> reports how much of a record was filled,
+      never that a field <em>moved</em>. A binding written in another language
+      has no such assertion: it must model those 256 bytes exactly before it
+      can reach any field beyond them.
+    </p>
   </div>
   <p>
     The clearest case is a regular file's size. File data lives on OSTs, so in
     the general case the size is not the MDT's to give &mdash;
-    <code>LLAPI_SCAN_SIZE</code> stays clear rather than reporting 0. When the
-    MDT holds a lazy size-on-MDT value instead,
-    <code>LLAPI_SCAN_LAZY_SIZE</code> says so and the value is in
-    <code>sr_size_bytes</code>. A consumer needing a strict size for every
-    regular file must stat it, which is what <code>lfs find --size</code>
-    does &mdash; and why <code>sr_parent_fd</code> and <code>sr_name</code>
-    are in the record, so you can do it with <code>fstatat(2)</code>.
+    <code>STATX_SIZE</code> stays clear in <code>stx_mask</code> rather than
+    reporting 0. When the MDT holds a lazy size-on-MDT value instead,
+    <code>LLAPI_SCAN_LAZY_SIZE</code> in <code>sr_valid</code> says so and the
+    number is in <code>sr_stx.stx_size</code> &mdash; the value is there and
+    it is the MDT's approximation, which is exactly why
+    <code>stx_mask</code> does not claim the field. A consumer needing a
+    strict size for every regular file must stat it, which is what
+    <code>lfs find --size</code> does &mdash; and why
+    <code>sr_parent_fd</code> and <code>sr_name</code> are in the record, so
+    you can do it with <code>fstatat(2)</code>.
   </p>
   <p>
     The same distinction runs through HSM: state 0 with
@@ -572,8 +614,16 @@ footer p { max-width: none; }
   <p>
     <code>sp_size</code> must be set &mdash; it is how the library knows which
     fields you built against. A struct shorter than the library's is accepted
-    and the fields you did not set read as zero; a longer one is refused,
-    since a field the library does not know cannot be honoured.
+    and the fields you did not set read as zero. A longer one is accepted too,
+    as long as every byte past the end of <em>that library's</em> definition
+    is zero: which is you saying you set no field it could not honour. Set one
+    of them and the call is refused with <code>-EINVAL</code>.
+  </p>
+  <p>
+    So the size is not a version number. A program built against a newer
+    header runs against an older library for as long as it asks only for what
+    that library has, and a field appended here does not break the programs
+    that do not use it.
   </p>
   <div class="tw">
     <table>
@@ -581,6 +631,7 @@ footer p { max-width: none; }
       <tbody>
         <tr><td><code>sp_size</code></td><td class="num">&mdash;</td><td>Required. <code>sizeof(struct llapi_scan_param)</code>.</td></tr>
         <tr><td><code>sp_want</code></td><td class="num">0</td><td>Demand mask. 0 means everything except the three opt-in fields below.</td></tr>
+        <tr><td><code>sp_got</code></td><td class="num">NULL</td><td>Filled, before the first record, with the part of <code>sp_want</code> this scan will answer for. See <a href="#mask">the demand mask</a>.</td></tr>
         <tr><td><code>sp_max_depth</code></td><td class="num">0</td><td>Limit the descent. 0 is unlimited.</td></tr>
         <tr><td><code>sp_thread_count</code></td><td class="num">0</td><td>0 or 1 scans in the calling thread.</td></tr>
         <tr><td><code>sp_flags</code></td><td class="num">0</td><td><code>LLAPI_SCAN_F_STOP_ON_ERROR</code> abandons the scan on an unreadable object instead of skipping it.</td></tr>
@@ -589,13 +640,30 @@ footer p { max-width: none; }
     </table>
   </div>
   <div class="note">
-    <span class="lbl">Unknown flags are refused, not ignored</span>
+    <span class="lbl">Unknown flags are refused, unknown fields are not</span>
     <p>
       An <code>sp_flags</code> bit this library does not define returns
       <code>-EINVAL</code>. Setting a flag does not change
       <code>sp_size</code>, so refusing unknown ones is what gives flags the
-      same guarantee fields already have: a caller never has one silently
-      dropped.
+      same guarantee fields have: a caller never has one silently dropped.
+    </p>
+    <p>
+      <code>sp_want</code> is the opposite case and is <em>not</em> refused. A
+      flag is commanded, where a field is asked for &mdash; so a want bit this
+      library does not know, or knows but this scan cannot answer for, is
+      dropped, and <code>sp_got</code> reports what is left.
+    </p>
+  </div>
+  <div class="note cost">
+    <span class="lbl">The library reads every byte you declare</span>
+    <p>
+      Accepting a longer struct means reading past the end of the library's
+      own definition, on your word that <code>sp_size</code> describes memory
+      you own. A block that declares more than it has &mdash;
+      <code>sp_size = sizeof(sp) + 8</code> on a plain <code>struct</code>,
+      say &mdash; is read out of bounds. Three cases in our own test suite did
+      exactly that, and passed only because the stack bytes behind them
+      happened not to be zero.
     </p>
   </div>
 </section>
@@ -635,9 +703,112 @@ footer p { max-width: none; }
     <span class="lbl">The mask is a floor, not a ceiling</span>
     <p>
       A field you did not ask for may still be delivered &mdash; the mask
-      says what you need, not what you will get. Always test
-      <code>sr_valid</code> rather than assuming a field is present because
-      you asked, or absent because you did not.
+      says what you need, not what you will get. Always test the record's
+      masks rather than assuming a field is present because you asked, or
+      absent because you did not.
+    </p>
+  </div>
+  <h3>What the scan answers back</h3>
+  <p>
+    Asking is one half; the other is being told what will arrive. Point
+    <code>sp_got</code> at a <code>__u64</code> and the scan fills it, before
+    the first record, with the part of <code>sp_want</code> it will answer
+    for. An unknown bit, or one this particular scan cannot supply, is simply
+    absent from it.
+  </p>
+  <div class="code feature">
+    <div class="code-head">ask for what you would use, adapt to what you get</div>
+<pre><i>/* The parent FID is what this consumer would rather name an object by:
+ * a scan of a target reads it out of the object's linkea, where a walk
+ * of a namespace has no notion of it.  Ask for it anyway -- a field
+ * this scan cannot answer for is dropped, not an error -- and let
+ * sp_got choose the branch.
+ */</i>
+<b>#define</b> WANT (LLAPI_SCAN_MODE | LLAPI_SCAN_FID | LLAPI_SCAN_PARENT)
+
+<b>struct</b> ctx {
+        __u64           got;    <i>/* filled before the first record */</i>
+        <b>unsigned long</b>   named;
+};
+
+<b>static int</b> name_cb(<b>const struct</b> llapi_scan_rec *rec, <b>void</b> *data)
+{
+        <b>struct</b> ctx *c = data;
+
+        <i>/* A test of what the scan settled once, not of this record: every
+         * record in one scan takes the same branch.  The record's own
+         * masks are still what you test for a per-object field.
+         */</i>
+        <b>if</b> (c-&gt;got &amp; LLAPI_SCAN_PARENT)
+                name_by_parent(&amp;rec-&gt;sr_parent_fid, rec-&gt;sr_name);
+        <b>else</b>
+                name_by_path(rec-&gt;sr_path);
+
+        c-&gt;named++;
+
+        <b>return</b> 0;
+}
+
+<b>struct</b> ctx c = { 0 };
+<b>struct</b> llapi_scan_param sp = {
+        .sp_size = <b>sizeof</b>(sp),
+        .sp_want = WANT,
+        .sp_got  = &amp;c.got,
+};
+
+<b>int</b> rc = llapi_scan_namespace(<i>"/data"</i>, &amp;sp, name_cb, &amp;c);
+
+<i>/* Here sp_got comes back as LLAPI_SCAN_FID | LLAPI_SCAN_MODE -- no
+ * LLAPI_SCAN_PARENT -- so every object took the sr_path branch.  The
+ * same consumer handed to llapi_scan_device() on an MDT is told
+ * LLAPI_SCAN_PARENT and takes the other one, unchanged.
+ */</i></pre>
+  </div>
+  <p>
+    A consumer that can do nothing useful without a field refuses rather than
+    adapts. <code>sp_got</code> is filled before the first record, so the
+    first callback is the earliest place to act on it &mdash; and a negative
+    return there stops the scan and comes back to the caller unchanged, so
+    finding out costs one object's gather rather than a walk of the tree.
+  </p>
+  <div class="code">
+    <div class="code-head">or refuse, at the cost of one object</div>
+<pre><b>#define</b> NEED (LLAPI_SCAN_PROJID | LLAPI_SCAN_HSM)
+
+<b>static int</b> audit_cb(<b>const struct</b> llapi_scan_rec *rec, <b>void</b> *data)
+{
+        <b>struct</b> audit *a = data;
+
+        <b>if</b> (!a-&gt;checked) {
+                a-&gt;checked = 1;
+                <b>if</b> ((a-&gt;got &amp; NEED) != NEED)
+                        <b>return</b> -ENOTSUP;  <i>/* the scan returns it to you */</i>
+        }
+
+        report(rec-&gt;sr_projid, rec-&gt;sr_hsm_states);
+
+        <b>return</b> 0;
+}</pre>
+  </div>
+  <div class="note">
+    <span class="lbl">It is the scan's answer, not the library's</span>
+    <p>
+      What can be answered depends on which entry point you called and on what
+      it opened, so <code>sp_got</code> is filled per scan rather than being a
+      property of the build. <code>llapi_scan_device()</code> fills it once it
+      has read the target's label: a scan of an OST reports
+      <code>LLAPI_SCAN_OWNER</code>, a scan of an MDT reports
+      <code>LLAPI_SCAN_LMV</code> and <code>LLAPI_SCAN_LAYOUT</code> instead,
+      and <code>LLAPI_SCAN_MDT_INDEX</code> appears only where the label
+      carried an index. With <code>sp_want</code> at 0 it reports what the
+      scanner's own default came to.
+    </p>
+    <p>
+      A bit in <code>sp_got</code> says the scan <em>may</em> fill the field,
+      not that any one object has it &mdash; a file with no project id still
+      leaves <code>LLAPI_SCAN_PROJID</code> clear in <code>sr_valid</code>.
+      What it buys you is learning once that a field will never arrive,
+      instead of inferring it object by object and never being sure.
     </p>
   </div>
 </section>
@@ -654,7 +825,7 @@ footer p { max-width: none; }
     <div class="code-head">four threads, stopping at the first match</div>
 <pre><b>static int</b> first_cb(<b>const struct</b> llapi_scan_rec *rec, <b>void</b> *data)
 {
-        <b>if</b> (!(rec-&gt;sr_valid &amp; LLAPI_SCAN_UID) || rec-&gt;sr_uid != 0)
+        <b>if</b> (!(rec-&gt;sr_stx.stx_mask &amp; STATX_UID) || rec-&gt;sr_stx.stx_uid != 0)
                 <b>return</b> 0;
 
         <i>/* Non-zero stops the scan and is returned to the caller
@@ -680,6 +851,155 @@ footer p { max-width: none; }
     returns non-zero &mdash; the others finish the object in hand. Expect a
     few more callback invocations after the one that stopped it.
   </p>
+</section>
+
+<section id="batch">
+  <h2>Pulling records in batches</h2>
+  <p>
+    The callback is a push: the scan calls you, on whichever of its threads
+    produced the object. Some consumers want the opposite &mdash; their own
+    thread, their own loop, many records per call. That is the same scan
+    turned around, through a handle.
+  </p>
+  <div class="code">
+    <div class="code-head">lustre/lustreapi.h</div>
+<pre><b>struct</b> llapi_scan_handle;
+
+<b>int</b> llapi_scan_namespace_open(<b>const char</b> *path,
+                              <b>const struct</b> llapi_scan_param *sp,
+                              <b>unsigned int</b> batch, <b>void</b> *data,
+                              <b>struct</b> llapi_scan_handle **hp);
+<b>int</b> llapi_scan_next(<b>struct</b> llapi_scan_handle *h,
+                    <b>const struct</b> llapi_scan_rec *<b>const</b> **recs,
+                    <b>unsigned int</b> *nrecs);
+<b>int</b> llapi_scan_close(<b>struct</b> llapi_scan_handle *h);</pre>
+  </div>
+  <p>
+    <code>batch</code> is the most records one <code>llapi_scan_next()</code>
+    returns, 0 asking for the default of 1024. The scan runs on a thread of
+    its own and fills one batch while you hold the other, blocking when its
+    own is full &mdash; so it runs at most one batch ahead and the memory in
+    flight is bounded by <code>batch</code>, not by the size of the tree. The
+    parameter block is the same one, validated the same way, and
+    <code>sp_filter</code> still runs on the scan's threads with your
+    <code>data</code>.
+  </p>
+  <div class="code feature">
+    <div class="code-head">count.c &mdash; cc -o count count.c -llustreapi</div>
+<pre><b>#include</b> <i>&lt;lustre/lustreapi.h&gt;</i>
+<b>#include</b> <i>&lt;stdio.h&gt;</i>
+<b>#include</b> <i>&lt;string.h&gt;</i>
+<b>#include</b> <i>&lt;sys/stat.h&gt;</i>
+
+<b>int</b> main(<b>void</b>)
+{
+        <b>struct</b> llapi_scan_param sp = {
+                .sp_size         = <b>sizeof</b>(sp),
+                .sp_want         = LLAPI_SCAN_MODE,
+                .sp_thread_count = 4,
+        };
+        <b>const struct</b> llapi_scan_rec *<b>const</b> *recs;
+        <b>struct</b> llapi_scan_handle *h;
+        <b>unsigned int</b> n, i;
+        __u64 files = 0;
+        <b>int</b> rc;
+
+        <i>/* Starts the scan.  Only what llapi_scan_namespace() refuses at
+         * once -- a bad sp_size, an unknown flag -- is refused here; a
+         * path that does not exist is reported by the first _next().
+         */</i>
+        rc = llapi_scan_namespace_open(<i>"/data"</i>, &amp;sp, 1024, NULL, &amp;h);
+        <b>if</b> (rc &lt; 0) {
+                fprintf(stderr, <i>"cannot start the scan: %s\n"</i>, strerror(-rc));
+                <b>return</b> 1;
+        }
+
+        <i>/* n == 0 with rc == 0 means the scan ended.  The records, and
+         * everything they point at, belong to the handle and are released
+         * by the NEXT call -- so anything kept past the loop body is
+         * copied here, exactly as it would be inside a callback.
+         */</i>
+        <b>while</b> ((rc = llapi_scan_next(h, &amp;recs, &amp;n)) == 0 &amp;&amp; n &gt; 0) {
+                <b>for</b> (i = 0; i &lt; n; i++) {
+                        <b>const struct</b> llapi_scan_rec *rec = recs[i];
+
+                        <b>if</b> ((rec-&gt;sr_stx.stx_mask &amp; STATX_MODE) &amp;&amp;
+                            S_ISREG(rec-&gt;sr_stx.stx_mode))
+                                files++;
+                }
+        }
+        <b>if</b> (rc &lt; 0)
+                fprintf(stderr, <i>"scan failed: %s\n"</i>, strerror(-rc));
+
+        <i>/* Stops a scan still running, frees the handle and every batch it
+         * handed out, and returns what the scan itself returned.
+         */</i>
+        rc = llapi_scan_close(h);
+
+        printf(<i>"%llu file(s)\n"</i>, (<b>unsigned long long</b>)files);
+
+        <b>return</b> rc &lt; 0;
+}</pre>
+  </div>
+  <p>
+    A batch record is the record the callback would have been given, with two
+    differences. Everything it points at is the batch's own copy, valid until
+    the next <code>llapi_scan_next()</code> rather than for the length of one
+    call. And <code>sr_parent_fd</code> and <code>sr_fd</code> are
+    <span class="num">-1</span>: they are the scan's descriptors, closed when
+    it moves on, and a batch of open descriptors would be a batch of leaks
+    waiting on the consumer.
+  </p>
+  <div class="note cost">
+    <span class="lbl">What the copy costs, measured</span>
+    <p>
+      A callback record points into buffers the scan reuses for the next
+      object, so a record that outlives its callback has to own what it points
+      at &mdash; the path, the name, the layout, the directory stripe, the
+      linkea. That copy is the whole cost of a batch, and next to an MDT
+      ioctl it is small:
+    </p>
+    <div class="tw">
+      <table>
+        <thead><tr><th>Threads</th><th>Batch</th><th>Callback</th><th>Batch</th><th>Over</th></tr></thead>
+        <tbody>
+          <tr><td class="num">1</td><td class="num">1024</td><td class="num">2744.1 ms</td><td class="num">2755.4 ms</td><td class="num">+0.4%</td></tr>
+          <tr><td class="num">4</td><td class="num">1024</td><td class="num">938.2 ms</td><td class="num">951.8 ms</td><td class="num">+1.4%</td></tr>
+          <tr><td class="num">4</td><td class="num">1</td><td class="num">947.5 ms</td><td class="num">1114.4 ms</td><td class="num">+17.6%</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>
+      20,021 objects on ldiskfs, medians of 15 alternating runs. On a tree
+      whose records carry layouts the difference falls inside the noise
+      (+0.5% at four threads, &minus;0.8% at one). Off Lustre, where the
+      per-object work is a cached <code>lstat(2)</code> and the copy is the
+      largest share it will ever be, the same batch costs +5&ndash;8% &mdash;
+      that is the upper bound, not the figure.
+    </p>
+    <p>
+      The row to avoid is a batch of <span class="num">1</span>. It pays a
+      lock round trip per record and removes nothing: use the callback
+      instead, which is what that shape is.
+    </p>
+  </div>
+  <p>
+    Records arrive in the order the scan's threads produced them, which above
+    one thread is not a namespace order &mdash; the same as the callback,
+    where nothing promised an order either. An error is reported only after
+    every record produced before it has been handed out, so the batches you
+    already have are whole.
+  </p>
+  <div class="note">
+    <span class="lbl">Which one to reach for</span>
+    <p>
+      The callback, unless something makes it awkward. A batch is worth its
+      copy when the consumer has a thread of its own it must run on &mdash; a
+      language runtime that cannot be called into from a foreign thread, a
+      main loop that owns the data structure being filled &mdash; or when
+      records are handed straight to something that already takes an array.
+    </p>
+  </div>
 </section>
 
 <section id="filter">
@@ -711,7 +1031,8 @@ footer p { max-width: none; }
          * one would skip the directory itself, not its contents -- but
          * there is no reason to skip it here.
          */</i>
-        <b>if</b> ((rec-&gt;sr_valid &amp; LLAPI_SCAN_TYPE) &amp;&amp; S_ISDIR(rec-&gt;sr_mode))
+        <b>if</b> ((rec-&gt;sr_stx.stx_mask &amp; STATX_TYPE) &amp;&amp;
+            S_ISDIR(rec-&gt;sr_stx.stx_mode))
                 <b>return</b> 0;
 
         dot = rec-&gt;sr_name ? strrchr(rec-&gt;sr_name, <i>'.'</i>) : NULL;
@@ -779,8 +1100,9 @@ layout = llapi_layout_get_by_xattr(buf, rec-&gt;sr_lmmsize, 0);</pre>
     for the duration of the call and nothing in it outlives it.
   </p>
   <p>
-    Only two fields of the parameter block mean anything here.
-    <code>sp_want</code> is the demand mask, as above.
+    Only three fields of the parameter block mean anything here.
+    <code>sp_want</code> is the demand mask, as above;
+    <code>sp_got</code> reports what this call will answer for, as above;
     <code>sp_filter</code> runs before the gather, as above. The rest
     &mdash; <code>sp_max_depth</code>, <code>sp_stats</code>,
     <code>sp_search</code>, <code>sp_flags</code> &mdash; describe a traversal
@@ -827,7 +1149,7 @@ layout = llapi_layout_get_by_xattr(buf, rec-&gt;sr_lmmsize, 0);</pre>
       <tbody>
         <tr>
           <td><code>-EINVAL</code></td>
-          <td><code>path</code> or <code>cb</code> is NULL; or <code>sp_size</code> is larger than the library's definition, or smaller than the fields up to and including <code>sp_want</code>; or <code>sp_flags</code> sets a bit this library does not define.</td>
+          <td><code>path</code> or <code>cb</code> is NULL; or <code>sp_size</code> is smaller than the fields up to and including <code>sp_want</code>, or larger than the library's definition with a byte past the end of it set; or <code>sp_flags</code> sets a bit this library does not define.</td>
         </tr>
         <tr>
           <td><code>-ENAMETOOLONG</code></td>
@@ -849,16 +1171,32 @@ layout = llapi_layout_get_by_xattr(buf, rec-&gt;sr_lmmsize, 0);</pre>
           <td>It is valid only for the duration of the callback. Copy anything you keep &mdash; including whatever <code>sr_path</code>, <code>sr_name</code>, <code>sr_lmm</code> and <code>sr_lmv</code> point at.</td>
         </tr>
         <tr>
+          <td>Keeping a batch past the next <code>llapi_scan_next()</code></td>
+          <td>The batch owns its copies and releases them on the next call. The rule is the callback's, one batch wide rather than one record wide.</td>
+        </tr>
+        <tr>
           <td>Keeping a descriptor</td>
-          <td><code>sr_parent_fd</code> and <code>sr_fd</code> are the scan's own and are closed when it moves on. Use them inside the callback, or <code>dup(2)</code> them.</td>
+          <td><code>sr_parent_fd</code> and <code>sr_fd</code> are the scan's own and are closed when it moves on. Use them inside the callback, or <code>dup(2)</code> them. In a batch they are <span class="num">-1</span>.</td>
         </tr>
         <tr>
           <td>Testing a field against zero</td>
-          <td>You cannot tell "no answer" from "the answer is zero". Test the <code>sr_valid</code> bit.</td>
+          <td>You cannot tell "no answer" from "the answer is zero". Test the bit.</td>
+        </tr>
+        <tr>
+          <td>Testing the wrong mask</td>
+          <td><code>sr_valid &amp; LLAPI_SCAN_SIZE</code> and <code>stx_mask &amp; LLAPI_SCAN_FID</code> both compile and are both always false. Statx fields report through <code>sr_stx.stx_mask</code>, the rest through <code>sr_valid</code>.</td>
         </tr>
         <tr>
           <td>Forgetting <code>sp_size</code></td>
           <td><code>-EINVAL</code>. It is not optional even when every other field is left at its default.</td>
+        </tr>
+        <tr>
+          <td>Overstating <code>sp_size</code></td>
+          <td>The library reads the bytes you declare. A block whose <code>sp_size</code> is larger than the storage behind it is read out of bounds &mdash; and refused with <code>-EINVAL</code> if what it reads there is not zero, which is the right answer arrived at for the wrong reason.</td>
+        </tr>
+        <tr>
+          <td>Reading <code>sp_got</code> as a promise about an object</td>
+          <td>It says the scan may fill the field, not that any given object has it. The record's own masks are still what you test per object.</td>
         </tr>
         <tr>
           <td>Decoding <code>sr_lmm</code> in place</td>
@@ -866,7 +1204,7 @@ layout = llapi_layout_get_by_xattr(buf, rec-&gt;sr_lmmsize, 0);</pre>
         </tr>
         <tr>
           <td>Sharing <code>data</code> without a lock</td>
-          <td>Above <code>sp_thread_count</code> 1 the callback runs concurrently. The record is private per call; <code>data</code> is not.</td>
+          <td>Above <code>sp_thread_count</code> 1 the callback runs concurrently. The record is private per call; <code>data</code> is not. A batch is handed to one thread, so its loop needs no lock &mdash; but <code>sp_filter</code> still runs on the scan's threads.</td>
         </tr>
       </tbody>
     </table>
@@ -876,6 +1214,7 @@ layout = llapi_layout_get_by_xattr(buf, rec-&gt;sr_lmmsize, 0);</pre>
 <footer>
   <p>
     See also: <code>llapi_scan_namespace(3)</code>,
+    <code>llapi_scan_next(3)</code>,
     <code>llapi_scan_device(3)</code>,
     <code>llapi_scan_fid(3)</code>,
     <code>llapi_layout_get_by_xattr(3)</code>,
@@ -888,4 +1227,3 @@ layout = llapi_layout_get_by_xattr(buf, rec-&gt;sr_lmmsize, 0);</pre>
 
 </main>
 </div>
-
