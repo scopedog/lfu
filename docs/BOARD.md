@@ -4,6 +4,47 @@ Every ticket and Gerrit id in play, and the ones that are *not* ours. Regenerate
 the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
 **2026-09-06**.
 
+## test17 registered where it is defined: five Verified-1 cleared (2026-09-09)
+
+Round 22 came back red three ways. This is the first: 68416, 68417, 68418,
+68419 and 68420 all failed to build on rocky8.10 and rocky9.6 with
+
+```
+llapi_scan_test.c:736:13: error: 'test17' defined but not used [-Werror=unused-function]
+```
+
+`test17()` was added by `bf080a686a` (68416, *fill a scan record for one
+FID*), but the `TEST_REGISTER(17),` that references it sat five commits
+higher, in `19d5361893` (68726, the batch API). Every commit in between had
+an unused static. The Verified-1 boundary matched exactly: 68415 below it
+built, 68726/68727 above it built, the five between did not.
+
+**The fix is the one line moved down**, so each test case is registered in the
+commit that defines it. 68416 now adds `test17` *and* `TEST_REGISTER(17)`;
+68726 adds 11–16 and no longer touches 17. The intermediate table reads
+`0..10, 17` for five commits, which is transient and correct.
+
+**The finished tree is byte-for-byte unchanged** — `git rev-parse
+lab/spgot^{tree}` is `c2be1235` before and after, as [[lfu-stack-rename-split]]
+prescribes. Only the distribution across commits moved.
+
+### Why the sweep missed it, and what that cost
+
+`tests/build-sweep.sh` checked the test programs with `gcc -fsyntax-only`.
+**gcc runs the unused-function analysis at the end of code generation, so
+`-fsyntax-only` cannot see this class of error at all** — adding `-Wall
+-Werror` to it changes nothing, as measured: the unfixed stack passes a
+`-fsyntax-only -Wall -Werror` check at all twelve commits.
+
+The sweep now compiles for real (`gcc -c -o /dev/null -Wall -Werror`).
+Proved against the unfixed build per [[lfu-lift-and-compare]]: the corrected
+check reproduces the CI's error text at line 736 on exactly the five commits
+Gerrit marked Verified-1, and is clean on all eight of the fixed stack.
+
+Full sweep after the fix: 20 commits, `build=0 hdr=0 tests=0` on every one.
+checkpatch on both touched commits is clean but for the usual MAINTAINERS
+warning.
+
 ## Round 22 PUSHED: 20 changes, two of them new (2026-09-08)
 
 Pushed to Gerrit as `refs/for/master` off `5afbab284e`. Eighteen changes got a

@@ -13,7 +13,10 @@ for c in $(git log --format=%h -20 | tac); do
 	for f in lustre/tests/llapi_scan_test.c lustre/tests/llapi_scan_device_test.c \
 		 lustre/tests/llapi_scan_changelog_test.c; do
 		[ -f $f ] || continue
-		gcc -fsyntax-only -D_GNU_SOURCE -Iinclude -Iinclude/uapi \
+		# A real compile, not -fsyntax-only: gcc runs the
+		# unused-function analysis at the end of code generation,
+		# so -fsyntax-only cannot see an unregistered test case.
+		gcc -c -o /dev/null -Wall -Werror -D_GNU_SOURCE -Iinclude -Iinclude/uapi \
 		    -Ilustre/utils -Ilustre/tests $f 2>>$T/t.err || t=1
 	done
 	echo "$c build=$b hdr=$h tests=$t  $(git log -1 --format=%s $c | cut -c1-45)"
