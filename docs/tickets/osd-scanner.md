@@ -26,147 +26,105 @@ h3. What this is
 
 A namespace scanner that runs inside the server, driving the OSD object table
 iterator and exporting one record per object to userspace through a ring
-buffer. It is the Input Scanner the Lustre Find Utility HLD calls Option 2, and
-it is the piece the userspace scanners cannot replace.
+buffer. It is the Input Scanner the LFU HLD calls Option 2.
 
-h3. Why the userspace scanners are not enough
+h3. Why it is needed
 
-LU-20606 and LU-20613 read an MDT or OST as a block device or a ZFS dataset,
-from outside the server. Both require the target to be *out of service*:
+The userspace device scanners of LU-20606 and LU-20613 both require the target
+to be out of service. ZFS refuses a live pool by design, answering {{-EBUSY}}
+for a pool in the {{ACTIVE}} state. ldiskfs on a live device is exposed to torn
+reads: under create heavy load a prototype measured up to half of the allocated
+inodes reading back inconsistent, caught mid creation.
 
-* ZFS refuses a live pool by design. {{libscan_zfs.c}} answers {{-EBUSY}} for a
-pool in the {{ACTIVE}} state, and whether a quiesced imported pool can be read
-safely at all is an open question on LU-20613.
-* ldiskfs on a live device is exposed to torn reads. Under create heavy load a
-prototype measured up to half of the allocated inodes reading back inconsistent,
-with {{mode}} valid but {{nlink}} and {{dtime}} zero, which is on disk state
-caught mid creation.
+So a target that is serving clients cannot be scanned at all today. This is a
+correctness gap, not a performance one.
 
-So a target that is serving clients cannot be scanned today. That is the gap
-this closes, and it is a correctness gap rather than a performance one.
+h3. What it adds
 
-h3. What it does
+The OSD already presents its object table as a DT index with a standard
+{{dt_it_ops}} iterator, {{dt_otable_features}}, implemented by ldiskfs, ZFS and
+WBCFS. It returns a FID and nothing else, and LFSCK is its only consumer.
 
-The OSD already presents its object table as an ordinary DT index with a
-standard {{dt_it_ops}} iterator, {{dt_otable_features}}, implemented by
-ldiskfs, ZFS and WBCFS. LFSCK is its only current consumer. The iterator
-returns a FID and nothing else.
-
-This adds, at the OSD layer:
+At the OSD layer:
 
 * attributes returned from the iterator, through the existing {{attr}} argument
-of {{rec()}} whose documented purpose is to ask the iterator to return part of
-the records. The directory iterator already uses it this way with the
-{{LUDA_*}} flags, so there is precedent, no new vtable and no change to LFSCK,
-which passes zero and keeps getting a bare FID.
+of {{rec()}}. The directory iterator already selects record content this way
+with the {{LUDA_*}} flags, so this needs no new vtable and does not change
+LFSCK, which passes zero and keeps getting a bare FID.
 * private iterator instances, so several enumerators walk disjoint ranges at
-once. The default iterator is a per device singleton that answers {{-EALREADY}}
-to a second {{init()}}, which is what makes a scan and an LFSCK run mutually
-exclusive today.
-* on ldiskfs, reading the inode table directly rather than through
-{{ldiskfs_iget()}}, with an explicit readahead window.
+once. The default iterator is a per device singleton answering {{-EALREADY}} to
+a second {{init()}}.
+* on ldiskfs, reading the inode table directly instead of through
+{{ldiskfs_iget()}}, with a readahead window.
 
-and above it a module, {{lfu.ko}}, holding the enumerator threads, the ring and
-the control device.
+Above it, {{lfu.ko}}: enumerator threads, the ring, the control device, and
+filtering.
 
 h3. Measured
 
-All figures from a single box, both backends, control rows on the same build.
+The unmodified iterator enumerates at 105k objects per second against 705k for
+the userspace device scanner. Private iterators take ldiskfs to 2.03M and ZFS
+to 561k. Removing {{ldiskfs_iget()}} takes ldiskfs to 1,420,664 cold at 99% of
+an NVMe stripe, against the device scanner's 1,439,300 on the same stripe, a
+ratio of 0.99, and 0.78 hours against the HLD's four billion object hour.
 
-The unmodified iterator enumerates at 105k objects per second, against 705k for
-the userspace device scanner on the same target. Private iterators take ldiskfs
-to 2.03M and ZFS to 561k. Removing {{ldiskfs_iget()}} takes ldiskfs to 17.4M
-warm at four threads and to 1,420,664 cold, at 99% of an NVMe stripe, against
-the device scanner's 1,439,300 on the same stripe. That is a ratio of 0.99, and
-0.78 hours against the HLD's four billion object hour.
-
-The sequence is worth recording because the first answer was wrong about the
-cause. A ceiling attributed twice to an architecture, first to the kernel path
-and then to the iterator singleton, was each time attributable to a single
-call.
-
-Coexistence with LFSCK was measured rather than argued: a private iterator
-returned the full namespace at 1.41M objects per second while a verifying OI
-scrub was running, and the scrub finished with {{updated: 0, failed: 0}}, where
-the default iterator gets {{-EALREADY}}.
+LFSCK coexistence was measured rather than argued: a private iterator returned
+the full namespace at 1.41M objects per second while a verifying OI scrub ran,
+and the scrub finished with {{updated: 0, failed: 0}}.
 
 h3. The Object Stream
 
-The export follows {{lustre/ofd/ofd_access_log.c}}, which is the in tree
-precedent for a kernel to userspace circular buffer, with three deliberate
-differences:
-
-* *A record is never dropped silently.* The access log increments a drop count
-and returns {{-EAGAIN}} when full, which is right for a sampled diagnostic and
-wrong for an enumeration, where a dropped record makes an incomplete listing
-look complete. The producer stalls instead, and where dropping is unavoidable
-the stream carries an explicit gap marker.
-* *One buffer, many consumers.* The access log gives every reader its own ring.
-The point of this scanner is that one scan's IO serves every consumer, so
-readers share a buffer and hold their own cursors into it.
-* The record is a compact fixed layout of 168 bytes, versioned, with the
-consumer refusing a version or size mismatch rather than misparsing it. At the
-measured rate that is 239 MB/s of ring traffic.
+Modelled on {{lustre/ofd/ofd_access_log.c}}, the in tree precedent for a kernel
+to userspace circular buffer, with three differences. A record is never dropped
+silently, because a dropped record makes an incomplete listing look complete:
+the producer stalls, and an unavoidable drop sets an explicit gap marker.
+Consumers share one buffer and hold their own cursors, since one scan's IO is
+meant to serve all of them. The record is a compact 168 byte fixed layout,
+versioned, and a version or size mismatch is refused rather than misparsed.
 
 h3. Filtering in kernel
 
-Predicates are evaluated before a record enters the ring, so a scan for a rare
-property does not copy every object to userspace to reject it there. Over four
-billion objects the difference is roughly 672 GB copied against a few hundred
+Predicates are evaluated before a record enters the ring, so a search for a
+rare property does not copy every object to userspace to reject it there. Over
+four billion objects that is roughly 672 GB copied against a few hundred
 kilobytes.
 
 The evaluator is one source file compiled into both the kernel module and the
-userspace scanners, so the two give the same answer by construction rather than
-by testing. The filter program is validated on arrival, with magic, version,
-size and index range all checked before anything is evaluated.
-
-The first version evaluates predicates answerable from the attributes the
-iterator already has. Predicates needing an xattr follow, and need the
-iterator extension that returns them.
+userspace scanners, so the two agree by construction. The filter program is
+validated on arrival before anything is evaluated. The first version handles
+predicates answerable from the attributes the iterator already has; those
+needing an xattr follow.
 
 h3. Scope
 
-In scope:
+In scope: the OSD iterator extensions for ldiskfs and ZFS, {{lfu.ko}}, and
+tests including a differential run against the userspace device scanner on a
+quiescent target, which is a stronger oracle than either scanner has alone.
 
-* the OSD iterator extensions above, for ldiskfs and ZFS
-* {{lfu.ko}}: enumerator threads, ring, control device, in kernel filtering
-* tests, including a differential test against the userspace device scanner on
-a quiescent target, which is a stronger oracle than either scanner has alone
-
-Not in scope, and each has its own ticket or needs one:
-
-* reaching this from {{lfs find}}'s vocabulary, which is the sibling ticket
-* exporting scan requests to servers over the wire from a client, which the HLD
-describes as the Client Bulk RPC Filter Rule Module
-* WBCFS, pending a decision on whether it is wanted
+Not in scope: reaching this from {{lfs find}}, which is the sibling ticket;
+exporting scan requests from a client over the wire, which is the HLD's Client
+Bulk RPC Filter Rule Module; and WBCFS, pending a decision.
 
 h3. Relationship to LU-20591
 
-LU-20591 builds a scanner on the same {{osd_otable_it}} primitive. Its walk
-calls {{dt_locate()}} and {{dt_attr_get()}} per object, which is the path this
-work removes, so the OSD layer changes here make that series faster too.
-
-The intent is to land the OSD layer changes independently of whichever control
-interface is preferred, so that the fast path is shared rather than duplicated,
-and to take {{DOIF_NOSCRUB}} from LU-20591 rather than re derive it.
+LU-20591 builds a scanner on the same {{osd_otable_it}} primitive, with a walk
+that calls {{dt_locate()}} and {{dt_attr_get()}} per object. The OSD layer
+changes here remove that path, so they make that series faster too. The intent
+is to land them independently of whichever control interface is preferred, and
+to take {{DOIF_NOSCRUB}} from LU-20591 rather than re derive it.
 
 h3. Known risks
 
-* *Foreground impact is unmeasured.* A scan now runs inside the server and
-consumes its CPU and caches. No throughput figure speaks to what that costs a
-serving MDS, and nothing should ship on throughput alone.
-* *Reading the inode table directly is fresher than disk but is not the live
-inode.* Blocks are updated when the inode is marked dirty rather than at
-writeback, so the mid creation window is much narrower than for the device
-scanner, but it is not provably closed and has not been measured under create
-heavy load.
-* *The raw parse does not verify the inode metadata checksum,* so it reports a
-corrupt inode where {{ldiskfs_iget()}} would refuse it. That is defensible for
-a scanner whose consumer re-reads before acting, but it belongs in the
-documented contract rather than in a code comment.
-* *Whether extending {{rec()}}'s {{attr}} argument is acceptable upstream,* or
-whether a separate index feature is preferred, is the one open question that
-could force a redesign rather than a revision.
+* Foreground impact is unmeasured. A scan now consumes the server's CPU and
+caches, and no throughput figure speaks to what that costs a serving MDS.
+* Reading the inode table directly is fresher than disk but is not the live
+inode, so the mid creation window is narrower than the device scanner's but not
+provably closed.
+* The raw parse does not verify the inode metadata checksum, so it reports a
+corrupt inode where {{ldiskfs_iget()}} would refuse it. Defensible, but it
+belongs in the documented contract.
+* Whether extending {{rec()}}'s {{attr}} argument is acceptable upstream is the
+one question that could force a redesign rather than a revision.
 
 ---
 

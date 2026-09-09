@@ -31,86 +31,59 @@ LFU: run 'lfs find' predicates over the in-kernel OSD scanner
 h3. What this is
 
 Reaching the in-kernel OSD scanner from the vocabulary {{lfs find}} already
-has, so that a target which is *serving clients* can be searched with the same
+has, so a target that is serving clients can be searched with the same
 predicates, by the same tools, as one that is stopped.
 
 h3. What already exists
 
-LU-20611 separated find's predicates from find's traversal. The deciding half
-of {{cb_find_init()}} moved behind {{struct find_ctx}}, and
-{{llapi_find_device()}} became a second consumer of it: the same predicates,
-with objects arriving from {{llapi_scan_device()}} instead of a namespace walk.
-{{lfind(8)}} is the utility on top.
+LU-20611 separated find's predicates from find's traversal, so
+{{llapi_find_device()}} runs them over objects from {{llapi_scan_device()}}
+rather than a namespace walk, with {{lfind(8)}} on top.
+{{llapi_scan_device()}} in turn selects a backend at run time. Two exist,
+ldiskfs and ZFS, both reading a target that is out of service, and both loaded
+as plugins behind one five entry point interface.
 
-Underneath that, {{llapi_scan_device()}} selects a backend at run time. Two
-exist, ldiskfs and ZFS, each reading a target that is out of service. They are
-loaded as plugins and share one interface, five entry points named
-{{sb_open}}, {{sb_close}}, {{sb_worker_init}}, {{sb_worker_fini}} and
-{{sb_scan_chunk}}.
-
-The prototype consumer of the kernel scanner, written separately, implements
-the same five. So the work here is mostly connecting two interfaces that
-already match, rather than designing one.
+The prototype consumer of the kernel scanner implements that same interface, so
+this is mostly connecting two halves that already match.
 
 h3. What changes
 
 A third backend, selected when the named target is in service, reading the
-Object Stream from the kernel module rather than the device.
-
-* It compiles the predicates into the filter program the kernel evaluates, from
-the same vocabulary as everywhere else, and hands it over before the first
-record. What arrives is therefore already the answer, and the library neither
-pre filters nor re-evaluates what it receives.
-* It checks the stream's version and record size before trusting a single
-record, and refuses a mismatch rather than misparsing it.
-* It reports which attributes and which predicates the module's backend can
-actually serve, so a filter the kernel cannot answer is refused with the same
-message the device backends give, rather than silently matching nothing.
-* Parallelism stays behind the enumerator in the kernel. The stream is ordered
-and has one reader; the thread count is not a knob here.
+Object Stream from the kernel module instead of the device. It compiles the
+predicates into the filter the kernel evaluates and hands them over before the
+first record, so what arrives is already the answer and nothing is re-evaluated
+in userspace. It checks the stream's version and record size before trusting a
+record. It reports which attributes the module can serve, so a filter the
+kernel cannot answer is refused rather than silently matching nothing. Thread
+count is not a knob: parallelism stays behind the enumerator in the kernel.
 
 h3. What does not change
 
-Nothing above {{llapi_scan_device()}}. The predicate set, {{llapi_find_device()}},
-{{lfind(8)}}, the pathname options, the record and the manual pages are all
-untouched. A user learns no new concept: the same command that searches a
-stopped target searches a running one.
-
-h3. Why it is worth doing separately
-
-The scanner is only reachable by a purpose built consumer until this exists.
-This is what turns it into something an administrator can use, and it is also
-what makes the scanner testable against a real oracle: with both a device
-backend and a kernel backend behind one interface, the same target can be
-scanned both ways and the answers compared object by object. Neither has that
-oracle alone.
+Nothing above {{llapi_scan_device()}}. The predicate set,
+{{llapi_find_device()}}, {{lfind(8)}}, the pathname options, the record and the
+manual pages are untouched. The same command that searches a stopped target
+searches a running one.
 
 h3. Scope
 
-In scope:
+In scope: the backend and its selection rule; the diagnostic for a target that
+is in service when the module is not loaded, which must say so rather than
+reporting that no backend exists; {{lfind}} on a mounted target and its manual
+page; and tests, including a differential run against the device backend on a
+quiescent target.
 
-* the third backend and its selection rule
-* the diagnostics: a target that is in service when the module is not loaded
-should say so, rather than reporting that no backend exists
-* {{lfind}} on a mounted target, and the manual page
-* tests: differential against the device backend on a quiescent target, the
-same predicate pushed down against applied in userspace, and the object set
-against {{lfs find}} on the mounted filesystem
-
-Not in scope:
-
-* the client side, where {{lfs find}} exports search requests to every MDT in
-parallel and merges the results. That is the HLD's Client Bulk RPC Filter Rule
-Module, it needs an RPC, a connect flag and a cross target merge, and it has an
-unanswered question ahead of it: how duplicate FIDs across merged streams are
-handled when a file is being migrated. It wants its own ticket.
+Not in scope: the client side, where {{lfs find}} exports search requests to
+every MDT in parallel and merges the results. That is the HLD's Client Bulk RPC
+Filter Rule Module, it needs an RPC, a connect flag and a cross target merge,
+and one question is unanswered ahead of it: how duplicate FIDs across merged
+streams are handled while a file is migrating. It wants its own ticket.
 
 h3. Risk
 
-The risk is not a crash. It is a silent difference in which objects match,
-between a target scanned as a device and the same target scanned through the
-kernel. The differential test above is the control for exactly that, and it is
-cheap to run because both paths are already in the tree.
+Not a crash, but a silent difference in which objects match between a target
+scanned as a device and the same target scanned through the kernel. The
+differential test is the control for exactly that, and it is cheap because both
+paths are in the tree.
 
 ---
 
