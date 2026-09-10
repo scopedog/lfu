@@ -1,7 +1,7 @@
-# LU-XXXXX — `llapi_scan_mount()`, a scan from a client
+# LU-20730 — `llapi_scan_mount()`, a scan from a client
 
-**Status:** draft, 2026-09-10, **not yet filed**. Commits carry the
-placeholder `LU-00000` until a number exists. Design:
+**Status:** filed as **LU-20730** on 2026-09-10, Open, subtask of LU-20462.
+Three commits carry it on branch `lu-20720`, unpushed. Design:
 [`design-llapi-scan.md`](../design-llapi-scan.md),
 [`design-osd-port.md`](../design-osd-port.md) §4.
 

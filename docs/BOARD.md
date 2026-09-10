@@ -65,15 +65,19 @@ both and is where the interesting number is.
 
 ## Split out: `llapi_scan_mount()` wants a ticket of its own (2026-09-10)
 
-Draft in [`docs/tickets/llapi-scan-mount.md`](tickets/llapi-scan-mount.md),
-**not filed**. Three commits re-tagged to the placeholder **`LU-00000`** and
-must not be pushed until a real number replaces it:
+Filed as **LU-20730** on 2026-09-10; draft in
+[`docs/tickets/llapi-scan-mount.md`](tickets/llapi-scan-mount.md). Three
+commits carry it:
 
 ```
-88b725dc82  LU-00000 lfu: the Object Stream over OBD_IDX_READ
-7012838603  LU-00000 osd-zfs: the LFU record and an index walk
-3f47d8ec89  LU-00000 llapi: llapi_scan_mount(), a scan from a client
+bc0fa6f5e4  LU-20730 lfu: the Object Stream over OBD_IDX_READ
+bc5092d4d5  LU-20730 osd-zfs: the LFU record and an index walk
+e36dd5a14a  LU-20730 llapi: llapi_scan_mount(), a scan from a client
 ```
+
+They passed through an `LU-00000` placeholder first, because the commit-msg
+hook only pattern-matches `LU-\d+` and never checks the ticket exists — a
+guessed number would have attached them to somebody else's ticket silently.
 
 **Why.** LU-20721 is scoped as "`lfs find` offloaded to the servers" and had
 grown a public API that has nothing to do with `lfs find`. Same split and same
@@ -85,8 +89,8 @@ reason as LU-20722: an API deliverable is not a tool deliverable, and
 |---|---|
 | LU-20720 | the engine — kernel OSD scanner and its ring |
 | LU-20722 | `llapi_scan_device()`'s kernel backend — server-local API |
-| **new** | **`llapi_scan_mount()` — client API and its transport** |
-| LU-20721 | `lfs find` offloaded — the tool, now with **zero commits**, which is honest |
+| **LU-20730** | **`llapi_scan_mount()` — client API and its transport** |
+| LU-20721 | `lfs find` offloaded — the tool, now with **zero commits**, which is honest; depends on LU-20730 |
 
 Transport and API stay in **one** ticket: the transport has no consumer
 without the API and the API cannot exist without it.

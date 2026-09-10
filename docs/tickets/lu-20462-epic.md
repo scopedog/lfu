@@ -14,12 +14,11 @@ anything we want recorded there goes in as a comment.
 | LU-20720 | the in-kernel OSD scanner — the engine | 2.19 |
 | LU-20721 | `lfs find` offloaded to the servers — **not written yet** | 2.19 |
 | LU-20722 | `lfind` on a live target — the third `llapi_scan_device()` backend | 2.19 |
-| *unfiled* | [`llapi_scan_mount()`](llapi-scan-mount.md) — client API and its transport | 2.19 |
+| LU-20730 | [`llapi_scan_mount()`](llapi-scan-mount.md) — client API and its transport | 2.19 |
 
 The first four were the epic's own when we picked it up; **LU-20720, LU-20721
-and LU-20722 we filed on 2026-09-09** and they are not reflected in the epic's
-description, which is the owner's to change. The last row is drafted and not
-filed; its commits carry the `LU-00000` placeholder.
+and LU-20722 we filed on 2026-09-09, and LU-20730 on 2026-09-10** — none of
+them reflected in the epic's description, which is the owner's to change.
 
 Drafts for each are beside this file — [`osd-scanner.md`](osd-scanner.md),
 [`lfs-find-on-osd-scanner.md`](lfs-find-on-osd-scanner.md),
@@ -102,14 +101,14 @@ and how they divide, since the epic's description still describes only the
 2.18 work.
 
 ~~~
-The server-side half now has tickets. Three subtasks were filed on
-2026-09-09 and a fourth is drafted:
+The server-side half now has tickets. Four subtasks were filed, three on
+2026-09-09 and one on 2026-09-10:
 
 ```
 LU-20720  the in-kernel OSD scanner, the engine underneath the rest
 LU-20722  lfind on a live target: llapi_scan_device()'s third backend,
           reading a mounted target through its own server
-LU-XXXXX  llapi_scan_mount(): a client asks every MDT to scan itself and
+LU-20730  llapi_scan_mount(): a client asks every MDT to scan itself and
           the records stream back in bulk, plus the transport that
           carries them
 LU-20721  lfs find offloaded to the servers, which is the tool on top of
