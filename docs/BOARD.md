@@ -21,9 +21,11 @@ confirmed present on the uploaded commits:
 | [68817](https://review.whamcloud.com/c/fs/lustre-release/+/68817) | LU-20730 osd-zfs: the LFU record and an index walk |
 | [68818](https://review.whamcloud.com/c/fs/lustre-release/+/68818) | LU-20730 llapi: llapi_scan_mount(), a scan from a client |
 
-**Expect Verified-1 on all nine** — that is what `ignore` does, not a
-regression to chase. Expect the Janitor to review them anyway. Add these to
-`gpoll`.
+**Not monitored, deliberately.** These are for **Lustre 2.19**, not the
+current cycle — do *not* add them to `gpoll`, and do not triage what lands on
+them. `Test-Parameters: ignore` means Verified-1 on all nine by design, so
+there is no CI signal to watch; the Janitor will review them anyway and its
+comments can wait until the series is picked back up for 2.19.
 
 Gerrit warned "subject >50 characters" on six of the nine. The commit-msg
 hook's own limit is 62 and none exceed it, so this is Gerrit's stricter
