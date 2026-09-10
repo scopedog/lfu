@@ -219,6 +219,57 @@ the failure to `make`. Real, but changing the probe again — without a build
 that can prove the new behaviour on the builders — is exactly the move that
 caused this entry. Next round.
 
+### The re-run, and a struct that had stopped being append-only
+
+lreview was first run against the option-A commit, so it was run again on
+the finished one: 5 findings, $7.78/15m. Two were real bugs in the fix
+itself.
+
+- **`lfind_LDFLAGS` silently dropped `UTILS_LDFLAGS`.** A per-target
+  `_LDFLAGS` *replaces* `AM_LDFLAGS`, and `lustre/utils/Makefile.am:5` sets
+  `AM_LDFLAGS := $(UTILS_LDFLAGS)`. `lfind` would have been the one binary
+  in the directory linked without it. Now `$(AM_LDFLAGS) -Wl,-u,…`.
+- **The commit message named `conf-sanity 302`, which does not exist at that
+  commit** — it arrives four patches later with LU-20637. The isolation
+  trap: lreview reads each commit alone, and the Gerrit AI, reading whole
+  changes, has never caught one of these.
+- A dead initializer in `libscan_zfs.c` (`state` is only read after
+  `nvlist_lookup_uint64()` wrote it) — fixed.
+- **Declined:** adding `ONLY=131d` to Test-Parameters. `PLUGINS` is
+  `enable_shared` and the autotest sessions build from the spec
+  (`%bcond_without shared`), so they take the dlopen path where the
+  condition cannot arise. The build that carries the weak slot is the
+  janitor's `--disable-shared` one, which runs all of sanity on every change
+  anyway. Said so in the message.
+
+**The fifth was the interesting one, and lreview only saw half of it.**
+`lfsp_search` had been *inserted* before `lfsp_got` rather than appended,
+moving `lfsp_got` from offset 48 to 56 — against the rule the struct's own
+comment states and `scan_param_whole()` implements. Tracing when each field
+actually arrived showed the same defect one commit earlier, and worse:
+
+| field | added by | was |
+|---|---|---|
+| `lfsp_got` | LU-20603 (68094) | — |
+| `lfsp_stats` | LU-20606 (68156) | **inserted before `lfsp_got`** |
+| `lfsp_search` | LU-20613 (68163) | **inserted before `lfsp_got`** |
+| `lfsp_fsname` | LU-20637 (68288) | appended ✓ |
+
+`lfsp_stats` is the more dangerous of the two: the library *writes* through
+it, where `lfsp_search` is only read. A caller built against the LU-20603
+header passing that `lfsp_size` would have had its `lfsp_got` pointer read
+as one of them.
+
+Both moved to the end, so every change is now a pure append:
+`lfsp_got` → `lfsp_stats` → `lfsp_search` → `lfsp_fsname`. Free to do while
+unlanded and not free after 2.18. The `ends[]` table is `offsetof`-based and
+the tests use `sizeof`/`offsetof`, so nothing carried a hardcoded offset;
+checked in all 23 commits that define the struct that its field order and
+`ends[]` agree.
+
+**It costs five more changes in the push** — amending 68156 respins
+68157–68160 — so the round is 15, not 10.
+
 ## The OSD scanner in the tree, and 21x over stock lfs find (2026-09-09)
 
 One day, on branch `lu-20720` in `lustre-scanfid` (off the round-23 tip,
