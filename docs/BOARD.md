@@ -299,6 +299,41 @@ Not run, for want of an OST on this VM: sanity 131d through the framework
 (its commands were run directly instead) and conf-sanity 300/302. Those are
 CI's to answer.
 
+### lreview round 3, and a per-commit build sweep
+
+Third run, on the finished commit: 3 findings, $9.79/18m. **Nothing on the
+weak-symbol wiring or the `-u`** — which was the reason for running it, so
+that is the answer it was bought for. Two real, one declined.
+
+- **A pool named like a global kstat read as in-use.** The imported-pool test
+  was `stat("/proc/spl/kstat/zfs/<pool>") == 0`, but that directory holds
+  ~20 global kstats — `zil`, `fm`, `dbufs`, `arcstats` — as **regular
+  files**, confirmed on the VM. An exported pool called `fm` would answer
+  `-EBUSY` instead of `-ENOENT`, sending the caller to look for a pool that
+  is sitting right there. Now `&& S_ISDIR(st.st_mode)`, which is what the
+  comment above it already said.
+
+  Shown on the VM after the fix: `/proc/spl/kstat/zfs/fm` is `-rw-r--r--`,
+  a regular file, and `lfind --device fm` answers *No such file or
+  directory*. The old test would have matched that file and said busy.
+- `access()`/`F_OK` reached `libscan_zfs.c` only through
+  `<sys/zfs_context.h>`; `<unistd.h>` now listed with the other libc headers.
+- **Declined:** that `lfind.8`'s `.TH` date was unbumped. It already reads
+  `2026-09-01`, the same date `llapi_scan_device.3` carries, and the page's
+  content has not changed since. The finding asserts a fact the file
+  contradicts.
+
+**Per-commit build sweep, #6 through #12** — the commits between and around
+the two folds, since a fold breaks intermediate commits silently and
+"rebased cleanly" is not "compiles". All seven build, including the
+conflict-resolved 68288.
+
+Two smaller checks that came out clean: `LLAPI_SCAN_PARAM_MIN_SIZE` is
+`offsetof(lfsp_want) + sizeof(lfsp_want)` = 24 and only fields after
+`lfsp_padding` moved, so the reorder cannot have changed which `lfsp_size`
+values are accepted; and neither man page carries a literal struct
+declaration, so there is no field listing to keep in sync with the new order.
+
 ## The OSD scanner in the tree, and 21x over stock lfs find (2026-09-09)
 
 One day, on branch `lu-20720` in `lustre-scanfid` (off the round-23 tip,
