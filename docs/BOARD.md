@@ -6,6 +6,29 @@ the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
 
 ## The OSD series folded for review, and `Test-Parameters: ignore` verified (2026-09-10)
 
+**PUSHED 2026-09-10** as 9 new changes, with `Test-Parameters: ignore`
+confirmed present on the uploaded commits:
+
+| change | |
+|---|---|
+| [68810](https://review.whamcloud.com/c/fs/lustre-release/+/68810) | LU-20720 osd: attributes and a private otable iterator |
+| [68811](https://review.whamcloud.com/c/fs/lustre-release/+/68811) | LU-20720 osd-ldiskfs: read the inode table ahead of the scan |
+| [68812](https://review.whamcloud.com/c/fs/lustre-release/+/68812) | LU-20720 osd-ldiskfs: read the inode table, not the inodes |
+| [68813](https://review.whamcloud.com/c/fs/lustre-release/+/68813) | LU-20720 osd: xattrs from the otable iterator |
+| [68814](https://review.whamcloud.com/c/fs/lustre-release/+/68814) | LU-20720 lfu: an object stream from the OSD otable iterator |
+| [68815](https://review.whamcloud.com/c/fs/lustre-release/+/68815) | LU-20722 llapi: a scan backend for a target in service |
+| [68816](https://review.whamcloud.com/c/fs/lustre-release/+/68816) | LU-20730 lfu: the Object Stream over OBD_IDX_READ |
+| [68817](https://review.whamcloud.com/c/fs/lustre-release/+/68817) | LU-20730 osd-zfs: the LFU record and an index walk |
+| [68818](https://review.whamcloud.com/c/fs/lustre-release/+/68818) | LU-20730 llapi: llapi_scan_mount(), a scan from a client |
+
+**Expect Verified-1 on all nine** — that is what `ignore` does, not a
+regression to chase. Expect the Janitor to review them anyway. Add these to
+`gpoll`.
+
+Gerrit warned "subject >50 characters" on six of the nine. The commit-msg
+hook's own limit is 62 and none exceed it, so this is Gerrit's stricter
+advisory, not a blocker.
+
 Branch `lu-20720-fold` in `lustre-scanfid`, **9 commits off `49206c2ffe`,
 unpushed**. `lu-20720-orig` keeps the 12-commit shape it replaces.
 
