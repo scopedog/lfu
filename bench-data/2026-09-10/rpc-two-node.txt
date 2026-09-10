@@ -1,0 +1,46 @@
+Two-node LFU: stock lfs find vs the offloaded Object Stream (LU-20721)
+=====================================================================
+2026-09-10.  Server 192.168.122.10 (MGS + lustre-MDT0000 + 2 OSTs, loop
+files), client 192.168.122.101, both rhel9.7 VMs on one host over virbr1.
+Fixture: the 2026-09-09 llmount filesystem, 88,230 MDT inodes.
+Predicate: -mtime -1 -type f.  Caches dropped on BOTH nodes before each run.
+Stock lfs find is ~/lustre-release 50ecccfb61, no LFU in it.
+Offload arm is tests/lab-rpc/offfind.c over LL_IOC_LFU_SCAN, one MDT.
+
+# arm      count   wall(s)  user  sys
+stock       87944    9.030  1.33 9.83
+offload     87958    0.312  0.00 0.01
+stock       87944    8.770  1.18 9.35
+offload     87958    0.295  0.00 0.01
+stock       87944    8.641  1.14 9.70
+offload     87958    0.292  0.00 0.01
+stock       87944    8.948  1.21 9.86
+offload     87958    0.289  0.00 0.01
+stock       87944    8.750  1.27 9.75
+offload     87958    0.285  0.00 0.01
+
+median: stock 8.770 s (8.641-9.030, +-2.2%), offload 0.292 s (0.285-0.312, +-4.6%)
+speedup: 30.0x on the median; the gap is two orders above the noise
+
+RPCs to MDT0000, mdc.*.stats req_waittime samples, cold:
+  stock   88028
+  offload    20        4401x fewer round trips
+  (aggregate mdc stats counters: 264114 vs 60)
+
+Counts, and why they differ:
+  87944  stock lfs find      namespace-visible, a walk
+  87946  lfind --target      + 2 nameless MDT objects a walk cannot reach
+  87958  lfind --internal    + 12 internal objects (no LMA / NOT_IN_OI)
+  87958  offload harness     identical to lfind --internal: the harness's
+                             predicate is validated against the real one
+
+Caveats:
+ - the harness is a spike consumer, not lfs find.  It spells the predicate
+   out; its answer is checked against lfind's real predicate code, which is
+   what the 87958 = 87958 line above is for.  A finished lfs find would
+   apply the classifier and land on 87946.
+ - one MDT.  Several would parallelise the offload and not the walk.
+ - client and server are VMs on one host: virbr1, not a NIC.  A real
+   network widens this, since only the stock arm pays per-round-trip.
+ - stock's user+sys (10.9 s) exceeds its wall (8.8 s): it burns more than
+   one core on RPC processing.  The offload spends 0.01 s of CPU.

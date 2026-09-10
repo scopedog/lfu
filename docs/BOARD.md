@@ -63,6 +63,75 @@ this is wiring, not new design.
 **Order:** 2 and 3 are prerequisites for a useful `lfind`; 1 is independent of
 both and is where the interesting number is.
 
+## The number: 30x stock lfs find, 4401x fewer round trips (2026-09-10)
+
+Two nodes, so the round trips are real. Server `.10` (MGS + `lustre-MDT0000`
++ 2 OSTs), client `.101`, the 2026-09-09 fixture of 88k files, predicate
+`-mtime -1 -type f`, five alternating pairs, **caches dropped on both nodes
+before every run**. Raw: `bench-data/2026-09-10/rpc-two-node.txt`; harness and
+script in `tests/lab-rpc/`.
+
+| arm | count | median wall | range | user + sys | **RPCs to MDT0** |
+|---|---|---|---|---|---|
+| stock `lfs find` | 87,944 | **8.770 s** | 8.641–9.030 (±2.2%) | 1.2 + **9.7** | **88,028** |
+| offloaded stream | 87,958 | **0.292 s** | 0.285–0.312 (±4.6%) | 0.00 + **0.01** | **20** |
+
+**30.0× on the median, and 4,401× fewer round trips.** The noise floor is two
+orders of magnitude below the gap. Stock burns 10.9 s of CPU inside an 8.8 s
+wall — more than a core, all of it RPC processing; the offload spends 0.01 s.
+
+**Yesterday's 21× understated the walk, exactly as the board predicted.** On
+one node the same fixture gave stock 5.394 s; over a wire it is 8.770 s. The
+3.4 s difference is 88k round trips that cost nothing on loopback.
+
+### The counts, and why they differ
+
+```
+87944  stock lfs find     namespace-visible, a walk
+87946  lfind --target     + 2 nameless MDT objects a walk cannot reach
+87958  lfind --internal   + 12 internal objects (no LMA / NOT_IN_OI)
+87958  offload harness    identical to lfind --internal
+```
+
+That last line is the point of the harness: it spells its predicate out, and
+**its answer is checked against `lfind`'s real predicate code over the same
+object set.** A finished `lfs find` would apply the classifier and land on
+87,946.
+
+### What the number does not say
+
+- **The harness is a spike consumer, not `lfs find`.** The client-side
+  `llapi` integration is the remaining LU-20721 work — see below.
+- **One MDT.** Several would parallelise the offload and not the walk.
+- **Two VMs on one host**: virbr1, not a NIC. A real network widens this,
+  since only the stock arm pays per round trip.
+- `.20` was started and then shut down: `-mtime -1 -type f` never reaches an
+  OST, so the OSS adds nothing and reformatting for a three-node filesystem
+  would have destroyed the fixture. Two nodes is what "client != server"
+  needed.
+
+### Setting it up again
+
+The client needs **this tree's whole module closure**, not just the changed
+ones: `obdclass` changed, so `ptlrpc`, `mdc`, `lmv`, `lov`, `osc`, `fid`,
+`fld`, `mgc`, `lustre`, `libcfs`, `lnet`, `ksocklnd` all have to come from
+the same build or the symbol versions do not line up. Tar them off `.10`,
+`depmod -a`, and check `modinfo -F srcversion` matches on both ends —
+`tests/lab-rpc/` has the recipe. `.101` already had a pre-LFU
+`~/lustre-release` build, which is the stock arm.
+
+### Remaining for LU-20721
+
+1. **The client consumer in liblustreapi**, so `lfs find` itself runs on the
+   offloaded stream. The core is built around one target with one label and
+   one MDT index (`scan_dev`, `tt_label`, `tt_index`), and a mount is many
+   MDTs — so this is a public entry point of its own (one `scan_dev` per MDT,
+   looping indices), not a fourth backend under `llapi_scan_device()`, which
+   is what [[lfu-2.19-tickets]] already says the scope is.
+2. osd-zfs: `rec_size()` + `DORA_LFU` + `DOIF_INDEX`.
+3. A defined byte order on the wire — the format decision's business.
+4. Per-user filtering; `CAP_SYS_ADMIN` only today.
+
 ## The RPC spike: the stream crosses OBD_IDX_READ, oracle diff 0 (2026-09-10)
 
 `f044b65428 LU-20721 lfu: the Object Stream over OBD_IDX_READ`, on
