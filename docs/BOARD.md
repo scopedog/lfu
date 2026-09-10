@@ -63,6 +63,63 @@ this is wiring, not new design.
 **Order:** 2 and 3 are prerequisites for a useful `lfind`; 1 is independent of
 both and is where the interesting number is.
 
+## `llapi_scan_mount()`: the client entry point (2026-09-10)
+
+`9f83713e58 LU-20721 llapi: llapi_scan_mount(), a scan from a client`, on
+`lu-20720`, **12 commits unpushed**. The 30x had been real and unreachable —
+there was no way to it but a raw ioctl. Now there is an API.
+
+### Shape
+
+**A fourth backend, not a fourth thing that resembles one.** The unit of work
+is an MDT rather than a slice of a target, so `tt_chunks` is the MDT count and
+a chunk index selects one — and the scan core already shards chunks across
+workers, so **N MDTs scan in parallel with nothing added for it**. Only the
+record knows which MDT answered, since one `llapi_scan_tgt` now covers many,
+so `llapi_scan_obj` gains `so_mdt_index` and the core prefers it to the
+target's when set.
+
+**One record→object translation.** `libscan_kernel.c` had it and the client
+needs the same one; with plugins the kernel backend is dlopen'ed and cannot
+call back into liblustreapi, so it was one inline in a header or two copies
+that drift. `lustreapi_lfu_rec.h` now holds it and both backends use it.
+
+### The bug, and what it exposed
+
+First run: every record delivered, then **`-ENODEV`**. `llapi_get_obd_count()`
+answers the **size of the descriptor array** — 64 on a filesystem with one
+MDT — so chunks 1..63 asked for targets that do not exist.
+
+`lmv.*.target_obd` lists the indices themselves, and that fixes a second thing
+a count could never express: **MDT indices need not be contiguous.** MDT0000
+and MDT0003 with nothing between is a real configuration. A target that is not
+`ACTIVE` is now refused at open rather than scanned around — a scan that
+skipped one would return a short answer that reads exactly like a complete
+one.
+
+### Verified
+
+| set | `llapi_scan_mount()` | the ring | diff |
+|---|---|---|---|
+| visible | 87,961 | 87,961 | **0** |
+| `--internal` | 88,051 | 88,051 | **0** |
+
+And **from a client that is not the server: 87,961 = 87,961, diff 0**, with
+**87,957 of those records carrying a name and parent FID** rebuilt from the
+linkea that crossed the ring and then the wire. That is the whole chain —
+OSD iterator → `trusted.link` → record tail → `OBD_IDX_READ` bulk → client →
+`lfsr_name`.
+
+Man page written (`llapi_scan_mount.3`, groff-clean), indexed in
+`lustreapi.7`. checkpatch: 0 errors, only the new-file MAINTAINERS note.
+
+### What it deliberately is not
+
+It scans the **whole filesystem whatever directory names it** — a target has
+no subtree. The manual page says so plainly. Choosing between this and
+`llapi_scan_namespace()` on that basis is `design-llapi-scan.md`'s job, and
+the next piece of work.
+
 ## osd-zfs joins the RPC path, and the resume test that was missing (2026-09-10)
 
 `474b9cad4d LU-20721 osd-zfs: the LFU record and an index walk`, on
