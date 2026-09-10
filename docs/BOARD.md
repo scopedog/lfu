@@ -63,6 +63,60 @@ this is wiring, not new design.
 **Order:** 2 and 3 are prerequisites for a useful `lfind`; 1 is independent of
 both and is where the interesting number is.
 
+## osd-zfs joins the RPC path, and the resume test that was missing (2026-09-10)
+
+`474b9cad4d LU-20721 osd-zfs: the LFU record and an index walk`, on
+`lu-20720`, **11 commits unpushed**. This was the "first thing a user tries
+must not be a coin flip on backend" item, and it is now closed.
+
+`rec_size()` and `rec(DORA_LFU)` are the ldiskfs ones — the record comes from
+`dt_otable_lfu_rec()`, which needs only `rec(DORA_ATTR)`/`rec(DORA_XATTR)`,
+and osd-zfs already serves both. ZFS keys its xattrs by the full `trusted.*`
+name in the SA nvlist and in the xattr directory, which is exactly the name
+the builder passes, so **nothing about the record differs between backends**.
+
+**`DOIF_INDEX` needs one more step on ZFS.** `dmu_object_next()` answers
+strictly after `ooi_pos` — which is already why a private iterator starts *at*
+the hash rather than after it — so an index walk, which must return the record
+*at* the hash, starts one further back again: `ooi_pos = hash - 1`, clamped at
+0 because object 0 is the DMU meta-dnode and never a target object.
+
+### The test that mattered was the one that nearly did not happen
+
+The first ZFS run looked perfect: 2,100 records, **diff 0** against the ring.
+It also used **one RPC** — the whole stream fit a single 1 MiB bulk, so it
+exercised **no page boundary at all**, which is the only place the resume
+arithmetic lives. Shrinking the buffer is what actually tests it:
+
+| buflen | RPCs | records | vs the ring |
+|---|---|---|---|
+| 1 MiB | 1 | 2,100 | diff 0 |
+| 64 KiB | 8 | 2,100 | diff 0 |
+| 32 KiB | 15 | 2,100 | diff 0 |
+| 16 KiB | 29 | 2,100 | diff 0 |
+| 8 KiB | **58** | 2,100 | **diff 0** |
+
+**A green oracle over one RPC says nothing about a resume.** The ldiskfs
+off-by-ones were found only because 88k objects happened to need 20 RPCs.
+
+So the same sweep went back over ldiskfs, which had only ever run at 20:
+**2,446 calls, 2,445 resumes, 88,051 = 88,051, diff 0.**
+
+### Lab notes
+
+- ZFS lab built with `TMP=/tmp/zfslab FSTYPE=zfs llmount.sh`, which keeps its
+  vdevs in `$TMP` — so the ldiskfs 88k fixture in `/tmp/lustre-*` survived
+  untouched and `NOFORMAT=1 llmount.sh` brought it straight back.
+- `$TMP` must exist first; `llmount.sh` does not create it.
+- **A ZFS scan of a live target does not see what has not synced.** Right
+  after creating 2,000 files the scan saw 40 objects; after a txg sync, 2,010
+  against the client walk's 2,006. Not a bug — a target scan is an on-disk
+  view, which is the staleness `design-llapi-scan.md` §4 says a caller must be
+  able to ask about.
+- Cost me a wrong turn: I read `/tmp/zfsmount.log` and diagnosed a stale
+  `lustre-r18` module path, from a **root-owned log dated Sept 3**. Same trap
+  as §"round 18 log": assert the timestamp before believing a log.
+
 ## Design: `llapi_scan()`, one door (2026-09-10)
 
 [`docs/design-llapi-scan.md`](design-llapi-scan.md), v0.1, for LU-20721.
