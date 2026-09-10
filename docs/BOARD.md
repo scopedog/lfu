@@ -63,6 +63,75 @@ this is wiring, not new design.
 **Order:** 2 and 3 are prerequisites for a useful `lfind`; 1 is independent of
 both and is where the interesting number is.
 
+## The RPC spike: the stream crosses OBD_IDX_READ, oracle diff 0 (2026-09-10)
+
+`f044b65428 LU-20721 lfu: the Object Stream over OBD_IDX_READ`, on
+`lu-20720`, **10 commits unpushed**. Functionally complete on one node; the
+*number* still needs a client that is not the server.
+
+### What was built
+
+- **One record builder, in obdclass.** `dt_otable_lfu_rec()` builds
+  `lfu_rec` + tail from `rec(DORA_ATTR)`/`rec(DORA_XATTR)`, which any otable
+  iterator serves. The ldiskfs iterator answers `rec(DORA_LFU)` and a new
+  `rec_size()` with it — built once per object and kept, since the page
+  builder asks size before bytes — and `lfu.ko` calls the same function for
+  its ring. Ring output verified byte-identical after the move (`--paths`
+  diff 0, same 351,896 inline reads). `lfu.ko` dropped its own tier counting.
+- **obdclass:** the otable FID past the `dt_index_read()` whitelist,
+  `dt_otable_features` initialised (`DT_IND_VARREC`, 176..176+4096), no dt
+  lock/version on an object that is an iterator.
+- **Client:** `LL_IOC_LFU_SCAN` — llite → `ll_md_exp`, lmv → the MDT named
+  in it, mdc sends `OBD_IDX_READ` with `NOHASH|NOKEY|VARREC` and a 1 MiB bulk
+  of the caller's pages, copied from `osp_it_fetch()`. Containers handed to
+  the caller whole. **It had to move to the `'f'` ioctl space**: lmv turns any
+  other type away at the door (`ENOTTY`, and its `OBD_IOC_ERROR` says
+  "unknown", not "unrecognized", which is why my dmesg grep missed it).
+
+### The bug only the oracle could see, again
+
+First oracle: **39 of 88,051 missing, in adjacent pairs, 20 RPCs** — two per
+resume. Two off-by-ones stacked:
+
+1. the page builder records the hash of the record it had *no room for*, so
+   the client resumes there — but `osd_otable_it_load()` is LFSCK's
+   checkpoint and starts *after* the hash. Skip one.
+2. `dt_index_walk()` reads `load()` returning 0 as "positioned before, call
+   `next()`" (IAM's contract); the otable's 0 means "on it". Skip another.
+
+`load()`'s return couldn't change — LFSCK reads `> 0` as "table over". So
+**`DOIF_INDEX`**: a second mode, position *at* the hash and answer as an index
+does. LFSCK never sets it; the sender always does. Then a residual diff of 6:
+all `[0x1:…]`/`[0x200000003:…]` local llog objects, because the ring snapshot
+predated a remount. Same-mount snapshots: **88,051 = 88,051, diff 0.**
+
+### The loopback number, for what it's worth
+
+20 RPCs, 4,891 pages, 19.7 MB bulk, **4,400 records per round trip**.
+0.110 s vs the ring's 0.102 s — 8 ms for the RPCs over loopback. Stock `lfs
+find` on this fixture: 5.394 s and 88k round trips. **A round trip that costs
+nothing measures nothing**; this number says the machinery works, not what
+it's worth.
+
+### What the number needs
+
+1. **A userspace consumer** — a fourth `llapi_scan_device()` backend over
+   `LL_IOC_LFU_SCAN` (mount + MDT index), reusing `libscan_kernel`'s
+   record→object code over `lu_idxpage` containers, so `lfind --mount`/`lfs
+   find` can run predicates and `--paths` on it.
+2. **The three-node lab**: OSS `.20` and client `.101` up, the client
+   carrying this tree's `mdc`/`lmv`/`lustre` modules. Then stock `lfs find`
+   vs the offloaded scan, from `.101`, alternating, caches dropped — the
+   measurement yesterday's 21× understated.
+
+### Also owed
+
+- osd-zfs: `rec_size()` + `DORA_LFU` + `DOIF_INDEX` (ldiskfs only today).
+- The record on the wire is host-order; a defined byte order is the format
+  decision's business, not this spike's.
+- Consumers with `CAP_SYS_ADMIN` only; the HLD's per-user filtering is the
+  server bulk filter's job, later.
+
 ## Item 3b done: names across the ring; the ring is bytes now (2026-09-10)
 
 `5ce166a57f LU-20720 lfu: trusted.link across the ring, in a tail`, on
