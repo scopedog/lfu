@@ -63,6 +63,57 @@ this is wiring, not new design.
 **Order:** 2 and 3 are prerequisites for a useful `lfind`; 1 is independent of
 both and is where the interesting number is.
 
+## Item 2 done: the target is bound per open (2026-09-10)
+
+`88280b26fd LU-20720 lfu: bind the target per open`, on `lu-20720`, now
+**7 commits unpushed**. Separate commit for now; fold into B1/C2 at push time.
+
+`LFU_IOC_TARGET` (`_IOW 0xF4/4`, `struct lfu_target { char lt_name[64]; }`)
+binds a descriptor to one target before its first `read()`. The name is the
+target as mounted, `fsname-MDT0000`; the module appends `-osd`
+(`lsi_osd_obdname`, `lustre_disk.h:128`) — its convention to know, not the
+caller's. The `dev` module parameter is gone. Semantics, all exercised:
+
+| | |
+|---|---|
+| read before bind | `-ENXIO` |
+| bind a name no mounted target has | `-ENODEV` |
+| empty / unterminated name | `-EINVAL` |
+| `INFO` before bind | `PRIVATE` only, no OSD bit; after: `0x3` |
+| rebind before the first read | allowed |
+| bind after the scan started | `-EBUSY` |
+| **old module, new library** | `ENOTTY` reported as `-EPROTO`, *"predates this library"* — refused, not silently scanned |
+
+Built against `~/lfu-zfs` on the VM — the tree whose `Module.symvers`
+produced the installed OSD modules — so only `lfu_ring.o` rebuilt. Utils
+had to be **installed**, not run from the build tree: liblustreapi dlopens
+`/usr/lib64/lustre/scan_osd_kernel.so`, and the installed one predates the
+ioctl (the [[lfu-scan-plugin-trap]] again).
+
+**Yesterday's fixture survived the reboot** — `/tmp/lustre-{mdt1,ost1,ost2}`,
+88,230 MDT inodes. `NOFORMAT=1 llmount.sh` mounts it without reformatting;
+plain `llmount.sh` would have destroyed it (`formatall` unless `NOFORMAT`).
+
+### The result, and a finding underneath it
+
+```
+lustre-MDT0000   87961      (87,944 yesterday; a few files newer)
+lustre-OST0000       1
+lustre-OST0001       1
+```
+
+Three targets, three answers — before, three copies of the first. **But the
+OST answer is wrong for a caller.** `--internal` on the same OST returns
+**44,031** (≈ `lfs df -i`'s 44,275), so the iterator scanned it; the default
+view shows 1 because `lfu_fill_rec()` synthesises the LMA with **no compat
+bits**, so `LMAC_FID_ON_OST` is never set and the classifier holds every data
+object back. The board had item 3 as "no names, layouts or SOM"; it is also
+**"an OST answers 1 where the device scan answers 44k"**. That makes
+`trusted.lma` across the ring the first item-3a deliverable, and it is
+measurable: 1 → 44,031.
+
+VM left **up and mounted** for item 3a.
+
 ## Round 24 PUSHED: 15 changes (2026-09-10)
 
 Pushed `49206c2ffe` (#20 of 26) to `refs/for/master`, so the six `lu-20720`
