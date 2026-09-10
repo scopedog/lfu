@@ -124,6 +124,13 @@ the same failure that made "never drop a record silently" the rule for the ring.
 
 ## 5. Proposed shape
 
+> **Superseded in part, 2026-09-10.** The decision below is better placed one
+> layer down, in the scan API, where every consumer inherits it rather than
+> each reinventing §2.1 — see [`design-llapi-scan.md`](design-llapi-scan.md).
+> What stays in `lfs find` is only the part that is genuinely about
+> predicates: translating `-maxdepth`/`-mindepth` and `-printf %p` into
+> requirements the scan API can decide on.
+
 ```
 llapi_find(path, param)
       |

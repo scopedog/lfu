@@ -63,6 +63,44 @@ this is wiring, not new design.
 **Order:** 2 and 3 are prerequisites for a useful `lfind`; 1 is independent of
 both and is where the interesting number is.
 
+## Design: `llapi_scan()`, one door (2026-09-10)
+
+[`docs/design-llapi-scan.md`](design-llapi-scan.md), v0.1, for LU-20721.
+The user's question: if the offload is faster, nobody will use
+`llapi_scan_namespace()`, so should a front door pick between them?
+
+**Yes — with the premise corrected, and the correction is the design.**
+"Faster" is not a property of the source but of *(source, query)*: a target
+scan is whole-target by construction, so offloading `find
+/mnt/lustre/home/alice/tmp` on a billion-object filesystem is not 30x, it is
+a catastrophic loss. So the front door picks **the cheapest source that can
+answer this question**, not the fast one — which is the rule
+`design-lfs-find-offload.md` §2.1 already reached for `lfs find`, moved one
+layer down so every consumer inherits it instead of reinventing it.
+
+**Answer-equivalence is a prerequisite, not a detail.** The two sources
+return 87,944 and 87,958 — within 0.02%, which is exactly how a silent swap
+becomes a plausible wrong answer. The offload must apply the classifier
+(87,946) and reconstruct paths; **this morning's raw-linkea work is what makes
+that possible at all**, and before it the two sources could never have
+answered the same question. What remains unequal — staleness, ordering,
+privilege — is asked about rather than hidden.
+
+Shape: `llapi_scan(path, sp, cb, data)`, the same signature as
+`llapi_scan_namespace()` so it is a drop-in; `lfsp_source` appended to pin a
+source; `ss_source` in the stats to report which ran, without which a test
+cannot pin what it is testing. The three doors all stay — the oracle needs
+both sources, and the HLD's model is pluggable Input Scanners with a
+selector, not one absorbing the others.
+
+Phase 1 is root + admin + ldiskfs, which is `lfs find /mnt/lustre -mtime -1`,
+the case measured at 30x. **osd-zfs `DORA_LFU`/`DOIF_INDEX` comes first**, or
+the first thing anyone tries is a coin flip on backend.
+
+Open, and unchanged: duplicates across merged MDT streams — for Andreas. v1
+sidesteps it by delivering per MDT with `lfsr_mdt_index` set, so a duplicate
+is visible rather than silently merged.
+
 ## The number: 30x stock lfs find, 4401x fewer round trips (2026-09-10)
 
 Two nodes, so the round trips are real. Server `.10` (MGS + `lustre-MDT0000`
