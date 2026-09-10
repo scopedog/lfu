@@ -205,6 +205,45 @@ the decision rule but a cheaper *right-hand side* once the rule has already
 said offload, and a caller who pins the source under rule 1 gets a far better
 deal than they do today.
 
+#### Measured (2026-09-10)
+
+Built on the client as described above — directory-only pre-pass, then a
+search pass filtered on the parent's membership, memoised per directory —
+and measured on two nodes, one MDT, 88k files, `-mtime -30 -type f`, caches
+dropped on both, median of five. Raw data and method in
+`bench-data/2026-09-10/subtree-two-node.txt`.
+
+| scope | share | stock `lfs find` | offload | |
+|---|---|---|---|---|
+| `/` | 100% | 8.955 s | **0.291 s** | 30.8× |
+| `bench` | 99.9% | 8.919 s | 0.412 s | 21.6× |
+| `bench/d3` | 11.4% | 2.510 s | 0.405 s | 6.2× |
+| `d0` | 0.06% | **0.035 s** | 0.404 s | walk 11× faster |
+
+Walk and offload agree as FID sets on every subtree, diff 0 both ways.
+
+**The prediction held exactly.** A subtree offload costs the same ~0.405 s
+whether it returns 87,894 files or 50: the root's 0.291 s plus the pre-pass
+(+0.12 s, about 40%), and twice the round trips (42–44 against 21). O(filesystem)
+read plus O(subtree) output.
+
+**The crossover is a fraction of the filesystem, not a file count.** The
+offload pays ~4.6 µs per object on the MDT; the walk 102–251 µs per file under
+the directory. They meet when the subtree holds roughly **2–5% of the
+filesystem** — about 1,600–4,000 files here. Interpolated between `d0` and
+`d3`, not measured. A real network raises the walk's per-file cost and lowers
+that fraction, but cannot remove it.
+
+**So rule 6 stands, now with a number behind it.** The decision needs the
+subtree's share of the filesystem, and the client cannot know that share
+without counting — which is the walk. Rule 1 lets a caller who knows say so.
+
+And one lesson for anyone re-measuring: `-type f` alone is answered from the
+directory entry, so stock `lfs find` does it as a readdir (0.172 s cold for
+88k files) with no per-object request at all. A predicate the dirent answers
+is never worth offloading, at any scope — which belongs in the decision rule
+as surely as scope does.
+
 #### One cheap win that is separable
 
 On DNE the dirmap says which MDTs actually hold directories of the subtree, so
@@ -346,3 +385,20 @@ thing anyone tries should not be a coin flip on backend.
    general OSD-side filter pushdown, and `lfu.ko` has no filter at all yet, so
    building it for subtrees alone would be building the mechanism twice.
    Leaning towards **filter pushdown first, subtree as its first predicate**.
+   *Update 2026-09-10:* the client-side restriction was built anyway, to
+   measure §5.1, and it is useful to `lfind` today; pushdown remains what
+   would turn fewer records into fewer reads.
+6. **The walk branch must inherit `lfs find`'s parallelism.** Measured
+   2026-09-10: `llapi_scan_namespace()` with its defaults took 21.4 s where
+   `lfs find` took 9.0 s for the same 88k getattrs — the same opcode, the same
+   count, no OST requests, and statahead ruled out. Stock ran ~3 requests at
+   once; `lfsp_thread_count` defaults to the caller's own thread, so the scan
+   ran one. `lfs find` picks 4 threads per MDT capped at half the CPUs. A
+   `llapi_scan()` that walks with the scan's defaults would regress every
+   subtree it keeps on the walk — the very case rule 6 keeps there. Either
+   the door picks find's default, or `lfsp_thread_count = 0` starts meaning
+   "choose" rather than "one"; the second changes a published default.
+7. **A predicate the directory entry answers is never worth offloading.**
+   `-type f` alone is a readdir: 0.172 s cold for 88k files. Rule 5 checks
+   that the target *can* answer; nothing yet checks whether the walk answers
+   it without a per-object request, which decides it just as surely.

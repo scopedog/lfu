@@ -1,0 +1,254 @@
+Root vs subtree: llapi_scan_mount() restricted to a directory (design-llapi-scan §5.1)
+======================================================================================
+2026-09-10.  Server 192.168.122.10 (rhel9.7-server-mgs-mds-clone: MGS +
+lustre-MDT0000 + 2 OSTs, loop files), client 192.168.122.101
+(rhel9.7-client-clone), both VMs on one host over virbr1.  Same machines,
+same fixture and same offload path as rpc-two-node.txt.
+Fixture: the 2026-09-09 llmount filesystem, 88,230 MDT inodes, mounted with
+NOFORMAT=1.  One MDT.
+
+    /mnt/lustre              87,944 regular files, the whole filesystem
+    /mnt/lustre/bench        87,894 files under 10 dirs   (99.9%)
+    /mnt/lustre/bench/d3     10,000 files, one dir        (11.4%)
+    /mnt/lustre/d0               50 files, one dir        (0.06%)
+    no hard links (find -links +1: 0)
+
+What changed: llapi_scan_mount() honours the directory it is given.  Root
+asks for everything, as before.  Any other directory runs a directory-only
+pre-pass building the FID -> (parent, name) map (scan_dirmap_prepass(), the
+--paths machinery), then the search pass delivers an object only when its
+parent lies beneath the named directory.  The walk up the map is memoised
+per directory entry, so the total cost is one walk per directory, not one
+per object.  Objects outside are counted as filtered.  Client-side only: the
+MDT still streams every object.
+
+Library under test: lustre-scanfid lu-20720-fold + the subtree change,
+liblustreapi.so md5 aa07bd58aa83 on both nodes; the committed source is
+byte-identical to what was built (checked with md5 local vs server).
+
+Arms, alternated, caches dropped on BOTH nodes before every run:
+  stock    lfs find SCOPE -mtime -30 -type f    ~/lustre-release on the
+           client, lfs 2.17.52_533_g9ec0025, no LFU in it
+  walk     llapi_scan_namespace(SCOPE)  via tests/lab-sub/subfind.c
+  offload  llapi_scan_mount(SCOPE)      via the same harness
+Both library arms ask lfsp_want = FID|TYPE|MTIME and apply the same
+predicate in the callback.
+
+
+The oracle: FID SETS, not counts (tests/lab-sub/oracle.sh)
+----------------------------------------------------------
+walk vs offload, every matching FID sorted and compared with comm(1):
+
+  scope                  walk    offload  only-walk  only-offload
+  /mnt/lustre            87944   87946    0          2
+  /mnt/lustre/bench      87894   87894    0          0
+  /mnt/lustre/bench/d3   10000   10000    0          0
+  /mnt/lustre/d0            50      50    0          0
+
+Every subtree scope: diff 0, both directions.  The root's 2 are the known
+nameless MDT objects, identified rather than assumed:
+  [0x200000400:0x1:0x0]  regular empty file, nlink=1, fid2path ENODATA
+  [0xe:0x0:0x0]          regular file,       nlink=1, fid2path ENODATA
+no linkea, so no walk reaches them (rpc-two-node.txt's 87944 -> 87946).
+The root takes no pre-pass and filters nothing (filtered=0).
+
+Accounting closes on every subtree scope: emitted + filtered = 87,961,
+the target's visible object count (88,051 seen, less 90 internal):
+  bench   87904 + 57    = 87961
+  d3      10001 + 77960 = 87961     (10,000 files + d3 itself)
+  d0         51 + 87910 = 87961
+
+The oracle ran three times, with lfsp_want = everything, = FID|TYPE, and
+= FID|TYPE|MTIME.  Same answers each time.
+
+
+Three things found on the way, and two runs thrown away
+--------------------------------------------------------
+1. A walk asking for everything is not a baseline.  The first benchmark
+   left lfsp_want at 0: the walk arm took 21-22 s cold at the root, where
+   stock lfs find over the same tree takes ~9 s, because it paid round trips
+   for layouts and xattrs the predicate never reads -- while the offload
+   gets them free in the record.  Stopped after two pairs; a ratio against
+   that arm would have been inflated.
+
+2. "-type f" alone is a readdir.  The second benchmark narrowed the
+   predicate to -type f (-mtime -1 now matches 4 files: the fixture is past
+   24 h), and stock lfs find answered the root cold in 0.172 s: the type is
+   in the dirent, so there is no per-object request at all.  Stopped after
+   one row.  That measures readdir, not the cost this offload removes; and
+   it is a finding in its own right for the dispatcher -- a predicate the
+   dirent answers is never worth offloading.  -mtime -30 keeps the earlier
+   run's cost profile (a stat per file) and matches every file.
+
+3. A predicted bug that did not reproduce.  With lfsp_want = FID|TYPE the
+   parent is not asked for, so the subtree test should have judged every
+   object parentless and delivered nothing.  Tested against the UNFIXED
+   library first: d0 answered 50 and d3 10,000, correct.  The stream backend
+   ships the link tail unconditionally and scan_lfu_rec_to_obj() marks it
+   valid whatever the mask says.  The guard stays -- a subtree scan now
+   asks for PARENT|LINKEA itself -- because the obvious next optimisation,
+   telling the MDT not to ship an unwanted tail, would otherwise turn every
+   subtree scan into a silent empty answer.  It costs nothing today.
+
+
+The benchmark: -mtime -30 -type f, cold, five alternating rounds
+-----------------------------------------------------------------
+Raw rows follow the summary.  Every arm's count was constant across all five
+rounds.  tests/lab-sub/benchsub.sh, summarised by tests/lab-sub/summarise.py.
+
+  scope                  arm      count   median   range            spread
+  /mnt/lustre            stock    87944    8.955   8.529-8.977      +-2.5%
+  /mnt/lustre            walk     87944   21.431  20.619-22.253     +-3.8%
+  /mnt/lustre            offload  87946    0.291   0.286-0.295      +-1.5%
+  /mnt/lustre/bench      stock    87894    8.919   8.741-9.164      +-2.4%
+  /mnt/lustre/bench      walk     87894   21.045  19.902-22.061     +-5.1%
+  /mnt/lustre/bench      offload  87894    0.412   0.406-0.428      +-2.7%
+  /mnt/lustre/bench/d3   stock    10000    2.510   2.389-2.520      +-2.6%
+  /mnt/lustre/bench/d3   walk     10000    2.399   2.328-2.486      +-3.3%
+  /mnt/lustre/bench/d3   offload  10000    0.405   0.398-0.412      +-1.7%
+  /mnt/lustre/d0         stock       50    0.035   0.034-0.036      +-2.9%
+  /mnt/lustre/d0         walk        50    0.033   0.030-0.033      +-4.5%
+  /mnt/lustre/d0         offload     50    0.404   0.401-0.420      +-2.4%
+
+  scope          fraction  stock/offload   offload vs root offload
+  /                100%        30.8x              1.00x
+  bench           99.9%        21.6x              1.42x
+  bench/d3        11.4%         6.2x              1.39x
+  d0              0.06%         0.09x  (walk 11x faster)   1.39x
+
+Round trips to the MDT, one cold run each (tests/lab-sub/rpcsub.sh):
+
+  scope          walk    offload
+  /              88029     21
+  bench          87975     42
+  bench/d3       10010     44
+  d0                57     42
+
+What it says
+------------
+1. The root reproduces the earlier result: 30.8x stock, 0.291 s against
+   rpc-two-node.txt's 0.292 s.  Nothing on the root path moved.
+
+2. A subtree offload costs the same whatever the subtree holds: 0.405-0.412
+   s for 87,894 files, for 10,000 and for 50.  It is the root's 0.291 s plus
+   the directory-only pre-pass, +0.114-0.121 s, about 40% of a root offload,
+   and it makes two sweeps' worth of round trips (42-44 against 21).  This is
+   design-llapi-scan §5.1 measured: O(filesystem) read plus O(subtree) output,
+   never O(subtree).
+
+3. The restriction still pays for large subtrees: bench/d3, a ninth of the
+   filesystem, is 6.2x stock.  It loses badly for small ones: d0 is walked
+   in 0.035 s and offloaded in 0.404 s.  Note the offload makes FEWER round
+   trips than the walk there (42 vs 57) and still loses 11x -- each of its
+   carries a megabyte, and a round-trip count is not the right proxy once
+   the subtree is small.
+
+4. The crossover is a fraction of the filesystem, not a file count.  The
+   offload's cost scales with every object on the MDT (0.405 s / 88,051 =
+   ~4.6 us per object); the walk's with the files beneath the directory
+   (102 us per file at the root, 251 us in d3 -- not linear here).  Equal
+   when the subtree holds 1.8-4.5% of the filesystem: ~1,600-4,000 files on
+   this one.  INTERPOLATED, not measured: no directory in the fixture holds
+   that many, and the fixture is not to be grown.  A real network raises the
+   walk's per-file cost and so lowers the fraction; it does not remove it.
+
+5. Rule 6 stands.  The decision wants the subtree's share of the filesystem,
+   and the client cannot know it without counting -- which is the walk.
+
+Why the walk arm is 2.4x slower than stock at the root -- and not a defect
+---------------------------------------------------------------------------
+The walk column is llapi_scan_namespace() with its defaults, and it is NOT a
+fair walk baseline: quote stock, never walk/offload (73.6x would be wrong).
+At d3 and d0 the two agree; at the root and bench the walk takes 21 s to
+stock's 9 s.  Three checks, one cold run each:
+
+  not OST glimpses   osc RPCs: 0 for both arms; mdc RPCs 88035 vs 88029
+  not statahead      stock with statahead_max=0: 8.938 s, 9.252 s -- no
+                     change (restored to 128 afterwards)
+  concurrency        same opcode, same count, and each request is FASTER
+                     for the walk:
+
+    arm     wall     user   sys     mds_getattr_lock   waits summed   in flight
+    stock   8.89 s   1.31   10.00   87944 @ 322 us     28.85 s        ~3.2
+    walk   19.39 s   0.09    1.75   87944 @ 207 us     18.57 s        ~1.0
+
+Stock waits 28.85 s on requests inside an 8.89 s wall, with user+sys above
+the wall: several at once.  The walk waits 18.57 s inside 19.39 s: one at a
+time.  In source, lfs find picks its threads in
+calculate_default_thread_count() (liblustreapi_pfind.c): 4 per MDT, capped
+at half the CPUs.  llapi_scan_namespace()'s lfsp_thread_count is "0 or 1:
+the caller's own thread" (lustreapi.h).  The harness left it unset.  (That
+formula is from this series' tree; the client's stock lfs is 2.17.52, whose
+parallelism the measurement shows whatever its formula.)
+
+Consequence for llapi_scan(): a walk branch that calls
+llapi_scan_namespace() with its defaults is 2.4x slower than the lfs find a
+user already has.  It must carry find's default parallelism.  Not measured
+with threads set: the lab was shut down after this.
+
+Lab left shut down: client unmounted, targets unmounted by
+llmountcleanup.sh (no format; /tmp/lustre-mdt1 intact), both VMs off.
+
+Raw rows (benchsub.sh, the run summarised above)
+------------------------------------------------
+# scope                   arm      count   wall(s)  harness-line
+/mnt/lustre               stock     87944    8.529  stock
+/mnt/lustre               ns        87944   21.602  ns /mnt/lustre: match=87944 seen=87956 emitted=87956 filtered=0 skipped=0 wall=21.583
+/mnt/lustre               mount     87946    0.286  mount /mnt/lustre: match=87946 seen=88051 emitted=87961 filtered=0 skipped=0 wall=0.268
+/mnt/lustre               stock     87944    8.964  stock
+/mnt/lustre               ns        87944   22.253  ns /mnt/lustre: match=87944 seen=87956 emitted=87956 filtered=0 skipped=0 wall=22.234
+/mnt/lustre               mount     87946    0.290  mount /mnt/lustre: match=87946 seen=88051 emitted=87961 filtered=0 skipped=0 wall=0.271
+/mnt/lustre               stock     87944    8.729  stock
+/mnt/lustre               ns        87944   20.884  ns /mnt/lustre: match=87944 seen=87956 emitted=87956 filtered=0 skipped=0 wall=20.866
+/mnt/lustre               mount     87946    0.291  mount /mnt/lustre: match=87946 seen=88051 emitted=87961 filtered=0 skipped=0 wall=0.273
+/mnt/lustre               stock     87944    8.955  stock
+/mnt/lustre               ns        87944   20.619  ns /mnt/lustre: match=87944 seen=87956 emitted=87956 filtered=0 skipped=0 wall=20.600
+/mnt/lustre               mount     87946    0.295  mount /mnt/lustre: match=87946 seen=88051 emitted=87961 filtered=0 skipped=0 wall=0.276
+/mnt/lustre               stock     87944    8.977  stock
+/mnt/lustre               ns        87944   21.431  ns /mnt/lustre: match=87944 seen=87956 emitted=87956 filtered=0 skipped=0 wall=21.413
+/mnt/lustre               mount     87946    0.295  mount /mnt/lustre: match=87946 seen=88051 emitted=87961 filtered=0 skipped=0 wall=0.278
+/mnt/lustre/bench         stock     87894    8.919  stock
+/mnt/lustre/bench         ns        87894   21.924  ns /mnt/lustre/bench: match=87894 seen=87904 emitted=87904 filtered=0 skipped=0 wall=21.907
+/mnt/lustre/bench         mount     87894    0.425  mount /mnt/lustre/bench: match=87894 seen=88051 emitted=87904 filtered=57 skipped=0 wall=0.406
+/mnt/lustre/bench         stock     87894    8.741  stock
+/mnt/lustre/bench         ns        87894   22.061  ns /mnt/lustre/bench: match=87894 seen=87904 emitted=87904 filtered=0 skipped=0 wall=22.043
+/mnt/lustre/bench         mount     87894    0.407  mount /mnt/lustre/bench: match=87894 seen=88051 emitted=87904 filtered=57 skipped=0 wall=0.389
+/mnt/lustre/bench         stock     87894    8.788  stock
+/mnt/lustre/bench         ns        87894   20.776  ns /mnt/lustre/bench: match=87894 seen=87904 emitted=87904 filtered=0 skipped=0 wall=20.758
+/mnt/lustre/bench         mount     87894    0.428  mount /mnt/lustre/bench: match=87894 seen=88051 emitted=87904 filtered=57 skipped=0 wall=0.409
+/mnt/lustre/bench         stock     87894    9.164  stock
+/mnt/lustre/bench         ns        87894   19.902  ns /mnt/lustre/bench: match=87894 seen=87904 emitted=87904 filtered=0 skipped=0 wall=19.884
+/mnt/lustre/bench         mount     87894    0.406  mount /mnt/lustre/bench: match=87894 seen=88051 emitted=87904 filtered=57 skipped=0 wall=0.387
+/mnt/lustre/bench         stock     87894    9.008  stock
+/mnt/lustre/bench         ns        87894   21.045  ns /mnt/lustre/bench: match=87894 seen=87904 emitted=87904 filtered=0 skipped=0 wall=21.027
+/mnt/lustre/bench         mount     87894    0.412  mount /mnt/lustre/bench: match=87894 seen=88051 emitted=87904 filtered=57 skipped=0 wall=0.393
+/mnt/lustre/bench/d3      stock     10000    2.389  stock
+/mnt/lustre/bench/d3      ns        10000    2.356  ns /mnt/lustre/bench/d3: match=10000 seen=10001 emitted=10001 filtered=0 skipped=0 wall=2.337
+/mnt/lustre/bench/d3      mount     10000    0.406  mount /mnt/lustre/bench/d3: match=10000 seen=88051 emitted=10001 filtered=77960 skipped=0 wall=0.387
+/mnt/lustre/bench/d3      stock     10000    2.520  stock
+/mnt/lustre/bench/d3      ns        10000    2.469  ns /mnt/lustre/bench/d3: match=10000 seen=10001 emitted=10001 filtered=0 skipped=0 wall=2.451
+/mnt/lustre/bench/d3      mount     10000    0.398  mount /mnt/lustre/bench/d3: match=10000 seen=88051 emitted=10001 filtered=77960 skipped=0 wall=0.380
+/mnt/lustre/bench/d3      stock     10000    2.514  stock
+/mnt/lustre/bench/d3      ns        10000    2.399  ns /mnt/lustre/bench/d3: match=10000 seen=10001 emitted=10001 filtered=0 skipped=0 wall=2.381
+/mnt/lustre/bench/d3      mount     10000    0.412  mount /mnt/lustre/bench/d3: match=10000 seen=88051 emitted=10001 filtered=77960 skipped=0 wall=0.393
+/mnt/lustre/bench/d3      stock     10000    2.510  stock
+/mnt/lustre/bench/d3      ns        10000    2.328  ns /mnt/lustre/bench/d3: match=10000 seen=10001 emitted=10001 filtered=0 skipped=0 wall=2.310
+/mnt/lustre/bench/d3      mount     10000    0.405  mount /mnt/lustre/bench/d3: match=10000 seen=88051 emitted=10001 filtered=77960 skipped=0 wall=0.387
+/mnt/lustre/bench/d3      stock     10000    2.400  stock
+/mnt/lustre/bench/d3      ns        10000    2.486  ns /mnt/lustre/bench/d3: match=10000 seen=10001 emitted=10001 filtered=0 skipped=0 wall=2.468
+/mnt/lustre/bench/d3      mount     10000    0.405  mount /mnt/lustre/bench/d3: match=10000 seen=88051 emitted=10001 filtered=77960 skipped=0 wall=0.387
+/mnt/lustre/d0            stock        50    0.035  stock
+/mnt/lustre/d0            ns           50    0.033  ns /mnt/lustre/d0: match=50 seen=51 emitted=51 filtered=0 skipped=0 wall=0.016
+/mnt/lustre/d0            mount        50    0.404  mount /mnt/lustre/d0: match=50 seen=88051 emitted=51 filtered=87910 skipped=0 wall=0.387
+/mnt/lustre/d0            stock        50    0.035  stock
+/mnt/lustre/d0            ns           50    0.033  ns /mnt/lustre/d0: match=50 seen=51 emitted=51 filtered=0 skipped=0 wall=0.016
+/mnt/lustre/d0            mount        50    0.409  mount /mnt/lustre/d0: match=50 seen=88051 emitted=51 filtered=87910 skipped=0 wall=0.390
+/mnt/lustre/d0            stock        50    0.034  stock
+/mnt/lustre/d0            ns           50    0.031  ns /mnt/lustre/d0: match=50 seen=51 emitted=51 filtered=0 skipped=0 wall=0.014
+/mnt/lustre/d0            mount        50    0.402  mount /mnt/lustre/d0: match=50 seen=88051 emitted=51 filtered=87910 skipped=0 wall=0.383
+/mnt/lustre/d0            stock        50    0.036  stock
+/mnt/lustre/d0            ns           50    0.033  ns /mnt/lustre/d0: match=50 seen=51 emitted=51 filtered=0 skipped=0 wall=0.015
+/mnt/lustre/d0            mount        50    0.401  mount /mnt/lustre/d0: match=50 seen=88051 emitted=51 filtered=87910 skipped=0 wall=0.383
+/mnt/lustre/d0            stock        50    0.035  stock
+/mnt/lustre/d0            ns           50    0.030  ns /mnt/lustre/d0: match=50 seen=51 emitted=51 filtered=0 skipped=0 wall=0.013
+/mnt/lustre/d0            mount        50    0.420  mount /mnt/lustre/d0: match=50 seen=88051 emitted=51 filtered=87910 skipped=0 wall=0.401

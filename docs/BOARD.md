@@ -4,6 +4,57 @@ Every ticket and Gerrit id in play, and the ones that are *not* ours. Regenerate
 the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
 **2026-09-06**.
 
+## `llapi_scan_mount()` scans a subtree — built, oracled, measured (2026-09-10)
+
+`42eed1e556 LU-20730 llapi: llapi_scan_mount() scans a subtree` on
+`lu-20720-fold` in `lustre-scanfid`, **unpushed**, on top of the nine on
+Gerrit (it would fold into 68818). Design `design-llapi-scan.md` §5.1; data
+`bench-data/2026-09-10/subtree-two-node.txt`; harness `tests/lab-sub/`.
+
+The root asks for everything, as before. Any other directory runs the
+directory-only pre-pass `--paths` already had, then filters on the parent's
+membership, memoised per directory. Client-side: the MDT still streams
+everything.
+
+**Oracle, as FID sets:** diff 0 both ways on `bench` (87,894), `bench/d3`
+(10,000) and `d0` (50). Root +2 = the two nameless objects, identified
+(`[0x200000400:0x1:0x0]`, `[0xe:0x0:0x0]`, fid2path ENODATA). Run with three
+different demand masks, same answers.
+
+**Measured**, two nodes, one MDT, `-mtime -30 -type f`, cold, median of five:
+
+| scope | share | stock `lfs find` | offload | |
+|---|---|---|---|---|
+| `/` | 100% | 8.955 s | 0.291 s | **30.8×** |
+| `bench` | 99.9% | 8.919 s | 0.412 s | 21.6× |
+| `bench/d3` | 11.4% | 2.510 s | 0.405 s | 6.2× |
+| `d0` | 0.06% | 0.035 s | 0.404 s | **walk 11× faster** |
+
+A subtree offload is **flat at ~0.405 s**, the root plus a +40% pre-pass,
+whatever it returns — §5.1's O(filesystem) read + O(subtree) output, exactly.
+Crossover ≈ **2–5% of the filesystem** (interpolated). **Rule 6 stands.**
+
+**Three traps, each of which would have produced a wrong headline:**
+
+- `lfsp_want = 0` makes the walk pay for layouts and xattrs: 21 s, a fake 73×.
+- `-type f` alone is a **readdir** in stock `lfs find`: 0.172 s cold, no
+  per-object request. `-mtime -1` matched only 4 files (fixture past 24 h),
+  hence `-mtime -30`.
+- The walk arm is 2.4× slower than stock at the root **because it runs
+  serially**: `lfsp_thread_count` defaults to one thread, `lfs find` to 4 per
+  MDT. Glimpses and statahead both measured and ruled out first. → design
+  open question 6: `llapi_scan()`'s walk branch must inherit find's
+  parallelism.
+
+**A predicted bug that did not reproduce**, tested against the unfixed
+library: a caller not asking for `PARENT` still got it, because the stream
+ships the link tail unconditionally. The guard (subtree forces
+`PARENT|LINKEA`) stays for when pushdown lets the MDT drop the tail.
+
+**Not tested:** DNE (one MDT, so the map's lock and memo race are
+unexercised), a fileset mount, hard links (fixture has none). VMs shut down,
+fixture intact.
+
 ## The OSD series folded for review, and `Test-Parameters: ignore` verified (2026-09-10)
 
 **PUSHED 2026-09-10** as 9 new changes, with `Test-Parameters: ignore`
