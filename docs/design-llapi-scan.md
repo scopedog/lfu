@@ -126,6 +126,96 @@ regression. A caller who knows better says so (rule 1). If evidence later
 justifies a threshold, it arrives **with the evidence**; the HLD's *Persistent
 Aggregates* are the thing that would eventually supply it.
 
+### 5.1 Why rule 6 cannot become a ratio test
+
+The obvious objection to rule 6 is that it throws away the offload for
+`lfs find /mnt/lustre/some/dir`, which is most of what people actually type.
+So: can a target scan be restricted to a subtree, and if it can, does rule 6
+become a threshold on the ratio?
+
+**It can be restricted. It cannot be made to cost what the subtree costs.**
+
+#### Membership is discovered by reading the object
+
+A target scan walks the object table in **inode order**, which has no
+relationship to the directory hierarchy. The thing that says whether an object
+belongs to a subtree — its parent FID, in `trusted.link` — lives *on the
+object itself*.
+
+So membership is discovered by reading the object, and therefore cannot be
+used to avoid reading it. There is no seek-to-subtree, and no way to prove an
+unread inode is absent from the tree without reading it. ldiskfs's Orlov
+allocator does give a subtree partial inode-number locality, but locality is
+not a bound: skipping on it would silently drop objects, and a scan that is
+sometimes incomplete is worse than one that is honestly slow.
+
+This also disposes of the "enumerate the subtree first, then skip the rest"
+shape — `scandir()` over the subtree, feed the OSD scanner the inode set. To
+enumerate the subtree you must walk the namespace, and walking the namespace
+*is* `llapi_scan_namespace()`, the cost the offload exists to avoid. Having
+paid it, you would then still walk the whole inode table to find what you
+listed.
+
+The narrower version is not silly and still loses: `readdir` is batched and
+cheap while `stat` is a round trip per file, so "readdir for FIDs, attributes
+from the target" has a real shape. But turning a FID into attributes is an OI
+lookup plus `iget` per object — the random-access path
+`osd-ldiskfs: read the inode table, not the inodes` deliberately removed. It
+trades O(filesystem) sequential reads for O(subtree) random ones, and
+sequential wins until the subtree is very small — by which point rule 6 has
+already said *walk*.
+
+#### What restriction is actually worth, and what it costs
+
+The walk is the cheap half. The expensive half is the **per-object work**: the
+tier-1 xattr reads and the linkea tail. Measured on the 09-09 fixture, 88k
+files on one MDT: 263,939 xattr reads at ~136 ns each for attributes and LMA,
+rising to 351,896 once names cross. A subtree filter that rejects early skips
+all of that, and skips the record, the ring bytes and the RPC with it.
+
+The machinery is mostly built. `scan_dirmap_prepass()` already constructs
+FID → (parent, name) for **every directory** on the target, in a
+directory-only pass chosen precisely because "a filesystem holds far fewer
+directories than files". Subtree restriction is then a predicate over an index
+that already exists:
+
+1. directory-only prepass — already written, already used by `--paths`
+2. walk up from the start directory's FID, marking the directory FIDs beneath it
+3. main pass emits only objects whose parent FID is in that set
+
+Note the filter would begin in userspace. The pushdown work landed on the
+device scanner; `lfu.ko` has none yet — *"No filter yet: every object is
+emitted and the consumer decides."* Pushing a subtree predicate down to the
+OSD is what converts "fewer records" into "fewer reads", and it is the step
+that makes this worth doing at all.
+
+#### The consequence for rule 6
+
+Cost becomes **O(filesystem) walk + O(subtree) output**. Never O(subtree).
+
+So restriction *narrows* the region where the walk wins without closing it: a
+small directory on a large filesystem still belongs to
+`llapi_scan_namespace()`, because the offload still reads every inode on every
+MDT to find it. The crossover moves; the crossover still exists; and the
+client still cannot know the ratio without doing the work — which is the whole
+reason rule 6 is a scope test and not a threshold.
+
+**Rule 6 therefore stands.** What subtree restriction buys is not a change to
+the decision rule but a cheaper *right-hand side* once the rule has already
+said offload, and a caller who pins the source under rule 1 gets a far better
+deal than they do today.
+
+#### One cheap win that is separable
+
+On DNE the dirmap says which MDTs actually hold directories of the subtree, so
+`llapi_scan_mount()` can **skip whole MDTs**. That is O(1) to decide once the
+prepass has run, and on a many-MDT filesystem it removes a large fraction of
+the work rather than a large fraction of the records. It is worth doing
+independently of the rest of this section.
+
+True O(subtree) needs a parent → children index maintained across scans — the
+scanner-as-index-builder idea, and a different project from this one.
+
 **The decision must complete before the first record is delivered.** Once a
 record has been handed to the callback there is no falling back: a failure
 part-way through an offloaded scan is an error, never a silent restart as a
@@ -222,11 +312,15 @@ stated contract instead of a latent wrong answer.
 |---|---|---|
 | **1** | root, admin, ldiskfs MDTs, no path demanded | `llapi_scan_mount()`, rules 1–6 |
 | **2** | + paths demanded | linkea path reconstruction (linkea is shipped; the dirmap exists in LU-20637) |
-| **3** | + subtrees | a cost estimate — HLD *Persistent Aggregates* |
+| **3** | + subtrees | subtree restriction (§5.1) **and** a cost estimate — HLD *Persistent Aggregates*. Restriction alone does not unlock this: it makes the offload cheaper, not O(subtree), so the ratio still decides. |
 | **4** | + non-privileged callers | server-side permission filtering; HLD defers this explicitly |
 
 Phase 1 is worth having on its own: `lfs find /mnt/lustre -mtime -1` is the
 common administrative case, and it is the one measured at 30x.
+
+**Separable from the phases:** skipping whole MDTs that hold no directory of
+the subtree (§5.1) needs only the dirmap and helps every DNE filesystem. It
+belongs with phase 2, where the dirmap arrives anyway.
 
 **Order:** the osd-zfs half of `DORA_LFU`/`DOIF_INDEX` comes first. Until it
 lands, an MDT on ZFS answers `-EOPNOTSUPP` through this path, and the first
@@ -245,3 +339,10 @@ thing anyone tries should not be a coin flip on backend.
    knowable client-side.
 4. **Ordering in the manual page** — unspecified when offloaded; needs wording,
    not a decision.
+5. **Is subtree restriction (§5.1) worth building before the cost estimate
+   exists?** It cannot relax rule 6 on its own, so its only beneficiary today
+   is a caller who pins the source under rule 1 — which is `lfind`, and which
+   is a real user. Against that: a subtree predicate is most of the work of a
+   general OSD-side filter pushdown, and `lfu.ko` has no filter at all yet, so
+   building it for subtrees alone would be building the mechanism twice.
+   Leaning towards **filter pushdown first, subtree as its first predicate**.
