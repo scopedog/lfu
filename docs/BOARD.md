@@ -63,6 +63,68 @@ this is wiring, not new design.
 **Order:** 2 and 3 are prerequisites for a useful `lfind`; 1 is independent of
 both and is where the interesting number is.
 
+## Item 3b done: names across the ring; the ring is bytes now (2026-09-10)
+
+`5ce166a57f LU-20720 lfu: trusted.link across the ring, in a tail`, on
+`lu-20720`, **9 commits unpushed**. Your call was raw linkea; this is it.
+
+### The shape
+
+`struct lfu_rec` is a **header** now — 176 bytes, `lr_reclen`/`lr_linklen`
+appended — and the tail is the raw `trusted.link`, up to `LFU_LINK_MAX`
+(4 KB). The ring is **bytes**, not records; a record may straddle the wrap
+inside the kernel and is copied out in two parts, but `read()` returns whole
+records only, each 8-aligned, so the consumer casts in place and walks with
+`lfu_rec_next()`. No padding, no skip records: the ring isn't mapped, so
+contiguity inside it would buy nothing. Wire version **3** — a v2 reader would
+read tails as headers, and now refuses: *"speaks wire version 2 with 168-byte
+records, this library expects 3 and 176"*, verified.
+
+Linkea over the bound → `LFU_REC_LINK_BIG`, present-not-carried, `fid2path`'s
+to answer; `ls_link_big` counts them. This is what lets `read()` promise
+whole records into a buffer of known size.
+
+### The bug the oracle caught
+
+First run: `--paths` printed **nothing**, no error. `statt2` showed the links
+*were* arriving (87,957 of 88,051 records). Cause: `--paths` makes **two
+passes on one open** — the directory-map pre-pass, then the search
+(`scan_device_run_prepass`, one `sb_open()`) — and the ring is one
+enumeration per open, so the second pass read EOF at once. The device
+backends re-read the disk for the second pass; the kernel backend now
+reopens and rebinds when a chunk is asked for after the stream drained.
+**Silent, plausible, and only an oracle finds it.**
+
+### The numbers
+
+| | kernel | device oracle |
+|---|---|---|
+| `--paths` | 87,957 | 87,957, **diff 0** |
+| `-name 'f12*'` | 1,000 | 1,000 |
+| MDT / OST counts | 87,961 / 44,005 | unchanged |
+
+87,957 records carry a link, **46 bytes average**, max record 232, none over
+the bound; 351,896 xattr reads, still **all inline**; zero stalls on the
+16 MiB ring. `find /mnt/lustre` says 87,955 — the same 2-object difference
+the device scan shows, so not the kernel path's.
+
+**Cost:** raw reader, three alternating pairs, 3a vs 3b: **0.083 → 0.101 s**
+warm. +18 ms for 88k link reads plus their tails, ≈200 ns/object. Cumulative
+from item 2: 0.047 → 0.101 s, and the answer went from FIDs-only to
+FIDs + real LMA + SOM + presence + names.
+
+### Owed
+
+`Documentation/man4/` pages for `ring_size`, `batch`, `private` — the tree
+has 61 such pages, one per module parameter, and checkpatch asks. B1 never
+had them; the rename surfaced it. Before push, once the parameters settle.
+
+### Still not crossing: layout bytes
+
+Deferred to filter pushdown on purpose — `-O`/`--pool` belong in the kernel
+next to the bytes, and ioctl 2 has been reserved for that since B1. Shipping
+up to 48 KB/object up a ring for userspace to test `-O` is the wrong direction.
+
 ## Item 3a done: LMA and SOM across the ring; layouts as presence (2026-09-10)
 
 `a674c4fe61 LU-20720 lfu: trusted.lma and trusted.som across the ring`, on
