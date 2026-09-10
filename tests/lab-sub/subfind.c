@@ -16,6 +16,7 @@
  */
 static time_t cutoff;
 static int print_fids;
+/* the callback runs on the scan's workers once lfsp_thread_count > 1 */
 static unsigned long match;
 
 static int cb(const struct llapi_scan_rec *rec, void *data)
@@ -26,7 +27,7 @@ static int cb(const struct llapi_scan_rec *rec, void *data)
 	if (!(rec->lfsr_stx.stx_mask & STATX_MTIME) ||
 	    rec->lfsr_stx.stx_mtime.tv_sec <= cutoff)
 		return 0;
-	match++;
+	__atomic_add_fetch(&match, 1, __ATOMIC_RELAXED);
 	if (print_fids)
 		printf(DFID"\n", PFID(&rec->lfsr_fid));
 	return 0;
@@ -49,12 +50,17 @@ int main(int argc, char **argv)
 	int rc;
 
 	if (argc < 3) {
-		fprintf(stderr, "usage: subfind mount|ns PATH [fids]\n");
+		fprintf(stderr, "usage: subfind mount|ns PATH [fids] [threads]\n");
 		return 64;
 	}
 	mode = argv[1];
 	path = argv[2];
-	print_fids = argc > 3;
+	print_fids = argc > 3 && strcmp(argv[3], "fids") == 0;
+	/* a thread count, after "fids" or in its place */
+	if (argc > 3 && !print_fids)
+		sp.lfsp_thread_count = atoi(argv[3]);
+	else if (argc > 4)
+		sp.lfsp_thread_count = atoi(argv[4]);
 	cutoff = time(NULL) - 30 * 86400;	/* -mtime -30 */
 
 	clock_gettime(CLOCK_MONOTONIC, &a);
@@ -70,8 +76,8 @@ int main(int argc, char **argv)
 		return 2;
 	}
 	fprintf(stderr,
-		"%s %s: match=%lu seen=%llu emitted=%llu filtered=%llu skipped=%llu wall=%.3f\n",
-		mode, path, match, (unsigned long long)stats.ss_seen,
+		"%s %s: threads=%u match=%lu seen=%llu emitted=%llu filtered=%llu skipped=%llu wall=%.3f\n",
+		mode, path, sp.lfsp_thread_count, match, (unsigned long long)stats.ss_seen,
 		(unsigned long long)stats.ss_emitted,
 		(unsigned long long)stats.ss_filtered,
 		(unsigned long long)stats.ss_skipped,

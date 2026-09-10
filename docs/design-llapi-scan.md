@@ -393,11 +393,23 @@ thing anyone tries should not be a coin flip on backend.
    `lfs find` took 9.0 s for the same 88k getattrs — the same opcode, the same
    count, no OST requests, and statahead ruled out. Stock ran ~3 requests at
    once; `lfsp_thread_count` defaults to the caller's own thread, so the scan
-   ran one. `lfs find` picks 4 threads per MDT capped at half the CPUs. A
+   ran one. `lfs find` picks min(4 per MDT, half the CPUs) and never fewer than 4. A
    `llapi_scan()` that walks with the scan's defaults would regress every
    subtree it keeps on the walk — the very case rule 6 keeps there. Either
    the door picks find's default, or `lfsp_thread_count = 0` starts meaning
    "choose" rather than "one"; the second changes a published default.
+   *Measured the same day* (`bench-data/2026-09-10/walk-threads-two-node.txt`):
+   with `lfsp_thread_count = 4`, find's count on that client, the scan
+   **matches `lfs find`** — 1.02× at the root, 0.97× for a 99.9% subtree, 3.32
+   requests in flight against 3.25. So the gap was the default and nothing
+   else, and the walk branch loses nothing once it carries find's count.
+   Two things the choice must know: threads parallelise *across* directories
+   only — a single directory of 10,000 files runs one request at a time at 1,
+   4 or 8 threads alike, while the idle workers burn ~2.6 s of CPU — and past
+   find's count this lab's MDT was the limit (8 threads: 6.26 in flight, each
+   request 320 → 539 µs, 1.16× for twice the concurrency). The offload's
+   ratios hold against the threaded walk: 30.7× root, 21.9×, 6.1×, and d0
+   still 11× faster walked.
 7. **A predicate the directory entry answers is never worth offloading.**
    `-type f` alone is a readdir: 0.172 s cold for 88k files. Rule 5 checks
    that the target *can* answer; nothing yet checks whether the walk answers

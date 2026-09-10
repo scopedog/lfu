@@ -4,6 +4,34 @@ Every ticket and Gerrit id in play, and the ones that are *not* ours. Regenerate
 the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
 **2026-09-06**.
 
+## The walk with threads: the 2.4× gap was the default (2026-09-10)
+
+Follow-up to the subtree benchmark. Harness only — no library change. Data
+`bench-data/2026-09-10/walk-threads-two-node.txt`, script
+`tests/lab-sub/benchthreads.sh` + `inflight.sh`.
+
+`lfs find` picks `min(4/MDT, CPUs/2)` **floored at 4** (`lfs.c`
+`calculate_default_thread_count()`) — 4 on the 4-CPU client. Walk FID sets at
+1, 4 and 8 threads: identical, zero duplicates. Cold, median of five:
+
+| scope | stock | walk ×1 | **walk ×4** | walk ×8 | offload |
+|---|---|---|---|---|---|
+| `/` | 8.886 s | 21.456 s | **9.050 s** | 7.779 s | 0.295 s |
+| `bench` | 9.023 s | 20.876 s | **8.779 s** | 7.681 s | 0.400 s |
+| `bench/d3` | 2.531 s | 2.411 s | 2.489 s | 2.390 s | 0.409 s |
+| `d0` | 0.035 s | 0.032 s | 0.033 s | 0.033 s | 0.403 s |
+
+- **×4 matches stock** (1.02×, 0.97×; 3.32 vs 3.25 requests in flight). The
+  gap was entirely the one-thread default.
+- **Threads only help across directories.** `d3` (one dir, 10k files) runs
+  ~0.95 in flight at every count; idle workers burn ~2.6 s CPU for nothing.
+- **×8 hits this lab's MDT**: 6.26 in flight, 320 → 539 µs per request, 1.16×.
+- **Offload ratios hold** against the fair walk: 30.7×, 21.9×, 6.1×; d0 still
+  walked 11× faster. Crossover still ~2–5%.
+- Consequence: `llapi_scan()`'s walk branch must carry find's thread count
+  (design open question 6). **Untested:** DNE — find's formula reads
+  `llapi_get_obd_count()`, which answers 64 on one MDT.
+
 ## `llapi_scan_mount()` scans a subtree — built, oracled, measured (2026-09-10)
 
 `42eed1e556 LU-20730 llapi: llapi_scan_mount() scans a subtree` on
@@ -41,8 +69,8 @@ Crossover ≈ **2–5% of the filesystem** (interpolated). **Rule 6 stands.**
   per-object request. `-mtime -1` matched only 4 files (fixture past 24 h),
   hence `-mtime -30`.
 - The walk arm is 2.4× slower than stock at the root **because it runs
-  serially**: `lfsp_thread_count` defaults to one thread, `lfs find` to 4 per
-  MDT. Glimpses and statahead both measured and ruled out first. → design
+  serially**: `lfsp_thread_count` defaults to one thread, `lfs find` to
+  min(4/MDT, CPUs/2), floored at 4. Glimpses and statahead both measured and ruled out first. → design
   open question 6: `llapi_scan()`'s walk branch must inherit find's
   parallelism.
 

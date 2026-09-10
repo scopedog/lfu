@@ -175,8 +175,8 @@ stock's 9 s.  Three checks, one cold run each:
 Stock waits 28.85 s on requests inside an 8.89 s wall, with user+sys above
 the wall: several at once.  The walk waits 18.57 s inside 19.39 s: one at a
 time.  In source, lfs find picks its threads in
-calculate_default_thread_count() (liblustreapi_pfind.c): 4 per MDT, capped
-at half the CPUs.  llapi_scan_namespace()'s lfsp_thread_count is "0 or 1:
+calculate_default_thread_count() (lfs.c): min(4 per MDT, half the
+CPUs), and never below 4 -- so 4 on this 4-CPU client.  llapi_scan_namespace()'s lfsp_thread_count is "0 or 1:
 the caller's own thread" (lustreapi.h).  The harness left it unset.  (That
 formula is from this series' tree; the client's stock lfs is 2.17.52, whose
 parallelism the measurement shows whatever its formula.)

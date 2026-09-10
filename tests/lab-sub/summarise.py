@@ -22,7 +22,7 @@ def med(scope, arm):
 
 print(f"{'scope':24} {'arm':6} {'n':>2} {'count':>7} {'median':>8} {'range':>17} {'spread':>7}")
 for scope in scopes:
-    for arm in ('stock', 'ns', 'mount'):
+    for arm in ('stock', 'ns', 'ns1', 'ns4', 'ns8', 'mount'):
         w = rows.get((scope, arm))
         if not w:
             continue

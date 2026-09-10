@@ -1,0 +1,239 @@
+The walk with lfsp_thread_count set (design-llapi-scan open question 6)
+=======================================================================
+2026-09-10.  Follows subtree-two-node.txt, which found llapi_scan_namespace()
+2.4x slower than stock lfs find at the root with the same 88k getattrs,
+no OST requests and statahead ruled out -- because the scan ran one request
+at a time (lfsp_thread_count defaults to the caller's own thread) where lfs
+find ran ~3.2 at once.  This sets the thread count and measures again.
+
+Same two VMs (server 192.168.122.10, client 192.168.122.101, 4 vCPUs each),
+same 88k fixture remounted with NOFORMAT=1 (lfs df -i: 88,230 used, as
+before), same predicate -mtime -30 -type f, same library
+(liblustreapi.so md5 aa07bd58aa83 on both nodes).  The harness gained a
+thread-count argument and an atomic match counter: above one thread its
+callback runs on several workers at once, and a plain ++ would undercount.
+
+What stock lfs find uses, from source (calculate_default_thread_count(),
+lfs.c; the client's 2.17.52 tree has the same function):
+    threads = min(4 x MDTs, CPUs / 2), then raised to at least 4
+On this client, one MDT and 4 CPUs: min(4, 2) = 2, floored to 4.  So stock
+runs 4 threads here, and ns4 is the like-for-like arm.  (The MDT count comes
+from llapi_get_obd_count(), which the llapi_scan_mount() work found returns
+the descriptor array size rather than the MDT count; it cannot change the
+answer on this client, where the floor decides.)
+
+Arms, alternated, caches dropped on BOTH nodes before every run
+(tests/lab-sub/benchthreads.sh):
+  stock   lfs find, its default (4 threads here)
+  ns1     llapi_scan_namespace(), lfsp_thread_count = 1 (the default)
+  ns4     llapi_scan_namespace(), lfsp_thread_count = 4
+  ns8     llapi_scan_namespace(), lfsp_thread_count = 8
+  mount   llapi_scan_mount(), for reference
+
+
+Correctness under threads: FID sets and duplicates
+--------------------------------------------------
+Every matching FID from the walk at 1, 4 and 8 threads, sorted, compared
+with comm(1), and checked for duplicates -- a thread bug can deliver an
+object twice and still print a plausible count.
+
+  scope                threads  lines   unique  dup  set diff vs 1 thread
+  /mnt/lustre          1        87944   87944   0    --
+  /mnt/lustre          4        87944   87944   0    0 / 0
+  /mnt/lustre          8        87944   87944   0    0 / 0
+  /mnt/lustre/bench/d3 1        10000   10000   0    --
+  /mnt/lustre/bench/d3 4        10000   10000   0    0 / 0
+  /mnt/lustre/bench/d3 8        10000   10000   0    0 / 0
+
+The same walls, taken warm during the oracle (no cache drop, one run each,
+not the measurement): root 21.97 s -> 8.03 s -> 7.18 s; d3 2.44 s -> 2.26 s
+-> 2.21 s.  Threads close the gap at the root and barely move one directory.
+
+The benchmark: -mtime -30 -type f, cold, five alternating rounds
+-----------------------------------------------------------------
+100 runs; every arm's count constant across its five.  Raw rows at the end.
+
+  scope                  arm    count   median   range           spread
+  /mnt/lustre            stock  87944    8.886   8.678-9.209     +-3.0%
+  /mnt/lustre            ns1    87944   21.456  20.806-22.062    +-2.9%
+  /mnt/lustre            ns4    87944    9.050   8.792-9.365     +-3.2%
+  /mnt/lustre            ns8    87944    7.779   7.351-7.825     +-3.0%
+  /mnt/lustre            mount  87946    0.295   0.286-0.301     +-2.5%
+  /mnt/lustre/bench      stock  87894    9.023   8.786-9.253     +-2.6%
+  /mnt/lustre/bench      ns1    87894   20.876  19.791-21.879    +-5.0%
+  /mnt/lustre/bench      ns4    87894    8.779   8.696-9.108     +-2.3%
+  /mnt/lustre/bench      ns8    87894    7.681   7.395-7.812     +-2.7%
+  /mnt/lustre/bench      mount  87894    0.400   0.396-0.425     +-3.6%
+  /mnt/lustre/bench/d3   stock  10000    2.531   2.501-2.610     +-2.2%
+  /mnt/lustre/bench/d3   ns1    10000    2.411   2.342-2.564     +-4.6%
+  /mnt/lustre/bench/d3   ns4    10000    2.489   2.369-2.594     +-4.5%
+  /mnt/lustre/bench/d3   ns8    10000    2.390   2.303-2.643     +-7.1%
+  /mnt/lustre/bench/d3   mount  10000    0.409   0.399-0.412     +-1.6%
+  /mnt/lustre/d0         stock     50    0.035   0.034-0.036     +-2.9%
+  /mnt/lustre/d0         ns1       50    0.032   0.032-0.035     +-4.7%
+  /mnt/lustre/d0         ns4       50    0.033   0.031-0.034     +-4.5%
+  /mnt/lustre/d0         ns8       50    0.033   0.032-0.035     +-4.5%
+  /mnt/lustre/d0         mount     50    0.403   0.400-0.410     +-1.2%
+
+  scope          ns1/ns4   ns4/stock   ns8/stock   stock/mount   ns4/mount
+  /               2.37x      1.02x       0.88x        30.1x        30.7x
+  bench           2.38x      0.97x       0.85x        22.6x        21.9x
+  bench/d3        0.97x      0.98x       0.94x         6.2x         6.1x
+  d0              0.97x      0.94x       0.94x         0.1x         0.1x
+
+Requests in flight, one cold run each (tests/lab-sub/inflight.sh): the mdc
+req_waittime sum over the run's wall.
+
+  scope        arm    wall    user   sys    getattrs  avg-us  waits  in-flight
+  /            stock   9.20   1.29  10.28     87944     339   29.90    3.25
+  /            ns1    21.33   0.09   1.92     87944     231   20.42    0.96
+  /            ns4     8.51   1.27   8.92     87944     320   28.23    3.32
+  /            ns8     7.59   1.09   8.42     87944     539   47.52    6.26
+  bench/d3     stock   2.53   0.31   2.49     10000     235    2.36    0.93
+  bench/d3     ns1     2.41   0.01   0.24     10000     228    2.29    0.95
+  bench/d3     ns4     2.47   0.35   2.37     10000     234    2.34    0.95
+  bench/d3     ns8     2.34   0.29   2.19     10000     222    2.23    0.95
+
+What it says
+------------
+1. The gap was the default and nothing else.  With lfsp_thread_count = 4,
+   stock's own count here, llapi_scan_namespace() matches lfs find: 1.02x at
+   the root, 0.97x for bench, both inside the +-3% spreads.  Same request
+   count, same opcode, and now the same concurrency: 3.32 in flight against
+   3.25.  One thread is 2.37x slower; that is the whole story of
+   subtree-two-node.txt's walk column.
+
+2. Threads parallelise ACROSS directories, not within one.  bench/d3 is a
+   single directory of 10,000 files, and every arm walks it one request at a
+   time -- 0.93-0.95 in flight for stock, 1, 4 and 8 threads alike -- so
+   threads buy nothing there (2.39-2.53 s, inside the spread).  The idle
+   workers still cost CPU: user+sys 2.6 s at 4 or 8 threads against 0.25 s
+   at one, for the same wall.  d0 is too small for threads to matter.
+
+3. Past stock's count, the MDT is the limit.  8 threads put 6.26 requests
+   in flight and each slows from 320 us to 539 us, so twice the concurrency
+   buys 1.16x (0.88x stock at the root, 0.85x for bench).  That is this
+   lab's MDT -- one VM, loop-file targets -- and says nothing about a real
+   one; it is not a case for a higher default.
+
+4. The offload's ratios hold against a fair walk.  Against ns4: 30.7x at
+   the root, 21.9x for bench, 6.1x for d3, and still 11x slower for d0.
+   subtree-two-node.txt quoted stock rather than its walk column, and stock
+   and ns4 agree, so none of its conclusions move.  The crossover bracket
+   is unchanged: ns4 costs 103 us per file at the root and 249 us in d3,
+   against the offload's ~4.6 us per object on the MDT -- 2-5% of the
+   filesystem.
+
+5. For llapi_scan(): the walk branch must not inherit the scan's default of
+   one thread, and with find's count it loses nothing to lfs find.  The two
+   ways to get there are in design open question 6.  Not measured: DNE,
+   where find's formula reads llapi_get_obd_count() for the MDT term -- the
+   call that answers 64 on one MDT -- so on a client with more than 8 CPUs
+   it would pick CPUs/2 rather than 4 per MDT.
+
+Lab left shut down: client unmounted, targets unmounted by
+llmountcleanup.sh (no format), both VMs off.
+
+Raw rows (benchthreads.sh)
+--------------------------
+# scope                   arm      count   wall(s)  harness-line
+/mnt/lustre               stock     87944    8.678  stock
+/mnt/lustre               ns1       87944   21.439  ns /mnt/lustre: threads=1 match=87944 seen=87956 emitted=87956 filtered=0 skipped=0 wall=21.421
+/mnt/lustre               ns4       87944    9.365  ns /mnt/lustre: threads=4 match=87944 seen=87956 emitted=87956 filtered=0 skipped=0 wall=9.346
+/mnt/lustre               ns8       87944    7.721  ns /mnt/lustre: threads=8 match=87944 seen=87956 emitted=87956 filtered=0 skipped=0 wall=7.702
+/mnt/lustre               mount     87946    0.289  mount /mnt/lustre: threads=0 match=87946 seen=88051 emitted=87961 filtered=0 skipped=0 wall=0.271
+/mnt/lustre               stock     87944    8.886  stock
+/mnt/lustre               ns1       87944   21.964  ns /mnt/lustre: threads=1 match=87944 seen=87956 emitted=87956 filtered=0 skipped=0 wall=21.946
+/mnt/lustre               ns4       87944    9.147  ns /mnt/lustre: threads=4 match=87944 seen=87956 emitted=87956 filtered=0 skipped=0 wall=9.129
+/mnt/lustre               ns8       87944    7.779  ns /mnt/lustre: threads=8 match=87944 seen=87956 emitted=87956 filtered=0 skipped=0 wall=7.761
+/mnt/lustre               mount     87946    0.286  mount /mnt/lustre: threads=0 match=87946 seen=88051 emitted=87961 filtered=0 skipped=0 wall=0.267
+/mnt/lustre               stock     87944    9.209  stock
+/mnt/lustre               ns1       87944   21.456  ns /mnt/lustre: threads=1 match=87944 seen=87956 emitted=87956 filtered=0 skipped=0 wall=21.438
+/mnt/lustre               ns4       87944    8.906  ns /mnt/lustre: threads=4 match=87944 seen=87956 emitted=87956 filtered=0 skipped=0 wall=8.888
+/mnt/lustre               ns8       87944    7.351  ns /mnt/lustre: threads=8 match=87944 seen=87956 emitted=87956 filtered=0 skipped=0 wall=7.332
+/mnt/lustre               mount     87946    0.301  mount /mnt/lustre: threads=0 match=87946 seen=88051 emitted=87961 filtered=0 skipped=0 wall=0.282
+/mnt/lustre               stock     87944    9.013  stock
+/mnt/lustre               ns1       87944   22.062  ns /mnt/lustre: threads=1 match=87944 seen=87956 emitted=87956 filtered=0 skipped=0 wall=22.044
+/mnt/lustre               ns4       87944    8.792  ns /mnt/lustre: threads=4 match=87944 seen=87956 emitted=87956 filtered=0 skipped=0 wall=8.774
+/mnt/lustre               ns8       87944    7.821  ns /mnt/lustre: threads=8 match=87944 seen=87956 emitted=87956 filtered=0 skipped=0 wall=7.803
+/mnt/lustre               mount     87946    0.298  mount /mnt/lustre: threads=0 match=87946 seen=88051 emitted=87961 filtered=0 skipped=0 wall=0.280
+/mnt/lustre               stock     87944    8.837  stock
+/mnt/lustre               ns1       87944   20.806  ns /mnt/lustre: threads=1 match=87944 seen=87956 emitted=87956 filtered=0 skipped=0 wall=20.787
+/mnt/lustre               ns4       87944    9.050  ns /mnt/lustre: threads=4 match=87944 seen=87956 emitted=87956 filtered=0 skipped=0 wall=9.031
+/mnt/lustre               ns8       87944    7.825  ns /mnt/lustre: threads=8 match=87944 seen=87956 emitted=87956 filtered=0 skipped=0 wall=7.807
+/mnt/lustre               mount     87946    0.295  mount /mnt/lustre: threads=0 match=87946 seen=88051 emitted=87961 filtered=0 skipped=0 wall=0.276
+/mnt/lustre/bench         stock     87894    9.023  stock
+/mnt/lustre/bench         ns1       87894   19.791  ns /mnt/lustre/bench: threads=1 match=87894 seen=87904 emitted=87904 filtered=0 skipped=0 wall=19.773
+/mnt/lustre/bench         ns4       87894    8.748  ns /mnt/lustre/bench: threads=4 match=87894 seen=87904 emitted=87904 filtered=0 skipped=0 wall=8.730
+/mnt/lustre/bench         ns8       87894    7.681  ns /mnt/lustre/bench: threads=8 match=87894 seen=87904 emitted=87904 filtered=0 skipped=0 wall=7.662
+/mnt/lustre/bench         mount     87894    0.400  mount /mnt/lustre/bench: threads=0 match=87894 seen=88051 emitted=87904 filtered=57 skipped=0 wall=0.382
+/mnt/lustre/bench         stock     87894    9.097  stock
+/mnt/lustre/bench         ns1       87894   21.879  ns /mnt/lustre/bench: threads=1 match=87894 seen=87904 emitted=87904 filtered=0 skipped=0 wall=21.861
+/mnt/lustre/bench         ns4       87894    8.779  ns /mnt/lustre/bench: threads=4 match=87894 seen=87904 emitted=87904 filtered=0 skipped=0 wall=8.761
+/mnt/lustre/bench         ns8       87894    7.626  ns /mnt/lustre/bench: threads=8 match=87894 seen=87904 emitted=87904 filtered=0 skipped=0 wall=7.607
+/mnt/lustre/bench         mount     87894    0.425  mount /mnt/lustre/bench: threads=0 match=87894 seen=88051 emitted=87904 filtered=57 skipped=0 wall=0.407
+/mnt/lustre/bench         stock     87894    8.786  stock
+/mnt/lustre/bench         ns1       87894   21.606  ns /mnt/lustre/bench: threads=1 match=87894 seen=87904 emitted=87904 filtered=0 skipped=0 wall=21.587
+/mnt/lustre/bench         ns4       87894    8.696  ns /mnt/lustre/bench: threads=4 match=87894 seen=87904 emitted=87904 filtered=0 skipped=0 wall=8.677
+/mnt/lustre/bench         ns8       87894    7.812  ns /mnt/lustre/bench: threads=8 match=87894 seen=87904 emitted=87904 filtered=0 skipped=0 wall=7.794
+/mnt/lustre/bench         mount     87894    0.399  mount /mnt/lustre/bench: threads=0 match=87894 seen=88051 emitted=87904 filtered=57 skipped=0 wall=0.380
+/mnt/lustre/bench         stock     87894    8.984  stock
+/mnt/lustre/bench         ns1       87894   20.607  ns /mnt/lustre/bench: threads=1 match=87894 seen=87904 emitted=87904 filtered=0 skipped=0 wall=20.588
+/mnt/lustre/bench         ns4       87894    8.790  ns /mnt/lustre/bench: threads=4 match=87894 seen=87904 emitted=87904 filtered=0 skipped=0 wall=8.772
+/mnt/lustre/bench         ns8       87894    7.395  ns /mnt/lustre/bench: threads=8 match=87894 seen=87904 emitted=87904 filtered=0 skipped=0 wall=7.376
+/mnt/lustre/bench         mount     87894    0.396  mount /mnt/lustre/bench: threads=0 match=87894 seen=88051 emitted=87904 filtered=57 skipped=0 wall=0.378
+/mnt/lustre/bench         stock     87894    9.253  stock
+/mnt/lustre/bench         ns1       87894   20.876  ns /mnt/lustre/bench: threads=1 match=87894 seen=87904 emitted=87904 filtered=0 skipped=0 wall=20.858
+/mnt/lustre/bench         ns4       87894    9.108  ns /mnt/lustre/bench: threads=4 match=87894 seen=87904 emitted=87904 filtered=0 skipped=0 wall=9.089
+/mnt/lustre/bench         ns8       87894    7.693  ns /mnt/lustre/bench: threads=8 match=87894 seen=87904 emitted=87904 filtered=0 skipped=0 wall=7.674
+/mnt/lustre/bench         mount     87894    0.403  mount /mnt/lustre/bench: threads=0 match=87894 seen=88051 emitted=87904 filtered=57 skipped=0 wall=0.384
+/mnt/lustre/bench/d3      stock     10000    2.610  stock
+/mnt/lustre/bench/d3      ns1       10000    2.411  ns /mnt/lustre/bench/d3: threads=1 match=10000 seen=10001 emitted=10001 filtered=0 skipped=0 wall=2.393
+/mnt/lustre/bench/d3      ns4       10000    2.489  ns /mnt/lustre/bench/d3: threads=4 match=10000 seen=10001 emitted=10001 filtered=0 skipped=0 wall=2.471
+/mnt/lustre/bench/d3      ns8       10000    2.308  ns /mnt/lustre/bench/d3: threads=8 match=10000 seen=10001 emitted=10001 filtered=0 skipped=0 wall=2.290
+/mnt/lustre/bench/d3      mount     10000    0.411  mount /mnt/lustre/bench/d3: threads=0 match=10000 seen=88051 emitted=10001 filtered=77960 skipped=0 wall=0.392
+/mnt/lustre/bench/d3      stock     10000    2.501  stock
+/mnt/lustre/bench/d3      ns1       10000    2.564  ns /mnt/lustre/bench/d3: threads=1 match=10000 seen=10001 emitted=10001 filtered=0 skipped=0 wall=2.546
+/mnt/lustre/bench/d3      ns4       10000    2.594  ns /mnt/lustre/bench/d3: threads=4 match=10000 seen=10001 emitted=10001 filtered=0 skipped=0 wall=2.576
+/mnt/lustre/bench/d3      ns8       10000    2.643  ns /mnt/lustre/bench/d3: threads=8 match=10000 seen=10001 emitted=10001 filtered=0 skipped=0 wall=2.625
+/mnt/lustre/bench/d3      mount     10000    0.412  mount /mnt/lustre/bench/d3: threads=0 match=10000 seen=88051 emitted=10001 filtered=77960 skipped=0 wall=0.393
+/mnt/lustre/bench/d3      stock     10000    2.531  stock
+/mnt/lustre/bench/d3      ns1       10000    2.342  ns /mnt/lustre/bench/d3: threads=1 match=10000 seen=10001 emitted=10001 filtered=0 skipped=0 wall=2.324
+/mnt/lustre/bench/d3      ns4       10000    2.484  ns /mnt/lustre/bench/d3: threads=4 match=10000 seen=10001 emitted=10001 filtered=0 skipped=0 wall=2.466
+/mnt/lustre/bench/d3      ns8       10000    2.390  ns /mnt/lustre/bench/d3: threads=8 match=10000 seen=10001 emitted=10001 filtered=0 skipped=0 wall=2.371
+/mnt/lustre/bench/d3      mount     10000    0.407  mount /mnt/lustre/bench/d3: threads=0 match=10000 seen=88051 emitted=10001 filtered=77960 skipped=0 wall=0.388
+/mnt/lustre/bench/d3      stock     10000    2.606  stock
+/mnt/lustre/bench/d3      ns1       10000    2.418  ns /mnt/lustre/bench/d3: threads=1 match=10000 seen=10001 emitted=10001 filtered=0 skipped=0 wall=2.400
+/mnt/lustre/bench/d3      ns4       10000    2.567  ns /mnt/lustre/bench/d3: threads=4 match=10000 seen=10001 emitted=10001 filtered=0 skipped=0 wall=2.548
+/mnt/lustre/bench/d3      ns8       10000    2.303  ns /mnt/lustre/bench/d3: threads=8 match=10000 seen=10001 emitted=10001 filtered=0 skipped=0 wall=2.284
+/mnt/lustre/bench/d3      mount     10000    0.409  mount /mnt/lustre/bench/d3: threads=0 match=10000 seen=88051 emitted=10001 filtered=77960 skipped=0 wall=0.391
+/mnt/lustre/bench/d3      stock     10000    2.506  stock
+/mnt/lustre/bench/d3      ns1       10000    2.401  ns /mnt/lustre/bench/d3: threads=1 match=10000 seen=10001 emitted=10001 filtered=0 skipped=0 wall=2.383
+/mnt/lustre/bench/d3      ns4       10000    2.369  ns /mnt/lustre/bench/d3: threads=4 match=10000 seen=10001 emitted=10001 filtered=0 skipped=0 wall=2.350
+/mnt/lustre/bench/d3      ns8       10000    2.437  ns /mnt/lustre/bench/d3: threads=8 match=10000 seen=10001 emitted=10001 filtered=0 skipped=0 wall=2.418
+/mnt/lustre/bench/d3      mount     10000    0.399  mount /mnt/lustre/bench/d3: threads=0 match=10000 seen=88051 emitted=10001 filtered=77960 skipped=0 wall=0.381
+/mnt/lustre/d0            stock        50    0.034  stock
+/mnt/lustre/d0            ns1          50    0.032  ns /mnt/lustre/d0: threads=1 match=50 seen=51 emitted=51 filtered=0 skipped=0 wall=0.015
+/mnt/lustre/d0            ns4          50    0.031  ns /mnt/lustre/d0: threads=4 match=50 seen=51 emitted=51 filtered=0 skipped=0 wall=0.014
+/mnt/lustre/d0            ns8          50    0.032  ns /mnt/lustre/d0: threads=8 match=50 seen=51 emitted=51 filtered=0 skipped=0 wall=0.015
+/mnt/lustre/d0            mount        50    0.403  mount /mnt/lustre/d0: threads=0 match=50 seen=88051 emitted=51 filtered=87910 skipped=0 wall=0.384
+/mnt/lustre/d0            stock        50    0.034  stock
+/mnt/lustre/d0            ns1          50    0.033  ns /mnt/lustre/d0: threads=1 match=50 seen=51 emitted=51 filtered=0 skipped=0 wall=0.016
+/mnt/lustre/d0            ns4          50    0.033  ns /mnt/lustre/d0: threads=4 match=50 seen=51 emitted=51 filtered=0 skipped=0 wall=0.015
+/mnt/lustre/d0            ns8          50    0.033  ns /mnt/lustre/d0: threads=8 match=50 seen=51 emitted=51 filtered=0 skipped=0 wall=0.014
+/mnt/lustre/d0            mount        50    0.400  mount /mnt/lustre/d0: threads=0 match=50 seen=88051 emitted=51 filtered=87910 skipped=0 wall=0.382
+/mnt/lustre/d0            stock        50    0.035  stock
+/mnt/lustre/d0            ns1          50    0.032  ns /mnt/lustre/d0: threads=1 match=50 seen=51 emitted=51 filtered=0 skipped=0 wall=0.014
+/mnt/lustre/d0            ns4          50    0.034  ns /mnt/lustre/d0: threads=4 match=50 seen=51 emitted=51 filtered=0 skipped=0 wall=0.016
+/mnt/lustre/d0            ns8          50    0.035  ns /mnt/lustre/d0: threads=8 match=50 seen=51 emitted=51 filtered=0 skipped=0 wall=0.017
+/mnt/lustre/d0            mount        50    0.410  mount /mnt/lustre/d0: threads=0 match=50 seen=88051 emitted=51 filtered=87910 skipped=0 wall=0.391
+/mnt/lustre/d0            stock        50    0.036  stock
+/mnt/lustre/d0            ns1          50    0.035  ns /mnt/lustre/d0: threads=1 match=50 seen=51 emitted=51 filtered=0 skipped=0 wall=0.017
+/mnt/lustre/d0            ns4          50    0.033  ns /mnt/lustre/d0: threads=4 match=50 seen=51 emitted=51 filtered=0 skipped=0 wall=0.016
+/mnt/lustre/d0            ns8          50    0.035  ns /mnt/lustre/d0: threads=8 match=50 seen=51 emitted=51 filtered=0 skipped=0 wall=0.016
+/mnt/lustre/d0            mount        50    0.405  mount /mnt/lustre/d0: threads=0 match=50 seen=88051 emitted=51 filtered=87910 skipped=0 wall=0.387
+/mnt/lustre/d0            stock        50    0.035  stock
+/mnt/lustre/d0            ns1          50    0.032  ns /mnt/lustre/d0: threads=1 match=50 seen=51 emitted=51 filtered=0 skipped=0 wall=0.014
+/mnt/lustre/d0            ns4          50    0.034  ns /mnt/lustre/d0: threads=4 match=50 seen=51 emitted=51 filtered=0 skipped=0 wall=0.016
+/mnt/lustre/d0            ns8          50    0.033  ns /mnt/lustre/d0: threads=8 match=50 seen=51 emitted=51 filtered=0 skipped=0 wall=0.015
+/mnt/lustre/d0            mount        50    0.402  mount /mnt/lustre/d0: threads=0 match=50 seen=88051 emitted=51 filtered=87910 skipped=0 wall=0.384
