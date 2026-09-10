@@ -63,6 +63,45 @@ this is wiring, not new design.
 **Order:** 2 and 3 are prerequisites for a useful `lfind`; 1 is independent of
 both and is where the interesting number is.
 
+## Split out: `llapi_scan_mount()` wants a ticket of its own (2026-09-10)
+
+Draft in [`docs/tickets/llapi-scan-mount.md`](tickets/llapi-scan-mount.md),
+**not filed**. Three commits re-tagged to the placeholder **`LU-00000`** and
+must not be pushed until a real number replaces it:
+
+```
+88b725dc82  LU-00000 lfu: the Object Stream over OBD_IDX_READ
+7012838603  LU-00000 osd-zfs: the LFU record and an index walk
+3f47d8ec89  LU-00000 llapi: llapi_scan_mount(), a scan from a client
+```
+
+**Why.** LU-20721 is scoped as "`lfs find` offloaded to the servers" and had
+grown a public API that has nothing to do with `lfs find`. Same split and same
+reason as LU-20722: an API deliverable is not a tool deliverable, and
+`docs/tickets/` already carries `llapi-scan-api.md` and
+`llapi-scan-device.md` beside the tool tickets. The four now read:
+
+| | |
+|---|---|
+| LU-20720 | the engine — kernel OSD scanner and its ring |
+| LU-20722 | `llapi_scan_device()`'s kernel backend — server-local API |
+| **new** | **`llapi_scan_mount()` — client API and its transport** |
+| LU-20721 | `lfs find` offloaded — the tool, now with **zero commits**, which is honest |
+
+Transport and API stay in **one** ticket: the transport has no consumer
+without the API and the API cannot exist without it.
+
+**Done now because nothing is pushed.** Re-tagging cost three
+`git commit --amend`s today; after a push it would have cost a re-spin of
+three Gerrit changes and a review history that reads oddly. Verified the
+re-tag changed messages only — tree identical to `9f83713e58`, Change-Ids
+preserved, still 12 unpushed, no duplicates.
+
+**Left in LU-20720 deliberately:** `DORA_LFU` and `DOIF_INDEX`. They are
+iterator capabilities anything driving the otable could use, even though this
+is what they were built for. Said so in the draft so a reviewer is not
+surprised.
+
 ## `llapi_scan_mount()`: the client entry point (2026-09-10)
 
 `9f83713e58 LU-20721 llapi: llapi_scan_mount(), a scan from a client`, on
