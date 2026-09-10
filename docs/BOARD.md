@@ -63,6 +63,67 @@ this is wiring, not new design.
 **Order:** 2 and 3 are prerequisites for a useful `lfind`; 1 is independent of
 both and is where the interesting number is.
 
+## Item 3a done: LMA and SOM across the ring; layouts as presence (2026-09-10)
+
+`a674c4fe61 LU-20720 lfu: trusted.lma and trusted.som across the ring`, on
+`lu-20720`, **8 commits unpushed**. Measured, not projected, and oracle-checked
+both ways.
+
+### What crosses now, and how
+
+The producer reads `trusted.lma` for every object, `trusted.lov` and
+`trusted.som` for a regular file, `trusted.lmv` for a directory — all through
+`DORA_XATTR` while the iterator still holds the inode-table block. LMA and
+SOM cross **whole** (24 bytes each; the record already had the fields). LOV
+and LMV cross as **presence**: `struct llapi_scan_obj` gains `so_xa_present`,
+distinct from `so_xa_valid`, and `scan_size()` asks it. A backend with the
+bytes sets both; the kernel backend can say "striped" without handing the
+scanner a layout it would pass to `lfs find -O` as real. `-ERANGE` from the
+OSD gives no partial copy, so a header-only read was never on the table —
+presence and size are what a too-small buffer can learn, and that is enough
+for the size question.
+
+The 0x01 bit `lr_lfu` had free is `HAVE_LMA`; three reserved STATS slots
+become the OSD's xattr tier counters. Wire version stays 2: no field moved or
+changed meaning.
+
+### The numbers
+
+| | before | after | device oracle |
+|---|---|---|---|
+| `lustre-OST0000` | **1** | **44,005** | 44,005, **diff 0** |
+| `lustre-MDT0000` | 87,961 | 87,961 | 87,961, **diff 0** |
+| MDT `-size +0c / +1k / 0c` | — | 51 / 1 / 87,895 | same, all three |
+
+**Every one of the 263,939 xattr reads on the MDT was inline** — external 0,
+iget 0. Three reads per file, no I/O. The tier-1 model holds completely on
+an mkfs.lustre-formatted MDT.
+
+**Cost, alternating A/B, arms proven distinct by `srcversion`:** warm 88k
+scan 0.047 s → 0.083 s, ten runs each, three pairs (.0470/.0470/.0475 vs
+.0823/.0850/.0831). +36 ms for 264k reads = **136 ns per inline read**;
+against yesterday's 0.254 s cold scan, about +14%; against stock `lfs find`
+at 5.4 s, ~19× instead of 21×. Buys correct OST answers and correct sizes.
+If it ever matters: three name-searches of the in-inode area per file could
+be one pass.
+
+### What 3a does not do — 3b
+
+Names (`trusted.link`) and layout **bytes**. Both are variable-length and
+`struct lfu_rec` is a flat 168-byte struct; that is the wire-format decision
+(`lfu-wire-format`: deferred 2026-08-19, no owner, HLD asks for an
+extensible format). Not to be invented in an afternoon.
+
+### Lab notes
+
+- `make install` fails on `/sbin/mount.lustre: Device or resource busy` while
+  the fs is mounted, and aborts before the plugins; use
+  `make install-libLTLIBRARIES install-sbinPROGRAMS install-exec-hook`.
+- The oracle costs a stop/start of the target (~10 s); the client blocks and
+  resumes. `umount /mnt/lustre` first for the MDT.
+
+VM left **up and mounted**.
+
 ## Item 2 done: the target is bound per open (2026-09-10)
 
 `88280b26fd LU-20720 lfu: bind the target per open`, on `lu-20720`, now
