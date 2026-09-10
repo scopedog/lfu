@@ -1,8 +1,30 @@
 # LU-20462: the epic — status comments
 
-**LU-20462** is the LFU epic: Open, Artem Blagodarenko, four subtasks (LU-20603,
-LU-20605, LU-20606, LU-20611). Not ours to edit, so anything we want recorded
-there goes in as a comment.
+**LU-20462** is the LFU epic: Open, Artem Blagodarenko. Not ours to edit, so
+anything we want recorded there goes in as a comment.
+
+**Subtasks**, in the order they were filed:
+
+| | | |
+|---|---|---|
+| LU-20603 | `llapi_scan_namespace()`, the record and the callback | 2.18 |
+| LU-20605 | `lfs find` rebuilt on that record | 2.18 |
+| LU-20606 | `llapi_scan_device()`, the ldiskfs device scanner | 2.18 |
+| LU-20611 | find's predicates split from find's traversal; `lfind(8)` | 2.18 |
+| LU-20720 | the in-kernel OSD scanner — the engine | 2.19 |
+| LU-20721 | `lfs find` offloaded to the servers — **not written yet** | 2.19 |
+| LU-20722 | `lfind` on a live target — the third `llapi_scan_device()` backend | 2.19 |
+| *unfiled* | [`llapi_scan_mount()`](llapi-scan-mount.md) — client API and its transport | 2.19 |
+
+The first four were the epic's own when we picked it up; **LU-20720, LU-20721
+and LU-20722 we filed on 2026-09-09** and they are not reflected in the epic's
+description, which is the owner's to change. The last row is drafted and not
+filed; its commits carry the `LU-00000` placeholder.
+
+Drafts for each are beside this file — [`osd-scanner.md`](osd-scanner.md),
+[`lfs-find-on-osd-scanner.md`](lfs-find-on-osd-scanner.md),
+[`lfind-on-osd-scanner.md`](lfind-on-osd-scanner.md),
+[`llapi-scan-mount.md`](llapi-scan-mount.md).
 
 Written for the rich-text editor, per the recipe that worked on LU-20611: no
 double hyphens, asterisks or braces in the prose, and anything that must survive
@@ -69,4 +91,45 @@ We also have three concerns about the kmap_local_page sketch in that
 ticket, the LIFO unmapping rule, the page size cap on any single list or
 blob, and the extra round trip carrying the segment table. They belong on
 TLU-219 rather than here, and can wait until the format is settled.
+~~~
+
+---
+
+## Comment: the 2.19 subtasks, filed (draft, not posted)
+
+Written 2026-09-10. Records for the epic that the three 2.19 subtasks exist
+and how they divide, since the epic's description still describes only the
+2.18 work.
+
+~~~
+The server-side half now has tickets. Three subtasks were filed on
+2026-09-09 and a fourth is drafted:
+
+```
+LU-20720  the in-kernel OSD scanner, the engine underneath the rest
+LU-20722  lfind on a live target: llapi_scan_device()'s third backend,
+          reading a mounted target through its own server
+LU-XXXXX  llapi_scan_mount(): a client asks every MDT to scan itself and
+          the records stream back in bulk, plus the transport that
+          carries them
+LU-20721  lfs find offloaded to the servers, which is the tool on top of
+          that API and is not written yet
+```
+
+The split between the last two is the same one that separates LU-20722 from
+LU-20721: an API deliverable is not a tool deliverable, and each is worth
+reviewing on its own. LU-20722 and LU-20721 both consume the engine and are
+independent of each other.
+
+Two numbers from a two-node lab, an 88 thousand file filesystem, the
+predicate mtime minus one and type f, five alternating pairs with caches
+dropped on both nodes. Stock lfs find takes 8.770 seconds and 88028 round
+trips to the MDT. The offloaded scan takes 0.292 seconds and 20. That is
+thirty times on the wall clock and four thousand four hundred times on the
+round trips, with a noise floor two orders of magnitude below the gap.
+
+Our own lfs find, rebuilt on the scan record by LU-20605 and LU-20611, was
+measured in the same run as a third arm: 9.037 seconds against upstream's
+9.107, which is inside the run to run spread. The rewrite costs nothing on
+the namespace walk.
 ~~~
