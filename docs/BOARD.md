@@ -98,6 +98,30 @@ That last line is the point of the harness: it spells its predicate out, and
 object set.** A finished `lfs find` would apply the classifier and land on
 87,946.
 
+### Our own `lfs find` does not regress the walk
+
+Third arm, same run, alternating: the series' `lfs` (the LU-20605/LU-20611
+rewrite of find onto the scan record) against upstream's.
+
+| arm | count | median | range | RPCs |
+|---|---|---|---|---|
+| stock `lfs find` | 87,944 | 9.107 s | 8.861–9.339 (±2.6%) | 88,028 |
+| **ours** | 87,944 | **9.037 s** | 8.806–9.719 (±5.0%) | 88,027 |
+| offloaded | 87,958 | 0.292 s | 0.282–0.296 (±2.4%) | 20 |
+
+**0.8% apart, and ours' range contains stock's entire range** — no
+measurable difference. Same answer, same round trips, same 11.3 s of CPU.
+The rewrite carries no cost on the namespace walk, which is the thing to be
+able to say when it lands.
+
+**Not 68160 exactly.** `lfs.c` and `liblustreapi_pfind.c` differ between
+68160 and the tip — #11–#20 touch the find path too — so this is the tip.
+Since the tip is indistinguishable from stock, nothing in between regressed
+it either, which is the question 68160 would have been asked.
+
+**Quote ~30×, not 30.0×.** Between-session drift moved stock's median from
+8.770 to 9.107 (4%) on the same setup, larger than the within-run spread.
+
 ### What the number does not say
 
 - **The harness is a spike consumer, not `lfs find`.** The client-side

@@ -44,3 +44,41 @@ Caveats:
    network widens this, since only the stock arm pays per-round-trip.
  - stock's user+sys (10.9 s) exceeds its wall (8.8 s): it burns more than
    one core on RPC processing.  The offload spends 0.01 s of CPU.
+
+
+Three arms: does OUR lfs find regress the walk?  (2026-09-10, same setup)
+=========================================================================
+"ours" is the series tip's lfs (2.17.57) with its own liblustreapi, i.e.
+the LU-20605/LU-20611 rewrite of find onto the scan record.  NOT 68160
+exactly: #11-#20 touch the find path too (changelog find, fid2path naming,
+batch API, slash trim), so lfs.c/liblustreapi_pfind.c differ from 68160's.
+
+# arm      count   wall(s)  user  sys
+stock       87944    9.339  1.41 10.22
+ours        87944    8.806  1.30 9.75
+offload     87958    0.282  0.00 0.01
+stock       87944    9.038  1.41 9.95
+ours        87944    9.239  1.27 9.89
+offload     87958    0.295  0.00 0.01
+stock       87944    9.107  1.31 9.73
+ours        87944    9.719  1.37 10.77
+offload     87958    0.292  0.00 0.01
+stock       87944    9.122  1.34 10.07
+ours        87944    8.937  1.31 9.94
+offload     87958    0.292  0.00 0.01
+stock       87944    8.861  1.34 9.82
+ours        87944    9.037  1.42 10.07
+offload     87958    0.296  0.00 0.01
+
+median   stock 9.107 (8.861-9.339, +-2.6%)
+         ours  9.037 (8.806-9.719, +-5.0%)
+         offld 0.292 (0.282-0.296, +-2.4%)
+
+ours vs stock: 0.8% apart, and ours' range CONTAINS stock's entire range.
+No measurable difference.  Same answer (87944 both), same round trips
+(88027 vs 88028), same CPU (11.3 s both).  The find rewrite costs nothing
+on the namespace walk.
+
+Between-session drift: the two-arm run earlier the same day put stock's
+median at 8.770, this one at 9.107 -- 4%, larger than the within-run
+spread.  So quote ~30x, not 30.0x or 31x.
