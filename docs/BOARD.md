@@ -63,6 +63,34 @@ this is wiring, not new design.
 **Order:** 2 and 3 are prerequisites for a useful `lfind`; 1 is independent of
 both and is where the interesting number is.
 
+## Round 24 PUSHED: 15 changes (2026-09-10)
+
+Pushed `49206c2ffe` (#20 of 26) to `refs/for/master`, so the six `lu-20720`
+commits stay local as intended. All 15 took a new patchset and **no new
+change was created** — the highest change number is still 68727.
+
+| change | PS | |
+|---|---|---|
+| 68156 | 19 | `lfsp_stats` moved to the end |
+| 68157–68159 | 19 | carried |
+| 68160 | 20 | carried |
+| 68163 | 19 | the fix: backend into the programs, `lfsp_search` appended |
+| 68288 | 14 | `lfsp_fsname` placement |
+| 68415–68420 | 12 | carried |
+| 68726, 68727 | 3 | carried |
+
+68094 (PS18), 68095 (PS19), 68231, 68616 and 68617 are untouched and were
+not re-pushed.
+
+**What CI has to answer**, since the lab could not: whether 131d goes green.
+The mechanism behind the stale errno on rocky8.10 is still unidentified —
+the control on the 2.2.11/glibc 2.34 VM linked libzpool into `rwv` and 131d
+passed anyway. What the fix rests on is that it removes the only difference
+between the passing PS17 and the failing PS18 build.
+
+Watch the janitor's `sanity2@ldiskfs+DNE` and `sanity2@zfs` on 68163 first —
+it is the lowest of the fifteen, so it answers soonest.
+
 ## sanity 131d: libzpool reached every program that links liblustreapi (2026-09-10)
 
 Ten changes failed `sanity2 test_131d` on both backends in the round-23
