@@ -270,6 +270,35 @@ checked in all 23 commits that define the struct that its field order and
 **It costs five more changes in the push** — amending 68156 respins
 68157–68160 — so the round is 15, not 10.
 
+### Run on the VM against a real target
+
+The VM's `/dev/vdb` is `testfs-MDT0000`, stopped — which is the state a
+device scan wants, and the scan is read-only, so the fixture is untouched.
+
+- `llapi_scan_device_test -d /dev/vdb`: **7 of 7 pass**, including test6,
+  which is the `lfsp_size` negotiation arms — so the struct reorder is
+  exercised, not just inspected.
+- `lfind --device /dev/vdb -type f`: **496 objects**.
+- 131d's own commands on the built `rwv`: `NOB=1572864`.
+
+**The ZFS slot, proved against the unfixed build.** A name without a leading
+slash is a dataset, so it goes to the ZFS backend and never reaches
+`scan_device_exists()`'s stat:
+
+| build | `nm` | `lfind --device tank/nosuch` |
+|---|---|---|
+| without `-Wl,-u` | `w scan_zfs_open` | `Operation not supported` (ENOTSUP) |
+| with `-Wl,-u` | `T scan_zfs_open` | `cannot open tank/nosuch: No such file or directory` |
+
+The second is libzpool actually running and saying there is no such pool.
+**And the unfixed control still scans ldiskfs fine — 496 objects, the same
+answer** — which is exactly why that failure mode is silent: everything
+looks healthy and only ZFS targets quietly answer ENOTSUP.
+
+Not run, for want of an OST on this VM: sanity 131d through the framework
+(its commands were run directly instead) and conf-sanity 300/302. Those are
+CI's to answer.
+
 ## The OSD scanner in the tree, and 21x over stock lfs find (2026-09-09)
 
 One day, on branch `lu-20720` in `lustre-scanfid` (off the round-23 tip,
