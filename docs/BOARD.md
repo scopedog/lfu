@@ -63,6 +63,162 @@ this is wiring, not new design.
 **Order:** 2 and 3 are prerequisites for a useful `lfind`; 1 is independent of
 both and is where the interesting number is.
 
+## sanity 131d: libzpool reached every program that links liblustreapi (2026-09-10)
+
+Ten changes failed `sanity2 test_131d` on both backends in the round-23
+janitor runs — 68163, 68288, 68415–68420, 68726, 68727 — with
+
+```
+sanity test_131d: @@@@@@ FAIL: Short read filed: read or bytes instead of 1572864
+```
+
+**It is ours, and deterministic.** Not flaky, not the janitor's heuristic.
+
+### The chain, each link checked
+
+- 68163 **PS17 passed 131d in 9s** (build 69903); **PS18 failed in 93s**
+  (69958). The ancestry #1–#10 is byte-identical between the two builds, so
+  the only content difference is 68163's own patchset.
+- That delta is docs, tests, and the `zpool_kern_set` probe candidate added
+  the day before. The build consoles:
+
+| build | `checking zfs libzpool headers usable from userspace...` |
+|---|---|
+| 69903 (PS17) | `no` |
+| 69958 (PS18) | `-DLIB_ZPOOL_BUILD -I/usr/local/usr/include/libspl … -I /usr/local/src/zfs-2.3.2/include` |
+
+- Autotest configures `--disable-shared`, so `PLUGINS` is **false** and the
+  arm that compiles backends *in* is live. `liblustreapi.la` linked
+  `libscan_zfs_in.la … -lzpool -lnvpair`.
+- `rwv_LDADD = $(LIBLUSTREAPI)`, so every test helper dragged libzpool in.
+
+### Why 131d and nothing else
+
+131d's read is short **by design** — 2 MB asked of a 1.5 MB file — so
+`rwv`'s `printf("Read error: %s rc = %d", strerror(errno), rc)` always
+fires, and the test's `awk '/error/ {print $6}'` only lands on the byte
+count while `errno == 0` and `strerror` is the one word "Success".
+`read or bytes` means `$6 == "or"`: the fourth word of "No such file **or**
+directory". A stale non-zero errno at `main()`. The test is fragile — it
+breaks for anyone who adds a constructor-carrying library to liblustreapi —
+but that is upstream's, and **the user's call was to hold it, not file it**.
+
+### Three theories killed before the right one
+
+- **Bucket shift.** Our 531 new sanity lines move 131d from line 18431 to
+  18763. Compared the sanity2 test lists of the passing and failing jobs:
+  byte-identical, same tests, same order.
+- **A bad batch of builders.** 68413 was tested in the *same* later batch
+  (69956) and passed, so it splits by content, not by time or node.
+- **The loader leaving errno set.** Measured: ld.so probing failing paths
+  leaves `errno == 0` at `main()`. It is a constructor, not the loader.
+
+**The cross-patch search Maloo cannot do for initial testing:** the janitor
+numbers builds sequentially across *all* reviews and each
+`gerrit-janitor/<n>/results.html` names its review in the `<title>`. Sweeping
+69800–69990 found 113 other-people builds that ran sanity2 and **not one hit
+131d**.
+
+### The fix: the backend goes in the programs, not the library
+
+The first attempt — drop the ZFS backend from the no-plugins arm — was
+**wrong and was replaced**. §"The CI had no ZFS scan backend" above records
+that the third probe candidate was added *deliberately* to stop conf-sanity
+302 failing on ZFS; removing the backend sends 300 and 302 back to
+`skip "no $ost1_FSTYPE scan backend in this build"`, silently and with no
+red. lreview caught the same shape from the other side: with the backend
+gone `-DHAVE_ZFS_SCAN` went too, leaving the `#ifdef` machinery in
+`liblustreapi_scan_device.c` gated on a macro nothing defines.
+
+What went in instead, as mount.lustre already does with `-lzfs -lnvpair
+-lzpool`:
+
+- the five `scan_zfs_*` prototypes gain `LLAPI_SCAN_ZFS_WEAK` in
+  `lustreapi_scan_backend.h`, guarded `#if defined(HAVE_ZFS_SCAN) &&
+  !defined(PLUGIN_DIR)`. That guard makes it one-sided for free —
+  `HAVE_ZFS_SCAN` is liblustreapi's own flag, so `libscan_zfs.c` compiles
+  without it and still defines them **strongly**;
+- `libscan_zfs_in.la` moves from `liblustreapi_la_LIBADD` to `lfind_LDADD`
+  and `llapi_scan_device_test_LDADD`, the two programs 300 and 302 drive.
+  `lfind` is sbin and SERVER-only, which is where a libzpool dependency
+  belongs;
+- `scan_backend_load_zfs()` returns early on `scan_zfs_open == NULL`.
+
+**The weak reference alone does not link the backend in, and the failure is
+silent.** A harness said a convenience library would be enough — its objects
+are linked in whole — and *the lab build proved that wrong*: libtool hands
+`libscan_zfs_in.la` to the link as a plain `.a`, and an undefined *weak*
+symbol is not a reason for the linker to extract an archive member. `nm
+lfind` still read `w scan_zfs_open` and the binary held no libzpool symbol
+at all, so `lfind` would have answered `-ENOTSUP` on a build that has the
+backend, saying nothing about why.
+
+Both programs now name one symbol undefined up front,
+`-Wl,-u,scan_zfs_open`, which extracts the member that defines it and brings
+the other four with it. Measured three ways in the harness: plain archive →
+ENOTSUP; `-u` → `T scan_zfs_open`; `--whole-archive` → also works, and is
+the heavier instrument.
+
+**This is the reason to build before pushing.** Every generated-makefile
+check passed while the binary was wrong.
+
+### Verified on the lab, including what did *not* verify
+
+RHEL 9.7 VM, `--disable-shared` with ldiskfs, zfs and server all on and
+`libzpool headers usable = yes` — the same shape as CI. Built `lib/libcfs`,
+`lnet`, `lustre/utils`, `lustre/tests` clean under `-Wall -Werror`, then on
+the binaries themselves:
+
+| binary | `scan_zfs_open` | libzpool symbols |
+|---|---|---|
+| `lfind` | `T` (defined) | 2 |
+| `llapi_scan_device_test` | `T` (defined) | — |
+| **`rwv`** | — | **0** |
+| **`lfs`** | — | **0** |
+
+`rwv` — the binary 131d actually runs — carries no libzpool, which is the
+whole point. And 131d's own commands against the fixed `rwv` give
+`Read error: Success rc = 1572864`, `NOB=1572864`, pass.
+
+**A second stale-binary trap:** the first `nm` after the `-u` change still
+read `w scan_zfs_open`, because `make` had not relinked `lfind` — only the
+Makefile changed, and automake's link rule does not depend on it. `rm` the
+binaries and re-make. Same family as the stale `lfind` in
+§"round 18 lab".
+
+**What is NOT proven.** The control — the same `rwv` relinked *with*
+`-lzpool -lnvpair`, `ldd` confirming it really depends on `libzpool.so.5` —
+**also passes 131d** on this VM. So libzpool's startup does not leave errno
+set under ZFS 2.2.11 and glibc 2.34, and the mechanism that produced `or`
+on the builders (rocky8.10, glibc 2.28, ZFS 2.3.2) is unidentified.
+
+What stands without it: the built product's *only* difference between the
+passing PS17 and the failing PS18 is that liblustreapi — and so every
+program linking it — gained libzpool and libnvpair. This change removes
+exactly that difference for every binary except `lfind` and the device
+test. CI is where it gets confirmed; do not claim the mechanism until it
+does.
+
+Generated makefiles confirm `liblustreapi_la_LIBADD` resolves to `-ldl`
+(PLUGINS) or `-lext2fs` (PLUGINS_FALSE+LDISKFS) and **no `-lzpool` under any
+configuration**, while `scan_osd_zfs.so` still builds wherever plugins are —
+which is what ships, `%bcond_without shared`.
+
+### lreview, and one more real finding
+
+3 findings, severity low, $6.37/13m. One was the option-A flaw above. One is
+fixed here: conf-sanity 300's OST half gated on `ost1_FSTYPE ==
+mds1_FSTYPE`, but `facet_fstype()` reads the facet's own `MDSFSTYPE`/
+`OSTFSTYPE` first, so an **ldiskfs OST under a ZFS MDT** is a real
+combination that the match-gate left unscanned by a backend that can read
+it. It now asks `ldiskfs || zfs` about ost1 for itself.
+
+**Deferred:** the probe is `AC_COMPILE_IFELSE`, so a tree with usable
+headers but no linkable libzpool still sets `enable_zfs_scan=yes` and moves
+the failure to `make`. Real, but changing the probe again — without a build
+that can prove the new behaviour on the builders — is exactly the move that
+caused this entry. Next round.
+
 ## The OSD scanner in the tree, and 21x over stock lfs find (2026-09-09)
 
 One day, on branch `lu-20720` in `lustre-scanfid` (off the round-23 tip,
