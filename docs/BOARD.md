@@ -4,6 +4,77 @@ Every ticket and Gerrit id in play, and the ones that are *not* ours. Regenerate
 the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
 **2026-09-06**.
 
+## The OSD series folded for review, and `Test-Parameters: ignore` verified (2026-09-10)
+
+Branch `lu-20720-fold` in `lustre-scanfid`, **9 commits off `49206c2ffe`,
+unpushed**. `lu-20720-orig` keeps the 12-commit shape it replaces.
+
+### `Test-Parameters: ignore` is real, and it fails rather than skips
+
+Andreas' advice checked before use. It is honoured, but not the way the name
+suggests:
+
+| check | result |
+|---|---|
+| landed git history | **0 uses** — and that proves nothing: `ignore` blocks landing by design, so it *cannot* appear in `git log`. Wrong instrument. |
+| open changes on Gerrit | 25+ in active use, both `ignore` and `Ignore` |
+| Maloo / Autotest | never run on a tagged patchset |
+| jenkins | posts **Verified-1 "Build Failed"** — 25 of 25 open tagged changes |
+| Gerrit Janitor | **still runs, every patchset** (240 comments on 65918) |
+
+Change **60441** is the natural experiment: PS1 `Test-Parameters: trivial` →
+Verified+1 with Maloo and Autotest; PS3 `Test-Parameters: ignore` →
+Verified-1 with neither. Nothing else changed. The red Verified-1 *is* the
+mechanism that blocks landing — it is not a build to debug. So `ignore` buys
+no build and no test, **not** no review.
+
+### The fold: 12 commits → 9, and no `wip` subjects
+
+Four commits were titled `wip …` with the body "Port of the out-of-tree
+patches, to be split and rewritten" — publishing those under our name on a
+public review server was not worth it. Rewritten with real messages (trees
+untouched). And the item-2/3a/3b commits folded into B1/C2 as the board has
+said since 09-10, so a reviewer of B1 does not review a module-parameter
+design that the next commit deletes.
+
+| # | commit | |
+|---|---|---|
+| 1-4 | Group A | reworded only; attributes + private iterator, readahead, block parse, xattrs |
+| 5 | B1 `lfu.ko` | absorbs the kernel half of items 2, 3a, 3b |
+| 6 | C2 `libscan_kernel.c` | absorbs the userspace half of the same three |
+| 7-9 | LU-20730 | trailer only |
+
+The three folds split **cleanly by path** — kernel half is exactly
+`lustre_lfu.h` + `lustre/lfu/`, userspace half exactly `lustre/utils/`, no
+file unclassified.
+
+### What was verified, and the one build that was actually needed
+
+**Tree hashes did the work.** Comparing the two series commit by commit:
+commits 1-4 and 7-9 have trees *byte-identical* to the originals, and C2's
+tree equals the old item-3b tree — already built and lab-tested. Exactly
+**one** tree in the new series never existed before: B1, which has the kernel
+side folded in but not the userspace side, so `lfu_ring.c` must compile
+without its consumer.
+
+And B1 needed no VM either: every file it touches
+(`lustre_lfu.h`, `lustre/Makefile`, `lustre/lfu/Makefile`, `lfu_ring.c`) is
+byte-identical to item-3b's, and *every* difference between B1 and item-3b
+lies under `lustre/utils/`, which cannot affect a module build. The local
+tree is `--disable-modules --disable-server`, so this replaced the VM rather
+than skipping the check.
+
+- **Final tree hash** equals the original tip's, `dec3a8d4` — the fold moved
+  changes between commits and lost none. (Then one deliberate fix on top.)
+- **Userspace build at all 9 commits**: green.
+- **Change-Ids**: all 9 preserved, so Gerrit keeps the identities.
+- **checkpatch**: one real finding, fixed — `lustreapi.7`'s SEE ALSO had
+  `llapi_scan_mount` before `llapi_scan_fid`. The rest is the known noise
+  (MAINTAINERS) plus inherited style in the ported Group A code: trailing
+  `*/` on its own line and a few 81-87 column lines. **Owed**, with the
+  `Documentation/man4/` pages for the module parameters, when Group A is
+  split properly for landing.
+
 ## Tomorrow: the RPC spike, and two owed items (2026-09-09, end of day)
 
 Branch `lu-20720` in `lustre-scanfid`, **6 commits off the round-23 tip,
