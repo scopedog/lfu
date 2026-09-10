@@ -174,6 +174,7 @@ footer p { max-width: none; }
     <li><a href="#extra">Beyond the HLD</a></li>
     <li><a href="#left">What Phase 1 still owes</a></li>
     <li><a href="#p2">Phase 2</a></li>
+    <li><a href="#offload">The offload, measured</a></li>
     <li><a href="#risks">What could go wrong</a></li>
   </ol>
 </nav>
@@ -181,7 +182,7 @@ footer p { max-width: none; }
 <main>
 
 <header class="masthead">
-  <p class="eyebrow">LU-20462 &middot; progress against the HLD &middot; 2026-09-01</p>
+  <p class="eyebrow">LU-20462 &middot; progress against the HLD &middot; 2026-09-01 &middot; offload measured 2026-09-10</p>
   <h1>LFU Phase 1</h1>
   <p class="standfirst">
     Every module the HLD names as initial and client- or device-side is written
@@ -326,17 +327,17 @@ footer p { max-width: none; }
         <tr><td>Changelog Input Scanner</td><td><span class="chip rev">in review</span></td><td>68415 &mdash; LU-20649</td></tr>
         <tr><td>Changelog Output Filter</td><td><span class="chip none">not started</span></td><td>designed and partly <em>refused</em>: the MDS has only SOM, so a size filter there would drop big files</td></tr>
         <tr><td>Index Input Scanner &mdash; OST object index, oldest atime, largest file</td><td><span class="chip none">not started</span></td><td>&mdash;</td></tr>
-        <tr><td>Binary Object Stream format</td><td><span class="chip ext">not ours</span></td><td>blocks the RPC modules and every cross-node use</td></tr>
-        <tr><td>OSD API Input Scanner</td><td><span class="chip p2">Phase 2</span></td><td>prototyped and measured, not submitted</td></tr>
-        <tr><td>Kernel API for Object Stream &mdash; the <code>circ_buf</code> ring</td><td><span class="chip p2">Phase 2</span></td><td>designed against <code>ofd_access_log.c</code> as precedent</td></tr>
-        <tr><td>Server Bulk RPC Filter Rule</td><td><span class="chip p2">Phase 2</span></td><td>needs the format first</td></tr>
+        <tr><td>Binary Object Stream format</td><td><span class="chip ext">not ours</span></td><td>the RPC transport went ahead without it, on one byte order; a defined wire byte order is still owed to it</td></tr>
+        <tr><td>OSD API Input Scanner</td><td><span class="chip p2">Phase 2</span></td><td>68810&ndash;68813 &mdash; LU-20720, on Gerrit as an unlandable preview</td></tr>
+        <tr><td>Kernel API for Object Stream &mdash; the <code>circ_buf</code> ring</td><td><span class="chip p2">Phase 2</span></td><td><code>lfu.ko</code>, modelled on <code>ofd_access_log.c</code> &mdash; 68814, LU-20720, preview</td></tr>
+        <tr><td>Server Bulk RPC Filter Rule</td><td><span class="chip p2">Phase 2</span></td><td>the stream crosses <code>OBD_IDX_READ</code> in bulk &mdash; 68816, LU-20730, preview. No filter runs on the server yet</td></tr>
 
         <tr class="grp"><td colspan="3">Client-side changes</td></tr>
         <tr><td>Lustre Namespace Input Scanner</td><td><span class="chip rev">in review</span></td><td>68094 &mdash; LU-20603</td></tr>
         <tr><td><code>lfs find</code> Filter Rule and Output Format</td><td><span class="chip rev">in review</span></td><td>68095, 68157, 68158, 68159 &mdash; LU-20605, LU-20611</td></tr>
         <tr><td>FID &rarr; pathname Output Format</td><td><span class="chip rev">in review</span></td><td>68288 &mdash; LU-20637. Resolution now asks nothing of the target being scanned &mdash; written and lab-verified 2026-09-01, <strong>not yet pushed</strong>; see below</td></tr>
         <tr><td>POSIX Input Scanner</td><td><span class="chip rev">in review</span></td><td>68094 &mdash; LU-20603. The same scanner with a stat for an attribute source, as the HLD asks, rather than a second crawler. LU-20665, which fetches with <code>statx(2)</code> so a birth time answers off Lustre, is written and held back until this round is reviewed</td></tr>
-        <tr><td>Client Bulk RPC Filter Rule</td><td><span class="chip p2">Phase 2</span></td><td>needs the format first</td></tr>
+        <tr><td>Client Bulk RPC Filter Rule</td><td><span class="chip p2">Phase 2</span></td><td><code>llapi_scan_mount()</code> reads that stream from a client &mdash; 68818, LU-20730, preview; <a href="#offload">measured below</a></td></tr>
 
         <tr class="grp"><td colspan="3">Future improvements, per the HLD</td></tr>
         <tr><td>Structured output formats &mdash; JSON, BSON, Parquet</td><td><span class="chip none">not started</span></td><td>&mdash;</td></tr>
@@ -466,7 +467,7 @@ footer p { max-width: none; }
     <table>
       <thead><tr><th>#</th><th>Item</th><th>Blocked by</th></tr></thead>
       <tbody>
-        <tr><td class="num">1</td><td><strong>Object Stream binary format</strong></td><td>a decision that is not ours; evaluation not started. Blocks 2 and every cross-node use</td></tr>
+        <tr><td class="num">1</td><td><strong>Object Stream binary format</strong></td><td>a decision that is not ours; evaluation not started. Blocks 2 and any stream persisted or crossing byte orders</td></tr>
         <tr><td class="num">2</td><td><strong>Merge / Split Filter Rule</strong> &mdash; this is what covers a DNE filesystem</td><td>partly the format. Without it <code>lfind</code> does one target per invocation and nothing assembles the whole namespace</td></tr>
         <tr><td class="num">3</td><td><strong>Raw Write / Raw Read</strong> &mdash; persist the stream and read it back</td><td>the format. It is also how multi-node merge works before any RPC exists</td></tr>
         <tr><td class="num">4</td><td><strong>Changelog Output Filter</strong>, and the three indexes</td><td>nothing external &mdash; simply not started</td></tr>
@@ -481,12 +482,14 @@ footer p { max-width: none; }
 </section>
 
 <section id="p2">
-  <h2>Phase 2, deliberately untouched</h2>
+  <h2>Phase 2, on Gerrit as a preview</h2>
   <p>
     Phase 2 is the in-kernel half, for 2.19: the OSD API Input Scanner, the
     <code>circ_buf</code> kernel&rarr;userspace ring, and the bulk RPC modules
-    on both sides. None of it is submitted, and that is the plan rather than a
-    slip.
+    on both sides. Since 2026-09-10 nine changes carry it on Gerrit,
+    68810&ndash;68818, tagged <code>Test-Parameters: ignore</code>: no build,
+    no test, and unlandable by design. It is a preview of the shape for 2.19,
+    not a request to merge, and it is deliberately not being monitored.
   </p>
   <p>
     Two things about it are already known rather than assumed. The OSD scanner
@@ -510,6 +513,108 @@ footer p { max-width: none; }
       measuring against the <code>read()</code> path before committing to it.
       The requirements rank zero-copy export only Medium, below the scanner
       itself.
+    </p>
+  </div>
+</section>
+
+<section id="offload">
+  <h2>The offload, measured</h2>
+  <p>
+    Phase 2 exists so that a search does not cost one round trip per object.
+    On 2026-09-10 that was measured end to end: the MDT&rsquo;s own iterator
+    streams its objects across <code>OBD_IDX_READ</code> to a client, and
+    <code>llapi_scan_mount()</code> hands them to the same find pipeline.
+    Two VMs, one MDT, 88k files, <code>-mtime -30 -type f</code>, caches
+    dropped on both nodes before every run, median of five.
+  </p>
+  <div class="scores">
+    <div class="score"><span class="n">30&times;</span><span class="l">stock <code>lfs find</code> at the root, in 21 round trips against 88,029</span></div>
+    <div class="score"><span class="n">0.40&nbsp;s</span><span class="l">for any subtree offloaded, whatever it returns</span></div>
+    <div class="score"><span class="n">1.02&times;</span><span class="l">the walk at 4 threads against <code>lfs find</code> &mdash; the gap was a default</span></div>
+    <div class="score q"><span class="n">2&ndash;5%</span><span class="l">of the filesystem where walking starts to win &mdash; interpolated</span></div>
+  </div>
+
+  <div class="tw">
+    <table>
+      <thead><tr><th>Scope</th><th>Share</th><th>Stock <code>lfs find</code></th><th>Walk, 4 threads</th><th>Offload</th><th>Offload vs stock</th></tr></thead>
+      <tbody>
+        <tr><td><code>/</code></td><td class="num">100%</td><td class="num">8.886 s</td><td class="num">9.050 s</td><td class="num">0.295 s</td><td class="num"><strong>30&times; faster</strong></td></tr>
+        <tr><td><code>bench</code></td><td class="num">99.9%</td><td class="num">9.023 s</td><td class="num">8.779 s</td><td class="num">0.400 s</td><td class="num">23&times; faster</td></tr>
+        <tr><td><code>bench/d3</code></td><td class="num">11.4%</td><td class="num">2.531 s</td><td class="num">2.489 s</td><td class="num">0.409 s</td><td class="num">6.2&times; faster</td></tr>
+        <tr><td><code>d0</code></td><td class="num">0.06%</td><td class="num">0.035 s</td><td class="num">0.033 s</td><td class="num">0.403 s</td><td class="num">11&times; slower</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>
+    Every subtree answer was checked against the walk as a set of FIDs, not a
+    count: no difference in either direction. At the root the offload returns
+    two more &mdash; files with no name, which no walk can reach.
+  </p>
+  <div class="note">
+    <span class="lbl">Why a subtree costs the same as the filesystem</span>
+    <p>
+      A target walks its objects in inode order and has no notion of a
+      subtree, and the parent that decides whether an object belongs is read
+      off the object itself. So membership cannot be used to skip a read. A
+      subtree is decided on the client, after a directory-only pass builds a
+      map of the tree: the root&rsquo;s 0.295&nbsp;s plus about 40%, and twice
+      the round trips, for 87,894 files or for 50.
+    </p>
+    <p>
+      Walking versus offloading therefore turns on what share of the
+      filesystem a directory holds &mdash; roughly 2&ndash;5% here, between
+      <code>d0</code> and <code>d3</code> &mdash; and a client cannot know that
+      share without walking. That is why the planned <code>llapi_scan()</code>
+      front door offloads a whole-filesystem search and walks everything else
+      unless told otherwise.
+    </p>
+  </div>
+
+  <h3>The walk&rsquo;s first result was a default, not a cost</h3>
+  <p>
+    The first run put <code>llapi_scan_namespace()</code> 2.4&times; behind
+    stock <code>lfs find</code> at the root, with the same 88k getattrs, no OST
+    requests, and no change when statahead was switched off. The difference
+    was how many requests were in flight. <code>lfs find</code> picks
+    min(4&nbsp;per MDT, CPUs&thinsp;/&thinsp;2) and never fewer than four; the
+    scan&rsquo;s <code>lfsp_thread_count</code> defaults to the caller&rsquo;s
+    own thread.
+  </p>
+  <div class="tw">
+    <table>
+      <thead><tr><th>Walk</th><th><code>/</code> wall</th><th>In flight</th><th><code>bench/d3</code> wall</th><th>In flight</th></tr></thead>
+      <tbody>
+        <tr><td>stock <code>lfs find</code> (4 threads)</td><td class="num">8.886 s</td><td class="num">3.25</td><td class="num">2.531 s</td><td class="num">0.93</td></tr>
+        <tr><td>1 thread &mdash; the scan&rsquo;s default</td><td class="num">21.456 s</td><td class="num">0.96</td><td class="num">2.411 s</td><td class="num">0.95</td></tr>
+        <tr><td>4 threads</td><td class="num"><strong>9.050 s</strong></td><td class="num">3.32</td><td class="num">2.489 s</td><td class="num">0.95</td></tr>
+        <tr><td>8 threads</td><td class="num">7.779 s</td><td class="num">6.26</td><td class="num">2.390 s</td><td class="num">0.95</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>
+    Four threads match <code>lfs find</code>. Threads help only
+    <em>across</em> directories: <code>d3</code> is one directory of 10,000
+    files, and every configuration walks it one request at a time. Eight
+    threads run into this lab&rsquo;s MDT, each request slowing from
+    320&nbsp;&micro;s to 539&nbsp;&micro;s. The walk returns the same set of
+    FIDs at 1, 4 and 8 threads, with no duplicates. Walls are medians of five;
+    requests in flight come from one further run of each.
+  </p>
+  <div class="note cost">
+    <span class="lbl">Where these numbers stop</span>
+    <p>
+      Both nodes are VMs on one host, over a virtual bridge, with loop-file
+      targets and a single MDT. A real network raises the walk&rsquo;s cost
+      per round trip and moves the crossover lower; multiple MDTs are
+      untested. The subtree restriction is written and verified but not yet
+      pushed; the nine changes beneath it are the preview above.
+    </p>
+    <p>
+      Three earlier runs were thrown away for measuring the wrong thing: a
+      walk asked for every field, which paid for layouts the predicate never
+      reads and would have claimed 73&times;; and <code>-type f</code> on its
+      own, which <code>lfs find</code> answers from directory entries alone in
+      0.17&nbsp;s. Both showed it in their first row.
     </p>
   </div>
 </section>
@@ -547,6 +652,8 @@ footer p { max-width: none; }
     (Dilger 2026-04-03, Blagodarenko 2026-08-08);
     <a href="https://jira.whamcloud.com/browse/LU-20462">LU-20462</a> and its
     nine subtasks; the Gerrit board as of 2026-09-01.
+    Offload figures from <code>bench-data/2026-09-10/subtree-two-node.txt</code>
+    and <code>bench-data/2026-09-10/walk-threads-two-node.txt</code>.
     Performance figures from <code>measurements/cold-on-fast-storage-2026-08-16.md</code>
     and <code>measurements/blockparse-2026-08-16.md</code>.
   </p>
