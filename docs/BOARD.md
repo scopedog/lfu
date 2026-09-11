@@ -4,32 +4,93 @@ Every ticket and Gerrit id in play, and the ones that are *not* ours. Regenerate
 the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
 **2026-09-06**.
 
-## Tomorrow: start here (end of 2026-09-10)
+## Tomorrow: start here (end of 2026-09-11)
 
-**Nothing is running.** Both lab VMs shut down cleanly, fixture intact
-(`/tmp/lustre-mdt1` on `rhel9.7-server-mgs-mds-clone`; mount with
-`NOFORMAT=1`). Gerrit monitoring of 68810–68818 stopped on purpose (2.19).
+**Nothing is running.** The clone VM (`rhel9.7-server-mgs-mds-clone`) is up
+with no Lustre mounted, no modules loaded and no loop devices; the fixture
+(`/tmp/lustre-mdt1`, `/tmp/lustre-ost1`, `/tmp/lustre-ost2`) md5-checked
+unchanged after every run. Waiting on more AI reviews — the user's call at the
+end of the day.
 
-**Unpushed, and not to be pushed without asking:**
-- `lustre-scanfid` `lu-20720-fold`: `42eed1e556 LU-20730 llapi:
-  llapi_scan_mount() scans a subtree` — folds into 68818 when the series next
-  moves.
-- `lfu` repo: the design, bench, board and artifact commits of 09-10.
+**Everything from today is local and unpushed.** Two stacks, both carried and
+verified:
+
+- `lr-68160` `lu-20637-names-onto-lfs` = **1c4ec75ae5**, 9 commits: 68094,
+  68095, 68156, 68157, 68158, 68159, 68160, 68163, 68288. **lfind(8) is gone**
+  — 68160 is `lfs find --device DEVICE`, a bare block device, and `--fsname`
+  (lsnapshot's validation). See [[lfu-lfind-into-lfs-find]].
+- `lr-upper` `lu-upper-onto-lfs` = **36363eb242**, 17 commits: 68415–68420,
+  68726, 68727, 68810–68818.
+- `lr-68582` = **4f436091df** (LU-20546) and `lr-64945` = **828d176103**
+  (LU-20050): their own AI findings, code and message.
+- Backup tags before each rewrite: `backup/{lower,upper}-pre-fold-0911` and
+  `backup/{lower,upper}-pre-r2-0911`.
+- All 26 commits build clean, checkpatch findings identical to the originals,
+  find-device harness 30/30. On the VM: conf-sanity 300–304 PASS,
+  `llapi_scan_test` 4/6/11/12/14/15/16 PASS, sanity 56El PASS — and 56El FAILS
+  with the `!no_projid` guard removed, which is what says the new coverage
+  works.
 
 **Open, in the order they matter:**
-1. **`llapi_scan()` front door** — the user is still thinking about it.
-   Inputs now measured: rule 6 stands (subtree offload flat at ~0.40 s,
-   crossover ~2–5%); the walk branch must carry find's thread count (open
-   question 6); a predicate the dirent answers is never worth offloading
-   (open question 7).
-2. **Filter pushdown into `lfu.ko`** (open question 5) — turns fewer records
-   into fewer reads; subtree as its first predicate.
-3. **Owed before the OSD series can land:** `Documentation/man4/` pages for
-   the module parameters, Group A's checkpatch style, and a proper split of
-   Group A.
-4. **Untested:** DNE for the subtree map's lock and memo, filesets, hard links.
-5. **Progress artifact** masthead counts (19 changes / 0 landed) not
-   re-checked since 09-01 — check before re-sharing.
+
+1. **Push the round when the user says so.** Every reply posted today says
+   "Done in the next PS", so the push is what makes them true: the nine lower
+   changes, the seventeen upper ones, then 68582 and 64945 separately. 68094
+   and 68095 are in the carried set now and get new patchsets too.
+2. **68818's two adilger threads, open on purpose** (the OSD series was
+   skipped today): `CAP_DAC_READ_SEARCH` rather than `CAP_SYS_ADMIN` — the
+   page matches the code, so `mdc_request.c`'s `capable()` check changes with
+   it — and nodemap ID-offset filtering for multi-tenant scanning.
+3. **Still open from 09-10**: the `llapi_scan()` front door (user still
+   thinking; rule 6 stands, walk branch must carry find's thread count, a
+   dirent-answered predicate is never worth offloading); filter pushdown into
+   `lfu.ko`; `Documentation/man4/` pages plus Group A's style and split before
+   the OSD series can land; untested DNE for the subtree map, filesets, hard
+   links; the progress artifact's masthead counts (19 changes / 0 landed) not
+   re-checked since 09-01.
+4. `lustre-scanfid` `lu-20720-fold` `42eed1e556` still folds into 68818 when
+   that series next moves.
+
+**Traps today, all in memory:** VM test binaries carry `DT_RPATH` to
+`~/lfs68160-inst`, so an A/B arm needs `LD_PRELOAD`, not `LD_LIBRARY_PATH`
+([[lfu-vm-rpath-trap]]); the hand-built scan plugin needs `-lext2fs` or
+`dlopen()` fails on `unix_io_manager` and every scan answers `-ENOTSUP`
+([[lfu-scan-plugin-trap]]); an installed library is a libtool relink, so
+compare `.text`, not md5; and a fixup whose text a later commit *moves*
+conflicts twice, where `git log -S` shows nothing because a move keeps the
+occurrence count.
+
+## The AI-review round: six defects and 28 threads (2026-09-11)
+
+Andreas' CR-1 on 68160 (22 comments) and his 68159 round were worked through
+first; then a sweep of every open thread whose last word was not ours found 37,
+of which six were real defects. All six are fixed, each proven against the
+unfixed build, and folded into the commit that owns them
+([[lfu-defect-queue-0911]], [[lfu-unaddressed-threads-0911]]).
+
+| # | Change | Defect | unfixed → fixed |
+|---|---|---|---|
+| 1 | 68094 | `lfsp_size` tail read unbounded | SIGSEGV → `-EINVAL` (cap 4096) |
+| 2 | 68094 | `LMV_FOREIGN` alone fetched no LMV | `lfsp_got` 0x2000000001 → promise kept |
+| 3 | 68156 | OST `lfsp_got` promised MDT fields | 0x180800000000 → narrowed |
+| 4 | 68156 | one worker's EIO left the others running | 63/63 chunks → 0/63 |
+| 5 | 68726 | close guard one-sided | second close hangs → `-EBUSY` |
+| 6 | 68582 | `ptlrpc_req_put()` LBUGs a pool request | code path + VM module build |
+
+Nineteen more threads were fixed on the user's "fix, then reply" call: the
+linkea walk is a byte cursor now (`scan_linkea_next()`, fuzz-compared against
+the old index walk — 3M compares, 717k walk steps, 0 mismatches), `ss_emitted`
+is counted before the callback as a walk counts it, both end-of-scan warnings
+name their target, sanity 56El covers `--projid N` on an object with none, and
+the rest are man-page and commit-message corrections. Two declined with a
+reason: 68158's optind split (a b2_15 fix would target `lfs_find()`, which that
+patch replaces — the user's call) and the batch `lfsp_got`/`lfsp_stats` getter.
+
+**One correction worth keeping:** 68095's `Fixes:` tag. 6b8e97b76c47 stays —
+the `--foreign` arm printing the previous object's attributes is its, and
+`gather_all` entered the `cb_get_dirstripe()` condition there — with
+c99a393125bc and 3dad616e09fc added for the older halves. Check which bug a tag
+is for before proposing to replace it.
 
 ## The walk with threads: the 2.4× gap was the default (2026-09-10)
 
