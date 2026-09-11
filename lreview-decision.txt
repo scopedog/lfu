@@ -1,0 +1,4 @@
+- Resolving llapi_scan_fid() through mnt_fd rather than the composed absolute path.
+- Moving the trailing-slash trim into llapi_find_with_cb() and dropping three copies.
+- Missing tests: llapi_find_device(), llapi_scan_fid(), llapi_scan_changelog_test, lfind --local/--target/--internal, and a batch -EBUSY case that actually holds the window open.
+

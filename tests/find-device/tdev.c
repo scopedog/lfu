@@ -9,6 +9,8 @@ const char *progname = "tdev";
 
 int main(int argc, char **argv)
 {
+	struct llapi_scan_param sp = { .lfsp_size = sizeof(sp) };
+	struct llapi_scan_param *spp = NULL;
 	struct find_param param;
 	int pathstart, pathend;
 	bool stopped;
@@ -31,7 +33,11 @@ int main(int argc, char **argv)
 	 */
 	if (getenv("XMDT") != NULL)
 		param.fp_exclude_mdt = 1;
-	rc = llapi_find_device(argv[1], &param, NULL);
+	if (getenv("INTERNAL") != NULL) {
+		sp.lfsp_flags |= LLAPI_SCAN_F_INTERNAL;
+		spp = &sp;
+	}
+	rc = llapi_find_device(argv[1], &param, spp);
 	lfs_find_parse_fini(&param);
 	if (rc != 0)
 		fprintf(stderr, "llapi_find_device: rc=%d\n", rc);

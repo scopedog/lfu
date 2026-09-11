@@ -100,5 +100,25 @@ chk "%LF == the default output" "$(cmp -s a b && echo same)" same
 chk "a line per object" "$(./tdev mdt.img -printf 'x%Lc\n' 2>/dev/null | wc -l)" 18
 ./lift_want | tail -1
 
+echo "== an object with no trusted.lma: an IGIF on MDT0000 and nowhere else"
+# The same image under three labels.  osd_scrub_setup() allows an IGIF on MDT0
+# alone; elsewhere the object may be FID-on-OST or carry a FID a file-level
+# restore invalidated, and an OST object is named by the IDIF in trusted.fid.
+cp mdt.img mdt3.img && tune2fs -L testfs-MDT0003 mdt3.img >/dev/null
+INTERNAL=1 ./tdev mdt.img  2>/dev/null > m0.all
+INTERNAL=1 ./tdev mdt3.img 2>/dev/null > m3.all
+INTERNAL=1 ./tdev ost.img  2>/dev/null > o.all
+chk "same records whatever the label" \
+    "$(wc -l <m0.all) $(wc -l <m3.all) $(wc -l <o.all)" "27 27 27"
+# inode 12 is the first IGIF; 11 is FID_SEQ_RSVD, which fid_is_sane() wrongly
+# accepted and fid_is_igif() does not -- lost+found was [0xb:0x0:0x0].
+chk "MDT0000 inode 12 -> IGIF"  "$(grep -c '^\[0xc:0x0:0x0\]$' m0.all)" 1
+chk "MDT0000 inode 11 -> obj:"  "$(grep -c '^obj:11$' m0.all)" 1
+chk "MDT0000 no bad IGIF"       "$(grep -c '^\[0xb:0x0:0x0\]$' m0.all)" 0
+chk "MDT0003 builds no IGIF"    "$(grep -c '^\[0xc:0x0:0x0\]$' m3.all)" 0
+chk "MDT0003 inode 12 -> obj:"  "$(grep -c '^obj:12$' m3.all)" 1
+chk "OST builds no IGIF"        "$(grep -c '^\[0xc:0x0:0x0\]$' o.all)" 0
+chk "OST inode 12 -> obj:"      "$(grep -c '^obj:12$' o.all)" 1
+
 [ $fail -eq 0 ] && echo "ALL PASS" || echo "FAILURES"
 exit $fail
