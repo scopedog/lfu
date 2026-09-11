@@ -4,6 +4,33 @@ Every ticket and Gerrit id in play, and the ones that are *not* ours. Regenerate
 the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
 **2026-09-06**.
 
+## Tomorrow: start here (end of 2026-09-10)
+
+**Nothing is running.** Both lab VMs shut down cleanly, fixture intact
+(`/tmp/lustre-mdt1` on `rhel9.7-server-mgs-mds-clone`; mount with
+`NOFORMAT=1`). Gerrit monitoring of 68810–68818 stopped on purpose (2.19).
+
+**Unpushed, and not to be pushed without asking:**
+- `lustre-scanfid` `lu-20720-fold`: `42eed1e556 LU-20730 llapi:
+  llapi_scan_mount() scans a subtree` — folds into 68818 when the series next
+  moves.
+- `lfu` repo: the design, bench, board and artifact commits of 09-10.
+
+**Open, in the order they matter:**
+1. **`llapi_scan()` front door** — the user is still thinking about it.
+   Inputs now measured: rule 6 stands (subtree offload flat at ~0.40 s,
+   crossover ~2–5%); the walk branch must carry find's thread count (open
+   question 6); a predicate the dirent answers is never worth offloading
+   (open question 7).
+2. **Filter pushdown into `lfu.ko`** (open question 5) — turns fewer records
+   into fewer reads; subtree as its first predicate.
+3. **Owed before the OSD series can land:** `Documentation/man4/` pages for
+   the module parameters, Group A's checkpatch style, and a proper split of
+   Group A.
+4. **Untested:** DNE for the subtree map's lock and memo, filesets, hard links.
+5. **Progress artifact** masthead counts (19 changes / 0 landed) not
+   re-checked since 09-01 — check before re-sharing.
+
 ## The walk with threads: the 2.4× gap was the default (2026-09-10)
 
 Follow-up to the subtree benchmark. Harness only — no library change. Data
