@@ -1,0 +1,20 @@
+{
+ "tag": "review-reply",
+ "notify": "OWNER",
+ "comments": {
+  "lustre/tests/sanity.sh": [
+   {
+    "in_reply_to": "77aea866_cda6e04c",
+    "unresolved": false,
+    "message": "Done: gated on CLIENT_VERSION >= 2.17.57, so a missing binary now fails the test; 157d the same.",
+    "line": 21116
+   },
+   {
+    "in_reply_to": "eb27d35a_c3ad420c",
+    "unresolved": false,
+    "message": "Done: $LFS mkdir -i $((RANDOM % MDSCOUNT)); nothing in the test depends on MDT0000.",
+    "line": 21119
+   }
+  ]
+ }
+}

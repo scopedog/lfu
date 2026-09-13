@@ -1,0 +1,34 @@
+{
+ "tag": "review-reply",
+ "notify": "OWNER",
+ "comments": {
+  "/COMMIT_MSG": [
+   {
+    "in_reply_to": "240ce397_d30c2a50",
+    "unresolved": false,
+    "message": "Done.",
+    "line": 123
+   }
+  ],
+  "lustre/utils/liblustreapi_pfind.c": [
+   {
+    "in_reply_to": "e31be789_763c049d",
+    "unresolved": false,
+    "message": "Done: <cookie>.<pid>.<n>.new created O_EXCL for both the probe and the write, which keeps the umask's mode.",
+    "line": 4508
+   },
+   {
+    "in_reply_to": "09cfc4b1_e3849e15",
+    "unresolved": false,
+    "message": "Done.",
+    "line": 5383
+   },
+   {
+    "in_reply_to": "bd138920_0ca64035",
+    "unresolved": false,
+    "message": "Done: stdout is flushed and checked before the rewrite; 160ac asserts it with /dev/full.",
+    "line": 5692
+   }
+  ]
+ }
+}

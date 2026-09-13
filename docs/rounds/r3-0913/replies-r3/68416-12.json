@@ -1,0 +1,38 @@
+{
+ "tag": "review-reply",
+ "notify": "OWNER",
+ "comments": {
+  "/COMMIT_MSG": [
+   {
+    "in_reply_to": "adac49ea_55ec1eb3",
+    "unresolved": false,
+    "message": "Done.",
+    "line": 99
+   }
+  ],
+  "lustre/tests/llapi_scan_test.c": [
+   {
+    "in_reply_to": "1f5eb08c_c66f5a65",
+    "unresolved": false,
+    "message": "Done.",
+    "line": 767
+   }
+  ],
+  "lustre/utils/liblustreapi_pfind.c": [
+   {
+    "in_reply_to": "00ea7018_5dc001c0",
+    "unresolved": false,
+    "message": "Done.",
+    "line": 4064
+   }
+  ],
+  "lustre/utils/liblustreapi_scan.c": [
+   {
+    "in_reply_to": "afc96fd0_383b463f",
+    "unresolved": false,
+    "message": "Done: narrowed to this function's own syscalls, with the three path-based gather opens named, here and in the page.",
+    "line": 703
+   }
+  ]
+ }
+}

@@ -1,0 +1,42 @@
+{
+ "tag": "review-reply",
+ "notify": "OWNER",
+ "comments": {
+  "include/lustre/lustreapi.h": [
+   {
+    "in_reply_to": "bfa7b47a_36ccc135",
+    "unresolved": false,
+    "message": "Done.",
+    "line": 694
+   }
+  ],
+  "lustre/tests/llapi_scan_changelog_test.c": [
+   {
+    "in_reply_to": "b3c1e9ac_6810cb8e",
+    "unresolved": false,
+    "message": "Done.",
+    "line": 317
+   },
+   {
+    "in_reply_to": "e156feaf_fc84a97d",
+    "unresolved": false,
+    "message": "Done.",
+    "line": 509
+   }
+  ],
+  "lustre/utils/liblustreapi_scan_changelog.c": [
+   {
+    "in_reply_to": "aa575ca1_90979a63",
+    "unresolved": false,
+    "message": "Done.",
+    "line": 93
+   },
+   {
+    "in_reply_to": "617400ed_85d4df57",
+    "unresolved": false,
+    "message": "Done.",
+    "line": 238
+   }
+  ]
+ }
+}

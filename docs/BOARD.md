@@ -4,6 +4,36 @@ Every ticket and Gerrit id in play, and the ones that are *not* ours. Regenerate
 the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
 **2026-09-06**.
 
+## Start here (2026-09-13): round 3 fixed, not pushed
+
+The overnight AI reviews of 09-11/12 and adilger's two 68094 comments: 42
+threads, each verified against the carried stack. **40 fixed, 1 already
+fixed (68288 44cf4ff2), 1 moot (68160 bd2794d9, lfind.c is gone), 1
+declined** (68417 7d9d284f: linkno 1 would skip a name when link 0 is
+unlinked mid-run).
+
+- Tips: `lu-upper-onto-lfs` = `r3-0913` = **a324654503** (all 26 commits),
+  `lu-20637-names-onto-lfs` = `fold-r2` = **30c83d610b**. Backups
+  `backup/{upper,lower}-pre-r3-0913`. 68582 and 64945 unchanged.
+- Behavioural fixes, each proven against the unfixed build: `--since-cookie`
+  temporaries private to the run (overlapping runs lost the rewrite), a
+  failed stdout holds the cookie (sanity 160ac `/dev/full` fails on the old
+  library), `--since 18:00` seconds, a failed MDT count is an error (exit
+  0 -> 5), changelog `sc_got` names the lazy bits, ZFS stops declaring
+  NODUMP, `LMV_SHARD` = 1<<47, 157c/157d gate on `CLIENT_VERSION` and put
+  157c on a random MDT.
+- Verified: build sweep 26/26 clean, checkpatch identical per commit,
+  trailers identical; VM sanity 157c 157d 160aa-ad and conf-sanity 300-304
+  PASS, fixture untouched. **Not run:** the two ZFS changes (compile only),
+  157c under DNE.
+- Replies for all 42 are drafted (`docs/rounds/r3-0913/replies-r3/`); they
+  go out after the push, on the patchset each comment was written on.
+- Noted, not chased: every commit message in the series has lost its
+  backslashes (Gerrit too); Janitor calls sanity2 test_160g new on
+  68813/68818.
+
+**Open:** push when the user says so; the 09-11 list below still stands.
+
 ## Tomorrow: start here (end of 2026-09-11)
 
 **Nothing is running.** The clone VM (`rhel9.7-server-mgs-mds-clone`) is up

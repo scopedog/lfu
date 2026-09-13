@@ -1,0 +1,38 @@
+{
+ "tag": "review-reply",
+ "notify": "OWNER",
+ "comments": {
+  "/COMMIT_MSG": [
+   {
+    "in_reply_to": "2d0b68e4_82a47a55",
+    "unresolved": false,
+    "message": "Done.",
+    "line": 30
+   }
+  ],
+  "Documentation/man1/lfs-find.1": [
+   {
+    "in_reply_to": "b3d55630_283fe1f3",
+    "unresolved": false,
+    "message": "Done: the sentence is gone; the case cannot occur.",
+    "line": 839
+   }
+  ],
+  "include/lustre/lustreapi.h": [
+   {
+    "in_reply_to": "3b37662f_376903fd",
+    "unresolved": false,
+    "message": "Done.",
+    "line": 474
+   }
+  ],
+  "lustre/utils/liblustreapi_pfind.c": [
+   {
+    "in_reply_to": "195af7cb_898c79a3",
+    "unresolved": false,
+    "message": "Done.",
+    "line": 4726
+   }
+  ]
+ }
+}

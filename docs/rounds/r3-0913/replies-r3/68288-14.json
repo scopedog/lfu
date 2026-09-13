@@ -1,0 +1,44 @@
+{
+ "tag": "review-reply",
+ "notify": "OWNER",
+ "comments": {
+  "/COMMIT_MSG": [
+   {
+    "in_reply_to": "cb25d398_b46d27d4",
+    "unresolved": false,
+    "message": "Done.",
+    "line": 45
+   }
+  ],
+  "Documentation/man3/llapi_scan_rec_path.3": [
+   {
+    "in_reply_to": "ede43c98_309f7ed1",
+    "unresolved": false,
+    "message": "Done.",
+    "line": 58
+   }
+  ],
+  "include/lustre/lustreapi.h": [
+   {
+    "in_reply_to": "ae6a9326_b2fdb9f7",
+    "unresolved": false,
+    "message": "Done: LMV_SHARD takes 1<<47; 1<<49..52 are the changelog bits LU-20649 adds, so the set is packed.",
+    "line": 625
+   }
+  ],
+  "lustre/utils/liblustreapi_pfind.c": [
+   {
+    "in_reply_to": "44cf4ff2_be14bcdd",
+    "unresolved": false,
+    "message": "Already fixed in the next patchset: --paths hands over the map whenever the pre-pass ran.",
+    "line": 3883
+   },
+   {
+    "in_reply_to": "4e556ce9_1a9c4e4d",
+    "unresolved": false,
+    "message": "Done.",
+    "line": 3942
+   }
+  ]
+ }
+}

@@ -1,0 +1,30 @@
+{
+ "tag": "review-reply",
+ "notify": "OWNER",
+ "comments": {
+  "/COMMIT_MSG": [
+   {
+    "in_reply_to": "3d25f00b_d19277d9",
+    "unresolved": false,
+    "message": "Done.",
+    "line": 9
+   }
+  ],
+  "Documentation/man1/lfs-find.1": [
+   {
+    "in_reply_to": "080e9b9d_b27ac903",
+    "unresolved": false,
+    "message": "Done in the --since patch: tm_sec is zeroed for the time-only forms.",
+    "line": 726
+   }
+  ],
+  "lustre/tests/sanity.sh": [
+   {
+    "in_reply_to": "6cf9bb05_2aedef83",
+    "unresolved": false,
+    "message": "Done.",
+    "line": 22990
+   }
+  ]
+ }
+}

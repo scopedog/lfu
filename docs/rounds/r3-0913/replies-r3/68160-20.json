@@ -1,0 +1,22 @@
+{
+ "tag": "review-reply",
+ "notify": "OWNER",
+ "comments": {
+  "lustre/tests/conf-sanity.sh": [
+   {
+    "in_reply_to": "6379d8eb_09115e2b",
+    "unresolved": false,
+    "message": "Done: removed here; --search arrives with the ZFS backend in LU-20613.",
+    "line": 12969
+   }
+  ],
+  "lustre/utils/lfind.c": [
+   {
+    "in_reply_to": "bd2794d9_fb9d03f1",
+    "unresolved": false,
+    "message": "lfind.c is gone in the next patchset (lfs find --device), and the pre-pass with it.",
+    "line": 182
+   }
+  ]
+ }
+}

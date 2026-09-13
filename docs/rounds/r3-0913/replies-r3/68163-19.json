@@ -1,0 +1,28 @@
+{
+ "tag": "review-reply",
+ "notify": "OWNER",
+ "comments": {
+  "/COMMIT_MSG": [
+   {
+    "in_reply_to": "4fe322a2_8276ee15",
+    "unresolved": false,
+    "message": "Done.",
+    "line": 95
+   }
+  ],
+  "lustre/utils/libscan_zfs.c": [
+   {
+    "in_reply_to": "a3ac0b0d_2f3295d2",
+    "unresolved": false,
+    "message": "Done.",
+    "line": 639
+   },
+   {
+    "in_reply_to": "2cdfde78_7cc2df0c",
+    "unresolved": false,
+    "message": "Done: narrowed to IMMUTABLE|APPEND, page and backend header with it.",
+    "line": 723
+   }
+  ]
+ }
+}

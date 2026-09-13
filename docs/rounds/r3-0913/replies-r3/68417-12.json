@@ -1,0 +1,42 @@
+{
+ "tag": "review-reply",
+ "notify": "OWNER",
+ "comments": {
+  "Documentation/man1/lfs-find.1": [
+   {
+    "in_reply_to": "a2ba1626_45f9942c",
+    "unresolved": false,
+    "message": "Done: --since moves above --size in both sections.",
+    "line": 143
+   }
+  ],
+  "Documentation/man3/llapi_find_since.3": [
+   {
+    "in_reply_to": "fff5372a_3b75a7c6",
+    "unresolved": false,
+    "message": "Done, and the duplicate paragraph under the second -ENOTSUP is gone.",
+    "line": 113
+   }
+  ],
+  "lustre/utils/liblustreapi_pfind.c": [
+   {
+    "in_reply_to": "7d9d284f_8b396a7c",
+    "unresolved": true,
+    "message": "Leaving it at 0: the entries shift when a name is removed, so starting at 1 skips a name if link 0 goes mid-run. One ioctl per hardlinked candidate buys that.",
+    "line": 4057
+   },
+   {
+    "in_reply_to": "fd5bc71b_7ce0ada3",
+    "unresolved": false,
+    "message": "Done.",
+    "line": 4426
+   },
+   {
+    "in_reply_to": "37d1fed2_e155797f",
+    "unresolved": false,
+    "message": "Done: the warning names no cause now, since from --changelog on the record can be one.",
+    "line": 4524
+   }
+  ]
+ }
+}
