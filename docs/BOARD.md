@@ -32,7 +32,7 @@ unlinked mid-run).
   backslashes (Gerrit too); Janitor calls sanity2 test_160g new on
   68813/68818.
 
-**Open:** push when the user says so; the 09-11 list below still stands.
+**Open:** run lreview on each of the 26 commits (one at a time), then push when the user says so; the 09-11 list below still stands. Paused 09-13 by the user.
 
 ## Tomorrow: start here (end of 2026-09-11)
 
