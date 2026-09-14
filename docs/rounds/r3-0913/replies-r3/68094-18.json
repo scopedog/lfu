@@ -6,7 +6,7 @@
    {
     "in_reply_to": "77aea866_cda6e04c",
     "unresolved": false,
-    "message": "Done: gated on CLIENT_VERSION >= 2.17.57, so a missing binary now fails the test; 157d the same.",
+    "message": "Done: gated on CLIENT_VERSION >= 2.17.58, so a missing binary now fails the test; 157d the same.",
     "line": 21116
    },
    {

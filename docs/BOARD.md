@@ -11,10 +11,14 @@ Asked on Gerrit: sanity-sec test_27ad times out on the chain because our base
 fix `14cf8275e2` (08-22). Rebased the round-3 stack onto `review/master`
 `47638add78` (136 commits later); the refresh was owed anyway.
 
-- Tips: `lu-upper-onto-lfs` = `rebase-0914` = **4447c2fe99** (29 commits),
-  `lu-20637-names-onto-lfs` = **755f7800ca**. Backups
-  `backup/{upper,lower}-pre-rebase-0914`; unnormalized rebase `rebase-0914-raw`.
-  Worktree `~/lfs-rebase-0914`.
+- Tips: `lu-upper-onto-lfs` = `rebase-0914` = **b0cef5c011** (29 commits),
+  `lu-20637-names-onto-lfs` = **c7841d569e**. Backups
+  `backup/{upper,lower}-pre-rebase-0914`, `backup/upper-pre-gate-0914`;
+  unnormalized rebase `rebase-0914-raw`. Worktree `~/lfs-rebase-0914`.
+- Version gates bumped 2.17.57 -> **2.17.58** (master tagged 2.17.58 on 09-03;
+  a released 2.17.57 lacks the code): sanity 157c/157d, conf-sanity 300
+  (two), 301-304, and their skip messages; 68094-18 reply updated to match.
+  Patches 4, 6, 11 (context), 12, 13 differ by those lines only.
 - Conflicts: master's LU-18586 (`d179522efa`) put `find_param` on the heap
   (`llapi_find_param_alloc()`); `lfs_find()` now allocates and frees it, and
   commits 10–17 had `&param`/`param.` rewritten per tree (10–14 had merged
