@@ -30,6 +30,19 @@ fix `14cf8275e2` (08-22). Rebased the round-3 stack onto `review/master`
   collisions. **Not run:** kernel module build (no modules-enabled tree
   locally), VM sanity/conf-sanity, lreview (held: tokens).
 - 68582 and 64945 not rebased or checked for the same timeout.
+- **Plan changed after Andreas (09-14):** do NOT push the whole rebased
+  series. 68616/68617 stay as they are so they can land; 68231 is already
+  on master (PS8, rebased on Gerrit, +1 kept). Push only 68094, 68095, 68156,
+  68157 on top of 68231 PS8, after lreview on each. Branch `lower-on-68231`:
+  all 9 lower commits apply, patches identical (range-diff), build 9/9;
+  lustreapi.7 lint +3 false warnings without 68616 (same class as master's).
+- **lreview 68616/68617 (09-14): no code bugs, 4 low findings, all
+  verified; hold for a refresh, do not push for them.** 68616: message
+  lines 47-54 describe an earlier PS (the parent checker already reports
+  prose after .PP). 68617: AVAILABILITY "release 0.10.0 / commit 0.9.1" -
+  no 0.10.0 tag exists (0.9.1 then 1.0.0), but lfs.1, lfs-find.1 and
+  lfs-getstripe.1 on master use the same pair; message lines 3-6 overstate
+  "hidden" (old checker already listed the findings, among 39 others).
 
 ## Earlier (2026-09-13): round 3 fixed, not pushed
 
