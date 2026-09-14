@@ -11,8 +11,11 @@ Asked on Gerrit: sanity-sec test_27ad times out on the chain because our base
 fix `14cf8275e2` (08-22). Rebased the round-3 stack onto `review/master`
 `47638add78` (136 commits later); the refresh was owed anyway.
 
-- Tips: `lu-upper-onto-lfs` = `rebase-0914` = **b0cef5c011** (29 commits),
-  `lu-20637-names-onto-lfs` = **c7841d569e**. Backups
+- Tips: `lu-upper-onto-lfs` = `rebase-0914` = **d3a2e2e903** (29 commits),
+  `lu-20637-names-onto-lfs` = `rebase-0914~17`; `lower-on-68231` =
+  **ad791bd965** (first four fe7af7add3 b4a683ed4e 06e1c6adc3 88ef20daa0).
+  The gate-bump filter had written sanity.sh/conf-sanity.sh as 100644;
+  restored to 100755 (lreview caught it), backups `backup/*-pre-mode-0914`. Backups
   `backup/{upper,lower}-pre-rebase-0914`, `backup/upper-pre-gate-0914`;
   unnormalized rebase `rebase-0914-raw`. Worktree `~/lfs-rebase-0914`.
 - Version gates bumped 2.17.57 -> **2.17.58** (master tagged 2.17.58 on 09-03;
@@ -43,6 +46,21 @@ fix `14cf8275e2` (08-22). Rebased the round-3 stack onto `review/master`
   no 0.10.0 tag exists (0.9.1 then 1.0.0), but lfs.1, lfs-find.1 and
   lfs-getstripe.1 on master use the same pair; message lines 3-6 overstate
   "hidden" (old checker already listed the findings, among 39 others).
+- **lreview 68094/68095/68156/68157 (09-14), 11 findings, verified:**
+  mode 755->644 on sanity.sh (68094) and conf-sanity.sh (68156) - OURS
+  from the gate bump, FIXED. 68095 (medium): plain `--projid` with type
+  from d_type never gathers (find_want lacks fp_check_projid), so
+  get_projid() gets a stale stx_mode; the stale mode is pre-existing on
+  master, but 56El's new `--projid 0` checks rely on it and may fail on a
+  >= 6.0 client (tmpfs answers FSGETXATTR); VM kernel 5.14 cannot show it.
+  Also 68095: 56El's `-type f` count check likely passes without the
+  patch; find_prefilter/find_want could take const param. 68094: message
+  lines 31-33 contradict line 83 (lmd_fid clear location); comments name
+  LLAPI_SCAN_INO and llapi_scan_fid() that come later. 68156: plugin path
+  uses getenv("LUSTRE") - secure_getenv like liblustreapi_project.c;
+  llapi_scan_device.3 "called for every object" - skipped inodes never
+  reach lfsp_filter. 68157: message's "only edits" omits DEFAULT_PROJID.
+  NOT fixed yet except the mode.
 
 ## Earlier (2026-09-13): round 3 fixed, not pushed
 
