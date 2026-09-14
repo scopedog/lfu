@@ -4,7 +4,30 @@ Every ticket and Gerrit id in play, and the ones that are *not* ours. Regenerate
 the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
 **2026-09-06**.
 
-## Start here (2026-09-13): round 3 fixed, not pushed
+## Start here (2026-09-14): rebased onto master, not pushed
+
+Asked on Gerrit: sanity-sec test_27ad times out on the chain because our base
+(`5afbab284e`, 08-19, the commit that *added* 27ad) predates the LU-20087 hang
+fix `14cf8275e2` (08-22). Rebased the round-3 stack onto `review/master`
+`47638add78` (136 commits later); the refresh was owed anyway.
+
+- Tips: `lu-upper-onto-lfs` = `rebase-0914` = **4447c2fe99** (29 commits),
+  `lu-20637-names-onto-lfs` = **755f7800ca**. Backups
+  `backup/{upper,lower}-pre-rebase-0914`; unnormalized rebase `rebase-0914-raw`.
+  Worktree `~/lfs-rebase-0914`.
+- Conflicts: master's LU-18586 (`d179522efa`) put `find_param` on the heap
+  (`llapi_find_param_alloc()`); `lfs_find()` now allocates and frees it, and
+  commits 10–17 had `&param`/`param.` rewritten per tree (10–14 had merged
+  silently and would not have compiled). man3 list: alphabetical merge.
+- Verified: range-diff shows only those changes (21–25, 27, 28 identical —
+  the osd/uapi auto-merges applied as-is); userspace sweep 29/29 build=0;
+  checkpatch identical per commit (118/118); messages identical bar one
+  trailing blank line on the five hand-resolved commits; no test-number
+  collisions. **Not run:** kernel module build (no modules-enabled tree
+  locally), VM sanity/conf-sanity, lreview (held: tokens).
+- 68582 and 64945 not rebased or checked for the same timeout.
+
+## Earlier (2026-09-13): round 3 fixed, not pushed
 
 The overnight AI reviews of 09-11/12 and adilger's two 68094 comments: 42
 threads, each verified against the carried stack. **40 fixed, 1 already
