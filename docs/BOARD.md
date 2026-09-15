@@ -28,22 +28,28 @@ Worktree `~/lfs-carry-0915`.
   three pfind.c fixes change the answer only where intended. Sweep 26/26,
   checkpatch identical (68159/68160 check a few more lines). Commit 12
   (68417) shows `!` in range-diff: context only.
+- **Later the same day, `fix-0915` = 3031e31a66** (still worktree
+  `~/lfs-carry-0915`, nothing pushed):
+  - 68288, all 5 fixed (fold tag `backup/fix-0915-pre68288`): `LMV_SHARD`
+    widens to `LMV`; `-printf` with `--paths`/`--fid2path` refused
+    (lfs-find.1 and llapi_find_device.3 say so); the fid2path error names
+    the mount only when the lookup used it; two comments. Lifted A/B
+    (scratchpad `lift68288/`): widen and refusal change only the intended
+    cases. Sweep 26/26, checkpatch identical.
+  - Messages of 68158, 68159, 68160 and 68288 rewritten in simple English,
+    describing each patch as it is now (38, 101, 58, 109 lines; were 50,
+    197, 67, 267). Long versions at tag `backup/fix-0915-long-msgs`.
+    filter-branch, messages only: all 26 trees identical, Change-Ids and
+    trailers intact, the pushed bottom four keep their hashes.
 - **Not done yet:**
   - VM A/B for the 68160 sweep fix (needs a node with an MDT and an OST);
     a conf-sanity case for a mounted sweep is owed.
-  - Messages: 68158 (`--foreign` sentence stale since LU-18586; two
-    unlisted edits), 68159 (refusal paragraph stale; `sp_filter`,
-    `sr_name`; history paragraphs), 68160 (`fp_fsname`; "used to drop
-    it"; the `lfind` comment fix).
   - 68163, all 8: `dmu_objset_own()` opens a pool listed in
     /etc/zfs/zpool.cache before the EBUSY checks (`spa_init()` loads it,
     spa_misc.c:2450); `spa_export()` is always EROFS under SPA_MODE_READ;
     ARC cap suggestion; stale comment; relative-name routing wrong in the
     message and both man pages; Makefile.am cross-reference. Code fixes
     need a ZFS lab.
-  - 68288, all 5: `LMV_SHARD` not widened to `LMV`; stale fsname comment;
-    `-printf` ignores `--paths`/`--fid2path`; the fid2path error names the
-    mount when the map failed; swapped join comment.
 
 ## Tomorrow: start here (end of 2026-09-14)
 
