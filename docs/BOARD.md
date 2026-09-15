@@ -115,6 +115,27 @@ for the 68160 A/B and shut down again, nothing mounted; its arms
   and message filter, pushed four intact, checkpatch identical, sweep
   26/26. VM shut down; `/tmp/zfslab` (2.3 GB) left on it.
 
+## Tomorrow: start here (end of 2026-09-15)
+
+**Nothing is running and nothing was pushed today.** The clone VM is shut
+down (test builds `~/lustre-{sw-a,sw-b,zu,zf,zn,r2}`, logs `~/dne-shard-*`,
+`~/zfs-race-*`, `~/zopt-*`, ZFS vdevs in `/tmp/zfslab` stay on it).
+
+1. **The stack:** `fix-0915` = **d0e1be9460** in `~/lfs-carry-0915`, 26
+   commits on 68231 PS8; the bottom four are the ones pushed 09-14 and keep
+   their hashes. 68158-68288 and the upper 17 carry today's fixes, two
+   lreview rounds and simple-English messages. Backups: `backup/carry-0915`,
+   `backup/fix-0915-*` (one per fold).
+2. **Push order unchanged (Andreas):** wait for 68231, 68616/68617 and the
+   first four to land, then push the next few. Ask before any push.
+3. **Watch Gerrit** for the first four's AI review and Maloo votes; carry
+   any findings into `fix-0915` the same way (fixup + autosquash, tree
+   check, sweep, checkpatch).
+4. **Open, not urgent:** `/.lustre` and `/.lustre/lost+found` print under
+   `--paths` though a client walk hides them (older behaviour); zdb-style
+   ARC numbers only measured to 1.2M objects.
+5. **Reply owed by the user:** 68414 PS6 COMMIT_MSG:74 (Test-Parameters).
+
 ## 2026-09-15 evening: lreview rerun on 68163, 68159, 68160, 68288 (NOT pushed)
 
 `fix-0915` = **d0e1be9460** (tag `backup/fix-0915-pre-r2`), worktree
