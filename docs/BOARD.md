@@ -6,7 +6,9 @@ the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
 
 ## 2026-09-15: carry, lreview on the next five, first fixes (NOT pushed)
 
-Worktree `~/lfs-carry-0915`.
+Worktree `~/lfs-carry-0915`. The clone VM (192.168.122.10) was started
+for the 68160 A/B and shut down again, nothing mounted; its arms
+`~/lustre-sw-{a,b}` and logs `~/sw-ab-*`, `~/sw-cs300-*` stay on it.
 
 - **Carry done.** `carry-0915` = **49aacec41c** (tag `backup/carry-0915`):
   the 17 upper commits cherry-picked onto `fix-first4` (57b3fbb2c4), so
