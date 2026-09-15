@@ -4,6 +4,26 @@ Every ticket and Gerrit id in play, and the ones that are *not* ours. Regenerate
 the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
 **2026-09-06**.
 
+## Tomorrow: start here (end of 2026-09-14)
+
+**Nothing is running locally.** The clone VM (192.168.122.10) was started
+for the A/B and is still up, nothing mounted; `~/lustre-ab0914` is on it.
+
+1. **Watch the four pushed changes** (68094 PS19, 68095/68156/68157 PS20,
+   on 68231 PS8). Testing started 09-15 01:00. hpdd-checkpatch left 5
+   style notes (81/82-column lines, fallthrough comment, else after
+   return) on 68095/68156/68157; not checked line by line.
+2. **Replies owed by the user:** 68414 PS6 COMMIT_MSG:74 (Andreas removed
+   the Test-Parameters line himself; he also edited PS6->PS8, rebased; our
+   local 68414 and 68413 copies are stale, start from Gerrit).
+3. **Open on purpose:** 68095 PS18 `--name` trailing slash (fixed in
+   68727, not pushed) and 68156 PS16:730 stats request mask (follow-up).
+4. **Andreas's plan:** let 68616/68617/68231 land; push the next few of
+   each series only as the earlier ones land. This round's fixes (lreview
+   on the first four) must be carried into `lu-upper-onto-lfs` first.
+5. **lreview findings not acted on:** 68616 and 68617 wording (hold for a
+   refresh), 68095 56El `-type f` check strength and `const` params.
+
 ## PUSHED 2026-09-14: the first four, on 68231 PS8
 
 `git push review 75f2669c34:refs/for/master` from `~/lfs-fix-0914`
