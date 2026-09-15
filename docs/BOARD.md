@@ -115,6 +115,41 @@ for the 68160 A/B and shut down again, nothing mounted; its arms
   and message filter, pushed four intact, checkpatch identical, sweep
   26/26. VM shut down; `/tmp/zfslab` (2.3 GB) left on it.
 
+## 2026-09-15 evening: lreview rerun on 68163, 68159, 68160, 68288 (NOT pushed)
+
+`fix-0915` = **d0e1be9460** (tag `backup/fix-0915-pre-r2`), worktree
+`~/lfs-carry-0915`. lreview $13.83, 13 findings, all checked against the tree.
+
+- **Fixed, each proven or checked:**
+  - 68288 #3 (defect): `--paths` printed a striped directory's shard as
+    `/sdir/[0x...]:0`. Paths now ask for `LLAPI_SCAN_LMV_SHARD`, and a shard
+    counts as nameless. DNE lab `~/dne-shard-150558/` (MDSCOUNT=2, ldiskfs,
+    `lfs mkdir -c 2`, MDT0 image scanned after stop), 2 rounds: unfixed 1
+    shard name per run, fixed 0; the 10 files in the striped dir named by
+    both; nameless 5 -> 6. `/.lustre` and `/.lustre/lost+found` print in
+    both arms (older behaviour, not this round).
+  - 68163 #1: two threads opening one exported pool raced to EEXIST.
+    `spa_import()` EEXIST is now success. `~/zfs-race-150709/`, 40 rounds on
+    `zfst-ost1/ost1` + `@race`: unfixed failed one open in every round
+    (rc -17), fixed 80/80 opens rc 0.
+  - 68160 #1: `lfs_find_is_device()` checks every path, not only the
+    first. 68160 #2: lfs-find.1 says only `--device` or a block device
+    needs nothing mounted.
+  - 68288 #5: pre-pass skips were dropped; `struct scan_prepass` gets
+    `pp_skipped` and `llapi_find_device()` warns (public stats untouched).
+  - 68159 #2: prefilter comment claimed `-uid` was settled (it is not; the
+    undecided count can include such objects). 68159 #3: llapi_find_device.3
+    says `--mdt` leaves `fp_mdt_indexes` allocated, as a walk does.
+  - Messages: 68159 "numeric index"; 68288 history phrases, the wrong
+    `ret = CMD_HELP; goto out` quote, and the "map used when the target
+    cannot answer" claim (also fixed in the code comment).
+- **Declined:** 68288 #6 (`-EINVAL` for bad arguments is documented; an API
+  change); 68288 #4's lfs-find.1 addition (DNE namelessness already stated);
+  68160 #3 (`find_param` fields; user skip).
+- **Checks:** each fix added by its intended commit and absent from its
+  parent; trees identical through fold and message filter; pushed four
+  intact; sweep 26/26; checkpatch identical. VM shut down.
+
 ## Tomorrow: start here (end of 2026-09-14)
 
 **Nothing is running locally.** The clone VM (192.168.122.10) was started
