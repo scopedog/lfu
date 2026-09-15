@@ -97,8 +97,23 @@ for the 68160 A/B and shut down again, nothing mounted; its arms
   upstream `libmount_utils_zfs.c`; built the three targets by name.
   Trees identical through fold and message filter, pushed four intact,
   checkpatch identical, sweep 26/26 (this host cannot compile
-  libscan_zfs.c; the VM build did). Not done: zdb's ARC cap (performance, unmeasured)
-  and removing the no-op `spa_export()` calls.
+  libscan_zfs.c; the VM build did).
+- **68163 ARC cap and spa_export removal, measured and folded: `fix-0915`
+  = 0c539f3929** (tag `backup/fix-0915-pre-zfsopt`; was branch
+  `zfsopt-0915` = fac9b7db21). Lab `~/zopt-135719/`, arms `~/lustre-zf`
+  (base) and `~/lustre-zn`:
+  - `zfs_arc_max = 256 MB` alone is ignored by libzpool ("ignoring tunable
+    zfs_arc_max"): userspace `arc_init()` sets the min to half the max. zdb
+    also sets `zfs_arc_min = 2ULL << SPA_MAXBLOCKSHIFT`; so does 68163 now.
+  - 1.2M objects (431 MB metadata), alternated, 12 answers identical:
+    peak RSS base 434-459 MB, capped 226-347 MB; wall time within noise
+    (cold median 13.20 vs 12.82 s, warm 12.51 vs 12.94 s).
+  - Export: an LD_PRELOAD shim showed all 6 base `spa_export()` calls
+    return 30 (EROFS). Without them, repeated and concurrent scans in one
+    process give identical rc and record counts.
+  68163's message has one paragraph on both. Trees identical through fold
+  and message filter, pushed four intact, checkpatch identical, sweep
+  26/26. VM shut down; `/tmp/zfslab` (2.3 GB) left on it.
 
 ## Tomorrow: start here (end of 2026-09-14)
 
