@@ -4,6 +4,47 @@ Every ticket and Gerrit id in play, and the ones that are *not* ours. Regenerate
 the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
 **2026-09-06**.
 
+## 2026-09-15: carry, lreview on the next five, first fixes (NOT pushed)
+
+Worktree `~/lfs-carry-0915`.
+
+- **Carry done.** `carry-0915` = **49aacec41c** (tag `backup/carry-0915`):
+  the 17 upper commits cherry-picked onto `fix-first4` (57b3fbb2c4), so
+  yesterday's fixes are in. 68616/68617 left out, as Andreas wants. Tree
+  bf0fbe0031 = d3a2e2e903 + the fix-first4 diff - 68616/68617 (proven with
+  a scratch index). Range-diff 17/17 identical, checkpatch identical, sweep
+  26/26.
+- **lreview, one at a time:** 68158 1 ($1.92), 68159 6 ($3.95), 68160 6
+  ($2.55), 68163 8 ($4.10), 68288 5 ($3.22) = $15.74. Every finding
+  checked against the tree; all real except 68160 #3 (lfs-only fields in
+  `find_param`), which the user said to skip.
+- **Fixed on `fix-0915` = 0865b275a2** (tag `backup/fix-0915-prefold`
+  before the fold): 68159 - `-printf %+5p`/`% 5p` got past the `%p`
+  refusal, `--mdt` early exit like `--ost`, a V3/SPECIFIC composite entry
+  must be >= 48 bytes; 68160 - a `--local`/`--fsname` sweep skips targets
+  of the wrong type for `--ost`/`--mdt` (it broke on the MDT's ENOTSUP and
+  never read the OST), `--fsname` uses `llapi_name_validate()`. Tree
+  0006474bd8 = fixups on the tip. Lifted A/B (scratchpad `lift0915/`): all
+  three pfind.c fixes change the answer only where intended. Sweep 26/26,
+  checkpatch identical (68159/68160 check a few more lines). Commit 12
+  (68417) shows `!` in range-diff: context only.
+- **Not done yet:**
+  - VM A/B for the 68160 sweep fix (needs a node with an MDT and an OST);
+    a conf-sanity case for a mounted sweep is owed.
+  - Messages: 68158 (`--foreign` sentence stale since LU-18586; two
+    unlisted edits), 68159 (refusal paragraph stale; `sp_filter`,
+    `sr_name`; history paragraphs), 68160 (`fp_fsname`; "used to drop
+    it"; the `lfind` comment fix).
+  - 68163, all 8: `dmu_objset_own()` opens a pool listed in
+    /etc/zfs/zpool.cache before the EBUSY checks (`spa_init()` loads it,
+    spa_misc.c:2450); `spa_export()` is always EROFS under SPA_MODE_READ;
+    ARC cap suggestion; stale comment; relative-name routing wrong in the
+    message and both man pages; Makefile.am cross-reference. Code fixes
+    need a ZFS lab.
+  - 68288, all 5: `LMV_SHARD` not widened to `LMV`; stale fsname comment;
+    `-printf` ignores `--paths`/`--fid2path`; the fid2path error names the
+    mount when the map failed; swapped join comment.
+
 ## Tomorrow: start here (end of 2026-09-14)
 
 **Nothing is running locally.** The clone VM (192.168.122.10) was started
