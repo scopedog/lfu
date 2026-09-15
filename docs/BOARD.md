@@ -63,10 +63,19 @@ Worktree `~/lfs-carry-0915`.
   - `--local --mdt lfst-MDT0000 -type f`: unfixed 2 lines then exit 95
     on OST0000; fixed 2 lines, exit 0.
   - `--local -type f`: 100 lines, exit 0, both.
-  Cosmetic, not fixed: the fixed sweep still prints the "# lfst-OST0001"
-  header for an OST that the --ost check then skips.
-- **Not done yet:**
-  - A conf-sanity case for a mounted `--local --ost` sweep is owed.
+  Cosmetic, not fixed on purpose: the fixed sweep still prints the
+  "# lfst-OST0001" header for an OST that the library's --ost check then
+  skips. Hiding it means copying the name/index/negation matching of
+  find_tgt_index() into lfs.c for one stderr line.
+- **conf-sanity 300 check, folded into 68160: `fix-0915` = 3429973fc8**
+  (tag `backup/fix-0915-pre-cs300`). Before `stopall`, where mds1 and
+  ost1 are one ldiskfs node: `--local --ost <ost1>` and `--local --mdt
+  <mds1>` must exit 0 and name no target of the other type on stderr.
+  68160's message says so. Not run in the framework (its gate is
+  2.17.58, the VM's modules are 2.17.57); emulated on the VM with the
+  same two commands and four assertions (`~/sw-cs300-*`): unfixed arm
+  fails all four, fixed arm passes. Trees identical through fold and
+  message filter, pushed four intact, checkpatch identical.
   - 68163 code, held until 68163's turn to push (needs a ZFS lab):
     `dmu_objset_own()` opens a pool listed in /etc/zfs/zpool.cache before
     the EBUSY checks (`spa_init()` loads it, spa_misc.c:2450); the no-op
