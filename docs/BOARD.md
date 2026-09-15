@@ -41,15 +41,36 @@ Worktree `~/lfs-carry-0915`.
     197, 67, 267). Long versions at tag `backup/fix-0915-long-msgs`.
     filter-branch, messages only: all 26 trees identical, Change-Ids and
     trailers intact, the pushed bottom four keep their hashes.
+- **68163 docs and comments, `fix-0915` = 66aeb6c766** (fold tag
+  `backup/fix-0915-pre68163`): llapi_scan_device.3 and lfs-find.1 state
+  the real routing rule ('/' = device path that must exist; a relative
+  name is a device only if it is a block device or regular file; any
+  other relative name is a dataset); the message paragraph says the same;
+  the stale "empty pool name" comment; the `spa_export()` comment says it
+  is EROFS under SPA_MODE_READ and the import lasts until kernel_fini();
+  lustre/tests/Makefile.am explains -Wl,-u in place. Trees identical
+  through fold and message filter, pushed four intact, sweep 26/26,
+  checkpatch identical.
+- **68160 sweep fix proven on the clone VM** (`~/sw-ab-125804/`): arms
+  `~/lustre-sw-a` = 49aacec41c (unfixed) and `~/lustre-sw-b` =
+  3031e31a66 (fixed), each loading its own liblustreapi (LD_PRELOAD,
+  traced) and its own hand-built plugin (strace). `lfst` fixture mounted
+  with NOFORMAT=1 (MDT + 2 OSTs), A/B/A/B, rounds agree:
+  - `--local --ost lfst-OST0000 -type f`: unfixed exit 95, 0 lines,
+    stopped at the MDT; fixed exit 0, 33 lines. The 33 are all in the
+    plain `--local` answer and equal a direct `--device /tmp/lfst-ost1`
+    scan.
+  - `--local --mdt lfst-MDT0000 -type f`: unfixed 2 lines then exit 95
+    on OST0000; fixed 2 lines, exit 0.
+  - `--local -type f`: 100 lines, exit 0, both.
+  Cosmetic, not fixed: the fixed sweep still prints the "# lfst-OST0001"
+  header for an OST that the --ost check then skips.
 - **Not done yet:**
-  - VM A/B for the 68160 sweep fix (needs a node with an MDT and an OST);
-    a conf-sanity case for a mounted sweep is owed.
-  - 68163, all 8: `dmu_objset_own()` opens a pool listed in
-    /etc/zfs/zpool.cache before the EBUSY checks (`spa_init()` loads it,
-    spa_misc.c:2450); `spa_export()` is always EROFS under SPA_MODE_READ;
-    ARC cap suggestion; stale comment; relative-name routing wrong in the
-    message and both man pages; Makefile.am cross-reference. Code fixes
-    need a ZFS lab.
+  - A conf-sanity case for a mounted `--local --ost` sweep is owed.
+  - 68163 code, held until 68163's turn to push (needs a ZFS lab):
+    `dmu_objset_own()` opens a pool listed in /etc/zfs/zpool.cache before
+    the EBUSY checks (`spa_init()` loads it, spa_misc.c:2450); the no-op
+    `spa_export()` calls; ARC cap suggestion.
 
 ## Tomorrow: start here (end of 2026-09-14)
 
