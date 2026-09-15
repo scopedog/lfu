@@ -4,7 +4,19 @@ Every ticket and Gerrit id in play, and the ones that are *not* ours. Regenerate
 the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
 **2026-09-06**.
 
-## Start here (2026-09-14): rebased onto master, not pushed
+## PUSHED 2026-09-14: the first four, on 68231 PS8
+
+`git push review 75f2669c34:refs/for/master` from `~/lfs-fix-0914`
+(branch `fix-first4`, messages rewritten in simple English; long ones at
+tag `backup/fix-first4-long-msgs-0914`): 68094 PS19 `f9ed71ab6d`, 68095
+PS20 `34350af72b`, 68156 PS20 `5e28565a51`, 68157 PS20 `75f2669c34`;
+68231 stays PS8. 68616/68617 untouched, the rest of the series not pushed
+(its fixes from this round are NOT in `lu-upper-onto-lfs` yet). Replies:
+only `replies-r3/68094-18.json` (2) is drafted for these four; not posted.
+Still-open older threads on these four (68094 PS16 x5, 68095 PS18 --name,
+68156 PS9/PS16 x9) were not re-checked in this round.
+
+## Earlier (2026-09-14): rebased onto master, not pushed
 
 Asked on Gerrit: sanity-sec test_27ad times out on the chain because our base
 (`5afbab284e`, 08-19, the commit that *added* 27ad) predates the LU-20087 hang
