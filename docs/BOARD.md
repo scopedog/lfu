@@ -61,6 +61,15 @@ fix `14cf8275e2` (08-22). Rebased the round-3 stack onto `review/master`
   llapi_scan_device.3 "called for every object" - skipped inodes never
   reach lfsp_filter. 68157: message's "only edits" omits DEFAULT_PROJID.
   NOT fixed yet except the mode.
+- **Fixes, 09-14, branch `fix-first4`** (worktree `~/lfs-fix-0914`, on
+  68231 PS8, nothing pushed): 68094 message + two comments, 68156
+  secure_getenv + man wording, 68157 message. **68095 left as is:** the
+  stale-mode fix was built and A/B-tested on the VM (lfst, tmpfs under
+  Lustre, l1 -> a Lustre file, arms A/B/A/B via LD_PRELOAD): unfixed and
+  fixed gave the SAME correct answers, so lreview's failure scenario does
+  not happen there; fix and test change reverted (kept at tag
+  `backup/fix-first4-with-projid-0914`). Reply to that finding with the
+  A/B, do not claim a fix. The 56El `-type f` and const findings: not done.
 
 ## Earlier (2026-09-13): round 3 fixed, not pushed
 
