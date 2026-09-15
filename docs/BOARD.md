@@ -12,7 +12,8 @@ tag `backup/fix-first4-long-msgs-0914`): 68094 PS19 `f9ed71ab6d`, 68095
 PS20 `34350af72b`, 68156 PS20 `5e28565a51`, 68157 PS20 `75f2669c34`;
 68231 stays PS8. 68616/68617 untouched, the rest of the series not pushed
 (its fixes from this round are NOT in `lu-upper-onto-lfs` yet). Replies:
-only `replies-r3/68094-18.json` (2) is drafted for these four; not posted.
+`replies-r3/68094-18.json` (2) POSTED 09-15 00:56 on PS18, threaded,
+resolved (gate now 2.17.58).
 Still-open older threads on these four (68094 PS16 x5, 68095 PS18 --name,
 68156 PS9/PS16 x9) were not re-checked in this round.
 
