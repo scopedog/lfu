@@ -7,7 +7,8 @@ the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
 ## Tomorrow: start here (end of 2026-09-14)
 
 **Nothing is running locally.** The clone VM (192.168.122.10) was started
-for the A/B and is still up, nothing mounted; `~/lustre-ab0914` is on it.
+for the A/B and shut down again at the end of the day; `~/lustre-ab0914`
+is on it.
 
 1. **Watch the four pushed changes** (68094 PS19, 68095/68156/68157 PS20,
    on 68231 PS8). Testing started 09-15 01:00. hpdd-checkpatch left 5
