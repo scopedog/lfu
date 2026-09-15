@@ -78,10 +78,27 @@ for the 68160 A/B and shut down again, nothing mounted; its arms
   same two commands and four assertions (`~/sw-cs300-*`): unfixed arm
   fails all four, fixed arm passes. Trees identical through fold and
   message filter, pushed four intact, checkpatch identical.
-  - 68163 code, held until 68163's turn to push (needs a ZFS lab):
-    `dmu_objset_own()` opens a pool listed in /etc/zfs/zpool.cache before
-    the EBUSY checks (`spa_init()` loads it, spa_misc.c:2450); the no-op
-    `spa_export()` calls; ARC cap suggestion.
+- **68163 zpool.cache fix, proven on the clone VM, `fix-0915` =
+  a27b5439d6** (tag `backup/fix-0915-pre-zfsfix`; the fix was branch
+  `zfsfix-0915` = 2db477a902 before the fold). `spa_config_path = ""`
+  before the first `kernel_init()`, so no cached pool skips the EBUSY
+  checks (ZFS 2.2.11 source: `spa_config_load()` stops at the failed
+  stat; `spa_write_cachefile()` returns without SPA_MODE_WRITE).
+  Lab `~/zs-ab-132738/`, `zfst` on file vdevs in /tmp/zfslab, arms
+  `~/lustre-zu` (unfixed) and `~/lustre-zf` (fixed), plugins told apart by
+  `nm | grep spa_config_path` and strace:
+  - kernel-held MDT pool listed in zpool.cache, twice: unfixed exit 121
+    EREMOTEIO (MMP check stopped the open); fixed EBUSY "in use".
+  - control, kernel-held OST pool not cached: both EBUSY.
+  - positive control, all exported, `--search`: both 51 lines, identical.
+  - pool ONLINE after; zpool.cache restored to 0 bytes; VM shut down.
+  68163's message says the scan loads no zpool.cache (measured result
+  only). Build note: `--disable-modules --with-zfs=<src>` fails in
+  upstream `libmount_utils_zfs.c`; built the three targets by name.
+  Trees identical through fold and message filter, pushed four intact,
+  checkpatch identical, sweep 26/26 (this host cannot compile
+  libscan_zfs.c; the VM build did). Not done: zdb's ARC cap (performance, unmeasured)
+  and removing the no-op `spa_export()` calls.
 
 ## Tomorrow: start here (end of 2026-09-14)
 
