@@ -51,6 +51,12 @@ have new hashes: they need a new patchset when the series is next pushed.
   again after the LMV change (run in
   `lustre-scanfid`, the configured tree); checkpatch identical on all 26;
   message filter left trees and trailers identical.
+- **Push: held.** Plan: wait for Andreas's review of 68094 PS19 /
+  68095-68157 PS20, push the four once with his comments; if he is silent
+  a day or two, ask him on 68095 whether he wants the regression fixed in
+  place or as a follow-up. Replies to all 15 AI threads drafted in
+  `docs/local/replies-0916/<change>-<ps>.json` (full ids, none ranged);
+  post with `gerrit review <change>,<ps> --json` only AFTER the push.
 
 ## 2026-09-15: carry, lreview on the next five, first fixes (NOT pushed)
 
