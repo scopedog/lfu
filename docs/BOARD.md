@@ -61,6 +61,34 @@ pushed" and "Push: held" (the user chose to push the four).
   PS19/PS20; audit: 15 replied, 0 open.
 - **Next:** watch the four's CI and AI review; the other 21 still wait for
   the four to land (68159's lreview findings are fixed, see above).
+- **lreview on 68415-68420, 68726, 68727 (09-16, $31.89, 30 findings):**
+  verified by 3 agents, triage in `docs/local/lreview-0916/TRIAGE-upper8.md`
+  (28 real or partly real, 2 decline candidates, none fixed later).
+  - **68415 resolve open, FIXED** (`fix-0915` tag `backup/fix-0916-open`,
+    pre-fix tag `backup/fix-0916-ai39`). `scan_cl_resolve()` opened a
+    regular file O_RDONLY for the glimpse; that is an MDS open, so with an
+    OPEN-mask user it wrote CL_OPEN/CL_CLOSE into the log being read. Now
+    only the O_PATH open by FID, and `scan_cl_mdt_stat()` statx()es without
+    AT_STATX_DONT_SYNC (revalidate, plus a glimpse when want is 0 or names
+    SIZE/BLOCKS/MTIME); otherwise it takes the lazy size with DONT_SYNC and
+    leaves mtime unset. Man page, comments and message updated; also the
+    `.IR lfsr_stx.stx_uid : the` typo. gcc 11 on the VM flagged `st` as
+    maybe-uninitialized (the host did not): zero-initialized.
+  - Lab (VM `~/open-ab2-130901`, a C harness calling llapi_scan_changelog()
+    with RESOLVE, user registered -m ALL, fresh files each round, A/B/A/B):
+    unfixed want=0 resolve wrote **22 OPEN / 11 CLOSE** (round 1) and **44 /
+    22** (round 3); fixed wrote **0/0** in every run. Sizes strict and uids
+    identical in both arms. `lfs find --changelog --resolve` does NOT use
+    LLAPI_SCAN_CL_F_RESOLVE (it resolves through llapi_scan_fid()), so the
+    bug hits only API callers and 157d.
+  - 68415 #3 (stale owner) did not reproduce in either arm: a chown on a
+    second client mount was seen by both. Covered anyway by the revalidating
+    statx.
+  - Sweep 26/26, checkpatch identical. First four still 101891803c.
+  - **Next in the triage:** the mechanical fixes (68726 close blocking,
+    68419 /dev/zero and ferror, 68418 --ls message and the name keeping,
+    docs), then 68415 #5 (sc_user lookup) and 68419 #3 (purge and
+    remount), then the rename gap (user's call).
 - **Unreplied AI threads across the series, checked 09-16 (39 on 10
   changes, all on current patchsets; 3 agents + my spot check):** 36 were
   already fixed in `fix-0915`, 2 are moot (68160: lfind.c gone, conf-sanity
