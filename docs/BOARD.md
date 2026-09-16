@@ -22,8 +22,26 @@ pushed" and "Push: held" (the user chose to push the four).
     6005/8007/6206/8208 before, same answers (first-run noise of 1-2).
   - Declined: `projid = 0` -> `DEFAULT_PROJID` at 68095; 68157 makes that
     exact rename and its message lists it.
-- **lreview 68159 ($6.49, 4, medium): all real, NOT fixed yet** (68159 not
-  pushed). Reports in `docs/local/lreview-0916/`.
+- **lreview 68159 ($6.49, 4, medium): all real, ALL FIXED later the same
+  day** (`fix-0915` = 3835f8029e, tags `backup/fix-0916-pre-159` /
+  `backup/fix-0916-159`; 68159 not pushed). Reports in
+  `docs/local/lreview-0916/`. Only 68159's patch changed (range-diff); the
+  pushed four keep 101891803c. Sweep 26/26, checkpatch identical.
+  - #2 `%Lo`: `count >= LLAPI_LAYOUT_INVALID` skips to the next component
+    instead of `count == LLAPI_LAYOUT_DEFAULT` ending the walk. VM lab
+    (`~/lo-ab-*`, A/B/A/B, tip arms): `-E 1M -c 1 -E eof -c -1` unfixed
+    1023 bytes of "?,", 510 stderr lines, no "|end"; fixed `[1]|end`, no
+    stderr. Middle `-c -1` (`-E 1M -c 1 -E 64M -c -1 -E eof -c 2`): unfixed
+    floods, fixed `[0][?,?]|end`. Plain, `-c -1`-first-and-written, and
+    default-count-middle files identical in both arms. (`-c 0` is not a
+    valid setstripe, so a stored DEFAULT middle count was not built.)
+  - #1: the four comments and two message paragraphs now say what the code
+    does, not what earlier patchsets did.
+  - #3: the fp_mdt_index comment names OBD_NOT_FOUND.
+  - #4: llapi_find_device.3 no longer says OST objects are named from
+    trusted.fid (no commit in the stack does that); the message says an OST
+    object with no LMA prints as obj:ID.
+  The list below is the finding text as reported:
   1. Message and comments narrate earlier patchsets ("Before, such
      objects took the no-layout path", find_lmm_fits(), find_device_cb(),
      find_rec_to_lmd()).
@@ -41,9 +59,8 @@ pushed" and "Push: held" (the user chose to push the four).
 - **PUSHED** `101891803c` -> 68094 PS20, 68095 PS21, 68156 PS21, 68157
   PS21, on 68231 PS8 (unchanged). Replies posted to all 15 AI threads on
   PS19/PS20; audit: 15 replied, 0 open.
-- **Next:** watch the four's CI and AI review; fix 68159's four findings
-  locally (the %Lo one needs a lab); the other 21 still wait for the four
-  to land.
+- **Next:** watch the four's CI and AI review; the other 21 still wait for
+  the four to land (68159's lreview findings are fixed, see above).
 
 ## 2026-09-16: AI review of the pushed four, 15 threads (NOT pushed)
 
