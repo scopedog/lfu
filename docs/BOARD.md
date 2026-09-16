@@ -4,6 +4,40 @@ Every ticket and Gerrit id in play, and the ones that are *not* ours. Regenerate
 the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
 **2026-09-06**.
 
+## Tomorrow: start here (end of 2026-09-16)
+
+**Nothing is running.** VM shut down. Pushed today: 68094 PS20,
+68095/68156/68157 PS21 (on 68231 PS8); replies posted to their 15 AI
+threads; 68417 linkno decline posted.
+
+1. **The stack:** `fix-0915` = **8618869c8f** in `~/lfs-carry-0915`, 26
+   commits; first four = 101891803c (as pushed). Everything below this
+   entry is folded in: lreview on 68095/68159 and on 68415-68420, 68726,
+   68727 (all findings fixed or declined), the rename routing, the
+   changelog-user and restarted-log fixes. No commit message or file
+   mentions lfind.
+2. **Watch** the four pushed changes: autotest, Maloo, AI review, Andreas.
+3. **Replies owed after each push:** `docs/local/replies-series/<change>-<ps>.json`
+   (39, post only once that change is pushed).
+4. **Artem (09-16):** asked where the series starts and whether the old
+   68158-68818 (on 68157 PS19, Sep 11) are planned. Told: start = 68231;
+   holding the rest is Andreas's plan; 68160 PS20 on Gerrit is the lfind
+   version, locally it is "lfs: find over a target, with --device" under
+   the same Change-Id (keep, don't abandon). Artem: "probably some troubles
+   with pushing patches, don't worry, take your time".
+   **Undecided, user's call:**
+   - post a comment on 68160 that PS20 is outdated (no patchset);
+   - mark 68158-68818 WIP on Gerrit;
+   - update LU-20611 (title still "Utils: lfind, the server-side find
+     command..." and a description arguing against lfs find): draft title
+     "Utils: lfs find over a Lustre target, read from its device" and a
+     Jira-markup description were written in the session (not saved);
+     jira CLI credentials not yet checked;
+   - abandon candidates OUTSIDE LFU: 67052 (LU-20119 dbg, fortestonly),
+     65388 (LU-20147, CR-1 since 04-24), 65120 (LU-20084, V-1 since 04-19).
+5. **Open, not urgent:** --since parent directories (option B) is only
+   documented; 68340 still needed (series covers only half of it).
+
 ## 2026-09-16 afternoon: lreview rerun, first four PUSHED
 
 `fix-0915` = tag `backup/fix-0916-pushed` (6653785f90)
