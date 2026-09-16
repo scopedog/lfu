@@ -61,6 +61,12 @@ pushed" and "Push: held" (the user chose to push the four).
   PS19/PS20; audit: 15 replied, 0 open.
 - **Next:** watch the four's CI and AI review; the other 21 still wait for
   the four to land (68159's lreview findings are fixed, see above).
+- **68417 PS12 unreplied AI threads (5, from the 09-11/12 round):** 4 fixed
+  in `fix-0915` (SYNOPSIS order, thread-count wording, failed obd count
+  returned, undecided warning wording); `7d9d284f` (linkno 1) declined, and
+  that reply is POSTED. The four "Done." replies are in
+  `docs/local/replies-68417/68417-12.json`; post them only after 68417 is
+  pushed (drop the 7d9d284f entry, it is already up).
 
 ## 2026-09-16: AI review of the pushed four, 15 threads (NOT pushed)
 
