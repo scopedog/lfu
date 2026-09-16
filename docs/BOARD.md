@@ -37,6 +37,15 @@ threads; 68417 linkno decline posted.
      65388 (LU-20147, CR-1 since 04-24), 65120 (LU-20084, V-1 since 04-19).
 5. **Open, not urgent:** --since parent directories (option B) is only
    documented; 68340 still needed (series covers only half of it).
+6. **lreview on the OSD series, 3 of 9 done (user limited it for
+   tokens):** 68810 (6 findings, high, $5.03), 68811 (6, low, $2.63),
+   68812 (6, high, $4.14); reports in `docs/local/lreview-0916/HEAD_{b446b3d,5ad3170,beb8d09}_*.md`.
+   NOT verified yet. Defect claims to check first: 68810 os_ls_fids used
+   from a consumer thread under DOIF_PARALLEL; i_atime/i_mtime direct use
+   on kernels with inode_get_*_sec(); stray lfu_noverify. 68811 readahead
+   cursor not advanced across bitmap gaps. 68812 dtime check possibly
+   backwards, unlocked in-inode xattr read, extra-time decode not
+   sign-extending like ext4_decode_extra_time(). 68813-68818 not run.
 
 ## 2026-09-16 afternoon: lreview rerun, first four PUSHED
 
