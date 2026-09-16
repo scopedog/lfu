@@ -85,10 +85,51 @@ pushed" and "Push: held" (the user chose to push the four).
     second client mount was seen by both. Covered anyway by the revalidating
     statx.
   - Sweep 26/26, checkpatch identical. First four still 101891803c.
-  - **Next in the triage:** the mechanical fixes (68726 close blocking,
-    68419 /dev/zero and ferror, 68418 --ls message and the name keeping,
-    docs), then 68415 #5 (sc_user lookup) and 68419 #3 (purge and
-    remount), then the rename gap (user's call).
+- **Triage round 2 (09-16), `fix-0915` = db67e21d36** (tags
+  `backup/fix-0916-pre-triage`, `backup/fix-0916-triage`), one rebase over
+  the 8 commits. First four still 101891803c.
+  - 68415: "Nothing in lustre/tests drives it" paragraph removed;
+    "unclosed" -> "uncleared"; 157d gated on MDS >= 2.17.0 (the user
+    lookup, 5b85a4eb75, first tag 2.17.0).
+  - 68416: llapi_scan_fid.3 says what lfsp_filter sees and that a shard
+    FID answers -ESTALE where detected; dropped the false claim that
+    llapi_scan_changelog() merges through it.
+  - 68417: three comments say the why without history.
+  - 68418: a nameless record under --changelog --resolve tests each link's
+    name (fss_live_name), and a recorded name that failed on an in-root
+    path skips the link loop; "-printf and --ls" in the refusal; --ls in
+    both man lists; llapi_find_since.3 no longer names scan_cl_mode().
+  - 68419: find_cookie_read() opens O_NONBLOCK and refuses a non-regular
+    file before reading; ferror() -> -EIO (documented); -ENAMETOOLONG text
+    fixed; lfs-find.1 says to remove FILE to accept a purge gap (moved
+    with the --since-cookie section 68420 relocates).
+  - 68420: man and 160ab comment say the name carries within one burst;
+    message opens with the tests.
+  - 68726: scan_batch_filter() returns -ECANCELED once closed; test12
+    regression; test14 second calls wait for an armed flag; close overlap
+    reworked (a filter that naps on every object, close only once the scan
+    is inside it) because the fix made the old setup unreachable (0/8).
+    Message no longer narrates the ASan history.
+  - 68727: two comments (param_callback over-long path; "less trailing
+    slashes"). #1 (symlink start point off Lustre) DECLINED: on Lustre the
+    answer is unchanged, and keeping the slash for a symlink brings back the
+    -name mismatch the trim fixed.
+  - Lab (VM `~/tri-ab-132554`, A = pre-triage, B = fixed, fixed test
+    binary with each arm's library via LD_PRELOAD):
+    - test12: A fails "the filter saw all 6 objects after an early close"
+      (0.29 s), B passes (0.03 s). test14: both arms 8/8 on both overlap
+      cases after the rework, no failures.
+    - `--since-cookie /dev/zero` and a FIFO: A killed by timeout at 10 s
+      (exit 124), B exit 22 in 0.02 s "is not a regular file".
+    - hardlink a/f = b/g, log cleared, one append (MTIME+CLOSE, no name),
+      link 0 = a/f: A `b -name g` [] and `b -name f` [b/g]; B `b -name g`
+      [b/g] and `b -name f` []; `a` queries identical.
+  - Sweep 26/26 (before the last two comment/man-only line wraps);
+    checkpatch identical to the pre-round run (checkpatch reads man pages
+    from the worktree tip, so a man-line note shows on every commit).
+  - **Still open from the triage:** 68415 #5 (sc_user lookup with a plain
+    register / old MDS), 68419 #3 (cookie after full purge + remount), and
+    the rename gap in 68417/68418 (user's call).
 - **Unreplied AI threads across the series, checked 09-16 (39 on 10
   changes, all on current patchsets; 3 agents + my spot check):** 36 were
   already fixed in `fix-0915`, 2 are moot (68160: lfind.c gone, conf-sanity
