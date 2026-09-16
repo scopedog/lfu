@@ -4,6 +4,40 @@ Every ticket and Gerrit id in play, and the ones that are *not* ours. Regenerate
 the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
 **2026-09-06**.
 
+## 2026-09-16: AI review of the pushed four, 15 threads (NOT pushed)
+
+`fix-0915` = **5ccead8a29** in `~/lfs-carry-0915`. Backups
+`backup/fix-0916-{pre-ai,prefold,pre-xform,pre-msgs}`. The bottom four now
+have new hashes: they need a new patchset when the series is next pushed.
+
+- **Fixed (13):**
+  - 68094: `tv_nsec` is always 0 today (llite fills only `tv_sec`), and the
+    man page and the lustreapi.h comment now say so. `static_assert` that the
+    `ends[]` table reaches `sizeof` the struct, in `scan_param_whole()` and
+    `scan_cl_param_whole()`. Proven: an appended field fails the compile
+    for both tables (scratchpad `sa/`).
+  - 68095: 56El's trap falls back to `umount -l`; `get_projid()` passes
+    `rc` to `llapi_error()` and does not print strerror twice.
+  - 68156: message drops "inode generation" and "read from trusted.fid"
+    (neither is in the patch); the man page says ldiskfs orphans count in
+    `ss_skipped`; `enum llapi_scan_class` values written out; conf-sanity
+    300-304 moved after test_250 (a move only: sorted lines identical at
+    the tip).
+  - 68157: message and `find_get_projid()` comment no longer describe the
+    `-ENOTSUP` decode that only arrives in "run find over a device scan";
+    two stale `cb_find_init()` names; the double blank line.
+- **Declined:** 68094 sanity.sh:21194 gate. v2_17_58 is tagged and is an
+  ancestor of our base; the AI's tree lacked the tag.
+- **Open, the user's call:** 68095 liblustreapi_pfind.c:2643. Real: the
+  `--mdt-count`/`--mdt-hash`/`--hash-flags`/`--foreign` rejects now run
+  after `get_lmd_info_fd()`, so a rejected directory costs a second MDT
+  RPC (before: `goto decided` ahead of it). Message says "one more ioctl".
+  Either restore an LMV reject before the stat fetch (needs a lab RPC count)
+  or reword the message.
+- Verify: fold tree identical to the pre-fold tip; sweep 26/26 (run in
+  `lustre-scanfid`, the configured tree); checkpatch identical on all 26;
+  message filter left trees and trailers identical.
+
 ## 2026-09-15: carry, lreview on the next five, first fixes (NOT pushed)
 
 Worktree `~/lfs-carry-0915`. The clone VM (192.168.122.10) was started
