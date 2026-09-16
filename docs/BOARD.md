@@ -61,12 +61,23 @@ pushed" and "Push: held" (the user chose to push the four).
   PS19/PS20; audit: 15 replied, 0 open.
 - **Next:** watch the four's CI and AI review; the other 21 still wait for
   the four to land (68159's lreview findings are fixed, see above).
-- **68417 PS12 unreplied AI threads (5, from the 09-11/12 round):** 4 fixed
-  in `fix-0915` (SYNOPSIS order, thread-count wording, failed obd count
-  returned, undecided warning wording); `7d9d284f` (linkno 1) declined, and
-  that reply is POSTED. The four "Done." replies are in
-  `docs/local/replies-68417/68417-12.json`; post them only after 68417 is
-  pushed (drop the 7d9d284f entry, it is already up).
+- **Unreplied AI threads across the series, checked 09-16 (39 on 10
+  changes, all on current patchsets; 3 agents + my spot check):** 36 were
+  already fixed in `fix-0915`, 2 are moot (68160: lfind.c gone, conf-sanity
+  --search line rewritten), 1 was not: 68418's CL_MARK comment rewording
+  had landed in 68419; moved down into 68418. Also fixed on the way:
+  68416's @mnt_fd comment (the mount-root reason now sits by the fd, the
+  local-variable comment names only the statx and opens) and its
+  trailing-slash message paragraph; two past-tense phrases in 68419's
+  message; 68420's second paragraph reads "160ab also covers". Left as
+  they are: 68415's test has no sc_padding / short ss_size case, and
+  68288 --fid2path on an MDT with an empty map looks names up through
+  the mount. `fix-0915` = 4ebc7709a3 (tags `backup/fix-0916-pre-ai39`,
+  `backup/fix-0916-ai39`), first four still 101891803c; sweep 26/26,
+  checkpatch identical, message filter left trees and trailers identical.
+  68417 `7d9d284f` (linkno 1) decline is POSTED. The other 39 replies
+  (68417's four included) are in `docs/local/replies-series/<change>-<ps>.json`:
+  post each change's file only AFTER that change is pushed.
 
 ## 2026-09-16: AI review of the pushed four, 15 threads (NOT pushed)
 
