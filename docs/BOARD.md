@@ -4,6 +4,47 @@ Every ticket and Gerrit id in play, and the ones that are *not* ours. Regenerate
 the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
 **2026-09-06**.
 
+## 2026-09-16 afternoon: lreview rerun, first four PUSHED
+
+`fix-0915` = tag `backup/fix-0916-pushed` (6653785f90)
+in `~/lfs-carry-0915`. The earlier entry below is superseded on "NOT
+pushed" and "Push: held" (the user chose to push the four).
+
+- **lreview 68095 ($3.59, 4 low):** 3 fixed, 1 declined.
+  - `--links` added to the message's list of predicates that lost a
+    subtree off Lustre.
+  - sanity 56El's descent check is now `-type f --links 1`. VM lab
+    (`~/lr2-ab-*`, A/B/A/B): old `-type f` passes on 68094 and 68095
+    alike; the new check FAILS on 68094 (exit 1, 0 files, EPERM) and
+    passes on 68095.
+  - The always-true `want & LLAPI_SCAN_MDT_MASK` level removed from
+    `cb_find_init()`. RPCs rechecked at the tip: 6007/8008/6207/8208 vs
+    6005/8007/6206/8208 before, same answers (first-run noise of 1-2).
+  - Declined: `projid = 0` -> `DEFAULT_PROJID` at 68095; 68157 makes that
+    exact rename and its message lists it.
+- **lreview 68159 ($6.49, 4, medium): all real, NOT fixed yet** (68159 not
+  pushed). Reports in `docs/local/lreview-0916/`.
+  1. Message and comments narrate earlier patchsets ("Before, such
+     objects took the no-layout path", find_lmm_fits(), find_device_cb(),
+     find_rec_to_lmd()).
+  2. DEFECT: `printf_format_ost_indices()` catches only
+     `LLAPI_LAYOUT_DEFAULT`; an uninstantiated `-c -1` component gives
+     `LLAPI_LAYOUT_WIDE_MIN + n`, so `%Lo` fills the buffer with "?," and
+     loses the newline, and `goto format_done` drops later components.
+  3. The fp_mdt_index comment says "a 0 there" where the gate tests
+     OBD_NOT_FOUND.
+  4. llapi_find_device.3 says OST objects are named from trusted.fid, which
+     only 68288 reads.
+- Verify: sweep 26/26; checkpatch identical on all 26 after shortening one
+  81-column comment; the four Change-Ids match; Gerrit's PS19/PS20 were
+  exactly this morning's commits.
+- **PUSHED** `101891803c` -> 68094 PS20, 68095 PS21, 68156 PS21, 68157
+  PS21, on 68231 PS8 (unchanged). Replies posted to all 15 AI threads on
+  PS19/PS20; audit: 15 replied, 0 open.
+- **Next:** watch the four's CI and AI review; fix 68159's four findings
+  locally (the %Lo one needs a lab); the other 21 still wait for the four
+  to land.
+
 ## 2026-09-16: AI review of the pushed four, 15 threads (NOT pushed)
 
 `fix-0915` = **04d19748b9** in `~/lfs-carry-0915`. Backups
