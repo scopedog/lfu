@@ -127,8 +127,8 @@ pushed" and "Push: held" (the user chose to push the four).
   - Sweep 26/26 (before the last two comment/man-only line wraps);
     checkpatch identical to the pre-round run (checkpatch reads man pages
     from the worktree tip, so a man-line note shows on every commit).
-  - **Still open from the triage:** 68415 #5 (sc_user lookup with a plain
-    register / old MDS) and 68419 #3 (cookie after full purge + remount).
+  - The last two triage items and option B were done the same day; see
+    below.
 - **Rename gap, option A (user's choice), `fix-0915` = a6b4b50127** (tags
   `backup/fix-0916-pre-rename`, `backup/fix-0916-rename`). Fixed in the
   library (68415): `scan_cl_rec_fids()` says which objects a record is
@@ -151,6 +151,32 @@ pushed" and "Push: held" (the user chose to push the four).
     log B lists g, the replaced object by FID, and old.
   - Sweep 26/26, checkpatch identical to before the change. First four
     still 101891803c.
+- **Last triage items (09-16), `fix-0915` = 9a7778d85f** (tags
+  `backup/fix-0916-rename` before, `backup/fix-0916-last2` after):
+  - 68415 #5: `llapi_changelog_start_user()` (and its MDS-side user
+    lookup, which needs a 2.17.0 MDS and fails for a plain register,
+    LU-20647) is used only when `sc_type_mask` is set; mask 0 now means
+    every type, and `sc_user` is then only for clearing. Header, man page
+    and message updated; the 157d MDS gate added earlier was removed again
+    (no lookup, so not needed).
+  - 68419 #3: `find_cl_oldest()` became `find_cl_first(mdt, startrec)`;
+    for a non-empty log the check also probes from the anchor and refuses
+    -ESTALE when nothing is at or after it ("its changelog was restarted").
+    lfs-find.1, llapi_find_since.3 -ESTALE and the message say so, and that
+    a restarted log grown past the anchor cannot be seen from indexes.
+    160ac gains a cookie rewritten to index 999999999.
+  - Option B: documented only. lfs-find.1 --since says a directory counts
+    as changed only when a record is about the directory itself.
+  - Lab (VM `~/l2-ab-140429`, A = backup/fix-0916-rename, B = fixed):
+    - plain `changelog_register` (cl1, no mask/name), test6 (_CLEAR):
+      A fails "cannot set changelog filter: No such file or directory";
+      B passes, "cleared through 22".
+    - real restart (30 files, cookie, deregister every user, umount and
+      mount the MDT, re-register, 3 files; log 1..6): A exit 0 with no
+      output (6 records silently skipped); B exit 116, "holds records but
+      none at or after 66 ... its changelog was restarted".
+  - Sweep 26/26; checkpatch identical after wrapping one 81-column line.
+    First four still 101891803c. Nothing pushed.
 - **Unreplied AI threads across the series, checked 09-16 (39 on 10
   changes, all on current patchsets; 3 agents + my spot check):** 36 were
   already fixed in `fix-0915`, 2 are moot (68160: lfind.c gone, conf-sanity
