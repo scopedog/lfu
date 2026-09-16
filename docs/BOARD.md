@@ -128,8 +128,29 @@ pushed" and "Push: held" (the user chose to push the four).
     checkpatch identical to the pre-round run (checkpatch reads man pages
     from the worktree tip, so a man-line note shows on every commit).
   - **Still open from the triage:** 68415 #5 (sc_user lookup with a plain
-    register / old MDS), 68419 #3 (cookie after full purge + remount), and
-    the rename gap in 68417/68418 (user's call).
+    register / old MDS) and 68419 #3 (cookie after full purge + remount).
+- **Rename gap, option A (user's choice), `fix-0915` = a6b4b50127** (tags
+  `backup/fix-0916-pre-rename`, `backup/fix-0916-rename`). Fixed in the
+  library (68415): `scan_cl_rec_fids()` says which objects a record is
+  about -- the target, else for CLF_RENAME the moved object (cr_sfid); a
+  rename over a name is about both and is delivered/coalesced for each;
+  a CL_MARK about none. `scan_cl_event()` delivers one record per object,
+  `scan_cl_object()` coalesces under each. llapi_scan_changelog.3's
+  rename paragraph and the 68415 message rewritten (the API contract
+  changes: lfsr_fid is no longer absent for a rename to a new name).
+  New llapi_scan_changelog_test test8. 68419's filter comment reworded.
+  68420 adds sanity 160ae (mv to a new name and over a name; --since
+  under the target dir, --changelog -name) and its Test-Parameters.
+  Option B (parent directories as --since candidates) NOT done: document
+  or implement later, user's call.
+  - Lab (VM `~/ren-ab-135150`, A = pre-rename, B = fixed): test8 on A
+    fails "renamed to a new name: 0 records in event mode, 0 in object
+    mode"; the whole changelog test suite passes on B. `lfs find a
+    --since 1h -type f`: A [] ("1 of 1 changed objects no longer exist"),
+    B [a/g a/old]. `--changelog all -name g`: A [], B [a/g]. On a clean
+    log B lists g, the replaced object by FID, and old.
+  - Sweep 26/26, checkpatch identical to before the change. First four
+    still 101891803c.
 - **Unreplied AI threads across the series, checked 09-16 (39 on 10
   changes, all on current patchsets; 3 agents + my spot check):** 36 were
   already fixed in `fix-0915`, 2 are moot (68160: lfind.c gone, conf-sanity
