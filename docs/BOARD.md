@@ -40,8 +40,9 @@ have new hashes: they need a new patchset when the series is next pushed.
   `find_decide()` for callers that did not walk. 68095's message says so and
   lost the "one more ioctl" bullet.
   - Lab on the clone VM (`~/lmv-ab-063225/`, lfst fixture NOFORMAT=1, 1001
-    unstriped dirs + 201 files, LD_PRELOAD arms proven by trace, A/B/B/A x2,
-    all 8 runs per case identical): rejecting queries `--mdt-count 2`,
+    unstriped dirs + 201 files, LD_PRELOAD arms proven by trace, A/B/B/A x2;
+    each case gave the same count in all 8 runs, except one 8008 in the
+    very first run): rejecting queries `--mdt-count 2`,
     `--mdt-hash crush`, `--foreign` cost **8007 / 8007 / 8208 MDC RPCs
     unfixed, 6005 / 6005 / 6206 fixed** (2 per rejected dir). Accepting
     `--mdt-count 0`, `! --foreign`, `-type d`: same RPCs both arms. Every
