@@ -6,7 +6,7 @@ the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
 
 ## 2026-09-16: AI review of the pushed four, 15 threads (NOT pushed)
 
-`fix-0915` = **5ccead8a29** in `~/lfs-carry-0915`. Backups
+`fix-0915` = **04d19748b9** in `~/lfs-carry-0915`. Backups
 `backup/fix-0916-{pre-ai,prefold,pre-xform,pre-msgs}`. The bottom four now
 have new hashes: they need a new patchset when the series is next pushed.
 
@@ -28,13 +28,26 @@ have new hashes: they need a new patchset when the series is next pushed.
     two stale `cb_find_init()` names; the double blank line.
 - **Declined:** 68094 sanity.sh:21194 gate. v2_17_58 is tagged and is an
   ancestor of our base; the AI's tree lacked the tag.
-- **Open, the user's call:** 68095 liblustreapi_pfind.c:2643. Real: the
-  `--mdt-count`/`--mdt-hash`/`--hash-flags`/`--foreign` rejects now run
-  after `get_lmd_info_fd()`, so a rejected directory costs a second MDT
-  RPC (before: `goto decided` ahead of it). Message says "one more ioctl".
-  Either restore an LMV reject before the stat fetch (needs a lab RPC count)
-  or reword the message.
-- Verify: fold tree identical to the pre-fold tip; sweep 26/26 (run in
+- **68095 liblustreapi_pfind.c:2643, fixed (user chose "restore the early
+  reject"), `fix-0915` = 04d19748b9** (tags `backup/fix-0916-pre-lmv`,
+  `backup/fix-0916-lmv`). `scan_rec_gather()` is split into
+  `scan_rec_gather_lmv()` + `scan_rec_gather_rest()` (the wrapper stays for
+  the scanners); `find_lmv_rejects()` holds the `--mdt-count`/`--mdt-hash`/
+  `--hash-flags`/`--foreign` rejects, and `cb_find_init()` runs it between
+  the two steps. The `! --foreign` accept still waits for the stat (so
+  -printf sees this object). 68157 moves the smaller block unchanged;
+  "run find over a device scan" adds the late `find_lmv_rejects()` call in
+  `find_decide()` for callers that did not walk. 68095's message says so and
+  lost the "one more ioctl" bullet.
+  - Lab on the clone VM (`~/lmv-ab-063225/`, lfst fixture NOFORMAT=1, 1001
+    unstriped dirs + 201 files, LD_PRELOAD arms proven by trace, A/B/B/A x2,
+    all 8 runs per case identical): rejecting queries `--mdt-count 2`,
+    `--mdt-hash crush`, `--foreign` cost **8007 / 8007 / 8208 MDC RPCs
+    unfixed, 6005 / 6005 / 6206 fixed** (2 per rejected dir). Accepting
+    `--mdt-count 0`, `! --foreign`, `-type d`: same RPCs both arms. Every
+    answer md5-identical across arms. VM shut down after.
+- Verify: fold tree identical to the pre-fold tip (13 fixes); sweep 26/26
+  again after the LMV change (run in
   `lustre-scanfid`, the configured tree); checkpatch identical on all 26;
   message filter left trees and trailers identical.
 
