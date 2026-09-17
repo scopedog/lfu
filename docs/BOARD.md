@@ -94,8 +94,8 @@ afd3466f45; after: `backup/fix-0917-rpc-lab`). Only the top 3 commits changed.
     byfid_ops and no fileset.
   - Verify: sweep 5/5 warn=0 err=0; checkpatch unchanged; RPC lab re-run on
     the new tip (3099 records, link_big 1, nodemap -EPERM then 3100).
-  - **Replies drafted, not posted** (the series is unpushed): comment ids
-    362f6c60_9, d8276355_2 (68814), 160fe0e5_4, 859434fd_7 (68818).
+  - **Replies POSTED 09-17** to all four and marked resolved (68814 and
+    68818 now show 0 unresolved); the fixes themselves are unpushed.
 
 ## 2026-09-17: OSD series 68810-68815, 44 lreview findings fixed (NOT pushed)
 
