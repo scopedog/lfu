@@ -79,8 +79,15 @@ afd3466f45; after: `backup/fix-0917-rpc-lab`). Only the top 3 commits changed.
     netlink.
   - No LBUG or oops in dmesg across all of it; the fixed build is installed
     on the VM again.
-- **Still not proven in a lab:** the ENOMEM allocation pairing (needs fault
-  injection).
+- **ENOMEM pairing, PROVEN 09-17** (`~/enomem.sh`, lab-only injection
+  `~/labpatch2.py` failing the xabuf allocation under fail_loc=0x608,
+  reverted and both trees rebuilt after): unfixed answers **-E2BIG**, the
+  rec_size() error truncated to __u16, so the real errno is lost; fixed
+  answers **-ENOMEM**. Both recover once fail_loc is cleared (396 records,
+  all with HAVE_LMA). The unfixed arm also showed
+  `calls_with_unsent_pages_changed=1`, the untransferred-pages copy, against
+  0 on the fixed one. The silent missing-LMA case inside one walk could not
+  be reached: CFS_FAIL_CHECK fires on every call, so the walk always fails.
 - **The four open Gerrit threads on the series, fixed (09-17 evening):**
   `fix-0915` = **1d403d0431** (tag `backup/fix-0917-cap`).
   - 68814, smatch "variable dereferenced before IS_ERR check 'obj'": out_obj
@@ -96,6 +103,20 @@ afd3466f45; after: `backup/fix-0917-rpc-lab`). Only the top 3 commits changed.
     the new tip (3099 records, link_big 1, nodemap -EPERM then 3100).
   - **Replies POSTED 09-17** to all four and marked resolved (68814 and
     68818 now show 0 unresolved); the fixes themselves are unpushed.
+- **man4 pages written (09-17):** `osd_ldiskfs.osd_itable_blockparse.4` in
+  68812, `lfu.ring_size.4` and `lfu.batch.4` in 68814. man4 has no
+  Makefile.am in the tree, so nothing to wire. checkpatch-man wants the
+  title to match the filename, an AVAILABILITY release **and** a
+  `.\" commit` line, and SEE ALSO ordered by section; all three pass now
+  (one CHECK left on the 84-column .TH line, the standard section name).
+  68814's message no longer says the pages are owed.
+- **lfu repo scripts updated (76bbe74):** bench_osd_sweep.sh sweeps
+  osd_itable_blockparse and takes DEV_SYSFS for inode_readahead_blks,
+  lfu_noverify gone; 02-build/21-remount/26-ours-run check the new symbol;
+  12-cold and 23-theirs-run keep the old names with a note, since they drive
+  the out-of-tree lfu_par.ko.
+- **`fix-0915` = 1dc... see tag `backup/fix-0917-man4`;** nine commits,
+  checkpatch clean per commit, sweep green.
 
 ## 2026-09-17: OSD series 68810-68815, 44 lreview findings fixed (NOT pushed)
 
@@ -172,7 +193,7 @@ are untouched except 68163 (below). `fix-0915` moved to it the same day
   the removed `lfu_*` params (old measurements, not updated).
 - **VM:** arm B (new tip) is installed; the old 2.19 install is in
   `~/installed-lustre-backup-0917.tgz`. Nothing mounted, VM still up.
-- **68816-68818 lreview:** not run; held until the mdraid agent finishes.
+- **68816-68818 lreview:** done, see the 09-17 afternoon entry.
 - **CI actions 09-17:** LU-20276 (osd-zfs OOM, sanityn) linked and single
   session retests requested for 68582 PS2 and 64945 PS5
   (review-dne-zfs-part-5); BUILD posted on 68414 PS8 (Maloo never ran on
