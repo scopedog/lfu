@@ -4,6 +4,54 @@ Every ticket and Gerrit id in play, and the ones that are *not* ours. Regenerate
 the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
 **2026-09-06**.
 
+## 2026-09-17 afternoon: lreview 68816-68818, 23 findings fixed (NOT pushed)
+
+lreview ($12.30, reports `docs/local/lreview-0917b/markdown/`): 68816 11
+(high), 68817 5, 68818 12. Two agents verified all 28 against the tree.
+`fix-0915` = **3a4298c58c** (before: tag `backup/fix-0917-pre-rpc` =
+afd3466f45; after: `backup/fix-0917-rpc-lab`). Only the top 3 commits changed.
+
+- **Declined (5):** imperative subjects (68816, 68817, 68818) and
+  Test-Parameters (68816, 68818): house style / deliberate preview.
+- **68816:** dt_index_read() takes only II_FL_NOHASH|NOKEY|VARREC and
+  `DT_OTABLE_LFU_ATTRS` on the object table, else -EINVAL (other flags hit a
+  NULL key(), a wild DORA_XATTR pointer, DORA_STATS overflow, or start/stop
+  OI scrub); tgt_obd_idx_read() -EPERM unless nodemap off or a trusted admin
+  nodemap with byfid_ops and no fileset; VARREC on an index with no
+  rec_size() -EOPNOTSUPP (ZFS oops at this commit alone); rec_size() error
+  returned, not truncated to __u16; `LFU_LINK_MAX` = 4096 - 16 -
+  sizeof(lfu_rec) so a record fits one lu_idxpage (BUILD_BUG_ON); mdc copies
+  only the pages the MDT sent, checks bd_nob_transferred; ii_version =
+  LFU_WIRE_VERSION, mdc -EPROTO on another version or a swabbed reply
+  (same-endian only, documented); LL_IOC_LFU_SCAN 'f' 221 -> 255 (221 was
+  OBD_IOC_ECHO_MD); ldiskfs rec/xabuf allocated independently; DOIF_INDEX
+  next()-after-load() comment; lfu.h include placement.
+- **68817:** first paragraph rewritten; include order; no NULL checks
+  before OBD_FREE; rec/xabuf allocated independently.
+- **68818:** MDTs from `llapi_get_target_uuids()` on the mount fd (this
+  mount's lmv, netlink without debugfs) instead of a debugfs glob by fsname;
+  another worker's error stops the prefilter; posix_memalign aliasing;
+  thread-count wording in code, man page and message; man ERRORS -EPROTO,
+  -ENODATA, nodemap -EPERM; stale comments merged (spa_export gone);
+  man3/Makefile.am order; message opening rewritten, design doc reference
+  dropped; LU-20721 -> LU-20730 in comments and the ENOTTY message.
+- **Verify:** own diff re-read (fixed a >80 comment line, a stale "has no
+  version" comment, unbraced else, "page aligned" comments); checkpatch =
+  originals (0/0/0 on 68816-68817, 68818 +0: man-page noise only); VM sweep
+  3/3 build=0 warn=0.
+- **Lab** (`~/rpcab.sh`, formats lfurpc, 3000 files + one file with 16 links
+  of 251-char names; A = old tip 8618869c8f in ~/lustre-osdA, B = new tip;
+  `/tmp/rpcab-{A,B}/results.txt`):
+  - LL_IOC_LFU_SCAN of MDT0: A -E2BIG on the first call, 0 records, and
+    llapi_scan_mount rc -7; B 1 call, 3099 records, link_big=1, and
+    llapi_scan_mount rc 0, 3009 records.
+  - nodemap active, default nodemap admin=0 trusted=0: B -EPERM; restored
+    admin=1 trusted=1: B 3100 records. (A could not show it: -E2BIG first.)
+  - pages past lsc_npages untouched in B (A not observable, same reason).
+- **Not proven in a lab:** the -EINVAL flag guard (needs a crafted sender),
+  ZFS rec_size guard, the version/swab check, ENOMEM pairing, the no-debugfs
+  netlink path, the stop-on-error timing (needs DNE).
+
 ## 2026-09-17: OSD series 68810-68815, 44 lreview findings fixed (NOT pushed)
 
 lreview on 68813/68814/68815 ($13.92, reports `docs/local/lreview-0917/markdown/`)
