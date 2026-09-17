@@ -48,9 +48,39 @@ afd3466f45; after: `backup/fix-0917-rpc-lab`). Only the top 3 commits changed.
   - nodemap active, default nodemap admin=0 trusted=0: B -EPERM; restored
     admin=1 trusted=1: B 3100 records. (A could not show it: -E2BIG first.)
   - pages past lsc_npages untouched in B (A not observable, same reason).
-- **Not proven in a lab:** the -EINVAL flag guard (needs a crafted sender),
-  ZFS rec_size guard, the version/swab check, ENOMEM pairing, the no-debugfs
-  netlink path, the stop-on-error timing (needs DNE).
+- **Lab round 2, the rest of it** (user: "Test on the lab"), all on the
+  clone VM, arms: A/A2/A3 = old tip in ~/lustre-osdA, B*/C/guard* = new tip:
+  - **Flag guard** (`~/flagab.sh`, lab-only sender patch in the build tree,
+    `~/labpatch.py`, reverted and both trees rebuilt after): fixed build
+    refuses all seven bad requests with -EINVAL -- no NOKEY, no VARREC, plus
+    VARKEY, no DOIF_PARALLEL, plus DORA_XATTR, plus DORA_STATS, no
+    DOIF_INDEX -- and `oi_scrub` status stays `init`; the good request is
+    15 pages / 296 records. Unfixed build **served** the no-PARALLEL request
+    (16 pages, 295 records) and `oi_scrub` went `init` -> `completed`: a
+    client ran a full OI scrub. The crashing combinations were not run on
+    the unfixed build on purpose.
+  - **Wire version** (same script, `fail_loc=0x608` makes the server answer
+    LFU_WIRE_VERSION + 1): client -EPROTO, and ok again once cleared.
+  - **ZFS rec_size guard** (`~/zfsguard.sh`, FSTYPE=zfs): at 68816 alone
+    (osd-zfs has no rec_size) the scan answers -EOPNOTSUPP and the MDS does
+    not oops; at the tip it answers 15 pages / 295 records.
+  - **DNE, 2 MDTs** (`~/dneab.sh`, 6000 files per MDT): both MDTs scanned,
+    threads=1 and threads=2 both 12016 records (mdt0 6010, mdt1 6006); an
+    INACTIVE MDT is refused at open (-ENODEV) with the message naming it.
+    **Stop on error**, MDT0001 deactivated 3 s into the scan: A finished
+    MDT0 (6010 records, 12.46 s) before returning -ENODATA, B stopped it at
+    4805 (9.97 s). First attempt proved nothing (MDT0 had 500 files and was
+    already done); and my own harness counted `total` unlocked, so the
+    threads=2 totals were short until it used atomics -- per-MDT counters
+    are single-writer and were always right.
+  - **No debugfs** (`~/nodbg.sh`: private mount namespace, debugfs unmounted,
+    an LD_PRELOAD shim refusing mount() so libcfs cannot remount it): A
+    fails "cannot open /mnt/lfundb" (rc -2), B answers 306 records over
+    netlink.
+  - No LBUG or oops in dmesg across all of it; the fixed build is installed
+    on the VM again.
+- **Still not proven in a lab:** the ENOMEM allocation pairing (needs fault
+  injection).
 
 ## 2026-09-17: OSD series 68810-68815, 44 lreview findings fixed (NOT pushed)
 
