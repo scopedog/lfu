@@ -4,6 +4,29 @@ Every ticket and Gerrit id in play, and the ones that are *not* ours. Regenerate
 the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
 **2026-09-06**.
 
+## Tomorrow: start here (end of 2026-09-17)
+
+**Nothing is running.** VM shut down. Nothing pushed today; four Gerrit
+replies and two Maloo retests are the only outward-facing actions.
+
+1. **The stack:** `fix-0915` = **163d438831** in `~/lfs-carry-0915`, 26
+   commits on 68231 PS8. The bottom four are as pushed (101891803c). All
+   nine OSD commits have been lreviewed and fixed today, with the man4
+   pages; tags `backup/fix-0917-*` mark each step.
+2. **Watch:** the four pushed changes (Maloo still running their enforced
+   sessions, only Jenkins +1 so far); the two retests requested this
+   evening (68094 review-ldiskfs-ubuntu, 68157 review-dne-zfs-part-5);
+   68414 PS8, whose testing the BUILD comment started.
+3. **Waiting on others:** 68231, 68616 and 68617 to land -- that is what
+   unblocks pushing the rest of the series. 64945 needs sbuisson's CR-1
+   resolved, not a retest.
+4. **Owed, none urgent:** replies in `docs/local/replies-series/<change>-<ps>.json`
+   (post only after each change is pushed); the `{{...}}` escaping in
+   LU-20611's description; 65026's local PS12 (three minor fixes, held).
+5. **Undecided, the user's call:** comment on 68160 that PS20 is outdated;
+   mark 68158-68818 WIP; abandon candidates outside LFU (67052, 65388,
+   65120).
+
 ## 2026-09-17 evening: CI check
 
 - **Retests of 09-17 morning both PASSED:** 68582 PS2 and 64945 PS5 are
@@ -222,7 +245,7 @@ are untouched except 68163 (below). `fix-0915` moved to it the same day
   (review-dne-zfs-part-5); BUILD posted on 68414 PS8 (Maloo never ran on
   Andreas's 09-14 rebase).
 
-## Tomorrow: start here (end of 2026-09-16)
+## Start here (end of 2026-09-16) -- SUPERSEDED by the 09-17 entry above
 
 **Nothing is running.** VM shut down. Pushed today: 68094 PS20,
 68095/68156/68157 PS21 (on 68231 PS8); replies posted to their 15 AI
