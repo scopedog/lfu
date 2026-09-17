@@ -81,6 +81,21 @@ afd3466f45; after: `backup/fix-0917-rpc-lab`). Only the top 3 commits changed.
     on the VM again.
 - **Still not proven in a lab:** the ENOMEM allocation pairing (needs fault
   injection).
+- **The four open Gerrit threads on the series, fixed (09-17 evening):**
+  `fix-0915` = **1d403d0431** (tag `backup/fix-0917-cap`).
+  - 68814, smatch "variable dereferenced before IS_ERR check 'obj'": out_obj
+    tests `obj != NULL`, since dt_locate()'s error goes to out_env.
+  - 68814, smatch "'dt' dereferencing possible ERR_PTR()": to decline --
+    obd_lu_dev is checked non-NULL and lu2dt_dev() is a container_of.
+  - 68818/adilger, capability: mdc_lfu_scan() asks CAP_DAC_READ_SEARCH, man
+    page and commit message follow.
+  - 68818/adilger, nodemap ID-offset filtering: to answer, not code; the
+    server now refuses a scan unless the nodemap is trusted admin with
+    byfid_ops and no fileset.
+  - Verify: sweep 5/5 warn=0 err=0; checkpatch unchanged; RPC lab re-run on
+    the new tip (3099 records, link_big 1, nodemap -EPERM then 3100).
+  - **Replies drafted, not posted** (the series is unpushed): comment ids
+    362f6c60_9, d8276355_2 (68814), 160fe0e5_4, 859434fd_7 (68818).
 
 ## 2026-09-17: OSD series 68810-68815, 44 lreview findings fixed (NOT pushed)
 
