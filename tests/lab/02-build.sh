@@ -62,7 +62,7 @@ echo "build took $((t1-t0))s"
 
 ls -la lustre/osd-ldiskfs/osd_ldiskfs.ko
 echo "=== our symbols are in the module ==="
-for s in osd_raw_xattr osd_raw_attr osd_iit_iget_raw osd_otable_it_xattr lfu_blockparse lfu_ra_blocks; do
+for s in osd_raw_xattr osd_raw_attr osd_iit_iget_raw osd_otable_it_xattr osd_itable_blockparse; do
 	if nm lustre/osd-ldiskfs/osd_ldiskfs.ko 2>/dev/null | grep -qw "$s" || \
 	   modinfo lustre/osd-ldiskfs/osd_ldiskfs.ko 2>/dev/null | grep -q "$s"; then
 		echo "  present  $s"

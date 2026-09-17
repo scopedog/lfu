@@ -3,6 +3,12 @@
 #
 # Why this exists
 # ---------------
+# NOTE (2026-09-17): the in-tree series renamed what this sweeps.
+# lfu_blockparse is osd_itable_blockparse, lfu_ra_blocks is gone -- readahead
+# is the file system's inode_readahead_blks, so set DEV_SYSFS -- and
+# lfu_noverify was dropped.  The rows below were measured with the
+# out-of-tree names; they are comparable, but the labels differ.
+#
 # The 2026-08-16 warm curve (docs/measurements/blockparse-2026-08-16.md §3) was measured at
 # whatever lfu_ra_blocks happened to be set to -- the default 32 -- and there is
 # not a single ra= label in bench-data/2026-08-16/blockparse-warm.txt to prove
@@ -63,6 +69,12 @@ SELFTEST=0
 HERE="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$(dirname "$HERE")"
 OSD_PARAMS=/sys/module/osd_ldiskfs/parameters
+# Readahead is the file system's own tunable now, not a module parameter:
+# the in-tree scanner reads inode_readahead_blks (LU-20720).  DEV_SYSFS is
+# the ldiskfs device as /sys/fs/ldiskfs names it, e.g. dm-3.
+DEV_SYSFS=${DEV_SYSFS:-}
+RA_PATH=''
+[ -n "$DEV_SYSFS" ] && RA_PATH=/sys/fs/ldiskfs/$DEV_SYSFS/inode_readahead_blks
 
 die() { echo "bench_osd_sweep: $*" >&2; exit 1; }
 note() { echo "### $*"; }
@@ -164,10 +176,12 @@ if [ "$DRY" != 1 ]; then
 	[ "$(id -u)" = 0 ] || die "must run as root"
 	[ -f "$KO" ] || die "lfu_par.ko not found at $KO (build it in src/kernel)"
 	[ -d "$OSD_PARAMS" ] || die "$OSD_PARAMS missing -- is osd_ldiskfs loaded?"
-	for p in lfu_blockparse lfu_ra_blocks lfu_noverify; do
-		[ -w "$OSD_PARAMS/$p" ] ||
-			die "$OSD_PARAMS/$p not writable -- patch stack not applied?"
-	done
+	[ -w "$OSD_PARAMS/osd_itable_blockparse" ] ||
+		die "$OSD_PARAMS/osd_itable_blockparse not writable -- patch stack not applied?"
+	if [ -n "$RA_PATH" ]; then
+		[ -w "$RA_PATH" ] ||
+			die "$RA_PATH not writable -- is DEV_SYSFS an ldiskfs device?"
+	fi
 	[ -w /dev/kmsg ] || die "/dev/kmsg not writable"
 fi
 
@@ -181,6 +195,23 @@ norm() {
 	N|n) echo 0 ;;
 	*)   echo "$1" ;;
 	esac
+}
+
+# set_ra <blocks> -> echoes the readback of the file system's readahead
+set_ra() {
+	local want=$1 got
+
+	[ -n "$RA_PATH" ] || die "set DEV_SYSFS to sweep readahead"
+	if [ "$DRY" = 1 ]; then
+		echo "+ echo $want > $RA_PATH" >&2
+		echo "$want"
+		return 0
+	fi
+	echo "$want" > "$RA_PATH" || die "cannot write $RA_PATH"
+	got=$(norm "$(cat "$RA_PATH")")
+	[ "$got" = "$(norm "$want")" ] ||
+		die "inode_readahead_blks readback is '$got' after writing '$want'"
+	echo "$got"
 }
 
 # set_tunable <name> <value> -> echoes the normalised readback
@@ -288,9 +319,8 @@ check_identity() {
 	fi
 }
 
-nv=$(set_tunable lfu_noverify 1)
 note "warm bp x ra x threads sweep -- dev=$DEV recattr=$RECATTR chunk=$CHUNK" \
-     "passes=$PASSES noverify=$nv"
+     "passes=$PASSES"
 note "every row's bp= and ra= are read back from $OSD_PARAMS, not assumed"
 
 # Warm means warm: one throwaway pass to pull the inode table into page cache
@@ -306,9 +336,9 @@ bp_sweep="$BP_LIST"
 
 seq_n=0
 for bp in $bp_sweep; do
-	bp_got=$(set_tunable lfu_blockparse "$bp")
+	bp_got=$(set_tunable osd_itable_blockparse "$bp")
 	for ra in $RA_LIST; do
-		ra_got=$(set_tunable lfu_ra_blocks "$ra")
+		ra_got=$(set_ra "$ra")
 		for j in $THREADS; do
 			rates=()
 			last=""
@@ -340,10 +370,9 @@ done
 # Leave the tunables where a normal build expects them rather than wherever the
 # last row of the sweep happened to put them.
 if [ "$DRY" != 1 ]; then
-	set_tunable lfu_blockparse 1 >/dev/null
-	set_tunable lfu_ra_blocks 32 >/dev/null
-	set_tunable lfu_noverify 0 >/dev/null
-	note "tunables restored to blockparse=1 ra=32 noverify=0"
+	set_tunable osd_itable_blockparse 1 >/dev/null
+	set_ra 32 >/dev/null
+	note "tunables restored to blockparse=1 ra=32"
 fi
 
 if [ "$consistency_bad" != 0 ]; then

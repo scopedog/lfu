@@ -1,6 +1,8 @@
 #!/bin/bash
 # Their round: install the LU-20591 modules + utils over ours, remount the SAME
-# filesystem, and exercise 68020's filter.  Two questions:
+# filesystem, and exercise 68020's filter.
+# NOTE (2026-09-17): "ours" here is the out-of-tree stack; the in-tree series
+# calls the parameter osd_itable_blockparse.  Two questions:
 #   (a) what does --size mean on an MDT, where the inode holds 0 for a striped
 #       file and the real size is in trusted.som;
 #   (b) does filtering save them scan work, or only copy_to_user.

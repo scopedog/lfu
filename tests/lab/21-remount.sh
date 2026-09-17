@@ -8,7 +8,7 @@ sudo modprobe lustre
 sudo modprobe osd_ldiskfs
 echo "=== whose modules are loaded? ==="
 modinfo osd_ldiskfs | grep -E '^filename|^version'
-modinfo osd_ldiskfs | grep -cE 'lfu_blockparse' && echo "  (ours: LFU parms present)"
+modinfo osd_ldiskfs | grep -cE 'osd_itable_blockparse' && echo "  (ours: LFU parms present)"
 sudo lnetctl lnet configure 2>/dev/null || true
 sudo lnetctl net add --net tcp0 --if $(ip -o -4 route show to default | awk '{print $5}') 2>/dev/null || true
 NID=$(sudo lctl list_nids | head -1); echo "NID=$NID"

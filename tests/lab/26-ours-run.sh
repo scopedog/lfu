@@ -14,7 +14,7 @@ sudo make install > /tmp/o-install.log 2>&1 || { tail -15 /tmp/o-install.log; ex
 sudo depmod -a
 sudo modprobe lustre && sudo modprobe osd_ldiskfs
 modinfo osd_ldiskfs | grep -E '^version'
-echo "  LFU parms back: $(modinfo osd_ldiskfs | grep -c lfu_blockparse)"
+echo "  LFU parms back: $(modinfo osd_ldiskfs | grep -c osd_itable_blockparse)"
 sudo lnetctl lnet configure 2>/dev/null || true
 sudo lnetctl net add --net tcp0 --if $(ip -o -4 route show to default | awk '{print $5}') 2>/dev/null || true
 sudo mount -t lustre -o loop /lustre/mdt.img /mnt/testfs-mdt0

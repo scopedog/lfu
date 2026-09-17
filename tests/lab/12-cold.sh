@@ -7,6 +7,12 @@
 # it costs up to 90% warm; (b) does pushing a filter down change the cold rate,
 # or is cold simply bytes off the device regardless.
 #
+# NOTE (2026-09-17): this stage drives the OUT-OF-TREE lfu_par.ko/lfu_ring.ko
+# and the osd_ldiskfs parameter names that stack used.  In the in-tree series
+# lfu_blockparse is osd_itable_blockparse, lfu_noverify is gone, and readahead
+# is the file system's inode_readahead_blks.  Kept as the record of what was
+# measured, not as a script to re-run against the in-tree modules.
+#
 # Storage note: this MDT is a 20 GiB loop FILE on a GCP pd-balanced disk, not
 # the local NVMe of the 2026-08-16 cold runs.  Absolute rates here are not
 # comparable to that document; the comparisons WITHIN this run are.
