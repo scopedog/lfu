@@ -4,6 +4,18 @@ Every ticket and Gerrit id in play, and the ones that are *not* ours. Regenerate
 the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
 **2026-09-06**.
 
+## 2026-09-17 evening: CI check
+
+- **Retests of 09-17 morning both PASSED:** 68582 PS2 and 64945 PS5 are
+  Verified+1 (LU-20276, the osd-zfs OOM).
+- **68414 PS8:** the BUILD comment worked -- Jenkins rebuilt (131914) and
+  Maloo announced its sessions, so the change is being tested at last.
+- **Two new failures on the pushed four, both known upstream, retested:**
+  68094 PS20 review-ldiskfs-ubuntu, sanity-lnet test_236 "Expect peer NI
+  state down" = **LU-19605**; 68157 PS21 review-dne-zfs-part-5, sanityn
+  test_cleanup Autotest time out = **LU-17857**. Both linked in Maloo and
+  single-session retests requested.
+
 ## 2026-09-17: Artem asked for the lfind -> lfs find patches
 
 Sent him `docs/local/artem-lfs-find/`: `old-68160-ps20-lfind.patch` (what
