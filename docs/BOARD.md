@@ -4,6 +4,75 @@ Every ticket and Gerrit id in play, and the ones that are *not* ours. Regenerate
 the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
 **2026-09-06**.
 
+## 2026-09-17: OSD series 68810-68815, 44 lreview findings fixed (NOT pushed)
+
+lreview on 68813/68814/68815 ($13.92, reports `docs/local/lreview-0917/markdown/`)
+plus the 18 from 09-16 on 68810-68812. All checked by 3 agents against the
+tree first. Branch `osd-fix-0917` = **d678a006e7** in `~/lfs-carry-0915`
+(tags `backup/fix-0917-pre-osd` = the old tip 8618869c8f,
+`backup/osd-fix-0917-lab`). Only the 9 OSD commits changed; the 17 below
+are untouched. `fix-0915` still points at the old tip.
+
+- **Declined:** subject-line imperative on 68810, 68813, 68815 (house style).
+- **68810:** `lfu_noverify` removed (scrub could spin on a priority item);
+  a private iterator no longer touches `os_ls_fids`/`os_has_ml_file`;
+  `inode_get_*_sec()`; `ooc_attr` allocated only under DOIF_ATTR (1 slot
+  private); osd-zfs directory `la_size` = `doi_max_offset` (LU-15842);
+  `osd_scrub_cleanup()` waits for private iterators instead of LASSERT.
+- **68811:** readahead size is the fs's `inode_readahead_blks`
+  (`lfu_ra_blocks` gone); cursor clamped to the walk; stops at the last
+  used inode; kernel-doc placement; message rewritten.
+- **68812:** nlink 0 always skipped (dtime rule was backwards); time decode
+  sign-extends and adds epoch bits; LMA copied, re-checked and
+  `fid_is_sane()` else iget; plug removed; `lfu_blockparse` renamed
+  `osd_itable_blockparse`; scrub bookkeeping removed from the raw path.
+- **68813:** inline xattr copied and re-checked (`osd_raw_xattr_copy()`),
+  changed value goes to iget; zero-length value returns 0; counters count
+  reads paid; ZFS needs DOIF_ATTR documented.
+- **68814 (UAPI changed):** wire version 1, record 160 bytes, dead
+  stripe/LMV/pool fields and reserved slots dropped, `LFU_INFO_PRIVATE` and
+  the `private` param gone; new `LFU_REC_LMV_SHARD`, `LFU_REC_HAVE_PFID` +
+  `lr_pfid_*`; padding zeroed; `read()` holds a mutex and checks reclen;
+  next() error returned; stall is `wait_event_idle_timeout`; no global
+  one-open limit; producer holds OSD + target obd refs and ends with
+  -ESHUTDOWN on OBDF_STOPPING of either (the OSD alone is marked too late).
+- **68815:** kernel (and client, 68818) backend no longer claims
+  LAYOUT/LMV/LMV_FOREIGN/HSM; `lfs find --device` refuses layout and LMV
+  options with -ENOTSUP (`--projid` still works; `-links` on a directory is
+  undecided); shard and parent FID rebuilt; `scan_osd_kernel.so` in
+  lustre.spec.in; include order and comment placement.
+- **68816/68818:** the same record changes carried into
+  `dt_otable_lfu_rec()` and `lustreapi_lfu_rec.h` (`struct scan_lfu_xattrs`).
+- **Verify:** own diff re-read (found the pfid helper splitting a kernel-doc,
+  fixed); checkpatch per commit = originals' noise, 2 long lines fixed;
+  VM sweep 9/9 build=0 warn=0 (and 68814-68817 again after the last change).
+- **Lab** (clone VM, `~/lfuab.sh`, formats `lfuab` on `/tmp/lfuab-*`, 100k
+  objects; A = old tip, B = new tip; `/tmp/lfuab-{A,B}/results.txt`):
+  - time decode, 2040 / 1960 file: A raw 6503984896 / 3979376896 vs iget
+    2209017600 / -315590400; B raw == iget, 0 of 100306 records differ.
+  - padding: A 10208 records with nonzero pad bytes, B 0.
+  - two scans (MDT held + OST): A `EBUSY`, B both complete.
+  - `--stripe-count 2` / `! --pool nosuch` on the mounted MDT: A 0 / 100216
+    hits exit 0, B -ENOTSUP; `--projid 0` rc 0 in both.
+  - OST0 `--fid2path`: A 0 names, B 5 (the 5 written files; 124 never
+    written objects have no parent FID, same in both).
+  - nlink-0 inode with dtime (debugfs on a copy): A raw path returns it,
+    B skips it; iget skips it in both.
+  - B only: 4 readers on one fd read 100306 == emitted, no bad records;
+    umount under a stalled reader returns in 0s and the reader gets
+    -ESHUTDOWN (first B run, OSD flag only: umount waited 21s). A not run
+    (predicted LASSERT).
+  - no LBUG/oops/hung-task in dmesg; `/tmp/lustre-*` fixture untouched.
+- **Not proven in a lab:** osd-zfs directory size, readahead clamp and cap,
+  DNE shard naming (needs 2 MDTs), the xattr race fixes (race window).
+- **Left open:** the userspace ZFS device scanner (68163) still reports a
+  directory's SA size, so it now differs from osd-zfs; lfu-repo
+  `tests/bench_osd_sweep.sh` and `tests/lab/02-build.sh`/`21-remount.sh` use
+  the removed `lfu_*` params (old measurements, not updated).
+- **VM:** arm B (new tip) is installed; the old 2.19 install is in
+  `~/installed-lustre-backup-0917.tgz`. Nothing mounted, VM still up.
+- **68816-68818 lreview:** not run.
+
 ## Tomorrow: start here (end of 2026-09-16)
 
 **Nothing is running.** VM shut down. Pushed today: 68094 PS20,
