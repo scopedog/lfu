@@ -11,7 +11,8 @@ plus the 18 from 09-16 on 68810-68812. All checked by 3 agents against the
 tree first. Branch `osd-fix-0917` = **afd3466f45** (was d678a006e7) in `~/lfs-carry-0915`
 (tags `backup/fix-0917-pre-osd` = the old tip 8618869c8f,
 `backup/osd-fix-0917-lab`). Only the 9 OSD commits changed; the 17 below
-are untouched except 68163 (below). `fix-0915` still points at the old tip.
+are untouched except 68163 (below). `fix-0915` moved to it the same day
+(old tip = tag `backup/fix-0917-pre-osd`), and is checked out there.
 
 - **Declined:** subject-line imperative on 68810, 68813, 68815 (house style).
 - **68810:** `lfu_noverify` removed (scrub could spin on a priority item);
@@ -78,7 +79,11 @@ are untouched except 68163 (below). `fix-0915` still points at the old tip.
   the removed `lfu_*` params (old measurements, not updated).
 - **VM:** arm B (new tip) is installed; the old 2.19 install is in
   `~/installed-lustre-backup-0917.tgz`. Nothing mounted, VM still up.
-- **68816-68818 lreview:** not run.
+- **68816-68818 lreview:** not run; held until the mdraid agent finishes.
+- **CI actions 09-17:** LU-20276 (osd-zfs OOM, sanityn) linked and single
+  session retests requested for 68582 PS2 and 64945 PS5
+  (review-dne-zfs-part-5); BUILD posted on 68414 PS8 (Maloo never ran on
+  Andreas's 09-14 rebase).
 
 ## Tomorrow: start here (end of 2026-09-16)
 
