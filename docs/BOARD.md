@@ -115,7 +115,7 @@ afd3466f45; after: `backup/fix-0917-rpc-lab`). Only the top 3 commits changed.
   lfu_noverify gone; 02-build/21-remount/26-ours-run check the new symbol;
   12-cold and 23-theirs-run keep the old names with a note, since they drive
   the out-of-tree lfu_par.ko.
-- **`fix-0915` = 1dc... see tag `backup/fix-0917-man4`;** nine commits,
+- **`fix-0915` = 163d438831** (tag `backup/fix-0917-man4`): nine commits,
   checkpatch clean per commit, sweep green.
 
 ## 2026-09-17: OSD series 68810-68815, 44 lreview findings fixed (NOT pushed)
