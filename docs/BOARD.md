@@ -8,10 +8,10 @@ the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
 
 lreview on 68813/68814/68815 ($13.92, reports `docs/local/lreview-0917/markdown/`)
 plus the 18 from 09-16 on 68810-68812. All checked by 3 agents against the
-tree first. Branch `osd-fix-0917` = **d678a006e7** in `~/lfs-carry-0915`
+tree first. Branch `osd-fix-0917` = **afd3466f45** (was d678a006e7) in `~/lfs-carry-0915`
 (tags `backup/fix-0917-pre-osd` = the old tip 8618869c8f,
 `backup/osd-fix-0917-lab`). Only the 9 OSD commits changed; the 17 below
-are untouched. `fix-0915` still points at the old tip.
+are untouched except 68163 (below). `fix-0915` still points at the old tip.
 
 - **Declined:** subject-line imperative on 68810, 68813, 68815 (house style).
 - **68810:** `lfu_noverify` removed (scrub could spin on a priority item);
@@ -63,10 +63,17 @@ are untouched. `fix-0915` still points at the old tip.
     -ESHUTDOWN (first B run, OSD flag only: umount waited 21s). A not run
     (predicted LASSERT).
   - no LBUG/oops/hung-task in dmesg; `/tmp/lustre-*` fixture untouched.
-- **Not proven in a lab:** osd-zfs directory size, readahead clamp and cap,
+- **Not proven in a lab:** readahead clamp and cap,
   DNE shard naming (needs 2 MDTs), the xattr race fixes (race window).
-- **Left open:** the userspace ZFS device scanner (68163) still reports a
-  directory's SA size, so it now differs from osd-zfs; lfu-repo
+- **68163 ZFS device scanner directory size, FIXED later the same day:**
+  `so_size = doi.doi_max_offset` for a directory, message says so;
+  `osd-fix-0917` = **afd3466f45** (tag `backup/osd-fix-0917-zfsdir`; before:
+  `backup/osd-fix-0917-pre-zfsdir` = d678a006e7); tree delta is the 5 lines;
+  checkpatch unchanged; 68163 utils and the tip build warn=0. ZFS lab
+  (`~/zfsab.sh`, FSTYPE=zfs, dirs of 5000/300/1 files, `/tmp/zfsab-{A,B}`):
+  client stat 761856/40960/16384; A kernel stream and device scan both 2/2/2;
+  B both equal the client's sizes. This also proves 68810's osd-zfs fix.
+- **Left open:** lfu-repo
   `tests/bench_osd_sweep.sh` and `tests/lab/02-build.sh`/`21-remount.sh` use
   the removed `lfu_*` params (old measurements, not updated).
 - **VM:** arm B (new tip) is installed; the old 2.19 install is in
