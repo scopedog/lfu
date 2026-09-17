@@ -4,6 +4,17 @@ Every ticket and Gerrit id in play, and the ones that are *not* ours. Regenerate
 the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
 **2026-09-06**.
 
+## 2026-09-17: Artem asked for the lfind -> lfs find patches
+
+Sent him `docs/local/artem-lfs-find/`: `old-68160-ps20-lfind.patch` (what
+Gerrit shows, PS20), `new-68160-lfs-find-device.patch` (local c26f54fc32,
+same Change-Id, unpushed) and a README with the before/after commands and
+the file list, for a slide. A range-diff between the two is useless -- the
+code moved to other files, so git reads them as unrelated.
+
+LU-20611 was already retitled and rewritten (09-16); nothing owed there but
+the inconsistent {{...}} escaping in its description.
+
 ## 2026-09-17 afternoon: lreview 68816-68818, 23 findings fixed (NOT pushed)
 
 lreview ($12.30, reports `docs/local/lreview-0917b/markdown/`): 68816 11
