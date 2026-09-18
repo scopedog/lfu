@@ -27,6 +27,30 @@ replies and two Maloo retests are the only outward-facing actions.
    mark 68158-68818 WIP; abandon candidates outside LFU (67052, 65388,
    65120).
 
+## 2026-09-18: lreview after the push (missed before it) -- next round
+
+User caught that lreview did not run before the 09-18 push. Run after, one
+at a time, reports in `docs/local/lreview-0918/markdown/`.
+
+- **68156 PS22 (b6c43adc81), $9.98, 8 findings, all verified real, none in
+  today's new code.** To fix next round (do NOT push again today):
+  1. (defect) scan_classify() ignores LMAI_ORPHAN (osd_attr_set() writes it
+     to the on-disk LMA): open-unlinked files in PENDING and migrate/HSM
+     volatiles are delivered as VISIBLE. **User chose (b): a new class
+     LLAPI_SCAN_CLS_ORPHAN** (enum and CLS_MAX change; nothing landed).
+  2. no-layout regular file: stx_blocks must be 0 as mdt_pack_attr2body()
+     reports, not the MDT inode's i_blocks.
+  3. comment typo scan_ldiskfs.so -> scan_osd_ldiskfs.so.
+  4. llapi_scan_device.3: only zero-link orphans land in ss_skipped; the
+     PENDING ones are item 1.
+  5. llapi_scan_device.3: `-attrs` -> `--attrs`.
+  6. lustreapi.h comments still say which scanner fills a field --
+     **adilger PS16 asked for this and it was not finished**.
+  7. comments narrating earlier revisions (libscan_ldiskfs.c:570,
+     scan_sink_object "lost+found came out as", scan_sink_skip, backend.h
+     "Carved from the padding").
+  8. lustre_fid.h fid_is_root() comment: back to the short original.
+
 ## 2026-09-18: AI round on the pushed four -- 8 fixed, 1 declined, PUSHED
 
 **PUSHED 09-18** (user approved; parent still 68231 PS8 b7b1332a42, 68616/68617
