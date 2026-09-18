@@ -1,0 +1,28 @@
+{
+ "tag": "review-reply",
+ "notify": "OWNER",
+ "comments": {
+  "Documentation/man3/llapi_scan_namespace.3": [
+   {
+    "line": 303,
+    "in_reply_to": "aea0225b_380abb64",
+    "unresolved": false,
+    "message": "Done."
+   },
+   {
+    "line": 476,
+    "in_reply_to": "cb723540_f17af248",
+    "unresolved": false,
+    "message": "Done."
+   }
+  ],
+  "include/lustre/lustreapi.h": [
+   {
+    "line": 639,
+    "in_reply_to": "ac853bff_42457834",
+    "unresolved": false,
+    "message": "Done."
+   }
+  ]
+ }
+}

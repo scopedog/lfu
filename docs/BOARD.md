@@ -27,6 +27,45 @@ replies and two Maloo retests are the only outward-facing actions.
    mark 68158-68818 WIP; abandon candidates outside LFU (67052, 65388,
    65120).
 
+## 2026-09-18: AI round on the pushed four -- 8 fixed, 1 declined (NOT pushed)
+
+Gerrit AI reviewed 68094 PS20, 68095 PS21, 68156 PS21 on 09-18 (68157
+clean): 9 threads. Transforms `docs/rounds/r-0918/r0918fix.py` (round-3
+engine), driver `r0918drive.py`; branch `fix-0918` untouched, new stack =
+tag `r0918-tip` = **6a130160b1** in `~/lfs-carry-0915` (26 commits, all
+Change-Ids intact; backup tag `backup/fix-0918-pre` = 163d438831).
+
+- **68094:** man3 names `<linux/lustre/lustre_idl.h>` for lmv_foreign_md;
+  example tests STATX_TYPE not STATX_MODE; lustreapi.h lifetime list adds
+  lfsr_lmv (later commits already list it).
+- **68095:** 56El drops `-type f` (dirs now reach the LMV fetch), expects 4;
+  scan_rec_gather_lmv/_rest -> scan_rec_gather_begin/_finish (+ message).
+  **Declined:** -B off Lustre as non-match -- a walk starting off Lustre
+  already gets -EOPNOTSUPP (calloc'd fp_lmd, parent and stock alike); the
+  parent only dodged it with the previous object's btime.
+- **68156:** CLS_BAD comment = unknown LMA incompat bit only;
+  scan_size() treats an HSM-released layout (all components, as
+  mdt_hsm_is_released()) as size from the MDT inode, blocks 0/1, man page
+  says so; ldiskfs error arm tests the inode bitmap before counting a skip.
+  **Gap left for the OSD series:** the kernel ring marks LOV present without
+  its bytes, so the released check cannot run there.
+- **Verify:** own diff re-read (one comment style fixed); checkpatch
+  errors/warnings identical on all 26.
+- **Lab (clone VM, `~/lustre-0918`, prefix `~/r18-inst`, `/tmp/r18lab`):**
+  - 56El: old check + 68094 lfs FAIL (so the AI's "passes on the parent"
+    is wrong); new check + 68094 FAIL; new check + 68095 PASS.
+  - HSM (archived with lhsmtool_posix, then released; `hsm_set --archived`
+    alone fails release on data_version): namespace rel1 1048576/1 blk,
+    relc (PFL) 2097152/1. Device scan A (old tip) 1048576/2048 and
+    2097152/4096 (strict SOM, pre-release blocks); B 1048576/1, 2097152/1;
+    A again = A. nrm1 lazy in all.
+  - Bitmap: plugin opens with IGNORE_CSUM_ERRORS, so a corrupt checksum
+    never reaches the arm (proven: 0 skips); inode-table block 78 put in the
+    bad-blocks inode instead (inodes 169 free, 170-172 used): A seen 277
+    skipped 4, B seen 276 skipped 3, A again 277/4.
+- Replies drafted in `docs/rounds/r-0918/reply-*.json` (decline left
+  unresolved); post only after the push.
+
 ## 2026-09-18: 68414 PS9 is now promised in public (done by session lustre-1b)
 
 Another session acted on 68414 PS8 by mistake. Nothing built, nothing pushed.

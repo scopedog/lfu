@@ -1,0 +1,30 @@
+{
+ "tag": "review-reply",
+ "notify": "OWNER",
+ "comments": {
+  "include/lustre/lustreapi.h": [
+   {
+    "line": 673,
+    "in_reply_to": "cb09f4cc_dfbb29b2",
+    "unresolved": false,
+    "message": "Done."
+   }
+  ],
+  "lustre/utils/liblustreapi_scan_device.c": [
+   {
+    "line": 400,
+    "in_reply_to": "5aeb39c8_d7aad54f",
+    "unresolved": false,
+    "message": "Done."
+   }
+  ],
+  "lustre/utils/libscan_ldiskfs.c": [
+   {
+    "line": 579,
+    "in_reply_to": "8be61d7b_9b47357e",
+    "unresolved": false,
+    "message": "Done."
+   }
+  ]
+ }
+}

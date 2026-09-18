@@ -1,0 +1,30 @@
+{
+ "tag": "review-reply",
+ "notify": "OWNER",
+ "comments": {
+  "lustre/tests/sanity.sh": [
+   {
+    "line": 10606,
+    "in_reply_to": "7bf450ef_a3e560b5",
+    "unresolved": false,
+    "message": "Done: -type is gone, so the directories reach the LMV fetch now. The old check did fail on the parent, though (exit 1 on 68094 in the lab): the files' own stat goes off Lustre too."
+   }
+  ],
+  "lustre/utils/liblustreapi_pfind.c": [
+   {
+    "line": 2701,
+    "in_reply_to": "39db9ed2_fd706e3d",
+    "unresolved": true,
+    "message": "A walk that starts off Lustre already gets -EOPNOTSUPP for -B, on the parent and in stock lfs find: fp_lmd is calloc()ed, so STATX_BTIME is never set there. The parent only avoided it by using the previous object's btime. Making -B a non-match off Lustre would change what -B means, so I would keep that out of this patch."
+   }
+  ],
+  "lustre/utils/liblustreapi_scan.c": [
+   {
+    "line": 292,
+    "in_reply_to": "be5960c4_f48a99a0",
+    "unresolved": false,
+    "message": "Done."
+   }
+  ]
+ }
+}
