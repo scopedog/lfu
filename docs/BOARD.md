@@ -50,6 +50,16 @@ at a time, reports in `docs/local/lreview-0918/markdown/`.
      scan_sink_object "lost+found came out as", scan_sink_skip, backend.h
      "Carved from the padding").
   8. lustre_fid.h fid_is_root() comment: back to the short original.
+- **68095 PS22 (eb773b585f), $5.33, 3 findings (low), all verified real:**
+  1. `-printf %Li` on a *foreign* directory: the old code stored the MDT
+     index over lfm_type (its own bug) and printed it; the new code rightly
+     skips the store, so %Li now prints lfm_type. Print fp_file_mdt_index
+     for a foreign LMV in the %Li arm, and say so in the message.
+  2. get_projid ENOTTY comments: outer says "prints DEFAULT_PROJID", inner
+     "prints none", code sets 0 (the rename is 68157). Fix the comments.
+  3. comments narrating the change ("this walk now descends off Lustre",
+     get_projid's "now picks a branch", cb_find_init "Reachable because").
+- 68094 and 68157 not lreviewed: docs/comment-only and carry-only this round.
 
 ## 2026-09-18: AI round on the pushed four -- 8 fixed, 1 declined, PUSHED
 
