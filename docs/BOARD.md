@@ -52,7 +52,8 @@ Another session acted on 68414 PS8 by mistake. Nothing built, nothing pushed.
   save "ALL", and the hand trap restores mds1 only -- so on DNE, mds2..N
   stay at ALL after 160z. Retests running (~4-5 h left as of 09-18 morning).
   AI summary also floats a sentence in lfs-changelog.1 -- not promised.
-- **PS9 BUILT, NOT PUSHED:** `~/projects/lustre/lr-68414`, tag `l68414-ps9`
+- **PS9 PUSHED 09-18** (user approved); three threads answered "Done in PS9." and resolved, 0 unresolved. Andreas's +1 dropped with the new PS -- watch for his re-review and Maloo.
+- **PS9 built:** `~/projects/lustre/lr-68414`, tag `l68414-ps9`
   (968d6b5223 on 68413 PS9 626307a688). sanity.sh = 68413 PS9's + PS6's 160z
   with Andreas's cleanups (his MDS gate, no client gate, no rm -rf, no
   deregister); widen/restore on $SINGLEMDS only; widening comment now agrees
