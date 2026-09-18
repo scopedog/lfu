@@ -50,7 +50,7 @@ Another session acted on 68414 PS8 by mistake. Nothing built, nothing pushed.
   The $SINGLEMDS problem is a real state leak, not only wording:
   changelog_chmask sets every MDT, changelog_register's per-MDT traps then
   save "ALL", and the hand trap restores mds1 only -- so on DNE, mds2..N
-  stay at ALL after 160z. Retests running (both ~4-5 h at 09-18 14:00).
+  stay at ALL after 160z. Retests running (~4-5 h left as of 09-18 morning).
   AI summary also floats a sentence in lfs-changelog.1 -- not promised.
 
 ## 2026-09-17 evening: CI check
