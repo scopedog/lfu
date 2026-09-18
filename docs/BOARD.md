@@ -27,6 +27,26 @@ replies and two Maloo retests are the only outward-facing actions.
    mark 68158-68818 WIP; abandon candidates outside LFU (67052, 65388,
    65120).
 
+## 2026-09-18: 68414 PS9 is now promised in public (done by session lustre-1b)
+
+Another session acted on 68414 PS8 by mistake. Nothing built, nothing pushed.
+
+- **Posted (one review, under the user's name):** COMMIT_MSG:64 -- the
+  disjoint half of 160z ("-m creat" then "--mask=-mark,-creat") was lost in
+  PS7, restore it; sanity.sh:22599 -- 160y deleted by rebase, keep it from
+  68413 and add 160z after it; sanity.sh:22605 -- drop the CLIENT_VERSION
+  2.17.58 gate. Those three left open. sanity.sh:22603 -- keep
+  `v2_17_52-164-g41b55cf230`, RESOLVED.
+- **Retests (build 131914):** review-dne-part-4 el10.1 sanity-quota test_0
+  = LU-19169; review-dne-zfs-part-5 el9.7 sanityn test_102 ESTALE = LU-20501.
+- **Found, not posted:** Andreas's PS7 went back to `changelog_chmask "ALL"`
+  (all MDTs), so the commit message's "only on $SINGLEMDS" is now false --
+  fix the sentence or return to the facet-only set_param of PS2-PS6.
+- **PS9 must:** restore 160y (68413 PS9), restore the disjoint half (68414
+  PS6), drop the client gate, fix the $SINGLEMDS line. Keep Andreas's
+  cleanups: no changelog_deregister, no rm -rf, no Test-Parameters, his MDS
+  gate. Start from Gerrit PS8, not the stale local copy.
+
 ## 2026-09-17 evening: CI check
 
 - **Retests of 09-17 morning both PASSED:** 68582 PS2 and 64945 PS5 are
