@@ -46,6 +46,12 @@ Another session acted on 68414 PS8 by mistake. Nothing built, nothing pushed.
   PS6), drop the client gate, fix the $SINGLEMDS line. Keep Andreas's
   cleanups: no changelog_deregister, no rm -rf, no Test-Parameters, his MDS
   gate. Start from Gerrit PS8, not the stale local copy.
+- **Re-checked 09-18 (this session):** all of the above confirmed on Gerrit.
+  The $SINGLEMDS problem is a real state leak, not only wording:
+  changelog_chmask sets every MDT, changelog_register's per-MDT traps then
+  save "ALL", and the hand trap restores mds1 only -- so on DNE, mds2..N
+  stay at ALL after 160z. Retests running (both ~4-5 h at 09-18 14:00).
+  AI summary also floats a sentence in lfs-changelog.1 -- not promised.
 
 ## 2026-09-17 evening: CI check
 
