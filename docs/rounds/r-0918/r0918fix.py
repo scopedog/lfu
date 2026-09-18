@@ -252,6 +252,26 @@ t("8be61d7b-code", LDISK,
   "\t\t\t\tcontinue;\n"
   "\t\t\tsink->ss_skip(sink->ss_ctx, LLAPI_SCAN_SKIP_IO);\n")
 
+# ------------------------------------------------ messages (plain English)
+t("msg-56El", MSG,
+  "sanity 56El mounts a tmpfs under the Lustre mount. It checks that the\n"
+  "walk finds the files below it, and that -printf %LF and %Lc print\n"
+  "nothing on stderr for them.",
+  "sanity 56El mounts a tmpfs under the Lustre mount. It checks that the\n"
+  "walk finds the objects below it with --links, so that each directory\n"
+  "there has its LMV fetched, and that -printf %LF and %Lc print\n"
+  "nothing on stderr for them.")
+t("msg-released", MSG,
+  "- LLAPI_SCAN_LMV_FOREIGN asked for alone also reads the LMV.\n",
+  "- LLAPI_SCAN_LMV_FOREIGN asked for alone also reads the LMV.\n"
+  "- A file that HSM has released gets its size from the MDT inode, and\n"
+  "  one block, as a client sees it. Its old SOM is not used.\n")
+t("msg-bitmap", MSG,
+  "- An inode that cannot be read is counted once, by the chunk that owns\n"
+  "  it.\n",
+  "- An inode that cannot be read is counted once, by the chunk that owns\n"
+  "  it, and only if the inode bitmap says it is in use.\n")
+
 
 def apply(tree, name, msg):
     saved = r3fix.T

@@ -27,7 +27,16 @@ replies and two Maloo retests are the only outward-facing actions.
    mark 68158-68818 WIP; abandon candidates outside LFU (67052, 65388,
    65120).
 
-## 2026-09-18: AI round on the pushed four -- 8 fixed, 1 declined (NOT pushed)
+## 2026-09-18: AI round on the pushed four -- 8 fixed, 1 declined, PUSHED
+
+**PUSHED 09-18** (user approved; parent still 68231 PS8 b7b1332a42, 68616/68617
+untouched): 68094 PS21 558245365c, 68095 PS22 eb773b585f, 68156 PS22
+b6c43adc81, 68157 PS22 8f508348f2. Three messages got plain-English lines
+(56El --links; released-file size; bitmap skip count); trees identical to
+the lab-tested 6a130160b1 stack, all 26. Stack tip now tag `r0918-tip` =
+8680c5570a (the rest, 68158+, still local). 9 replies posted; open on the
+four = the -B decline (68095:2701) plus the two older deliberate ones
+(68095:2500, 68156:730).
 
 Gerrit AI reviewed 68094 PS20, 68095 PS21, 68156 PS21 on 09-18 (68157
 clean): 9 threads. Transforms `docs/rounds/r-0918/r0918fix.py` (round-3
