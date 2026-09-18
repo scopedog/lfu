@@ -52,6 +52,22 @@ Another session acted on 68414 PS8 by mistake. Nothing built, nothing pushed.
   save "ALL", and the hand trap restores mds1 only -- so on DNE, mds2..N
   stay at ALL after 160z. Retests running (~4-5 h left as of 09-18 morning).
   AI summary also floats a sentence in lfs-changelog.1 -- not promised.
+- **PS9 BUILT, NOT PUSHED:** `~/projects/lustre/lr-68414`, tag `l68414-ps9`
+  (968d6b5223 on 68413 PS9 626307a688). sanity.sh = 68413 PS9's + PS6's 160z
+  with Andreas's cleanups (his MDS gate, no client gate, no rm -rf, no
+  deregister); widen/restore on $SINGLEMDS only; widening comment now agrees
+  with the commit message (PS8's said the opposite). Message unchanged from
+  PS8. checkpatch clean.
+- **Lab (clone VM, build tree, FSNAME=p9, `/tmp/p9lab`):** fixed 1 MDT and
+  2 MDTs: 160y+160z PASS, masks MARK before and after. Unfixed mdc: 160y
+  PASS, 160z FAIL "--mask creat should hide MKDIR, got 1"; with that check
+  echoed, FAIL "a disjoint --mask should select nothing, got 1" -- both
+  halves discriminate. PS8's 160z on 2 MDTs leaves MDT0001 at the full mask
+  (leak proven); PS9 does not.
+- **Trap:** PS8's client gate SKIPPED 160z on the lab tree (2.17.57_181, no
+  local numeric 2.17.58 tag); on Maloo it ran (~165 PASS in subtest-change),
+  so the posted reply is right. Running sanity.sh with sudo from a build tree
+  leaves root-owned lt-* files; chown before the next make.
 
 ## 2026-09-17 evening: CI check
 
