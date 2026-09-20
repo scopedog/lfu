@@ -1,0 +1,22 @@
+== scan_classify()
+ordinary file, no flags                      old=VISIBLE  new=VISIBLE  ok
+open-unlinked file in PENDING                old=VISIBLE  new=ORPHAN   ok
+encrypted volatile in PENDING                old=VISIBLE  new=ORPHAN   ok
+LMAI_RELEASED, an unsupported bit            old=BAD      new=BAD      ok
+agent inode                                  old=AGENT    new=AGENT    ok
+agent inode, also marked orphan              old=AGENT    new=AGENT    ok
+the OSD's own object, marked orphan          old=INTERNAL new=INTERNAL ok
+OST data object, marked orphan               old=OST_OBJ  new=OST_OBJ  ok
+IDIF object, marked orphan                   old=OST_OBJ  new=OST_OBJ  ok
+the root, marked orphan (cannot happen)      old=VISIBLE  new=ORPHAN   ok
+unknown incompat bit wins over orphan        old=BAD      new=BAD      ok
+no LMA                                       old=NO_LMA   new=NO_LMA   ok
+
+== scan_size(), no trusted.lov
+regular file, no layout                      old_blocks=8      new_blocks=0      size=4096 ok
+regular file, empty, no layout               old_blocks=0      new_blocks=0      size=0 ok
+directory                                    old_blocks=8      new_blocks=8      size=4096 ok
+symlink                                      old_blocks=0      new_blocks=0      size=12 ok
+regular file with a layout                   old_blocks=0      new_blocks=0      size=0 ok
+
+ALL AS EXPECTED

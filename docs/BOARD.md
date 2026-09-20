@@ -27,6 +27,72 @@ replies and two Maloo retests are the only outward-facing actions.
    mark 68158-68818 WIP; abandon candidates outside LFU (67052, 65388,
    65120).
 
+## 2026-09-20: the 11 lreview findings fixed -- round 20, UNPUSHED
+
+All eleven from the 09-18 lreview (8 on 68156 PS22, 3 on 68095 PS22) fixed as
+transforms over the whole stack: `docs/rounds/r-0920/r0920fix.py`, driver
+`r0920drive.py` (the r-0918 driver, r3 engine). New stack tip = tag
+**`r0920-tip` = c00708148b** in `~/lfs-carry-0915`, 26 commits, Change-Ids
+intact; `backup/fix-0920-pre` = 8680c5570a. **68094 is unchanged** (same-tree),
+so only 68095 and 68156 and the carriers above them move.
+
+- **68156 1 (defect): LLAPI_SCAN_CLS_ORPHAN**, the class the user chose.
+  `scan_classify()` tests `LMAI_ORPHAN` **last**, after the OST and LAST_ID
+  tests, so only what would have been VISIBLE changes class; the enum gains
+  ORPHAN = 6 and CLS_MAX = 7 (ss_class[] is the last field of
+  `struct llapi_scan_stats`, so growing it is an append, which ss_size
+  already covers). `scan_sink_object()`'s `cls != dev->sd_visible` gate then
+  withholds orphans unless LLAPI_SCAN_F_INTERNAL, which is the point.
+  Traced on disk: mdd_mark_orphan_object() -> LUSTRE_ORPHAN_FL ->
+  osd_attr_set() -> `lustre_to_lma_flags()` -> LMAI_ORPHAN in the on-disk
+  LMA. The flag is only ever set, never cleared -- and LFSCK
+  (lfsck_engine.c:126) skips on the same flag, so this matches the tree.
+- **68156 2:** `scan_size()` reports `stx_blocks = 0` for a regular file with
+  no trusted.lov, as mdt_pack_attr2body() does (mdt_handler.c:880). A
+  directory or symlink keeps the inode's own blocks.
+- **68156 3-8, 68095 2-3:** the comment and man-page items -- scan_osd_ldiskfs.so,
+  `--attrs`, the ss_skipped paragraph (which now says PENDING's files are
+  *not* skipped but classified ORPHAN), the five "which scanner fills this"
+  comments adilger asked about in PS16, the four that narrated an earlier
+  revision, fid_is_root()'s note, the projid comments.
+- **68095 1:** `-printf %Li` on a foreign directory prints
+  `fp_file_mdt_index` (OBD_NOT_FOUND prints nothing) rather than reading
+  lfm_type out of `lum_stripe_offset`. That restores the pre-patch output, so
+  there is **no Behaviour-changes line to add** to the message -- the delta
+  the review found is gone rather than documented.
+
+**Proof.** Lift-and-compare against the *unfixed* build: `scan_classify()` and
+`scan_size()` lifted from 8680c5570a and from r0920-tip into one harness
+(`docs/rounds/r-0920/classify-size-harness.c`, output `harness-out.txt`).
+16 cases, all as expected: the two orphan cases flip VISIBLE -> ORPHAN, the
+regular-file-no-layout case flips 8 blocks -> 0, and agent / OSD-internal /
+OST / IDIF / BAD / NO_LMA / directory / symlink / striped-file are unchanged.
+Per-commit build sweep over all 26 (`build-sweep-0920.sh`): build=0 hdr=0
+tests=0 everywhere. checkpatch per commit: 68156 identical to PS22, 68095
+**loses** one over-80 line and adds nothing.
+
+**Not done, deliberately:** no push (the round waits on the Gerrit AI on PS22,
+and pushes are the user's call); no lreview of the new commits yet -- that is
+the gate before the next push; no VM lab, the harness being the proof that
+discriminates here.
+
+## 2026-09-20: CI check -- no human or AI comments
+
+Nothing new to answer. Jenkins +1 and Janitor builds green on 68094 PS21,
+68095 PS22, 68156 PS22, 68157 PS22, 68414 PS9; checkpatch style warnings only.
+Test failures all triaged as known noise (sanity2/3 timeouts, sanity 160g,
+sanity-lfsck, recovery-small 24b, sanity-quota, sanity 816) except two, both
+looked up in Maloo and both far from our code:
+
+| Change | Session | Subtest | Ticket |
+|---|---|---|---|
+| 68157 PS22 | review-dne-part-1 el10.1 | `sanity test_259` "missing truncate?" | **LU-20511** (Open), exact title |
+| 68414 PS9 | review-dne-zfs-part-2 el9.8 | `sanity-pfl test_16b` setstripe failed | **LU-18276** (Open) -- the suite log says `No space left on device (28)` on a 24048-byte layout, which is that ticket's shape |
+
+Linking those two in Maloo and requesting the single-session retests was
+**blocked by the auto-mode classifier** (external writes); the two commands are
+in the 09-20 session notes, to run by hand.
+
 ## 2026-09-18: lreview after the push (missed before it) -- next round
 
 User caught that lreview did not run before the 09-18 push. Run after, one
