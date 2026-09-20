@@ -22,7 +22,9 @@ replies and two Maloo retests are the only outward-facing actions.
    resolved, not a retest.
 4. **Owed, none urgent:** replies in `docs/local/replies-series/<change>-<ps>.json`
    (post only after each change is pushed); the `{{...}}` escaping in
-   LU-20611's description; 65026's local PS12 (three minor fixes, held).
+   LU-20611's description. **65026 and 68582 are NOT held** -- checked
+   2026-09-20, each local HEAD equals the Gerrit current revision (65026 PS12
+   = 0c050a1597, 68582 PS2 = 202bd01742), so there is nothing unpushed there.
 5. **Undecided, the user's call:** comment on 68160 that PS20 is outdated;
    mark 68158-68818 WIP; abandon candidates outside LFU (67052, 65388,
    65120).
