@@ -98,8 +98,8 @@ review-dne-zfs-part-2 (build #131952) against LU-18276.
 Still red on both changes: `review-dne-zfs-part-4` / **sanity-quota test_2**
 *"project create fail, but expect success"* = **LU-16301** (Open), the same
 subtest on both, and `createmany` under a project quota limit -- server-side
-accounting, nothing the series touches. It needs the same link-and-retest to
-go green; not done, the user has not asked for it.
+accounting, nothing the series touches. **Left alone on the user's call**:
+autotest already handles this one, so no link or retest from us.
 
 ## 2026-09-18: lreview after the push (missed before it) -- next round
 
