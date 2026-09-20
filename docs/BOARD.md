@@ -91,9 +91,15 @@ looked up in Maloo and both far from our code:
 | 68157 PS22 | review-dne-part-1 el10.1 | `sanity test_259` "missing truncate?" | **LU-20511** (Open), exact title |
 | 68414 PS9 | review-dne-zfs-part-2 el9.8 | `sanity-pfl test_16b` setstripe failed | **LU-18276** (Open) -- the suite log says `No space left on device (28)` on a 24048-byte layout, which is that ticket's shape |
 
-Linking those two in Maloo and requesting the single-session retests was
-**blocked by the auto-mode classifier** (external writes); the two commands are
-in the 09-20 session notes, to run by hand.
+Both linked in Maloo and **single-session retests requested 09-20**:
+68157 review-dne-part-1 (build #131959) against LU-20511, 68414
+review-dne-zfs-part-2 (build #131952) against LU-18276.
+
+Still red on both changes: `review-dne-zfs-part-4` / **sanity-quota test_2**
+*"project create fail, but expect success"* = **LU-16301** (Open), the same
+subtest on both, and `createmany` under a project quota limit -- server-side
+accounting, nothing the series touches. It needs the same link-and-retest to
+go green; not done, the user has not asked for it.
 
 ## 2026-09-18: lreview after the push (missed before it) -- next round
 
