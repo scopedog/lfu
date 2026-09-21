@@ -4,28 +4,52 @@ Every ticket and Gerrit id in play, and the ones that are *not* ours. Regenerate
 the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
 **2026-09-06**.
 
-## Tomorrow: start here (end of 2026-09-17)
+## Tomorrow: start here (end of 2026-09-21)
 
-**Nothing is running.** VM shut down. Nothing pushed today; four Gerrit
-replies and two Maloo retests are the only outward-facing actions.
-
-1. **The stack:** `fix-0915` = **163d438831** in `~/lfs-carry-0915`, 26
-   commits on 68231 PS8. The bottom four are as pushed (101891803c). All
-   nine OSD commits have been lreviewed and fixed today, with the man4
-   pages; tags `backup/fix-0917-*` mark each step.
-2. **Watch:** the four pushed changes (Maloo still running their enforced
-   sessions, only Jenkins +1 so far); the two retests requested this
-   evening (68094 review-ldiskfs-ubuntu, 68157 review-dne-zfs-part-5);
-   68414 PS8, whose testing the BUILD comment started.
-3. **Waiting on others:** 68231, 68616 and 68617 to land -- that is what
-   unblocks pushing the rest of the series. 64945 needs sbuisson's CR-1
-   resolved, not a retest.
-4. **Owed, none urgent:** replies in `docs/local/replies-series/<change>-<ps>.json`
+1. **The stack:** `r0921c-tip` = **f189a79af4** in `~/lfs-carry-0915`, 26
+   commits on 68231 PS8 (b7b1332a42). Rounds 20 and 21 are both folded into
+   it. Backups: `backup/fix-0921-pre` = c00708148b, `r0921-tip` = ea8bd797c5
+   (first pass), `r0921b-tip` = be97aac251 (the OST fix).
+2. **The push:** branch `push-0921-first4` holds the bottom four (68094,
+   68095, 68156, 68157) ready for `refs/for/master`, on Andreas's 2026-09-21
+   invitation to push 2-4 patches that sit on 68231 without depending on
+   68616/68617. Verified: they need no rebase, and the only file shared with
+   68617 is `Documentation/man7/lustreapi.7`, with no overlapping hunks.
+3. **Waiting on others:** 68231, 68616, 68617 and 65331 are on `master-next`
+   as of 2026-09-21 07:52 -- no updates to them while the hashtag is set.
+   Their landing is what unblocks the rest of the series.
+4. **TO FILE, upstream bugs in landed code** -- both found by `lreview` on
+   2026-09-21, neither ours, neither filed. Full write-up in the
+   `lfu-to-file-upstream` memory and in
+   [`rounds/r-0921/notes.md`](rounds/r-0921/notes.md); **ask the user before
+   filing, the ticket carries their name**:
+   - **`lfs find --thread-count N>1` can overrun the heap.**
+     `work_unit_create()` allocates `unit->fwu_path = malloc(PATH_MAX + 1)`
+     but `find_worker()` walks with `llapi_semantic_traverse(..., 2 *
+     PATH_MAX, ...)`, and that argument is the walk's only bound
+     (`(len + dent->d_reclen + 2) > size`). A tree deeper than `PATH_MAX`
+     writes past the allocation. From **e505e7dbfb** ("LU-17814 utils: Add
+     work unit management"), present at our series base. Wants its own LU
+     ticket and patch.
+   - **`printf_format_lustre()` reads a foreign LMV through `lmv_user_md`.**
+     `lmv_foreign_md` aliases every field the switch touches -- `lfm_length`
+     at `lum_stripe_count`, `lfm_type` at `lum_stripe_offset`, `lfm_flags` at
+     `lum_hash_type` -- so `%Lc` prints a length as a stripe count, `%Lp`
+     runs `snprintf("%s")` over bytes that need not hold a NUL, and the `%Lo`
+     loop indexes `lum_objects[]` for `lfm_length` entries, past the
+     256-stripe buffer. 68095 fixes `case 'i'` only, deliberately.
+   - Older in the same queue: the **doubled slash separator** in stock
+     `lfs find` (measured, not ours) and **sanity 131d's stale errno**, which
+     breaks for anyone adding a constructor-carrying library to
+     liblustreapi. The user said "not now" to 131d.
+5. **Owed, none urgent:** replies in `docs/local/replies-series/<change>-<ps>.json`
    (post only after each change is pushed); the `{{...}}` escaping in
-   LU-20611's description. **65026 and 68582 are NOT held** -- checked
-   2026-09-20, each local HEAD equals the Gerrit current revision (65026 PS12
-   = 0c050a1597, 68582 PS2 = 202bd01742), so there is nothing unpushed there.
-5. **Undecided, the user's call:** comment on 68160 that PS20 is outdated;
+   LU-20611's description.
+6. **Not ours any more:** 65026 (pushed PS13 by the lustre-bd session
+   carrying this round's three fixes), 64945, 68582, 68413, 68414, 65331.
+   Leave the unstaged `mdc_changelog.c` edit in
+   `~/projects/lustre/lustre-lu20648` alone.
+7. **Undecided, the user's call:** comment on 68160 that PS20 is outdated;
    mark 68158-68818 WIP; abandon candidates outside LFU (67052, 65388,
    65120).
 
