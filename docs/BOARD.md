@@ -29,6 +29,39 @@ replies and two Maloo retests are the only outward-facing actions.
    mark 68158-68818 WIP; abandon candidates outside LFU (67052, 65388,
    65120).
 
+## 2026-09-21: the Gerrit AI round of 09-20/21 -- round 21, UNPUSHED
+
+Eleven comments on five changes: **nine taken, one declined, one left to its
+own patch**. Full triage in [`rounds/r-0921/notes.md`](rounds/r-0921/notes.md).
+
+- **The stack:** transforms in `docs/rounds/r-0921/r0921fix.py`, driver
+  `r0921drive.py`. New tip **`r0921-tip` = ea8bd797c5** in `~/lfs-carry-0915`,
+  26 commits; `backup/fix-0921-pre` = c00708148b. Only 68094, 68095 and 68156
+  change content; the 23 above carry it.
+  - **68094:** `LLAPI_SCAN_ATTRS` now gates on `OBD_MD_FLFLAGS`, not on
+    `stx_attributes_mask` -- llite fills that mask with a build-time constant,
+    so the bit was set for every object. Man page follows.
+  - **68095:** `! --foreign` on an unstriped directory prints on the LMV alone
+    again, as upstream did; the record had put the getattr RPC in front of the
+    shortcut. `-printf` still gathers.
+  - **68156:** `/llapi_scan_device_test` added to `.gitignore`; a striped
+    directory's `STATX_SIZE`/`STATX_BLOCKS` are withheld by the device scan,
+    as `ll_dir_ioctl()` withholds them on a walk.
+  - **Declined:** the conf-sanity `2.17.58` gate. `LUSTRE-VERSION-GEN` says
+    2.17.58 and the base describes as `v2_17_58-39-g...`, so test_300 runs.
+- **68414** amended in place (`~/projects/lustre/lustre-lu20648`, 3ddfe69873):
+  the message's account of an earlier revision of itself, and the
+  `mdc_changelog.c` example that does not hold for masks built from strings.
+- **65026** amended in place (`~/projects/lustre/lr-65026`, 05d029f116): the
+  three-case list in the message, `-EINTR` -> `-EPROTO` for a signal-killed
+  helper, and the stale test_21c sentence in the 21d comment. **65026 is
+  unpushed again** -- the 09-20 note below is overtaken.
+- **Owed, its own patch:** the `mdc_create()` reply-decode leak in
+  `mdc_reint.c` (two returns before `*request = req`), pre-existing.
+- **Verified:** per-commit build sweep, 26/26 clean; checkpatch on the five
+  changed commits, no new findings. **Not yet:** lab A/B and `lreview` -- both
+  gate the push.
+
 ## 2026-09-20: the 11 lreview findings fixed -- round 20, UNPUSHED
 
 All eleven from the 09-18 lreview (8 on 68156 PS22, 3 on 68095 PS22) fixed as
