@@ -52,10 +52,13 @@ own patch**. Full triage in [`rounds/r-0921/notes.md`](rounds/r-0921/notes.md).
 - **68414** amended in place (`~/projects/lustre/lustre-lu20648`, 3ddfe69873):
   the message's account of an earlier revision of itself, and the
   `mdc_changelog.c` example that does not hold for masks built from strings.
-- **65026** amended in place (`~/projects/lustre/lr-65026`, 05d029f116): the
-  three-case list in the message, `-EINTR` -> `-EPROTO` for a signal-killed
-  helper, and the stale test_21c sentence in the 21d comment. **65026 is
-  unpushed again** -- the 09-20 note below is overtaken.
+- **65026 is PUSHED as PS13** (05d029f116), by the lustre-bd session with the
+  user's approval, carrying the three fixes this round made: the three-case
+  list in the message, `-EINTR` -> `-EPROTO` for a signal-killed helper, and
+  the stale test_21c sentence in the 21d comment. Verified+1 from Maloo and
+  jenkins went with the push, as expected; the parents 68582 PS2 and 64945 PS5
+  were byte-identical so nothing else in that chain moved. **Not ours any
+  more** -- that chain is lustre-bd's.
 - **Owed, its own patch:** the `mdc_create()` reply-decode leak in
   `mdc_reint.c` (two returns before `*request = req`), pre-existing.
 - **65026 and 68414 are no longer ours.** The other session (lustre-bd) took
