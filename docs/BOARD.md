@@ -36,7 +36,17 @@ the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
 3. **Waiting on others:** 68231, 68616, 68617 and 65331 are on `master-next`
    as of 2026-09-21 07:52 -- no updates to them while the hashtag is set.
    Their landing is what unblocks the rest of the series.
-4. **TO FILE, upstream bugs in landed code** -- both found by `lreview` on
+4. **Batch 2's ten threads are all already addressed** (checked 09-21 evening,
+   same as batch 1): 68288's dirmap-gate defect was real in PS14 and the tree
+   now reads `dm_used != 0 || param->fp_paths`; its man page names the
+   ownerless OST object; its message is reflowed; and the `LLAPI_SCAN_*` bit
+   sequence is dense again, 1<<32 through 1<<52 with no holes. 68727's five
+   are all in the tree. **Queued for the changelog series, not batch 2:**
+   `char fsname[MAX_OBD_NAME + 1]` in `llapi_find_since()` against
+   `get_root_path()`'s documented PATH_MAX contract -- `git log -S` puts that
+   line in LU-20650.
+
+5. **TO FILE, upstream bugs in landed code** -- both found by `lreview` on
    2026-09-21, neither ours, neither filed. Full write-up in the
    `lfu-to-file-upstream` memory and in
    [`rounds/r-0921/notes.md`](rounds/r-0921/notes.md); **ask the user before
@@ -60,14 +70,14 @@ the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
      `lfs find` (measured, not ours) and **sanity 131d's stale errno**, which
      breaks for anyone adding a constructor-carrying library to
      liblustreapi. The user said "not now" to 131d.
-5. **Owed, none urgent:** replies in `docs/local/replies-series/<change>-<ps>.json`
+6. **Owed, none urgent:** replies in `docs/local/replies-series/<change>-<ps>.json`
    (post only after each change is pushed); the `{{...}}` escaping in
    LU-20611's description.
-6. **Not ours any more:** 65026 (pushed PS13 by the lustre-bd session
+7. **Not ours any more:** 65026 (pushed PS13 by the lustre-bd session
    carrying this round's three fixes), 64945, 68582, 68413, 68414, 65331.
    Leave the unstaged `mdc_changelog.c` edit in
    `~/projects/lustre/lustre-lu20648` alone.
-7. **Undecided, the user's call:** comment on 68160 that PS20 is outdated;
+8. **Undecided, the user's call:** comment on 68160 that PS20 is outdated;
    mark 68158-68818 WIP; abandon candidates outside LFU (67052, 65388,
    65120).
 
@@ -132,9 +142,16 @@ resolve. Budget roughly $10 per commit for `lreview`, so about $40 a batch.
 | Batch | When | Gate before pushing |
 |---|---|---|
 | 1 -- 68158, 68159, 68160, 68163 | **PUSHED Mon 09-21 19:26** as PS20/PS20/PS21/PS20 | met: jenkins Verified+1 on all four, Janitor builds green, Janitor initial testing green on 68157 (whose tree holds all four) |
-| 2 -- 68288, 68726, 68727 | Tue 09-22 AM | batch 1 green |
-| 3 -- 68415, 68416, 68417 | Tue 09-22 PM | batch 2 green; may slip a half-day on thread volume |
-| 4 -- 68418, 68419, 68420 | Wed 09-23 AM | batch 3 green |
+| 2 -- 68288, 68415, 68416 | Tue 09-22 AM | batch 1 green |
+| 3 -- 68417, 68418, 68419 | Tue 09-22 PM | batch 2 green; may slip a half-day on thread volume |
+| 4 -- 68420, 68726, 68727 | Wed 09-23 AM | batch 3 green |
+
+**Re-batched 2026-09-21 evening: a stacked push has to be contiguous.** The
+original batch 2 (68288, 68726, 68727) is not pushable -- 68726 and 68727 sit
+*above* the changelog series both locally and in Gerrit's relation chain
+(... 68288 -> 68415 ... 68420 -> 68726 -> 68727), so pushing 68727 would drag
+68415-68420 up with it. Batches must be cut from the stack order, not by
+subject.
 
 **Gate calibration, learned on batch 1:** 68094/68095 draw `sanity1/2/3` and
 68156 the `conf-sanity` set, which run for hours -- job 70480's sanity2 took
