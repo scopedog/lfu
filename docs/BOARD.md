@@ -127,6 +127,25 @@ over the whole stack -> per-commit build sweep -> lab A/B for anything
 behavioural -> `lreview` every changed commit -> ask -> push -> reply and
 resolve. Budget roughly $10 per commit for `lreview`, so about $40 a batch.
 
+### The agreed schedule (user, 2026-09-21)
+
+| Batch | When | Gate before pushing |
+|---|---|---|
+| 1 -- 68158, 68159, 68160, 68163 | Mon 09-21 PM | the four pushed today are jenkins **and** Janitor-initial green |
+| 2 -- 68288, 68726, 68727 | Tue 09-22 AM | batch 1 green |
+| 3 -- 68415, 68416, 68417 | Tue 09-22 PM | batch 2 green; may slip a half-day on thread volume |
+| 4 -- 68418, 68419, 68420 | Wed 09-23 AM | batch 3 green |
+
+The gate is **jenkins + Janitor initial testing**, not the full Maloo enforced
+run: Maloo's sessions are the 4h-each, 1500-deep part, and waiting on them
+would stall the schedule to a batch a day. The batches stack, so pushing onto
+a base whose fast checks have not reported risks wasting every session above
+it -- which is the load Andreas asked us not to spend. If a gate is red at the
+scheduled time, fix first and slip; say which it is rather than pushing on
+time into a red base.
+
+Batch 1's triage starts **10:30 PDT**, at the user's instruction.
+
 ### Two timing facts that bound this
 
 - **Batch 1 should not be pushed until today's four are at least
