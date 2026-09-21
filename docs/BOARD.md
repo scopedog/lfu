@@ -4,82 +4,76 @@ Every ticket and Gerrit id in play, and the ones that are *not* ours. Regenerate
 the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
 **2026-09-06**.
 
-## Tomorrow: start here (end of 2026-09-21)
+## Tomorrow: start here (end of 2026-09-21, evening)
 
-1. **The stack:** `r0921c-tip` = **f189a79af4** in `~/lfs-carry-0915`, 26
-   commits on 68231 PS8 (b7b1332a42). Rounds 20 and 21 are both folded into
-   it. Backups: `backup/fix-0921-pre` = c00708148b, `r0921-tip` = ea8bd797c5
-   (first pass), `r0921b-tip` = be97aac251 (the OST fix).
-2. **PUSHED 2026-09-21:** the bottom four went up on Andreas's invitation to
-   push 2-4 patches sitting on 68231 without depending on 68616/68617 --
-   **68094 PS22, 68095 PS23, 68156 PS23, 68157 PS23** from branch
-   `push-0921-first4`, carrying rounds 20 and 21. 68231 was not touched (our
-   bottom commit's parent is its current revision). The outdated Verified
-   votes went with the push, as expected. **Watch:** jenkins, then Maloo;
-   68158 and above now need a rebase, as usual for the stack.
-   - lreview coverage at the time of the push: 68094 identical to the
-     reviewed tree; 68095 tree identical, message-only change (which was
-     lreview's own finding); 68156 **re-reviewed** after the OST fix --
-     "no defects found", 5 optional notes, transcript in
-     [`lreview/summary-68156-reviewed.txt`](rounds/r-0921/lreview/summary-68156-reviewed.txt);
-     68157 a named skip, pure carry.
-   - **Queued for the next round, from that re-review:** two commit-message
-     paragraphs on 68156 that describe earlier revisions of the patch rather
-     than master (the `fid_is_root()` sentence, and the LMV-buffer /
-     per-chunk-accounting / worker-path block); `scan_lmv_to_user()`'s memset
-     comment promising a guarantee it cannot give past 168 stripes when
-     `LMV_MAX_STRIPE_COUNT` is 2000; `ext2fs_inode_i_blocks()` instead of the
-     open-coded `l_i_blocks_hi`; and the new `-EINVAL` missing from
-     llapi_scan_namespace.3's error list. Plus wc-checkpatch's one style
-     warning on PS23, `conf-sanity.sh:13356` at 82 columns -- pre-existing,
-     identical before and after this round, a one-line wrap to clear.
-3. **Waiting on others:** 68231, 68616, 68617 and 65331 are on `master-next`
-   as of 2026-09-21 07:52 -- no updates to them while the hashtag is set.
-   Their landing is what unblocks the rest of the series.
-4. **Batch 2's ten threads are all already addressed** (checked 09-21 evening,
-   same as batch 1): 68288's dirmap-gate defect was real in PS14 and the tree
-   now reads `dm_used != 0 || param->fp_paths`; its man page names the
-   ownerless OST object; its message is reflowed; and the `LLAPI_SCAN_*` bit
-   sequence is dense again, 1<<32 through 1<<52 with no holes. 68727's five
-   are all in the tree. **Queued for the changelog series, not batch 2:**
-   `char fsname[MAX_OBD_NAME + 1]` in `llapi_find_since()` against
-   `get_root_path()`'s documented PATH_MAX contract -- `git log -S` puts that
-   line in LU-20650.
+**Pushed today, all green on the fast checks, nothing owed in reply:**
+68094 PS22, 68095 PS23, 68156 PS23, 68157 PS23 (round 20 + round 21), then
+68158 PS20, 68159 PS20, 68160 PS21, 68163 PS20 (batch 1). jenkins Verified+1
+on all eight; Janitor initial testing green on 68157; the long `sanity` and
+`conf-sanity` suites report overnight. **Zero open threads on all eight.**
 
-5. **TO FILE, upstream bugs in landed code** -- both found by `lreview` on
-   2026-09-21, neither ours, neither filed. Full write-up in the
-   `lfu-to-file-upstream` memory and in
-   [`rounds/r-0921/notes.md`](rounds/r-0921/notes.md); **ask the user before
-   filing, the ticket carries their name**:
-   - **`lfs find --thread-count N>1` can overrun the heap.**
-     `work_unit_create()` allocates `unit->fwu_path = malloc(PATH_MAX + 1)`
-     but `find_worker()` walks with `llapi_semantic_traverse(..., 2 *
-     PATH_MAX, ...)`, and that argument is the walk's only bound
-     (`(len + dent->d_reclen + 2) > size`). A tree deeper than `PATH_MAX`
-     writes past the allocation. From **e505e7dbfb** ("LU-17814 utils: Add
-     work unit management"), present at our series base. Wants its own LU
-     ticket and patch.
-   - **`printf_format_lustre()` reads a foreign LMV through `lmv_user_md`.**
-     `lmv_foreign_md` aliases every field the switch touches -- `lfm_length`
-     at `lum_stripe_count`, `lfm_type` at `lum_stripe_offset`, `lfm_flags` at
-     `lum_hash_type` -- so `%Lc` prints a length as a stripe count, `%Lp`
-     runs `snprintf("%s")` over bytes that need not hold a NUL, and the `%Lo`
-     loop indexes `lum_objects[]` for `lfm_length` entries, past the
-     256-stripe buffer. 68095 fixes `case 'i'` only, deliberately.
-   - Older in the same queue: the **doubled slash separator** in stock
-     `lfs find` (measured, not ours) and **sanity 131d's stale errno**, which
-     breaks for anyone adding a constructor-carrying library to
-     liblustreapi. The user said "not now" to 131d.
-6. **Owed, none urgent:** replies in `docs/local/replies-series/<change>-<ps>.json`
-   (post only after each change is pushed); the `{{...}}` escaping in
-   LU-20611's description.
-7. **Not ours any more:** 65026 (pushed PS13 by the lustre-bd session
-   carrying this round's three fixes), 64945, 68582, 68413, 68414, 65331.
-   Leave the unstaged `mdc_changelog.c` edit in
-   `~/projects/lustre/lustre-lu20648` alone.
-8. **Undecided, the user's call:** comment on 68160 that PS20 is outdated;
-   mark 68158-68818 WIP; abandon candidates outside LFU (67052, 65388,
-   65120).
+**The stack:** `b2-tip` = **8f502eff1c** in `~/lfs-carry-0915`, 26 commits.
+Tags below it: `b1-tip` 55a460f437 (what batch 1 was cut from), `r0921c-tip`
+f189a79af4, `r0921b-tip` be97aac251, `backup/fix-0921-pre` c00708148b.
+
+### 1. First thing: finish batch 2's gate
+
+- **`lreview` on 68288 was re-running when the day ended** (its code changed
+  after the first review). Check
+  `/tmp/.../scratchpad/lreview-68288b.txt`; if it is gone, re-run:
+  `lreview run --repo <worktree at the 9th commit of b2-tip> --last 1 --jobs 1`.
+  The first run gave 7 findings, no defects -- four taken, two rejected, one
+  queued to 68160. Details in [`rounds/b2-0921/`](rounds/b2-0921/).
+- **Then triage 68415 (5 open threads) and 68416 (4).** Batch 1 and batch 2's
+  first change both turned out to be entirely already-fixed, so check each
+  against the tree before writing anything.
+- **Then `lreview` 68415 and 68416** once their trees are settled -- not
+  before, or the review is thrown away when a fix lands.
+
+### 2. Then push batch 2 -- 68288, 68415, 68416
+
+**Rebase onto the pushed revisions first**, never off the driven tip:
+
+    git rebase --onto d9757fced0 <driven parent of 68288> <batch branch>
+
+`d9757fced0` is 68163 PS20, the top of what went up today. Then check
+`git log d9757fced0..<branch>` lists exactly the three, and that checkpatch
+and the per-commit build sweep are clean. Gate: batch 1 jenkins-green, which
+it should be by morning.
+
+### 3. What batch 2 already holds
+
+Fixes for 68288 are in [`rounds/b2-0921/b2fix.py`](rounds/b2-0921/b2fix.py),
+applied by `b2drive.py`, 26/26 builds clean, three lab regression checks
+green (`--paths` unchanged, a plain device scan unchanged, an OST still
+refuses `--paths`). The substantive one: the dirmap is handed over when the
+pre-pass **ran**, not when it **found** something -- `pp_ran` in
+`struct scan_prepass`. Argued from the code and its own design comment; its
+intended difference needs a DNE shape this rig cannot build, so it is
+measured only for non-regression.
+
+### 4. Owed, and decisions waiting on the user
+
+- **Two upstream bugs to file** (see the numbered list below): the
+  `--thread-count` path-buffer overrun from LU-17814, and
+  `printf_format_lustre()` reading a foreign LMV through `lmv_user_md`.
+  Neither is ours, neither is filed, both want the user's go-ahead.
+- **Queued for a later round on already-pushed changes:** 68160's doubled
+  program name in `llapi_error()`, its `# name (device)` header keyed off
+  targets found rather than scanned, the `--target`/`--fsname` coverage gap,
+  `lfs_find_parse.h` carrying setquota/migrate/mirror pieces, 68156's five
+  lreview notes, and the 82-column `conf-sanity.sh:13356`. None is a defect.
+- **For the changelog series (batch 3/4):** `char fsname[MAX_OBD_NAME + 1]`
+  in `llapi_find_since()` against `get_root_path()`'s PATH_MAX contract.
+
+### 5. The lab, as left
+
+The clone VM at 192.168.122.10 is up with arms A-F under `~/arm?/`
+(A=r0920-tip, B=r0921-tip, C=r0921b-tip, D=b1-tip, E=pre-fix+debug,
+F=b2-tip), each driven by `LD_PRELOAD` of its own `liblustreapi`. The
+installed scan plugins under `~/r18-inst/lib/lustre` were refreshed from
+today's build. An ldiskfs filesystem is formatted but stopped. **Shut the VM
+down if it is not needed.**
 
 ## The plan for the 22 still unpushed (2026-09-21)
 
