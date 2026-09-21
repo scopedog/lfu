@@ -30,7 +30,9 @@ the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
      comment promising a guarantee it cannot give past 168 stripes when
      `LMV_MAX_STRIPE_COUNT` is 2000; `ext2fs_inode_i_blocks()` instead of the
      open-coded `l_i_blocks_hi`; and the new `-EINVAL` missing from
-     llapi_scan_namespace.3's error list.
+     llapi_scan_namespace.3's error list. Plus wc-checkpatch's one style
+     warning on PS23, `conf-sanity.sh:13356` at 82 columns -- pre-existing,
+     identical before and after this round, a one-line wrap to clear.
 3. **Waiting on others:** 68231, 68616, 68617 and 65331 are on `master-next`
    as of 2026-09-21 07:52 -- no updates to them while the hashtag is set.
    Their landing is what unblocks the rest of the series.
