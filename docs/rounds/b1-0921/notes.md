@@ -131,3 +131,27 @@ over `r0921c-tip`. Stack tip **`b1-tip` = 55a460f437**.
   to what was reviewed, and the only tree change is a man page, a docs-only
   skip named here.
 - The ZFS lab above, plus this morning's ldiskfs lab, cover the behaviour.
+
+## The push, and the replies
+
+Pushed 2026-09-21 19:26: **68158 PS20, 68159 PS20, 68160 PS21, 68163 PS20**.
+The bottom four stayed at PS22/23/23/23 — see the board for the driver's
+committer-date trap that would have re-spun them.
+
+The push removed a **Code-Review-1 from Andreas on 68160** (his PS20 review of
+2026-09-11, 22 comments, the one that produced the `lfind` -> `lfs find
+--device` fold). That fold is in PS21, so the reply says so rather than
+leaving the vote silently dropped.
+
+The five prepared replies in `docs/local/replies-series/` went out after the
+push, and all four changes now have **zero open threads** by the last-reply
+rule.
+
+**A trap in posting them:** `gc review --post-comments` posts against
+`revisions/current`, and Gerrit answers **400 Bad Request** when an inline
+comment names a file the current revision does not have — here
+`lustre/utils/lfind.c`, deleted by the fold. Post such a reply against the
+revision the comment was raised on (`/revisions/<that sha>/review` over REST),
+which also keeps the thread anchored where the reviewer left it. Both replies
+went out that way, with `notify: OWNER_REVIEWERS` so the reviewer actually
+hears about it rather than only the owner.
