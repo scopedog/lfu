@@ -49,9 +49,12 @@ own patch**. Full triage in [`rounds/r-0921/notes.md`](rounds/r-0921/notes.md).
     as `ll_dir_ioctl()` withholds them on a walk.
   - **Declined:** the conf-sanity `2.17.58` gate. `LUSTRE-VERSION-GEN` says
     2.17.58 and the base describes as `v2_17_58-39-g...`, so test_300 runs.
-- **68414** amended in place (`~/projects/lustre/lustre-lu20648`, 3ddfe69873):
-  the message's account of an earlier revision of itself, and the
-  `mdc_changelog.c` example that does not hold for masks built from strings.
+- **68414 — not ours, and the local amend was doubly wrong.** 3ddfe69873 is
+  message-only (the `--amend` ran without `-a`; the `mdc_changelog.c` edit is
+  still unstaged) *and* it is not based on PS9 (`968d6b5223` is not an
+  ancestor; it sits on an 08-26 LU-20647 commit). Both found by the lustre-bd
+  session and verified here. The comment hunk and the message rewording went
+  over as text for it to apply to PS9. 68413 and 68414 are its changes.
 - **65026 is PUSHED as PS13** (05d029f116), by the lustre-bd session with the
   user's approval, carrying the three fixes this round made: the three-case
   list in the message, `-EINTR` -> `-EPROTO` for a signal-killed helper, and

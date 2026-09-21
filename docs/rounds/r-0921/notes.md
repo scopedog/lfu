@@ -66,7 +66,7 @@ and `find_decide()`'s existing shortcut does the printing.
    `v2_17_58-39-gb7b1332a42`, so `MDS1_VERSION` is 2.17.58 on a build from
    this tree and conf-sanity 300 runs.
 
-## 68414 PS9 — two, both text
+## 68414 PS9 — two, both text (and neither landed here; see the correction)
 
 The commit message described an earlier revision of itself ("an earlier
 attempt ... was removed after a control run showed it passing"); against
@@ -77,6 +77,22 @@ records" — does not hold for masks that came from strings, which is the path
 `lfs` takes: `cfs_str2mask()` seeds an absolute mask from `CHANGELOG_MINMASK`,
 so both carry `BIT(CL_MARK)` and that user does get the MARK records. The
 comment now names a relative mask, as the commit message already did.
+
+**Correction, 2026-09-21.** Neither fix is usable from this tree, for two
+separate reasons found by the lustre-bd session and verified here:
+
+1. **The amend was message-only.** `git commit --amend -F <msgfile>` was run
+   without `-a` and the file was never staged, so `git diff e81582663d
+   3ddfe69873` is empty and the `mdc_changelog.c` edit is still unstaged in
+   `~/projects/lustre/lustre-lu20648`. The earlier claim in this round that
+   68414 got both fixes was wrong.
+2. **The branch is not PS9.** `git merge-base --is-ancestor 968d6b5223
+   3ddfe69873` says no: 3ddfe69873 sits on f6bf78b76f (2026-08-26) while PS9
+   sits on 626307a688. It is a line of work from early September that never
+   became a patchset, so amending it could only regress the change.
+
+The comment hunk and the message rewording were handed to that session as text,
+to apply to PS9. 68413 and 68414 are its changes, not this project's.
 
 ## 65026 PS12 — four
 
