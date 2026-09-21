@@ -1,0 +1,52 @@
+========================================================================
+lreview: last 1 commit(s) of b2lr
+========================================================================
+generated: 2026-09-21T21:22:42+00:00
+repository: /tmp/claude-1004/-home-nishida-projects-lustre-lfu/01f7d2c0-0508-4963-b650-58aa1bde145d/scratchpad/b2lr
+reviews: 1
+totals: 6.7M tokens, $6.29
+
+  1. HEAD  858f9882d4bb  LU-20637 llapi: name a device scan's objects -- findings (7)
+
+========================================================================
+[1/1] HEAD  858f9882d4bb  LU-20637 llapi: name a device scan's objects
+========================================================================
+
+status: findings (7 finding(s)), severity low
+run:    opus, 6.7M tokens, $6.29, 10m16s
+
+Overall assessment
+------------------------------------------------------------------------
+Looks good. The naming logic holds up: the dirmap walk terminates on LU_ROOT_FID, the open-addressed table never fills past 3/4 so the probe loops always terminate, the sweep resets sd_cursor/sd_end/sd_stop_rc/sd_error between the pre-pass and the search, the OST owner is read little-endian from a buffer scan_decode_lma() does not swab in place, and the 2.17.58 version gates match the in-tree tag. Only optional nits inline, so no need to re-spin for them.
+
+Findings (7)
+------------------------------------------------------------------------
+
+(1) /COMMIT_MSG (line 112)
+    (minor) This says the lfs find usage no longer claims the output is always a FID, but nothing in the diff removes such a statement. The lfs.c usage string never had one, and Documentation/man1/lfs-find.1 still carries it at line 940. Was that edit dropped in a rebase?
+
+(2) Documentation/man1/lfs-find.1 (line 940)
+    (minor) This sentence is now contradicted a few lines above it: with --fid2path or --paths a match is printed as a pathname, not a FID. Reads oddly sitting right under the paragraph that introduces both options -- "unless --fid2path or --paths is given" would square them.
+
+(3) Documentation/man1/lfs-find.1 (line 1053)
+    (nit) EXAMPLES gains nothing for the two new options, though they are the more interesting way to use --device now. If the patch is refreshed, one line each would cover it:
+
+        # lfs find --device /dev/vdb --type f --size +1G --paths
+        # lfs find --device /dev/vdb --type f --fid2path /mnt/testfs
+
+(4) lustre/utils/liblustreapi_scan_device.c (line 503)
+    (minor) `struct filter_fid` is `__attribute__((packed))`, so taking the address of `ff_parent` draws -Waddress-of-packed-member, which gcc has on by default:
+
+        warning: taking address of packed member of 'struct filter_fid'
+                 may result in an unaligned pointer value
+
+    ll_decode_filter_fid.c sidesteps it by reading `ff->ff_parent.f_seq` and `.f_oid` directly rather than keeping a `struct lu_fid *`. Copying the two fields into a local lu_fid in each arm would keep the shared tail below and lose the warning.
+
+(5) lustre/utils/liblustreapi_pfind.c (line 3569)
+    (minor) -printf with either option is refused here, but fp_paths together with fp_fid2path_mnt is only refused by lfs_find_device() in lfs.c -- a library caller that sets both reaches the scan. On an MDT the map wins and fc_mnt_path is non-NULL, so the answers come back prefixed with the mount point, which is exactly what fp_paths documents it will not do; on an OST the pre-pass's -ENOTDIR fires even though fp_fid2path_mnt could have named the objects. Since the two are already mutually exclusive on the command line, should the same check live here so llapi_find_device(3) is self-consistent?
+
+(6) lustre/utils/liblustreapi_pfind.c (line 4250)
+    (minor) The --paths arm was moved off `dm_used != 0` onto "was --paths asked for", but --fid2path still keys off what the pre-pass found rather than whether it ran. An MDT whose files all sit directly in the filesystem root ends the pre-pass with dm_used == 0 (ROOT, .lustre, lost+found get no trusted.link, so scan_dirmap_cb() never inserts them), and --fid2path then falls through to llapi_scan_rec_path() -- one llapi_fid2path_at() per object, against the MDT being scanned. That is the route the surrounding comments say must not be taken for a target that may be out of service, and it is reachable under DNE with the scanned MDT stopped and the mount served by another. Would tracking "the pre-pass ran" cover both cases the same way?
+
+(7) lustre/utils/lfs.c (line 6446)
+    (suggestion) This sweep already skips the targets --ost/--mdt cannot name. --paths is the same shape of question: it is an MDT-only option, so on a combined MDS/OSS `lfs find --local --paths` reports a -ENOTDIR failure for every OST and exits non-zero even though every MDT answered. Skipping OSTs here when fp_paths is set would make the sweep behave like the --mdt one.

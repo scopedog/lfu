@@ -1,0 +1,57 @@
+========================================================================
+lreview: last 1 commit(s) of b2lr2
+========================================================================
+generated: 2026-09-21T23:05:08+00:00
+repository: /tmp/claude-1004/-home-nishida-projects-lustre-lfu/01f7d2c0-0508-4963-b650-58aa1bde145d/scratchpad/b2lr2
+reviews: 1
+totals: 6.5M tokens, $6.38
+
+  1. HEAD  12f63b86d285  LU-20637 llapi: name a device scan's objects -- findings (6)
+
+========================================================================
+[1/1] HEAD  12f63b86d285  LU-20637 llapi: name a device scan's objects
+========================================================================
+
+status: findings (6 finding(s)), severity low
+run:    opus, 6.5M tokens, $6.38, 10m45s
+
+Overall assessment
+------------------------------------------------------------------------
+Looks good. Nothing here needs a re-spin: the pre-pass, the -EXDEV label check and the shard handling all hold up, and conf-sanity 301-304 cover both backends and both naming modes. A few optional items inline for whenever it is next refreshed.
+
+Findings (6)
+------------------------------------------------------------------------
+
+(1) lustre/utils/liblustreapi_pfind.c (line 3438)
+    (minor) Is skipping the lookup right for --fid2path specifically? For --paths there is nothing else to try, but --fid2path was given a live mount, and a llapi_fid2path_at() through that mount never touches the target being scanned -- so "a lookup asks a target that may be out of service" doesn't apply to it.
+
+    Under DNE the loss isn't small. Scanning MDT1 of /a (MDT0) with /a/b remote on MDT1: b's linkea parent is a's FID, which isn't in MDT1's map, so b and everything below it is counted nameless -- and those are exactly the names the supplied mount could have produced.
+
+    Would falling back to llapi_scan_rec_path() on a map miss, when fc_mnt_fd >= 0, be worth it? If it stays as is, lfs-find.1 might say that --fid2path names no more than --paths does on an MDT.
+
+(2) lustre/utils/liblustreapi_pfind.c (line 3806)
+    (minor) "on an MDT scan the xattr is absent and the bit costs nothing" holds on ldiskfs, but not on ZFS. scan_zfs_read_xattrs() puts XA_PFID in `missing` for every MDT object, and for any object that has an xattr spill directory it then runs one zap_lookup() for trusted.fid that can only return ENOENT.
+
+    scan_device_run_prepass() already computes the narrowed mask once the label is read:
+
+        known = LLAPI_SCAN_WANT_KNOWN_DEV;
+        if (tt_flags & LLAPI_SCAN_TGT_MDT)
+            known &= ~LLAPI_SCAN_WANT_OST_ONLY;
+
+    but it only feeds scan_param_report_got(); sd_want/sd_want_xattr are never narrowed by it. Would `dev.sd_want &= known` there (before recomputing sd_want_xattr) close this, and drop the MDT-only xattrs on an OST at the same time?
+
+    While here: the two block comments above this `if` are back to back with no code between them and could be one.
+
+(3) lustre/utils/liblustreapi_scan_device.c (line 1848)
+    (style) This isn't a bug, but these three declarations sit after the `if (pre->pp_ran ...)` statement. Kernel/Lustre style keeps declarations at the top of the block -- moving them above the pp_ran store (or the store below them) would do it.
+
+(4) lustre/utils/liblustreapi_scan_device.c (line 1854)
+    (minor) The search's want goes through scan_want_widen() but the pre-pass's does not. Harmless today, since scan_dirmap_prepass() names LLAPI_SCAN_LMV explicitly -- but a later pre-pass asking for LLAPI_SCAN_LMV_SHARD or LMV_FOREIGN alone would get no trusted.lmv read at all, which is the trap scan_want_widen() exists to close and which this patch just extended. Worth widening here too if the patch is refreshed.
+
+(5) lustre/utils/liblustreapi_scan_device.c (line 1353)
+    (minor) strncpy() into sd_name[NAME_MAX + 1] NUL-pads the whole 256-byte field on every insert, and the slot came from calloc() (and from a fresh calloc() again on each scan_dirmap_grow() rehash), so the padding is always redundant. On a million-directory MDT that is ~256MB of memset, paid again per grow.
+
+    strscpy() is used elsewhere in lustre/utils and would drop the pad and the explicit terminator on the next line.
+
+(6) Documentation/man3/llapi_scan_device.3 (line 531)
+    (nit) This entry is `.TP` where every other one in the list is `.TP 15`, so it renders with a different indent; and `\-EXDEV` uses the escaped dash where its neighbours write `-EXDEV`.
