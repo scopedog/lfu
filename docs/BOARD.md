@@ -10,11 +10,27 @@ the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
    commits on 68231 PS8 (b7b1332a42). Rounds 20 and 21 are both folded into
    it. Backups: `backup/fix-0921-pre` = c00708148b, `r0921-tip` = ea8bd797c5
    (first pass), `r0921b-tip` = be97aac251 (the OST fix).
-2. **The push:** branch `push-0921-first4` holds the bottom four (68094,
-   68095, 68156, 68157) ready for `refs/for/master`, on Andreas's 2026-09-21
-   invitation to push 2-4 patches that sit on 68231 without depending on
-   68616/68617. Verified: they need no rebase, and the only file shared with
-   68617 is `Documentation/man7/lustreapi.7`, with no overlapping hunks.
+2. **PUSHED 2026-09-21:** the bottom four went up on Andreas's invitation to
+   push 2-4 patches sitting on 68231 without depending on 68616/68617 --
+   **68094 PS22, 68095 PS23, 68156 PS23, 68157 PS23** from branch
+   `push-0921-first4`, carrying rounds 20 and 21. 68231 was not touched (our
+   bottom commit's parent is its current revision). The outdated Verified
+   votes went with the push, as expected. **Watch:** jenkins, then Maloo;
+   68158 and above now need a rebase, as usual for the stack.
+   - lreview coverage at the time of the push: 68094 identical to the
+     reviewed tree; 68095 tree identical, message-only change (which was
+     lreview's own finding); 68156 **re-reviewed** after the OST fix --
+     "no defects found", 5 optional notes, transcript in
+     [`lreview/summary-68156-reviewed.txt`](rounds/r-0921/lreview/summary-68156-reviewed.txt);
+     68157 a named skip, pure carry.
+   - **Queued for the next round, from that re-review:** two commit-message
+     paragraphs on 68156 that describe earlier revisions of the patch rather
+     than master (the `fid_is_root()` sentence, and the LMV-buffer /
+     per-chunk-accounting / worker-path block); `scan_lmv_to_user()`'s memset
+     comment promising a guarantee it cannot give past 168 stripes when
+     `LMV_MAX_STRIPE_COUNT` is 2000; `ext2fs_inode_i_blocks()` instead of the
+     open-coded `l_i_blocks_hi`; and the new `-EINVAL` missing from
+     llapi_scan_namespace.3's error list.
 3. **Waiting on others:** 68231, 68616, 68617 and 65331 are on `master-next`
    as of 2026-09-21 07:52 -- no updates to them while the hashtag is set.
    Their landing is what unblocks the rest of the series.

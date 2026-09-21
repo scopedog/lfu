@@ -1,0 +1,48 @@
+========================================================================
+lreview: last 1 commit(s) of r21lr2
+========================================================================
+generated: 2026-09-21T14:32:08+00:00
+repository: /tmp/claude-1004/-home-nishida-projects-lustre-lfu/01f7d2c0-0508-4963-b650-58aa1bde145d/scratchpad/r21lr2
+reviews: 1
+totals: 10.3M tokens, $9.27
+
+  1. HEAD  be334b16417c  LU-20606 llapi: scan an ldiskfs target directly -- findings (5)
+
+========================================================================
+[1/1] HEAD  be334b16417c  LU-20606 llapi: scan an ldiskfs target directly
+========================================================================
+
+status: findings (5 finding(s)), severity low
+run:    opus, 10.3M tokens, $9.27, 15m20s
+
+Overall assessment
+------------------------------------------------------------------------
+Looks good. The scanner, its backend split and the accounting all hold up, and the new coverage (conf-sanity test_300 plus llapi_scan_device_test) exercises it. No defects found; a few optional notes inline for whenever this is next refreshed -- none of them is a reason to re-spin.
+
+Findings (5)
+------------------------------------------------------------------------
+
+(1) /COMMIT_MSG (line 67)
+    (minor) Which hand-written root test is this? The only change to lustre/include/lustre_fid.h is the removal of fid_is_root(), and nothing else in the tree gained a call to it except the new scan_classify(). fid_is_namespace_visible() has used fid_is_root() since well before this series.
+
+    Reads like a leftover from an earlier revision -- if the patch is refreshed, dropping the sentence would leave the paragraph accurate.
+
+(2) /COMMIT_MSG (line 56)
+    (minor) This block describes deltas against an earlier revision of the patch rather than against master. The LMV buffer, the per-chunk inode accounting and the worker start/stop paths are all introduced by this change -- liblustreapi_scan_device.c and libscan_ldiskfs.c are new files here, and LU-20603/LU-20605 are not landed either -- so a reader coming from master has no previous behaviour for these to be fixes to.
+
+    If it is refreshed, folding them into the description of what the scanner does would read against master.
+
+(3) lustre/utils/liblustreapi_scan_device.c (line 304)
+    (minor) Does the clearing reach as far as the comment above claims? room works out to (4096 - sizeof(struct lmv_user_md)) / 24, so 168 entries, while lum_stripe_count is reported as the directory's real count and LMV_MAX_STRIPE_COUNT is 2000 (overstriping can put several stripes on each MDT).
+
+    For a directory past 168 stripes the memset stops at room, so the consumer the clearing exists for -- one sizing lum_objects[] by lum_stripe_count, as lmv_dump_user_lmm() does -- still reads off the end of sw_lmv.sl_buf, now into the rest of struct scan_worker.
+
+    The header already tells consumers to measure by lfsr_lmvsize, so this is about the comment promising a guarantee the memset cannot give at legal stripe counts.
+
+(4) lustre/utils/libscan_ldiskfs.c (line 383)
+    (nit) libext2fs has ext2fs_inode_i_blocks(fs, inode) for exactly this, and it gates the l_i_blocks_hi half on the huge_file ro_compat feature -- without that feature those bytes are not a block count.
+
+    Not a bug in practice: enable_default_ext4_features() always appends huge_file when e2fsprogs supports it, so a mkfs.lustre-formatted target has it. Just worth the helper if this is touched again.
+
+(5) Documentation/man3/llapi_scan_namespace.3 (line 405)
+    (minor) llapi_scan_namespace() gains an -EINVAL of its own in this patch -- lfsp_stats non-NULL with ss_size below LLAPI_SCAN_STATS_MIN_SIZE -- but this list still ends at lfsp_padding. llapi_scan_device.3 spells the same condition out; if the page is refreshed, adding it here would keep the two in step.
