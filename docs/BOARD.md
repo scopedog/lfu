@@ -18,12 +18,18 @@ f189a79af4, `r0921b-tip` be97aac251, `backup/fix-0921-pre` c00708148b.
 
 ### 1. First thing: finish batch 2's gate
 
-- **`lreview` on 68288 was re-running when the day ended** (its code changed
-  after the first review). Check
-  `/tmp/.../scratchpad/lreview-68288b.txt`; if it is gone, re-run:
-  `lreview run --repo <worktree at the 9th commit of b2-tip> --last 1 --jobs 1`.
-  The first run gave 7 findings, no defects -- four taken, two rejected, one
-  queued to 68160. Details in [`rounds/b2-0921/`](rounds/b2-0921/).
+- **68288 is done: fixed, re-reviewed, 26/26 builds, lab regression green.**
+  Both reviews are in [`rounds/b2-0921/`](rounds/b2-0921/). The re-review
+  came back "nothing here needs a re-spin", so 68288 is ready to push as it
+  stands. **One question to settle first, and it is about the fix I made:**
+  is skipping the lookup right for `--fid2path`, which was handed a *live
+  mount* that a lookup would go through without touching the scanned target?
+  Under DNE that costs exactly the names the mount could produce. Decide
+  between a fallback to `llapi_scan_rec_path()` on a map miss when
+  `fc_mnt_fd >= 0`, or a sentence in lfs-find.1. Two more worth measuring
+  rather than just fixing: `sd_want` never narrowed by the pre-pass's `known`
+  mask (a wasted ZFS `zap_lookup()` per MDT object) and a 256-byte
+  `strncpy()` pad per dirmap insert.
 - **Then triage 68415 (5 open threads) and 68416 (4).** Batch 1 and batch 2's
   first change both turned out to be entirely already-fixed, so check each
   against the tree before writing anything.
