@@ -109,5 +109,31 @@ comment now names a relative mask, as the commit message already did.
 - `checkpatch.pl` on the three changed stack commits and on 68414 and 65026:
   no new findings (68094's "new file mode" and 68156's 82-column `echo` in
   conf-sanity are the two that were already there).
-- Not yet: a lab A/B, and `lreview` on the changed commits. Both gate the
-  push.
+- **The lab A/B**, on the clone VM (2 MDTs, ldiskfs, `llmount.sh`), one build
+  tree with the arms chosen by `LD_PRELOAD` of each arm's `liblustreapi` --
+  the SONAME is the same, so the preload wins over the binary's RPATH, and
+  each arm logs the library it actually loaded before any arm runs.
+  A = `r0920-tip`, B = `r0921-tip`. Scripts and log: [`r21lab.sh`](r21lab.sh),
+  [`r21lab2.sh`](r21lab2.sh), [`scanrec.c`](scanrec.c),
+  [`r21arms.log`](r21arms.log). Ten checks, all as intended:
+  - **68094.** The record is *identical* A/B over the live tree, which is the
+    expected result and the reason this one cannot be measured on a live MDT:
+    `osd_attr_get()` always fills `LA_FLAGS`, so `OBD_MD_FLFLAGS` is always
+    set and both gates are always true. What the arms prove is that nothing
+    regressed -- all 46 objects still carry `LLAPI_SCAN_ATTRS`, `--attrs
+    Immutable` still finds the `chattr +i` file and nothing else in both arms
+    -- and that off Lustre, where nothing declares flags, no object claims
+    attributes. `scanrec.c` exists because `lfs find` reads `lmd_stx`
+    directly: nothing it prints can show whether the valid bit was set.
+  - **68095.** The answer is identical A/B (41 paths, sorted -- `lfs find`
+    does not order its output, which the first run mistook for a difference),
+    and the getattr RPCs drop from **63 to 21**: the 21 directories no longer
+    pay one. Under `-printf` both arms pay 83 and print the same 41 lines,
+    which is the case the shortcut deliberately does not take.
+  - **68156.** With the filesystem stopped, a device scan of the MDT answers
+    `%s %b` for the striped directory as **`4096 8` in A and `0 0` in B** --
+    withheld, as the walk already withheld them (`scanrec` reports
+    `size=unknown blocks=unknown` for it through the mount). An unstriped
+    directory still answers `4096 8` and regular files `0 0` in both arms, so
+    the change is bounded to the object it is about.
+- Not yet: `lreview` on the changed commits. That gates the push.

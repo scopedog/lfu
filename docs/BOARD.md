@@ -58,9 +58,19 @@ own patch**. Full triage in [`rounds/r-0921/notes.md`](rounds/r-0921/notes.md).
   unpushed again** -- the 09-20 note below is overtaken.
 - **Owed, its own patch:** the `mdc_create()` reply-decode leak in
   `mdc_reint.c` (two returns before `*request = req`), pre-existing.
-- **Verified:** per-commit build sweep, 26/26 clean; checkpatch on the five
-  changed commits, no new findings. **Not yet:** lab A/B and `lreview` -- both
-  gate the push.
+- **65026 and 68414 are no longer ours.** The other session (lustre-bd) took
+  both back on 2026-09-21 -- LU-20050 is its chain, 68414 PS9 was its public
+  promise -- and has read both local tips (lr-65026 at 05d029f116,
+  lustre-lu20648 at 3ddfe69873), so the fixes go on from there. It also notes
+  that 65026's `-EINTR` -> `-EPROTO` is a functional change and pushing it
+  costs the Verified+1 that 65026 holds today; that is the user's call, and it
+  is asking.
+- **Verified:** per-commit build sweep, 26/26 clean; checkpatch on the changed
+  commits, no new findings; **lab A/B green, ten checks** (63 -> 21 getattr
+  RPCs for `! --foreign`, the striped directory's `4096 8` -> `0 0` from a
+  device scan, everything else unchanged) --
+  [`rounds/r-0921/r21arms.log`](rounds/r-0921/r21arms.log).
+  **Not yet:** `lreview`, which gates the push.
 
 ## 2026-09-20: the 11 lreview findings fixed -- round 20, UNPUSHED
 

@@ -1,0 +1,55 @@
+=== which library each arm loads
+  arm A -> /home/nishida/armA/lib/liblustreapi.so.1
+  arm B -> /home/nishida/armB/lib/liblustreapi.so.1
+ed42ab1369f12ec2123475563321b834  /home/nishida/armA/lib/liblustreapi.so.1.0.0
+4569be70da64efb48b269211f326472a  /home/nishida/armB/lib/liblustreapi.so.1.0.0
+=== /mnt/lustre is not mounted; formatting and mounting (2 MDTs)
+=== loaded: 2.17.57_206_g6a13016
+=== 68094 LLAPI_SCAN_ATTRS
+  PASS  the record is identical A/B on a live MDT (the MDT always answers OBD_MD_FLFLAGS)
+  PASS  every one of the 46 Lustre objects still carries LLAPI_SCAN_ATTRS (0 without)
+  FAIL  arm A: --attrs +i answered unexpectedly
+        error: bad attribute name '+i'
+  FAIL  arm B: --attrs +i answered unexpectedly
+        error: bad attribute name '+i'
+  PASS  off Lustre no object claims attributes (arm B)
+=== 68095 ! --foreign getattr RPCs
+  arm A: 41 objects, 63 mds_getattr
+  arm B: 41 objects, 21 mds_getattr
+  FAIL  the answer changed A/B
+        3c3
+< /mnt/lustre/r21arms/plain/d2
+---
+> /mnt/lustre/r21arms/plain/d3
+5c5,6
+  PASS  arm B asks for fewer getattrs: 21 vs 63
+  arm A -printf: 83 mds_getattr
+  arm B -printf: 83 mds_getattr
+  FAIL  -printf output changed A/B
+        4,6d3
+< /mnt/lustre/r21arms/plain/d2 4096
+< /mnt/lustre/r21arms/plain/d1 4096
+< /mnt/lustre/r21arms/plain/d17/f 0
+8,9c5,6
+  PASS  -printf still pays the getattr in both arms (83)
+=== 68156 striped directory size from a device scan
+--- what a walk reports for it (the oracle)
+  r21striped                   attrs=yes stx_attributes=0 attrs_mask=0x830 size=unknown blocks=unknown sz=4096 blk=8
+  PASS  a walk answers 'not known' for the striped directory
+#### part 2
+=== 68094 --attrs Immutable
+  PASS  arm A: --attrs Immutable finds the immutable file and nothing else
+  PASS  arm B: --attrs Immutable finds the immutable file and nothing else
+=== 68095 ! --foreign, sorted comparison
+  PASS  the answer is identical A/B (41 paths)
+  PASS  -printf prints the same thing A/B (41 lines)
+=== 68156 device scan of the MDT
+  MDT device: /tmp/lustre-mdt1
+-rw-r--r--. 1 root root 256000000 Sep 21 06:09 /tmp/lustre-mdt1
+--- stopping the filesystem
+  arm A: 4096 8|lfs find: /tmp/lustre-mdt1: 7 objects could not be decided: the target has no answer for a field the search asked for|
+  arm B: 0 0|lfs find: /tmp/lustre-mdt1: 7 objects could not be decided: the target has no answer for a field the search asked for|
+  PASS  the device scan changed: A=4096 8 B=0 0
+  PASS  an unstriped directory answers the same in both arms (4096 8)
+  PASS  a regular file answers the same in both arms (lfs find: /tmp/lustre-mdt1: 7 objects could not be decided: the target has no answer for a field the search asked for)
+=== 7 passed, 0 failed
