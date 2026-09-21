@@ -68,3 +68,66 @@ and it would have invalidated the run silently.
   compared B and C for a change that landed in B, and read "no difference" as
   a failure. The arm that predates the change is the only one that can show
   it.
+
+## The lreview pass, and the finding that was wrong
+
+Four commits, one at a time: 32.7M tokens, $28.40. **68163 came back clean.**
+Eight findings on the other three, of which three are taken -- and one
+reported as a defect is not one.
+
+### The "defect" that was not
+
+> `%Lh` is missing from `strchr("chiopS", c[1])`, so a device scan never asks
+> for the LMV and every directory prints hash type "none".
+
+The string is `"chiopS"`. Its second character is `h`. The set already
+contains it, and the rest of the chain -- `find_device_want()` leaving out
+`LLAPI_SCAN_LMV`, `find_rec_to_lmv()` memsetting, `mdt_hash_name[0]` printing
+"none" -- never starts.
+
+What makes this worth writing down is the order it came apart in. The fix was
+written first and the lab could not reproduce the symptom: arm C, which was
+supposed to show the defect, printed `fnv_1a_64` exactly like the fixed arm.
+Two rounds of blaming the fixture followed -- a filesystem left mounted as ZFS
+while the script scanned `/tmp/lustre-mdt1` as ldiskfs, then a `-name` in the
+command that might have changed the demand mask -- before the obvious reading:
+**a failed reproduction is evidence about the finding, not only about the
+test.** An instrumented build of the pre-fix tree settled it:
+
+    DEBUG want=0x4517000008ff lmv=1 needs_lmv=0
+
+`lmv=1` with `needs_lmv=0` means `printf_format_want()` put it there, from
+`%Lh`, before any fix. The transform was dropped; it had only duplicated the
+letter.
+
+### Taken
+
+- **68159:** the commit message now says why an MDT object with no
+  `trusted.lma` keeps `obj:ID` -- an IGIF needs the inode generation, and the
+  record carries no field for it, so one built from the id alone would name a
+  different object. That closes a thread carried since PS17.
+- **68158:** the `llapi_lov_string_pattern()` join is listed under the loop's
+  differences, where it happens, rather than as a helper exception.
+- **68160:** lfs-find.1 now says a failure the command line caused ends the
+  sweep, which is what `-ENOTSUP` does.
+
+### Queued for the next round
+
+`llapi_error()` already prints the program name, so 68160's `progname`
+argument doubles it; the `# name (device)` header is keyed off the number of
+targets found rather than the number scanned; `--target`/`--fsname` are only
+exercised after `stopall`, where both are expected to fail, so
+`lfs_find_label_of()` never runs successfully in the suite; and
+`lfs_find_parse.h` now carries setquota/migrate/mirror option values and
+helpers that are not find's.
+
+## What batch 1 comes to
+
+**No code change.** Three lines of man page in 68160 and two commit messages,
+over `r0921c-tip`. Stack tip **`b1-tip` = 55a460f437**.
+
+- Per-commit build sweep: 26/26 `build=0 hdr=0 tests=0`.
+- lreview: all four covered at the trees being pushed -- the code is identical
+  to what was reviewed, and the only tree change is a man page, a docs-only
+  skip named here.
+- The ZFS lab above, plus this morning's ldiskfs lab, cover the behaviour.
