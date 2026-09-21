@@ -131,10 +131,17 @@ resolve. Budget roughly $10 per commit for `lreview`, so about $40 a batch.
 
 | Batch | When | Gate before pushing |
 |---|---|---|
-| 1 -- 68158, 68159, 68160, 68163 | Mon 09-21 PM | the four pushed today are jenkins **and** Janitor-initial green |
+| 1 -- 68158, 68159, 68160, 68163 | **PUSHED Mon 09-21 19:26** as PS20/PS20/PS21/PS20 | met: jenkins Verified+1 on all four, Janitor builds green, Janitor initial testing green on 68157 (whose tree holds all four) |
 | 2 -- 68288, 68726, 68727 | Tue 09-22 AM | batch 1 green |
 | 3 -- 68415, 68416, 68417 | Tue 09-22 PM | batch 2 green; may slip a half-day on thread volume |
 | 4 -- 68418, 68419, 68420 | Wed 09-23 AM | batch 3 green |
+
+**Gate calibration, learned on batch 1:** 68094/68095 draw `sanity1/2/3` and
+68156 the `conf-sanity` set, which run for hours -- job 70480's sanity2 took
+22278s. So "Janitor initial testing green on every change below" is an
+overnight gate, not an afternoon one. What is achievable same-day is jenkins
+Verified+1 on all of them plus Janitor initial testing on the **topmost**
+change of the batch below, whose tree contains the rest.
 
 The gate is **jenkins + Janitor initial testing**, not the full Maloo enforced
 run: Maloo's sessions are the 4h-each, 1500-deep part, and waiting on them
@@ -145,6 +152,21 @@ scheduled time, fix first and slip; say which it is rather than pushing on
 time into a red base.
 
 Batch 1's triage starts **10:30 PDT**, at the user's instruction.
+
+### A trap the batch-1 push nearly walked into
+
+`r0921drive.py` (and its predecessors) rebuild every commit with
+`commit-tree` and set `GIT_AUTHOR_*` plus the committer name and email -- but
+**not `GIT_COMMITTER_DATE`**. So a re-drive gives every commit a new SHA even
+where the tree and message are byte-identical. Pushing a batch straight off
+the driven tip would therefore have created a fresh patchset for every change
+below it as well: on 2026-09-21 that would have re-spun 68094, 68095, 68156
+and 68157 three hours after they went up, for four wasted CI sessions.
+
+**Rebase each batch onto the revisions actually on Gerrit before pushing it**
+(`git rebase --onto <pushed tip> <driven parent> <batch branch>`), then check
+that `git log <pushed tip>..<branch>` lists only the batch, and that its
+ancestors are the pushed SHAs.
 
 ### Two timing facts that bound this
 
