@@ -71,6 +71,72 @@ the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
    mark 68158-68818 WIP; abandon candidates outside LFU (67052, 65388,
    65120).
 
+## The plan for the 22 still unpushed (2026-09-21)
+
+Every commit above the four differs from its pushed revision -- none is pure
+carry. They have been accumulating unpushed fixes since the 09-13 round:
+r3-0913 (only the first four of which were ever pushed), fix-0915, the OSD
+09-17 pass, 0918, round 20 and round 21.
+
+**Open review threads, counted by the last-reply rule** (someone else had the
+last word), from the REST `comments` endpoint rather than the thread view,
+which misses inline comments:
+
+| Change | open | Change | open | Change | open |
+|---|---|---|---|---|---|
+| 68158 | 0 | 68288 | 5 | 68418 | 4 |
+| 68159 | 0 | 68415 | 5 | 68419 | 4 |
+| 68160 | 2 | 68416 | 4 | 68420 | 3 |
+| 68163 | 3 | 68417 | 4 | 68726 | 0 |
+| | | | | 68727 | 5 |
+
+**39 in total**, and the nine OSD changes (68810-68818) have none.
+
+### Not in this cycle
+
+- **68810-68818** -- the in-kernel OSD scanner is **2.19** material by the
+  release split, already on Gerrit at PS1 and deliberately unmonitored. They
+  carry rounds 20 and 21 locally; they get re-pushed when the 2.18 material
+  has landed, not before.
+- **42eed1e556** (`llapi_scan_mount()` scans a subtree, LU-20730, built
+  2026-09-10, never pushed) -- same reason, and it sits above the stack
+  rather than in it.
+
+That leaves **13** changes for this cycle.
+
+### Four batches, bottom-up
+
+Contiguous from the bottom, because a stacked push has to match parents.
+Andreas's constraint is the test queue -- 1500 sessions at about 4h each --
+so one batch per review cycle, not one push of thirteen.
+
+1. **68158, 68159, 68160, 68163** -- 5 open threads. Behaviour to prove:
+   68160 carries the `lfind` -> `lfs find --device` fold, and 68163 is the
+   ZFS backend, which needs the ZFS arm rather than the ldiskfs one.
+2. **68288, 68726, 68727** -- 10 open threads. 68288 is the offline
+   `--fid2path` work; 68726 the batch API; 68727 the trailing-slash trim.
+3. **68415, 68416, 68417** -- 13 open threads, the first half of the
+   changelog series.
+4. **68418, 68419, 68420** -- 11 open threads, the second half.
+
+### The loop per batch
+
+The one this round just ran, and each step has caught something real at least
+once: triage the open threads against the current tree -> fix as transforms
+over the whole stack -> per-commit build sweep -> lab A/B for anything
+behavioural -> `lreview` every changed commit -> ask -> push -> reply and
+resolve. Budget roughly $10 per commit for `lreview`, so about $40 a batch.
+
+### Two timing facts that bound this
+
+- **Batch 1 should not be pushed until today's four are at least
+  jenkins-green.** Stacking a batch on a base whose CI has not reported wastes
+  the batch's sessions if the base is wrong.
+- **When 68231 lands, the stack's base disappears** and everything still
+  unpushed has to be rebased onto master, costing a patchset on each. The
+  fewer changes left unpushed at that moment, the cheaper that is -- which is
+  an argument for moving through the batches steadily rather than waiting.
+
 ## 2026-09-21: the Gerrit AI round of 09-20/21 -- round 21, UNPUSHED
 
 Eleven comments on five changes: **nine taken, one declined, one left to its
