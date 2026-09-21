@@ -1,0 +1,57 @@
+=== tearing down whatever is up
+=== formatting and mounting a ZFS filesystem (2 MDTs, 1 OST)
+=== loaded: 2.17.57_206_g6a13016
+NAME          SIZE  ALLOC   FREE  CKPOINT  EXPANDSZ   FRAG    CAP  DEDUP    HEALTH  ALTROOT
+lustre-mdt1   224M  2.26M   222M        -         -     6%     1%  1.00x    ONLINE  -
+lustre-mdt2   224M  2.15M   222M        -         -     5%     0%  1.00x    ONLINE  -
+lustre-ost1   384M  2.53M   381M        -         -     0%     0%  1.00x    ONLINE  -
+=== the client's view:
+  /mnt/lustre/r21zfs/zbig size=4194304 blocks=8199
+  /mnt/lustre/r21zfs/zstriped size=32768 blocks=16
+--- what a walk reports on ZFS (arm C):
+    r21zfs                       attrs=no  stx_attributes=0 attrs_mask=0x830 size=known   blocks=known   sz=16384 blk=14
+    zbig                         attrs=no  stx_attributes=0 attrs_mask=0x830 size=unknown blocks=unknown sz=4194304 blk=8199
+    zstriped                     attrs=no  stx_attributes=0 attrs_mask=0x830 size=unknown blocks=unknown sz=16384 blk=2
+    a                            attrs=no  stx_attributes=0 attrs_mask=0x830 size=unknown blocks=unknown sz=0 blk=0
+    b                            attrs=no  stx_attributes=0 attrs_mask=0x830 size=unknown blocks=unknown sz=0 blk=0
+=== stopping the filesystem and exporting the pools
+  export lustre-mdt2: cannot export 'lustre-mdt2': pool is busy
+  pools still imported: [lustre-mdt2 ]
+=== datasets: MDT=lustre-mdt1/mdt1 OST=lustre-ost1/ost1 search=/tmp
+  arm B striped dir: lfs find: lustre-mdt1/mdt1: 6 objects could not be decided: the target has no answer for a field the search asked for|
+  arm C striped dir: lfs find: lustre-mdt1/mdt1: 6 objects could not be decided: the target has no answer for a field the search asked for|
+  FAIL  the ZFS MDT answered a size for the striped directory
+        lfs find: lustre-mdt1/mdt1: 6 objects could not be decided: the target has no answer for a field the search asked for
+  arm B OST top 3: 4194304 0|0 0|0 0|
+  arm C OST top 3: 4194304 8198|0 0|0 0|
+  PASS  the ZFS OST scan changed: B=4194304 0 C=4194304 8198
+  PASS  arm C reports non-zero blocks for a ZFS OST data object
+=== 2 passed, 1 failed
+=== client: size=32768 blocks=16   master MDT: 0
+=== is the immutable bit visible through the mount?
+----i----------------- /mnt/lustre/r21z2/imm2
+  arm A --attrs Immutable: [/mnt/lustre/r21z2/imm2 ]
+  arm C --attrs Immutable: [/mnt/lustre/r21z2/imm2 ]
+=== and what the record says for it:
+    imm2                         attrs=yes stx_attributes=0x10 attrs_mask=0x830 size=unknown blocks=unknown sz=0 blk=0
+    zs2                          attrs=no  stx_attributes=0 attrs_mask=0x830 size=unknown blocks=unknown sz=16384 blk=2
+=== stopping and exporting
+  could not export lustre-mdt2
+  still imported: [lustre-mdt2 ]
+  arm A striped dir: [16384 12|lfs find: lustre-mdt1/mdt1: 4 objects could not be decided: the target has no answer for a field the search asked for|]
+  arm C striped dir: [0 0|lfs find: lustre-mdt1/mdt1: 4 objects could not be decided: the target has no answer for a field the search asked for|]
+  PASS  the ZFS MDT stopped answering a size for the striped directory
+=== 1 passed, 0 failed
+=== attrs A/C:
+--- A:
+r21attrs                     attrs=yes stx_attributes=0 attrs_mask=0x830 size=known   blocks=known   sz=16384 blk=14
+immf                         attrs=yes stx_attributes=0x10 attrs_mask=0x830 size=unknown blocks=unknown sz=0 blk=0
+plain                        attrs=yes stx_attributes=0 attrs_mask=0x830 size=unknown blocks=unknown sz=0 blk=0
+sub                          attrs=yes stx_attributes=0 attrs_mask=0x830 size=known   blocks=known   sz=16384 blk=2
+f                            attrs=yes stx_attributes=0 attrs_mask=0x830 size=unknown blocks=unknown sz=0 blk=0
+--- C:
+r21attrs                     attrs=no  stx_attributes=0 attrs_mask=0x830 size=known   blocks=known   sz=16384 blk=14
+immf                         attrs=yes stx_attributes=0x10 attrs_mask=0x830 size=unknown blocks=unknown sz=0 blk=0
+plain                        attrs=no  stx_attributes=0 attrs_mask=0x830 size=unknown blocks=unknown sz=0 blk=0
+sub                          attrs=no  stx_attributes=0 attrs_mask=0x830 size=known   blocks=known   sz=16384 blk=2
+f                            attrs=no  stx_attributes=0 attrs_mask=0x830 size=unknown blocks=unknown sz=0 blk=0
