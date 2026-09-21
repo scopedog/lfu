@@ -54,7 +54,12 @@ own patch**. Full triage in [`rounds/r-0921/notes.md`](rounds/r-0921/notes.md).
   still unstaged) *and* it is not based on PS9 (`968d6b5223` is not an
   ancestor; it sits on an 08-26 LU-20647 commit). Both found by the lustre-bd
   session and verified here. The comment hunk and the message rewording went
-  over as text for it to apply to PS9. 68413 and 68414 are its changes.
+  over as text for it to apply to PS9; it took the message fix onto the real
+  PS9 (branch `lu-20648-ps10`, bef207710c, unpushed) and is holding the
+  comment fix until the user asks for it. **Leave the unstaged
+  `mdc_changelog.c` edit in `~/projects/lustre/lustre-lu20648` alone** -- it is
+  the only copy of that hunk outside the message it was sent in. 68413 and
+  68414 are its changes.
 - **65026 is PUSHED as PS13** (05d029f116), by the lustre-bd session with the
   user's approval, carrying the three fixes this round made: the three-case
   list in the message, `-EINTR` -> `-EPROTO` for a signal-killed helper, and
