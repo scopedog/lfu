@@ -153,3 +153,74 @@ to apply to PS9. 68413 and 68414 are its changes, not this project's.
     directory still answers `4096 8` and regular files `0 0` in both arms, so
     the change is bounded to the object it is about.
 - Not yet: `lreview` on the changed commits. That gates the push.
+
+## The lreview pass, and what it found
+
+Run over the three changed commits, one at a time (`lreview run --repo <a
+worktree of the bottom three> --last 3 --jobs 1`), 29.9M tokens, $25.97.
+Reports in [`lreview/`](lreview/). Six findings; the first is the one that
+matters.
+
+### Taken
+
+1. **68156 (defect, medium): an OST data object's blocks came back 0.** Round
+   20's `noreg-blocks` change reads
+   `stx_blocks = S_ISREG(obj->so_mode) ? 0 : obj->so_blocks`, which is right
+   for an MDT inode — `mdt_pack_attr2body()` reports no blocks for a regular
+   file with no layout — but an OST data object is also `S_ISREG` with no
+   `trusted.lov`, and there the object *is* the data. Worse, the record kept
+   `STATX_BLOCKS` set, so it claimed a number it had not read:
+   `LLAPI_SCAN_BLOCKS` is not in `LLAPI_SCAN_WANT_MDT_ONLY`, so `lfsp_got`
+   promises blocks for an OST scan, and llapi_scan_device.3 says so in prose.
+   `scan_size()` now takes the target kind and zeroes only on an MDT.
+   **Never pushed** — it was introduced by round 20, which is still local.
+   conf-sanity 300's OST arm only checks the exit status, so nothing would
+   have caught it.
+2. **68095: the commit message did not list the `-printf %Li` delta** on a
+   foreign directory. Added beside the other six.
+
+### Not taken
+
+3. **68095 (minor): the other `%L` directives on a foreign LMV.** Real, and
+   pre-existing: `lmv_foreign_md` aliases every `lmv_user_md` field the
+   switch reads — `lfm_length` at `lum_stripe_count`, `lfm_type` at
+   `lum_stripe_offset`, `lfm_flags` at `lum_hash_type` — so `%Lc` prints a
+   length as a stripe count and the `%Lo` loop indexes `lum_objects[]` for
+   `lfm_length` entries, which can walk past the 256-stripe buffer.
+   `cb_get_dirstripe()` only grows that buffer on E2BIG. **To file**, not to
+   fold: this patch teaches `case 'i'` about foreign LMVs, and rewriting the
+   rest of the switch is its own change.
+4. **68094 (minor): `fwu_path` is allocated `PATH_MAX + 1` and walked with a
+   bound of `2 * PATH_MAX`.** Verified pre-existing — present at the series
+   base, introduced by e505e7dbfb ("LU-17814 utils: Add work unit
+   management"). `llapi_semantic_traverse()`'s only bound is that argument
+   (`(len + dent->d_reclen + 2) > size`), so a tree deeper than `PATH_MAX`
+   writes past the allocation for any `lfs find --thread-count` above 1. The
+   single-threaded caller passes `2 * PATH_MAX + 1` for a `2 * PATH_MAX`
+   allocation, which is off by one but covered by `d_reclen`'s slack.
+   **To file** — it is a heap overflow in landed code, not ours, and it wants
+   its own ticket and patch.
+5. **68095 (style): `!have_lmv` instead of the `lfsr_valid` test** in the late
+   shortcut. Declined: from 68157 up that code lives in `find_decide()`,
+   which has no `have_lmv` in scope, so taking it would make the two trees
+   read differently for no gain.
+6. **68094 (minor): reuse `d` for the HSM ioctl** as the project id does.
+   Declined for this round: the bit staying clear is a truthful answer, not a
+   wrong one, and it is a consistency point rather than a defect.
+
+### What the OST fix was proven with
+
+[`r21ost.sh`](r21ost.sh), a third arm C = the fixed tip against B = the
+defect, on the same VM. The earlier fixture was all empty files, where 0
+blocks and the true count are the same number, so it needed a 4 MB file:
+
+- client `stat`: `size=4194304 blocks=8192`
+- arm B, OST scan: `4194304 0` — the defect
+- arm C, OST scan: `4194304 8192` — matches the client
+- the MDT answer for the same file is `4194304 8192` in both arms, so the
+  SOM path did not move.
+
+Stack tip after this pass: **`r0921c-tip` = f189a79af4** (`r0921b-tip` =
+be97aac251 was the OST fix, `r0921-tip` = ea8bd797c5 the first pass).
+26/26 per-commit builds clean; checkpatch byte-identical to r0920-tip's
+totals on the changed commits.

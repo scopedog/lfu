@@ -216,6 +216,47 @@ t("striped-man", DEV3, MAN_HSM,
   ".BR ll_dir_ioctl ()\n"
   "leaves them for a walk.\n", since="c02")
 
+# ============ 68156, from lreview: an OST data object's blocks are its own
+t("ost-blocks-sig", DEV,
+  "static void scan_size(const struct llapi_scan_obj *obj, __u64 want,\n"
+  "\t\t      struct llapi_scan_rec *rec)\n",
+  "static void scan_size(const struct llapi_scan_obj *obj, __u64 want,\n"
+  "\t\t      bool ost, struct llapi_scan_rec *rec)\n", since="c02")
+
+t("ost-blocks-call", DEV,
+  "\tscan_size(obj, dev->sd_want, &rec);\n",
+  "\tscan_size(obj, dev->sd_want,\n"
+  "\t\t  dev->sd_tgt_info.tt_flags & LLAPI_SCAN_TGT_OST, &rec);\n",
+  since="c02")
+
+t("ost-blocks", DEV,
+  "\t\t/*\n"
+  "\t\t * A regular file with no layout has no data blocks: the MDT\n"
+  "\t\t * inode's own are its xattrs, which mdt_pack_attr2body()\n"
+  "\t\t * does not report either.\n"
+  "\t\t */\n"
+  "\t\trec->lfsr_stx.stx_blocks = S_ISREG(obj->so_mode) ? 0 :\n"
+  "\t\t\t\t\t   obj->so_blocks;\n",
+  "\t\t/*\n"
+  "\t\t * A regular file with no layout has no data blocks on an MDT:\n"
+  "\t\t * the inode's own are its xattrs, which mdt_pack_attr2body()\n"
+  "\t\t * does not report either.  On an OST the object is the data,\n"
+  "\t\t * so its own blocks are exactly what that target holds, which\n"
+  "\t\t * is what llapi_scan_device.3 promises for one.\n"
+  "\t\t */\n"
+  "\t\trec->lfsr_stx.stx_blocks = S_ISREG(obj->so_mode) && !ost ? 0 :\n"
+  "\t\t\t\t\t   obj->so_blocks;\n", since="c02")
+
+# ============ 68095, from lreview: the %Li delta the message did not list
+t("printf-i-msg", MSG,
+  "- -name now tests lfsr_name, which is the whole path when the path ends\n",
+  "- -printf %Li on a foreign directory prints the directory's own MDT\n"
+  "  index, or nothing when it could not be fetched. Before, it printed\n"
+  "  lfm_type: lmv_foreign_md aliases lum_stripe_offset, so the code read\n"
+  "  the foreign type as a stripe offset.\n"
+  "- -name now tests lfsr_name, which is the whole path when the path ends\n",
+  only={"c01"})
+
 
 def apply(tree, name, msg):
     saved = r3fix.T

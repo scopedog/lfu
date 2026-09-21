@@ -81,7 +81,18 @@ own patch**. Full triage in [`rounds/r-0921/notes.md`](rounds/r-0921/notes.md).
   RPCs for `! --foreign`, the striped directory's `4096 8` -> `0 0` from a
   device scan, everything else unchanged) --
   [`rounds/r-0921/r21arms.log`](rounds/r-0921/r21arms.log).
-  **Not yet:** `lreview`, which gates the push.
+  **lreview: done**, 6 findings, 2 taken. One was a real defect of round 20's
+  making, never pushed: an **OST data object's `stx_blocks` came back 0**
+  (`S_ISREG && no trusted.lov` is an MDT rule; on an OST the object is the
+  data), proven with a third arm -- `4194304 0` before, `4194304 8192` after,
+  matching the client's `stat`. Stack tip is now **`r0921c-tip` = f189a79af4**.
+- **To file, not ours, both found by lreview:** (a) `fwu_path` is malloc'd
+  `PATH_MAX + 1` but walked with a bound of `2 * PATH_MAX`, so
+  `lfs find --thread-count N>1` over a tree deeper than `PATH_MAX` overruns
+  the heap -- landed code, from e505e7dbfb (LU-17814); (b) `printf_format_lustre()`'s
+  `%Lc`/`%Lh`/`%Lp`/`%Lo` read `lmv_user_md` fields out of a foreign LMV that
+  aliases all of them, with a possible out-of-bounds read in the `%Lo` loop.
+  **Ask the user before filing either.**
 
 ## 2026-09-20: the 11 lreview findings fixed -- round 20, UNPUSHED
 

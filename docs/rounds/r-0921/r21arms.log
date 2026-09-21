@@ -53,3 +53,16 @@ ed42ab1369f12ec2123475563321b834  /home/nishida/armA/lib/liblustreapi.so.1.0.0
   PASS  an unstriped directory answers the same in both arms (4096 8)
   PASS  a regular file answers the same in both arms (lfs find: /tmp/lustre-mdt1: 7 objects could not be decided: the target has no answer for a field the search asked for)
 === 7 passed, 0 failed
+=== mounting
+=== client's view:
+  /mnt/lustre/r21ost/big size=4194304 blocks=8192
+  /mnt/lustre/r21ost/empty size=0 blocks=0
+=== stopping the filesystem
+-rw-r--r--. 1 root root 409600000 Sep 21 06:59 /tmp/lustre-ost1
+  arm B (top 5 by size): 4194304 0|0 0|0 0|0 0|0 0|
+  arm C (top 5 by size): 4194304 8192|0 0|0 0|0 0|0 0|
+  PASS  the OST scan changed: B=4194304 0 C=4194304 8192
+  PASS  arm C reports non-zero blocks for OST data objects
+  PASS  arm B reported 0 blocks for every OST object, which is the defect
+  PASS  the MDT answer for the same file is unchanged (4194304 8192)
+=== 4 passed, 0 failed
