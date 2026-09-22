@@ -6,18 +6,49 @@ the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
 
 ## Tomorrow: start here (end of 2026-09-22)
 
-**On Gerrit:** 68094 PS22, 68095 PS23, 68156 PS23, 68157 PS23, then 68158
-PS20, 68159 PS20, 68160 PS21, 68163 PS20 (batch 1). Zero open threads on all
-eight. **The overnight suites are back and they are not all green**: enforced
-failures on 68158 (1), 68159 (2) and 68160 (3); 68163 has none. The optional
-failures look like the standing noise (sanity-lfsck, racer, sanityn,
-selinux-ssk) -- see [`lfu-autotest-known-noise`]. **The enforced ones are not
-triaged yet, and batch 2's push gate is "batch 1 jenkins-green".**
+**PUSHED today, 11 new patchsets** from the driven tip `7f9b243c26`, pushed
+as `36858b2ea1` (tagged `b2b-pushed` in `~/projects/lustre/lustre-scanfid`):
 
-**The stack:** `b2b-tip` = **22e3e05875**, 26 commits, driven in
-`~/projects/lustre/lustre-scanfid` (branch `b2b-tip` there; also fetched into
-`~/lfs-carry-0915`). Below it: `b2-tip` 8f502eff1c, `b1-tip` 55a460f437 (what
-batch 1 was cut from), `r0921c-tip` f189a79af4, `r0921b-tip` be97aac251.
+| change | PS | change | PS | change | PS |
+|---|---|---|---|---|---|
+| 68094 | 23 | 68158 | 21 | 68288 | 15 |
+| 68095 | 24 | 68159 | 21 | 68415 | 13 |
+| 68156 | 24 | 68160 | 22 | 68416 | 13 |
+| 68157 | 24 | 68163 | 21 | | |
+
+68231 was byte-identical to its PS8 and Gerrit left it alone. **68288's five
+replies are posted and it is at zero open threads.**
+
+This was not the planned three-change batch 2: today's work changed eleven
+contiguous commits, c00-c10, so batch 2's parents had all moved and pushing
+the three alone would have put up a 68288 whose parent content was never
+built or swept. Pushed as one round instead, which is what the cadence rule
+asks for.
+
+**What it cost, knowingly:** Artem's Code-Review +1 on 68095 and 68156,
+given the same day with "do not expect the patch will be fixed" -- both
+changes moved for the AI round's fixes, not his. He is owed the courtesy of
+knowing why.
+
+**The retest was skipped deliberately:** every Verified-1 was on a patchset
+these replaced, so retesting would have tested what is no longer current.
+All eight enforced failures were triaged first and none was ours -- see
+[`rounds/b2-0922/maloo-batch1-triage.md`](rounds/b2-0922/maloo-batch1-triage.md).
+
+**Still unpushed:** c11-c20 (the rest of the changelog series, batches 3/4)
+and c21-c25 (the 2.19 OSD block), which carry today's LU-20720/20722/20730
+work and stay back by the release split.
+
+### Next
+
+- **Watch the 11 for Maloo and the AI round.** Nothing is owed in reply on
+  68288.
+- **Still unanswered**, all from the AI reviewer and all answered by code in
+  what just went up: 68415 (5), 68416 (4), 68160 (7), and the rest of the
+  09-22 round across 68094-68163. They want a short reply each and marking
+  resolved.
+- **Andreas's libblkid thread** -- see the `--label` follow-up in section 4.
+  It wants an LU ticket and a reply that agrees rather than defers again.
 
 ### 1. First thing: finish batch 2's gate
 
