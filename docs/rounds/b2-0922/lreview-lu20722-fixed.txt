@@ -1,0 +1,58 @@
+========================================================================
+lreview: last 1 commit(s) of b2lr3
+========================================================================
+generated: 2026-09-22T15:16:00+00:00
+repository: /tmp/claude-1004/-home-nishida-projects-lustre-lfu/854410f9-d17b-4d3f-9ac5-666eb4041341/scratchpad/b2lr3
+reviews: 1
+totals: 5.7M tokens, $5.49
+
+  1. HEAD  ff9f8a36cf98  LU-20722 llapi: a scan backend for a target in service -- findings (7)
+
+========================================================================
+[1/1] HEAD  ff9f8a36cf98  LU-20722 llapi: a scan backend for a target in service
+========================================================================
+
+status: findings (7 finding(s)), severity medium
+run:    opus, 5.7M tokens, $5.49, 9m39s
+
+Overall assessment
+------------------------------------------------------------------------
+Some concerns, see inline comments. The released-layout path in scan_size() is the one worth a look before this lands; the rest are minors that can ride along on the same refresh.
+
+Findings (7)
+------------------------------------------------------------------------
+
+(1) /COMMIT_MSG (line 52)
+    (minor) The message covers --paths and -name through the link, but not the other half of the naming change: pp_live / fc_tgt_live and find_lookup_spares_tgt() make --fid2path look up the names the directory map could not place, which it did not do before, and find_changelog_rec_cb() hard-codes that flag true.
+
+    That is user-visible -- new names printed, one ioctl per unplaced object -- and lfs-find.1 documents it, so a sentence here would keep the hunk from reading as unrelated.
+
+(2) lustre/utils/liblustreapi_scan_device.c (line 662)
+    (defect) The test just above now reads so_xa_present, but this released check still goes through scan_xattr(), which needs so_xa_valid. On the kernel backend the layout is present-without-bytes, so `lov` is NULL and a released file falls through into the SOM branch: with no trusted.som nothing sets STATX_SIZE at all, and with one, stx_blocks becomes the pre-release count rather than 0/1.
+
+    A device scan of the same MDT answers the inode size and one block, which is what llapi_scan_device.3 says the two should agree on.
+
+    Could lr_lfu carry a released bit? lfu_fill_xattrs() already has the trusted.lov bytes in hand where it sets LFU_REC_HAVE_LOV.
+
+(3) lustre/utils/liblustreapi_scan_device.c (line 254)
+    (minor) Presence alone reads as striped here, but trusted.lmv also holds LMV_MAGIC_FOREIGN, and lfu_fill_xattrs() sets LFU_REC_HAVE_LMV for a foreign directory too. So on a live MDT a foreign directory's size and blocks go unanswered, where a device scan reads the magic and reports them.
+
+    LFU_REC_LMV_SHARD already rides along for the shard case; a matching bit for foreign would close it.
+
+(4) lustre/utils/liblustreapi_pfind.c (line 4412)
+    (minor) The refusal keys on what the scan answered rather than on which backend answered, so a stopped OST read through the ldiskfs or ZFS backend lands here too -- an OST scan never has LLAPI_SCAN_LAYOUT in got. The text then tells the admin the target is in service when it is not:
+
+        lfs find --device /dev/sdb --stripe-count 2   # OST, unmounted
+
+    Could the wording say the scan carries no layout bytes without asserting why? lfs-find.1 has the same gap -- it describes the refusal only under "a target in service".
+
+(5) lustre/utils/liblustreapi_pfind.c (line 4430)
+    (minor) This runs before find_device_prefilter(), so a directory is counted undecided even when the search had already excluded it -- `lfs find --device <live mdt> -type f -links +1` ends up reporting every directory on the target as undecided. Below the prefilter it would count only what the predicates actually reached.
+
+(6) lustre/utils/lustreapi_scan_backend.h (line 96)
+    (suggestion) This takes over so_padding[1], and scan_backend_load() only checks that the five symbols resolve -- nothing says which revision of this struct a plugin was built against. A scan_osd_*.so built before this patch leaves the field zero, and scan_size() then reads every striped file's MDT inode size as the file's own, silently. The $LUSTRE fallback loads whatever a build tree has, so the skew is reachable.
+
+    A version word in struct llapi_scan_backend, checked next to the existing NULL checks, would turn that into an error instead.
+
+(7) lustre/utils/Makefile.am (line 209)
+    (style) Not a bug, but if the patch is refreshed this could join the `if SERVER` block immediately below rather than open a second one for a single line.
