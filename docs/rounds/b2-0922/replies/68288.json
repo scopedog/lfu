@@ -1,0 +1,32 @@
+[
+  {
+    "file": "/COMMIT_MSG",
+    "line": 45,
+    "message": "Done.",
+    "mark_resolved": true
+  },
+  {
+    "file": "Documentation/man3/llapi_scan_rec_path.3",
+    "line": 58,
+    "message": "Done. The entry now says an OST data object is in this set only when no file owns it, and names the precreated case.",
+    "mark_resolved": true
+  },
+  {
+    "file": "include/lustre/lustreapi.h",
+    "line": 625,
+    "message": "Done. The sequence is dense again: LLAPI_SCAN_CLASS 1<<46, LLAPI_SCAN_LMV_SHARD 1<<47, LLAPI_SCAN_OWNER 1<<48.",
+    "mark_resolved": true
+  },
+  {
+    "file": "lustre/utils/liblustreapi_pfind.c",
+    "line": 3883,
+    "message": "Done, and thank you -- the empty map on an MDT whose files all sit in the root is exactly the shape that broke. struct scan_prepass gains pp_ran, set where the pre-pass sweeps, so the map is handed over when the pre-pass ran rather than when it found something. scan_device_run_prepass() already answered the same question from tt_flags one level down, which is the precedent. conf-sanity 303 and 304 still mkdir first, so the shape is argued from the code rather than covered by a test.",
+    "mark_resolved": true
+  },
+  {
+    "file": "lustre/utils/liblustreapi_pfind.c",
+    "line": 3942,
+    "message": "Done. char mfs[PATH_MAX], to match get_root_path()'s documented contract.",
+    "mark_resolved": true
+  }
+]
