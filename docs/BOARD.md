@@ -39,16 +39,55 @@ All eight enforced failures were triaged first and none was ours -- see
 and c21-c25 (the 2.19 OSD block), which carry today's LU-20720/20722/20730
 work and stay back by the release split.
 
-### Next
+### Next: batch 3, and nothing else
 
-- **Watch the 11 for Maloo and the AI round.** Nothing is owed in reply on
-  68288.
-- **Still unanswered**, all from the AI reviewer and all answered by code in
-  what just went up: 68415 (5), 68416 (4), 68160 (7), and the rest of the
-  09-22 round across 68094-68163. They want a short reply each and marking
-  resolved.
-- **Andreas's libblkid thread** -- see the `--label` follow-up in section 4.
-  It wants an LU ticket and a reply that agrees rather than defers again.
+**The 2.19 OSD series is out of focus** (user, 2026-09-22). 68810-68818 are
+Lustre 2.19 by the release split and wait for the 2.18 material to land.
+Four of them moved today -- 68814, 68815, 68816, 68818, carrying the ring
+races, the xattr buffer, the three wire bits and the liveness gate -- and
+that work is **done and parked**, not in progress. No more lreview rounds,
+no module builds, no push for them until 2.18 lands.
+
+**Batch 3 is the whole of the next cycle**, c11-c16 on the driven tip:
+
+| | change | subject | open AI threads |
+|---|---|---|---|
+| c11 | 68417 | `lfs: find --since, from the changelog` | 4 |
+| c12 | 68418 | `lfs: find --changelog, the log as source` | 4 |
+| c13 | 68419 | `lfs: find --since-cookie, per-MDT anchor` | 4 |
+| c14 | 68420 | `tests: sanity cases for find's changelog flags` | 3 |
+| c15 | 68726 | `llapi: pull a scan's records in batches` | **0** |
+| c16 | 68727 | `llapi: trim a start point's trailing slashes` | 5 |
+
+20 open threads, **all from the AI reviewer, none human**. Triage each
+against the tree before writing anything: 8 of 9 were already fixed on
+68415/68416 today, and the same is likely here. Then lreview, one at a
+time, once each tree is settled. Then push -- and this time the parents are
+current, which is what made batch 2's push awkward.
+
+**Two tooling fixes first, both from today's mistakes:**
+
+- **Pin `GIT_COMMITTER_DATE` in `b2bdrive.py`.** It does not, so every
+  re-drive gives every commit a new SHA and Gerrit files a patchset even
+  where nothing changed -- seven changes took a needless one this evening.
+- **Run [`rounds/b2-0922/plugin-macro-check.sh`](rounds/b2-0922/plugin-macro-check.sh)
+  beside the sweep.** The sweep compiles `lustre/utils` with ZFS disabled
+  here, so `libscan_zfs.c` is never built and an undefined macro in it is
+  invisible until the Janitor. That is how `LLAPI_SCAN_BACKEND_ABI` reached
+  c07 while its `#define` arrived at c22.
+
+**Owed before or with batch 3:**
+
+- The three LU tickets, drafted in [`tickets/`](tickets/) and **not filed**:
+  `libblkid-label.txt`, `thread-count-overrun.txt`,
+  `foreign-lmv-aliasing.txt`.
+- A reply on Andreas's libblkid thread (68160) that agrees and names the
+  ticket, once it has a number.
+- Artem's three carry-forwards and the human patchset-level threads on
+  68094, 68095, 68156, 68159 -- his own words were "do not expect the patch
+  will be fixed", so these want a sentence from the user, not a "Done."
+- Four older AI threads never checked against the tree: `scan.c:196`,
+  `pfind.c:2742`, `conf-sanity.sh:13310`, `scan_device.c:442`.
 
 ### 1. First thing: finish batch 2's gate
 
