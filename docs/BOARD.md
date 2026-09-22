@@ -91,11 +91,55 @@ measured only for non-regression.
   `struct scan_prepass`, beside `pp_ran`, fixes it. Not a defect.
 - **Queued for a later round on already-pushed changes:** 68160's doubled
   program name in `llapi_error()`, its `# name (device)` header keyed off
-  targets found rather than scanned, the `--target`/`--fsname` coverage gap,
+  targets found rather than scanned, the `--target`/`--fsname` coverage gap
+  (see the `--label` follow-up below, which is the same gap's cause),
   `lfs_find_parse.h` carrying setquota/migrate/mirror pieces, 68156's five
   lreview notes, and the 82-column `conf-sanity.sh:13356`. None is a defect.
 - **For the changelog series (batch 3/4):** `char fsname[MAX_OBD_NAME + 1]`
   in `llapi_find_since()` against `get_root_path()`'s PATH_MAX contract.
+
+### A follow-up of its own: `--label`, through libblkid
+
+**Andreas asked for this three times on 2026-09-11** (`lfind.8:54`,
+`lfind.8:63`, `lfind.c:85`), each answered "In a follow-up change." Those
+threads now sit on files that no longer exist -- 68160 folded `lfind` into
+`lfs find` the same day -- and the AI round reopened the substance against
+the current code on 09-22 (`lfs.c:6262`). **This is that follow-up; it wants
+its own LU ticket.**
+
+**The argument is the capability, not the line count.** `--target NAME`
+resolves through `osd-*/*/mntdev`, so it only names a target **while it is
+mounted** -- which is what `lfs-find.1` has to warn about, and which
+contradicts the point of a scanner that reads a *stopped* target. A label
+lookup names an unmounted one, and works on a node whose osd modules are
+not loaded.
+
+**What it would and would not simplify**, from reading
+`lfs_find_local_targets()` (86 lines, three jobs):
+
+- **`--target`**: replaced by one `blkid_get_devname(NULL, "LABEL=NAME",
+  NULL)` -- the glob, the per-match read and the `dirname`/`basename` dance
+  all go. This is the real simplification.
+- **`--local`**: *not* replaceable. It means "every target this node
+  serves"; blkid answers "every Lustre-labelled device attached", which
+  also catches another node's filesystem and stale snapshots. A mount
+  question needs the mount answer.
+- **`--fsname`**: likewise -- blkid would find that filesystem's targets
+  this node does *not* serve, which is a behaviour change rather than a
+  simplification.
+- **`scan_device_in_service()`** keeps the same glob whatever happens, so
+  the code leaves one of three callers, not the tree.
+
+**Shape:** `--label` as the spelling, to match e2fsprogs and blkid; libblkid
+**optional** behind a configure check, so a build without it still works
+(which adds back some of what the one-line lookup saves); `--target`
+keeping the mntdev path as the fallback. Nothing in the tree links libblkid
+today -- no configure check, no `Makefile.am` link, no `BuildRequires` --
+so this is a new dependency, which is why it is a change of its own and not
+a hunk in the current round.
+
+**Owed with it:** a reply on the 09-22 thread that *agrees* and says when,
+rather than deferring a third time in silence.
 
 ### 5. The lab, as left
 
