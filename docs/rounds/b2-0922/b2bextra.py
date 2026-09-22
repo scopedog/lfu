@@ -238,3 +238,61 @@ def add_ring(t, prod):
     t("ring-lmv-foreign", RING, RING_LMV_OLD, RING_LMV_NEW, since=prod)
     t("ring-released-helper", RING, RING_HELPER_ANCHOR, RING_HELPER,
       since=prod)
+
+
+# ---- the lmv_user_md_size() wrap, reported by the AI round on 68159 ----
+#
+# scan_lmv_to_user() exists from c02 (68156) and the 'o' bound from c05
+# (68159), so these carry their own since values rather than the LIVE one
+# genfix.py would give them.  genfix.py skips both by HAND_MARKERS.
+LMV_CLAMP_OLD = '\tstripes = __le32_to_cpu(md->lmv_stripe_count);\n\troom = (outlen - lmv_user_md_size(0, LMV_USER_MAGIC)) /\n'
+
+LMV_CLAMP_NEW = '\tstripes = __le32_to_cpu(md->lmv_stripe_count);\n\t/*\n\t * A count no Lustre directory can have is not a count: refused here\n\t * rather than carried, because lmv_user_md_size() returns unsigned\n\t * int and a count whose product with sizeof(struct lmv_user_mds_data)\n\t * is a multiple of 2^32 -- 0x20000000 and its multiples -- computes\n\t * back to the bare header size, so every bound built from it reads\n\t * as "the array is there" for an array that is not.\n\t */\n\tif (stripes > LMV_MAX_STRIPE_COUNT)\n\t\treturn 0;\n\troom = (outlen - lmv_user_md_size(0, LMV_USER_MAGIC)) /\n'
+
+LMV_GUARD_OLD = '\t\t\tif (path == NULL && rec != NULL &&\n\t\t\t    rec->lfsr_lmvsize <\n\t\t\t    lmv_user_md_size(lum->lum_stripe_count,\n\t\t\t\t\t     LMV_USER_MAGIC_SPECIFIC))\n\t\t\t\tbreak;\n'
+
+LMV_GUARD_NEW = '\t\t\t/*\n\t\t\t * Measured by the bytes, not by a product that can\n\t\t\t * wrap: lmv_user_md_size() is unsigned int, and a\n\t\t\t * count off a device whose product with the entry\n\t\t\t * size is a multiple of 2^32 computes back to the\n\t\t\t * bare header and slips through a "<" against it.\n\t\t\t */\n\t\t\tif (path == NULL && rec != NULL &&\n\t\t\t    (rec->lfsr_lmvsize <\n\t\t\t     lmv_user_md_size(0, LMV_USER_MAGIC_SPECIFIC) ||\n\t\t\t     (rec->lfsr_lmvsize -\n\t\t\t      lmv_user_md_size(0, LMV_USER_MAGIC_SPECIFIC)) /\n\t\t\t     sizeof(struct lmv_user_mds_data) <\n\t\t\t     lum->lum_stripe_count))\n\t\t\t\tbreak;\n'
+
+
+def add_lmv(t, at_read, at_guard):
+    """the wrap: clamped where the count is read, measured where it is used"""
+    t("lmv-count-clamp", "lustre/utils/liblustreapi_scan_device.c",
+      LMV_CLAMP_OLD, LMV_CLAMP_NEW, since=at_read)
+    t("lmv-objects-bound", "lustre/utils/liblustreapi_pfind.c",
+      LMV_GUARD_OLD, LMV_GUARD_NEW, since=at_guard)
+
+
+# ---- commit-message corrections from the 09-22 AI round ----
+#
+# Four bodies described an earlier revision of themselves rather than the
+# tree, which sends a reader of git log hunting for edits that are not in
+# the diff.  Each is only ever in its own commit, so they take `only`.
+MSG_FIXES = [
+    # 68156: four claims against an earlier revision of itself
+    ("msg-68156-otherfixes", "c02",
+     "Other fixes in the scanner:\n",
+     "The scanner is new here, so these are how it is written rather than\nfixes to anything in the tree:\n"),
+    ("msg-68156-roottest", "c02",
+     "Existing callers are not affected. A hand-written root test that also\naccepted a non-zero f_ver now uses it.\n",
+     "Existing callers are not affected; its only new caller is\nscan_classify().\n"),
+    ("msg-68156-example", "c02",
+     "what 0 in lfsp_want means for a device scan. The man page example now\nescapes its newline correctly.\n",
+     "what 0 in lfsp_want means for a device scan.\n"),
+    ("msg-68156-stacktrap", "c02",
+     "OST part for a ZFS, unreachable or older OST, and says so. The\nstack_trap calls no longer pass EXIT, which is the default.\n",
+     "OST part for a ZFS, unreachable or older OST, and says so.\n"),
+    # 68157: two edits the list leaves out, and the list invites a line-by-line
+    # audit
+    ("msg-68157-list", "c03",
+     "- the project id 0 is written as DEFAULT_PROJID (also 0), in the code\n  and in two comments\n",
+     "- the project id 0 is written as DEFAULT_PROJID (also 0), in the code\n  and in two comments\n- \"goto print;\" became \"goto decide;\", a new label in cb_find_init()\n- the fp_get_lmv/fp_check_foreign block moved out of the \"if (want != 0)\"\n  body to the top of find_decide(). It now also runs when want == 0 and\n  on the find_foreign_accepts() arm, and comes out the same either way:\n  fp_get_lmv stays 0 unless scan_rec_gather_begin() ran, and\n  lfsr_valid gains LLAPI_SCAN_LMV only in scan_rec_gather_finish(),\n  which that arm skips\n"),
+    # 68158: a bullet describing an edit that is not in the diff
+    ("msg-68158-phantom", "c04",
+     "- \"param.\" becomes \"param->\"\n", ""),
+]
+
+
+def add_msgfix(t, msg):
+    """the bodies that described an earlier revision of themselves"""
+    for tid, at, old, new in MSG_FIXES:
+        t(tid, msg, old, new, only=[at], since=at)

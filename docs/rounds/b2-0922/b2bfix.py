@@ -60,6 +60,12 @@ DTOBJH = "lustre/include/dt_object.h"
 RING = "lustre/lfu/lfu_ring.c"
 MAN4RS = "Documentation/man4/lfu.ring_size.4"
 MAN4B = "Documentation/man4/lfu.batch.4"
+LFS = "lustre/utils/lfs.c"
+PARSE = "lustre/utils/lfs_find_parse.c"
+SCAN = "lustre/utils/liblustreapi_scan.c"
+APIH = "include/lustre/lustreapi.h"
+MAN3NS = "Documentation/man3/llapi_scan_namespace.3"
+SCANTEST = "lustre/tests/llapi_scan_test.c"
 
 # LU-20720: the commit that introduces the wire record and fills it
 PROD = "c21"
@@ -95,38 +101,50 @@ t('pfind-4', PFIND,
   '\t * sent --paths to the FID print, and --fid2path to one\n\t * llapi_fid2path_at() per object where the map answers all but a\n\t * few -- the per-object lookup this path exists to avoid.  An OST\n\t * leaves the flag clear, so --fid2path names its objects through\n\t * the mount and asks for no map.\n')
 
 t('pfind-live-0', PFIND,
+  '\t\tobjects = lum->lum_objects;\n\n',
+  "\t\tobjects = lum->lum_objects;\n\n\t\t/*\n\t\t * A foreign LMV is a different structure at the same address,\n\t\t * so every field below is somebody else's bytes: lfm_length\n\t\t * sits where lum_stripe_count does, lfm_flags where\n\t\t * lum_hash_type does, and lfm_value under both lum_pool_name\n\t\t * and lum_objects[].  Printing them would put the foreign\n\t\t * value's length where a stripe count belongs and part of its\n\t\t * payload where a pool name belongs.  'i' answers for one\n\t\t * from the directory's own MDT index, below; the rest have no\n\t\t * answer and print nothing.\n\t\t */\n\t\tif (lmv_is_foreign(lum->lum_magic) && *seq != 'i')\n\t\t\tgoto format_done;\n\n", since="c05")
+
+t('pfind-live-1', PFIND,
+  ' * record.  -printf is the exception: those attributes are what it prints.\n',
+  " * record.  -printf is the exception: those attributes are what it prints.\n *\n * True of the path actually taken, and only because it is a shortcut: the\n * predicates that would read the getattr -- -uid, -type, -perm, --projid,\n * the time checks -- are jumped over with it, so\n * `lfs find $DIR ! --foreign --uid 0` prints an unstriped directory\n * whatever its owner.  That is upstream's own `goto print` and not new\n * here, though this patch widens what reaches it: llapi_scan_get_lmv()\n * now lets ENOTTY through, so a directory off Lustre takes the shortcut\n * too.  Fixing the skip belongs in a patch of its own.\n", since="c01")
+
+t('pfind-live-2', PFIND,
   '\tconst struct scan_dirmap *fc_dirmap;\n',
   "\tconst struct scan_dirmap *fc_dirmap;\n\t/* whether the target that answers a lookup of this object's own FID\n\t * is in service: false for a scan of a stopped target, where\n\t * lmv_fid2path() would send the lookup to the target being scanned\n\t */\n\tbool\t\t\t fc_tgt_live;\n", since=LIVE)
 
-t('pfind-live-1', PFIND,
+t('pfind-live-3', PFIND,
+  ' * that a scan with no namespace behind it can reach it too, every\n * path-dependent step here being guarded by what the context carries.\n',
+  ' * that a scan with no namespace behind it can reach it too.\n *\n * find_get_projid() is what tests fc_path today; setup_target_indexes(),\n * find_check_xattrs(), the lstat_f() arm and the printing still take it\n * unconditionally, and reach llistxattr(NULL) and lstat(NULL) if it is not\n * there.  Nothing passes NULL to those yet -- a target scan is decided\n * before them -- and the caller that does will have to guard them, so this\n * says which steps are covered rather than claiming they all are.\n', since="c03")
+
+t('pfind-live-4', PFIND,
   '\t       rec->lfsr_class == LLAPI_SCAN_CLS_OST_OBJ;\n',
   "\t       rec->lfsr_class == LLAPI_SCAN_CLS_OST_OBJ;\n}\n\n/*\n * Whether naming this object through the mount leaves the scanned target\n * alone.  lmv_fid2path() sends the lookup to the MDT that owns the FID, so\n * an MDT object's own FID goes to the target being scanned -- which a\n * device scan reads precisely because it is stopped, and the client would\n * wait for it rather than answer.  An OST data object is named by its\n * owner, whose FID is on an MDT and not on the target, so that lookup is\n * safe whatever state the OST is in.\n */\nstatic bool find_lookup_spares_tgt(const struct find_ctx *fc)\n{\n\treturn fc->fc_tgt_live ||\n\t       (fc->fc_rec->lfsr_valid & LLAPI_SCAN_OWNER) != 0;\n", since=LIVE)
 
-t('pfind-live-2', PFIND,
+t('pfind-live-5', PFIND,
   "\t\t\t * The lookup is for a target with no map: an OST,\n\t\t\t * whose objects are named by an owner that lives on\n\t\t\t * an MDT and not on the target being scanned.  An\n\t\t\t * MDT's own map answers or nothing does -- a lookup\n\t\t\t * of an MDT object goes to the MDT holding it, which\n\t\t\t * a device scan reads precisely because it is\n\t\t\t * stopped.  An object the map cannot place -- the\n\t\t\t * root itself, .lustre, and under DNE anything whose\n\t\t\t * ancestors are on another MDT -- is counted with the\n\t\t\t * rest that have no name.\n\t\t\t *\n\t\t\t * Only for a class that has a name somewhere: an\n\t\t\t * object a target keeps for itself, an agent inode\n\t\t\t * and an orphan have none anywhere, and asking would\n\t\t\t * be one ioctl per object to be told so.  A record\n\t\t\t * whose source sets no class -- a namespace walk, a\n\t\t\t * changelog -- is looked up as before.\n\t\t\t */\n\t\t\tif (fc->fc_dirmap == NULL && fc->fc_mnt_fd >= 0 &&\n\t\t\t    find_rec_may_have_name(fc->fc_rec)) {\n",
   '\t\t\t * The map first, the lookup only for what it cannot\n\t\t\t * place: the root itself, .lustre, and under DNE\n\t\t\t * anything whose ancestors are on another MDT.\n\t\t\t *\n\t\t\t * --paths has no mount and stops here, which is what\n\t\t\t * lets a target be scanned while it is out of\n\t\t\t * service.  --fid2path has a mount, and where the\n\t\t\t * lookup does not go to the target being scanned it\n\t\t\t * answers under DNE exactly the names the map is\n\t\t\t * missing, at one ioctl each.  Where it would go\n\t\t\t * there, find_lookup_spares_tgt() stops it: a stopped\n\t\t\t * MDT cannot name its own objects.\n\t\t\t *\n\t\t\t * Only for a class that has a name somewhere: an\n\t\t\t * object a target keeps for itself, an agent inode\n\t\t\t * and an orphan have none anywhere, and asking would\n\t\t\t * be one ioctl per object to be told so.  A record\n\t\t\t * whose source sets no class -- a namespace walk, a\n\t\t\t * changelog -- is looked up as before.\n\t\t\t */\n\t\t\tif (prc != 0 && fc->fc_mnt_fd >= 0 &&\n\t\t\t    find_rec_may_have_name(fc->fc_rec) &&\n\t\t\t    find_lookup_spares_tgt(fc)) {\n', since=LIVE)
 
-t('pfind-live-3', PFIND,
+t('pfind-live-6', PFIND,
   '};\n\n/*\n * What only the mounted filesystem can answer: the xattrs --xattr reads\n',
   '\t/* whether the scan reads a target that is in service */\n\tbool\t\t\t fds_tgt_live;\n\t/* whether the unsupported-option refusal has been answered once */\n\tbool\t\t\t fds_nobytes_said;\n};\n\n/*\n * What only the mounted filesystem can answer: the xattrs --xattr reads\n', since=LIVE)
 
-t('pfind-live-4', PFIND,
+t('pfind-live-7', PFIND,
   'static int find_device_cb(const struct llapi_scan_rec *rec, void *data)\n{\n\tstruct find_device_state *st = data;\n\tstruct find_param *param = st->fds_param;\n\tstruct find_ctx fc = { 0 };\n\tconst char *what;\n\tint checked_type = 0;\n\tint rc;\n\n\t/* a target in service sends no layout bytes: refuse, do not forge */\n\twhat = find_device_nobytes(param, st->fds_got, st->fds_printf_lmm);\n\tif (what != NULL) {\n\t\tllapi_error(LLAPI_MSG_ERROR | LLAPI_MSG_NO_ERRNO, -ENOTSUP,\n\t\t\t    "%s need the layout or directory stripe bytes, which a scan of a target in service does not carry",\n\t\t\t    what);\n\t\treturn -ENOTSUP;\n\t}\n\t/* -links on a directory counts its stripes, from the LMV */\n\tif (!(st->fds_got & LLAPI_SCAN_LMV) && param->fp_nlink &&\n\t    (rec->lfsr_stx.stx_mask & STATX_MODE) &&\n\t    S_ISDIR(rec->lfsr_stx.stx_mode)) {\n\t\tst->fds_undecided++;\n\t\treturn 0;\n\t}\n\n\trc = find_device_prefilter(rec, param, &checked_type);\n\tif (rc == 2)\n\t\tst->fds_undecided++;\n\tif (rc != 0)\n\t\treturn 0;\n',
   '/*\n * The refusal, said once for the scan rather than once per record: what it\n * tests -- the demand mask the scan answered and the caller\'s own options\n * -- is fixed for the whole sweep.  Called again when the sweep delivered\n * nothing, so a target with no matching objects still says why instead of\n * succeeding silently with the option never mentioned.\n */\nstatic int find_device_nobytes_say(struct find_device_state *st)\n{\n\tconst char *what;\n\n\tif (st->fds_nobytes_said)\n\t\treturn 0;\n\tst->fds_nobytes_said = true;\n\n\twhat = find_device_nobytes(st->fds_param, st->fds_got,\n\t\t\t\t   st->fds_printf_lmm);\n\tif (what == NULL)\n\t\treturn 0;\n\n\t/*\n\t * What the scan did not answer, not why: this fires on lfsp_got, so\n\t * it also catches an OST read off the device -- an OST scan never\n\t * answers LLAPI_SCAN_LAYOUT -- and telling that admin their target\n\t * is in service would be wrong twice over.\n\t */\n\tllapi_error(LLAPI_MSG_ERROR | LLAPI_MSG_NO_ERRNO, -ENOTSUP,\n\t\t    "%s need the layout or directory stripe bytes, which this scan does not carry",\n\t\t    what);\n\treturn -ENOTSUP;\n}\n\nstatic int find_device_cb(const struct llapi_scan_rec *rec, void *data)\n{\n\tstruct find_device_state *st = data;\n\tstruct find_param *param = st->fds_param;\n\tstruct find_ctx fc = { 0 };\n\tint checked_type = 0;\n\tint rc;\n\n\t/* a target in service sends no layout bytes: refuse, do not forge */\n\trc = find_device_nobytes_say(st);\n\tif (rc != 0)\n\t\treturn rc;\n\trc = find_device_prefilter(rec, param, &checked_type);\n\tif (rc == 2)\n\t\tst->fds_undecided++;\n\tif (rc != 0)\n\t\treturn 0;\n\n\t/*\n\t * -links on a directory counts its stripes, from the LMV.  After the\n\t * prefilter, not before: a directory the search had already excluded\n\t * is not a question this scan could not answer, and counting it made\n\t * "-type f -links +1" report every directory on the target as\n\t * undecided.\n\t */\n\tif (!(st->fds_got & LLAPI_SCAN_LMV) && param->fp_nlink &&\n\t    (rec->lfsr_stx.stx_mask & STATX_MODE) &&\n\t    S_ISDIR(rec->lfsr_stx.stx_mode)) {\n\t\tst->fds_undecided++;\n\t\treturn 0;\n\t}\n', since=LIVE)
 
-t('pfind-live-5', PFIND,
+t('pfind-live-8', PFIND,
   '\tfc.fc_unresolved = &st->fds_unresolved;\n',
   '\tfc.fc_tgt_live = st->fds_tgt_live;\n\tfc.fc_unresolved = &st->fds_unresolved;\n', since=LIVE)
 
-t('pfind-live-6', PFIND,
+t('pfind-live-9', PFIND,
   '\tfc.fc_mnt_path = st->fss_mnt_path;\n',
   '\t/* the log was read from an MDT in service, and it is the MDT the\n\t * lookup goes to\n\t */\n\tfc.fc_tgt_live = true;\n\tfc.fc_mnt_path = st->fss_mnt_path;\n', since=LIVE)
 
-t('pfind-live-7', PFIND,
+t('pfind-live-10', PFIND,
   '\t\tprep = &pre;\n',
   '\t\tpre.pp_live = &st.fds_tgt_live;\n\t\tprep = &pre;\n', since=LIVE)
 
-t('pfind-live-8', PFIND,
+t('pfind-live-11', PFIND,
   '\n\tif (rc == 0 && st.fds_undecided != 0)\n',
   '\t/*\n\t * A sweep that delivered no record never reached find_device_cb(),\n\t * so an option the scan cannot answer would go unmentioned and the\n\t * search would succeed on a question it never asked.\n\t */\n\tif (rc == 0)\n\t\trc = find_device_nobytes_say(&st);\n\n\tif (rc == 0 && st.fds_undecided != 0)\n', since=LIVE)
 
@@ -158,9 +176,29 @@ t('dev-live-5', DEV,
   '\tif (pre != NULL && pre->pp_tgt_flags != 0 &&\n',
   '\t/*\n\t * Which the caller cannot see from here: a device or a pool is read\n\t * from outside the server and the target is stopped, and every other\n\t * backend reads it through a server that is running.  Put this way\n\t * round so a backend added later is in service unless it says\n\t * otherwise.  find_decide() needs it to know whether a fid2path\n\t * lookup would be sent to the target being scanned.\n\t *\n\t * Answered before the pp_tgt_flags test below, which drops @pre for\n\t * a target of the wrong kind: an OST scan asks for no directory map\n\t * and would otherwise never be told whether its target is running.\n\t */\n\tif (pre != NULL && pre->pp_live != NULL)\n\t\t*pre->pp_live = kind != SCAN_BACKEND_LDISKFS &&\n\t\t\t\tkind != SCAN_BACKEND_ZFS;\n\n\tif (pre != NULL && pre->pp_tgt_flags != 0 &&\n', since=LIVE)
 
+t('dev-live-6', DEV,
+  '\t\tstats.ss_size = size;\n',
+  '\t\t/* a whole counter, never half of one */\n\t\tsize = scan_stats_whole(size);\n\t\tstats.ss_size = size;\n', since="c02")
+
 t('int-live-0', INT,
+  '#include "lstddef.h"\t\t/* ARRAY_SIZE */\n',
+  '', since="c02")
+
+t('int-live-1', INT,
+  '\tfor (i = 0; i < ARRAY_SIZE(ends); i++)\n\t\tif (ends[i] <= size)\n',
+  '\tfor (i = 0; i < sizeof(ends) / sizeof(ends[0]); i++)\n\t\tif (ends[i] <= size)\n\t\t\twhole = ends[i];\n\n\treturn whole;\n}\n\n/*\n * The same, for struct llapi_scan_stats, which a caller also sizes with its\n * own ss_size.  Rounding down to a whole counter matters more here than it\n * looks: an ss_size that stops inside one -- 20 passes\n * LLAPI_SCAN_STATS_MIN_SIZE and lands in the middle of ss_emitted -- would\n * otherwise leave the caller the low half of a number and its own bytes in\n * the high half, which is neither the library\'s value nor zero.\n */\nstatic inline __u32 scan_stats_whole(__u32 size)\n{\n#define SCAN_SF_END(f)\t\t\t\t\t\t\t\\\n\t((__u32)(offsetof(struct llapi_scan_stats, f) +\t\t\t\\\n\t\t sizeof(((struct llapi_scan_stats *)0)->f)))\n\tstatic const __u32 ends[] = {\n\t\tSCAN_SF_END(ss_padding), SCAN_SF_END(ss_seen),\n\t\tSCAN_SF_END(ss_emitted), SCAN_SF_END(ss_skipped),\n\t\tSCAN_SF_END(ss_filtered), SCAN_SF_END(ss_class),\n\t};\n\tstatic_assert(SCAN_SF_END(ss_class) ==\n\t\t      sizeof(struct llapi_scan_stats),\n\t\t      "a counter was added without a row in ends[]");\n#undef SCAN_SF_END\n\t__u32 whole = ends[0];\n\tunsigned int i;\n\n\tfor (i = 0; i < sizeof(ends) / sizeof(ends[0]); i++)\n\t\tif (ends[i] <= size)\n', since="c02")
+
+t('int-live-2', INT,
+  '\tfor (i = 0; i < ARRAY_SIZE(ends); i++)\n\t\tif (ends[i] <= size && ends[i] > whole)\n',
+  '\tfor (i = 0; i < sizeof(ends) / sizeof(ends[0]); i++)\n\t\tif (ends[i] <= size && ends[i] > whole)\n', since="c02")
+
+t('int-live-3', INT,
+  " * answers for it: the layout, the directory stripe, the lazy SOM size, the\n * MDT index and the linkea with the parent it names are the MDT's, and an\n * OST data object's owner is the OST's.\n",
+  " * answers for it: the layout, the directory stripe, the HSM state, the lazy\n * SOM size, the MDT index and the linkea with the parent it names are the\n * MDT's, and an OST data object's owner is the OST's.\n", since="c02")
+
+t('int-live-4', INT,
   '};\n\n/* liblustreapi_scan_device.c: FID and name to pathname, for one target */\n',
-  '\t/* out or NULL: whether the target being scanned is in service */\n\tbool\t\t*pp_live;\n};\n\n/* liblustreapi_scan_device.c: FID and name to pathname, for one target */\n', since=LIVE)
+  '\t/* out or NULL: whether the target being scanned is in service */\n\tbool\t\t*pp_live;\n};\n\n/* liblustreapi_scan_device.c: FID and name to pathname, for one target */\n', since="c02")
 
 t('kernel-live-0', KERNEL,
   '#include "lustreapi_scan_backend.h"\n',
@@ -215,6 +253,14 @@ t('dev3-live-1', DEV3,
   'per-file ones, so no per-file answer exists to give. A scan of a target in\nservice declares whichever of those two sets belongs to the OSD underneath\nit, so the same file answers the same whether it was read through the\nserver or off the device.\n', since=LIVE)
 
 t('conf-live-0', CONF,
+  '\t\tgrep -q -- "-MDT" $scan_err && {\n\t\t\tcat $scan_err\n\t\t\terror "lfs find --local --ost $ostsvc read an MDT"\n\t\t}\n\t\tdo_facet mds1 "$LFS find --local --mdt $mdtsvc --type f" \\\n\t\t\t> /dev/null 2> $scan_err || {\n\t\t\tcat $scan_err\n\t\t\terror "lfs find --local --mdt $mdtsvc failed"\n',
+  '\t\t# the naming line is only printed when more than one target\n\t\t# was swept, so assert the right one was read as well as that\n\t\t# the wrong one was not -- otherwise an empty $scan_err\n\t\t# passes both greps while checking nothing\n\t\tgrep -q -- "-OST" $scan_err || {\n\t\t\tcat $scan_err\n\t\t\terror "lfs find --local --ost $ostsvc did not read the OST"\n\t\t}\n\t\tgrep -q -- "-MDT" $scan_err && {\n\t\t\tcat $scan_err\n\t\t\terror "lfs find --local --ost $ostsvc read an MDT"\n\t\t}\n\t\tdo_facet mds1 "$LFS find --local --mdt $mdtsvc --type f" \\\n\t\t\t> /dev/null 2> $scan_err || {\n\t\t\tcat $scan_err\n\t\t\terror "lfs find --local --mdt $mdtsvc failed"\n\t\t}\n\t\tgrep -q -- "-MDT" $scan_err || {\n\t\t\tcat $scan_err\n\t\t\terror "lfs find --local --mdt $mdtsvc did not read the MDT"\n', since="c06")
+
+t('conf-live-1', CONF,
+  '\tgrep -q "is not a filesystem name" $scan_err || {\n',
+  '\tgrep -q "filesystem name" $scan_err || {\n', since=LIVE)
+
+t('conf-live-2', CONF,
   '#\n# (This was sanity/802a)\n',
   'test_305() {\n\t[[ "$mds1_FSTYPE" == ldiskfs || "$mds1_FSTYPE" == zfs ]] ||\n\t\tskip "$mds1_FSTYPE has no scan backend"\n\tremote_mds_nodsh && skip "remote MDS with nodsh"\n\t(( MDS1_VERSION >= $(version_code 2.17.58) )) ||\n\t\tskip "Need MDS >= 2.17.58 for a scan of a target in service"\n\n\tlocal got=$TMP/$tfile.got\n\tlocal want=$TMP/$tfile.want\n\n\tstack_trap "rm -f $TMP/$tfile.*"\n\n\tis_mounted $MOUNT || setup_noconfig\n\tcheck_mount || error "check_mount failed"\n\tstack_trap "rm -rf $MOUNT/$tdir"\n\n\t# the backend for a target in service needs the module; without it\n\t# the device backends answer, which the tests above already cover\n\tdo_facet mds1 "modprobe lfu 2>/dev/null; test -c /dev/lfu_scan" ||\n\t\tskip "no lfu module on mds1: nothing reads a target in service"\n\n\t# the device the target is mounted from, which is what the routing\n\t# compares against -- not mdsdevname, which a flakey device replaces\n\tlocal mntdev=$(do_facet mds1 \\\n\t\t"$LCTL get_param -n osd-*.$FSNAME-MDT0000.mntdev")\n\t[[ -n "$mntdev" ]] || error "no mntdev for $FSNAME-MDT0000"\n\n\tmkdir_on_mdt0 $MOUNT/$tdir || error "mkdir $tdir failed"\n\tcreatemany -o $MOUNT/$tdir/f 20 || error "createmany failed"\n\tsync; sync\n\tdo_facet mds1 "sync; sync"\n\n\t# counts: every regular file the client sees under $tdir, named by\n\t# the scan through the mount it is given\n\t$LFS find $MOUNT/$tdir -type f | sort > $want\n\t(( $(wc -l < $want) == 20 )) ||\n\t\terror "client sees $(wc -l < $want) files, want 20"\n\n\tdo_facet mds1 "$LFS find --device $mntdev --paths -type f" \\\n\t\t2> $got.err | grep "/$tdir/" | sort > $got ||\n\t\terror "lfs find --paths on $mntdev failed: $(cat $got.err)"\n\tlocal n=$(wc -l < $got)\n\n\t(( n == 20 )) ||\n\t\terror "a scan of the mounted target named $n objects, want 20"\n\tgrep -q "^\\[0x" $got &&\n\t\terror "--paths printed a FID where a path was asked for"\n\n\t# -name, answered from the same records\n\tdo_facet mds1 "$LFS find --device $mntdev --paths -name f7" \\\n\t\t> $got.name 2> $got.err ||\n\t\terror "lfs find -name on $mntdev failed: $(cat $got.err)"\n\tlocal hits=$(grep -c "/$tdir/f7$" $got.name)\n\n\t(( hits == 1 )) || error "-name f7 matched $hits objects, want 1"\n\n\t# and what such a scan cannot answer is refused, not forged: a target\n\t# in service sends no layout bytes\n\tdo_facet mds1 "$LFS find --device $mntdev --stripe-count 2" \\\n\t\t> /dev/null 2> $got.err &&\n\t\terror "--stripe-count answered on a target in service"\n\tgrep -q "the layout options need" $got.err || {\n\t\tcat $got.err\n\t\terror "--stripe-count was refused without saying why"\n\t}\n\n\techo "a scan of the mounted $FSNAME-MDT0000 named $n objects"\n}\nrun_test 305 "lfs find over a target that is in service"\n\n#\n# (This was sanity/802a)\n', since=LIVE)
 
@@ -231,8 +277,16 @@ t('ldiskfs-live-0', LDISKFS,
   '#include "lustreapi_scan_backend.h"\n\n/* what this plugin was built against; see the loader */\nconst __u32 scan_ldiskfs_abi = LLAPI_SCAN_BACKEND_ABI;\n', since=LIVE)
 
 t('zfs-live-0', ZFS,
+  '#include <errno.h>\n',
+  '#include <ctype.h>\n#include <errno.h>\n', since="c07")
+
+t('zfs-live-1', ZFS,
   '#include "lustreapi_scan_backend.h"\n',
-  '#include "lustreapi_scan_backend.h"\n\n/* what this plugin was built against; see the loader */\nconst __u32 scan_zfs_abi = LLAPI_SCAN_BACKEND_ABI;\n', since=LIVE)
+  '#include "lustreapi_scan_backend.h"\n\n/* what this plugin was built against; see the loader */\nconst __u32 scan_zfs_abi = LLAPI_SCAN_BACKEND_ABI;\n', since="c07")
+
+t('zfs-live-2', ZFS,
+  '\t * An empty name or "@snap" has no pool.  An empty pool name would\n\t * reach the kstat probe below as "/proc/spl/kstat/zfs/", which\n\t * exists whenever the module is loaded, and answer "in use".\n\t */\n\tif (t->zt_pool[0] == \'\\0\') {\n',
+  '\t * An empty name or "@snap" has no pool, and neither do "." and "..":\n\t * a pool name has to start with an alphanumeric.  All three would\n\t * reach the kstat probe below as a directory that exists whenever\n\t * the module is loaded -- "/proc/spl/kstat/zfs/", and for ".." its\n\t * parent -- and be answered "in use", telling the caller to export a\n\t * pool that was never named.  "lfs find --device .." is the way in:\n\t * scan_backend_kind() sends a relative name that stats as a\n\t * directory here.\n\t */\n\tif (!isalnum((unsigned char)t->zt_pool[0])) {\n', since="c07")
 
 t('makeam-live-0', MAKEAM,
   'endif\nif SERVER\nLIB_TARGETS += mount_osd_wbcfs.so\n',
@@ -294,9 +348,48 @@ t('man4b-live-1', MAN4B,
   '.BR ring_size (4),\n',
   '.BR lfu.ring_size (4),\n', since=PROD)
 
+t('lfs-live-0', LFS,
+  '\t\t\t\t    "%s: cannot read the device of %s",\n\t\t\t\t    progname, name);\n',
+  '\t\t\t\t    "cannot read the device of %s", name);\n', since="c06")
+
+t('lfs-live-1', LFS,
+  '\t/* any of the paths, so a second target is refused and not walked */\n\tfor (i = pathstart; pathstart != -1 && i < pathend; i++) {\n',
+  '\tif (pathstart == -1)\n\t\treturn false;\n\n\t/* any of the paths, so a second target is refused and not walked */\n\tfor (i = pathstart; i < pathend; i++) {\n', since="c06")
+
+t('parse-live-0', PARSE,
+  '}\n\n/*\n * Could mkfs.lustre have formatted a filesystem by this name?  Its own check,\n * so a mistyped --fsname is refused rather than matching no target.\n */\nstatic bool lfs_find_fsname_valid(const char *name)\n{\n\treturn llapi_name_validate(name, "_-", LUSTRE_MAXFSNAME) == 0;\n',
+  '', since="c06")
+
+t('parse-live-1', PARSE,
+  '\t\t\tif (c == LFS_FSNAME_OPT &&\n\t\t\t    !lfs_find_fsname_valid(optarg)) {\n\t\t\t\tfprintf(stderr,\n\t\t\t\t\t"error: %s: \'%s\' is not a filesystem name: 1-%d letters, digits, \'_\' or \'-\'\\n",\n\t\t\t\t\targv[0], optarg, LUSTRE_MAXFSNAME);\n\t\t\t\tret = CMD_HELP;\n\t\t\t\tgoto out;\n\t\t\t}\n',
+  '\t\t\t/*\n\t\t\t * mkfs.lustre\'s own check, through the wrapper it\n\t\t\t * calls with the same arguments, so a mistyped\n\t\t\t * --fsname is refused rather than matching no\n\t\t\t * target -- and so too long is told apart from a\n\t\t\t * character that is not allowed.\n\t\t\t */\n\t\t\tif (c == LFS_FSNAME_OPT &&\n\t\t\t    llapi_name_verify(optarg, "_-", LUSTRE_MAXFSNAME,\n\t\t\t\t\t      "filesystem") != 0) {\n\t\t\t\tret = CMD_HELP;\n\t\t\t\tgoto out;\n\t\t\t}\n\t\t\t/*\n\t\t\t * Borrowed from argv, not strdup()ed as every other\n\t\t\t * string this switch stores is: argv outlives the\n\t\t\t * command, so nothing frees these -- and\n\t\t\t * lfs_find_parse_fini() must not learn to.\n\t\t\t */\n', since="c06")
+
+t('scan-live-0', SCAN,
+  '\t\tst.ss_stats.ss_size = room;\n',
+  '\t\t/* a whole counter, never half of one */\n\t\troom = scan_stats_whole(room);\n\t\tst.ss_stats.ss_size = room;\n', since="c02")
+
+t('apih-live-0', APIH,
+  '#define LLAPI_SCAN_LAYOUT\t0x0000000400000000ULL\n',
+  "/*\n * lfsr_lmm.  For a directory this is the *default* layout new files under\n * it inherit, never a layout of its own -- and where the directory has none,\n * what the filesystem root's default is, which may describe nothing about\n * this directory at all.  It carries no objects either way.\n */\n#define LLAPI_SCAN_LAYOUT\t0x0000000400000000ULL\n", since="c00")
+
+t('man3ns-live-0', MAN3NS,
+  'on success.\n',
+  'on success. Objects may still have been left out: a fetch that fails for\na reason other than the object having gone \\(em an eviction or a recovery\nwindow, say \\(em drops that object from the callback stream and the scan\ncarries on. Set\n.B LLAPI_SCAN_F_STOP_ON_ERROR\nin\n.I lfsp_flags\nfor a scan that stops on the first of those instead, and read\n.I ss_skipped\nto learn how many were left out.\n', since="c02")
+
+t('man3ns-live-1', MAN3NS,
+  'guarantee fields already have: a caller never has one silently ignored.\n',
+  'guarantee fields already have: a caller never has one silently ignored.\nIt is also returned when\n.I lfsp_stats\nis not NULL and its\n.I ss_size\nis shorter than the minimum a scan writes back, which reaches through\n.IR ss_seen ,\nfor the same reason.\n', since="c02")
+
+t('scantest-live-0', SCANTEST,
+  '\n\t/* the scan above delivered records: start the next check from zero */\n',
+  '\n\t/* and the third of the same family: a flag this library does not\n\t * define, which the man page\'s ERRORS names beside the other two\n\t */\n\tsp.lfsp_flags = LLAPI_SCAN_F_STOP_ON_ERROR << 1;\n\trc = llapi_scan_namespace(testdir, &sp, count_cb, &res);\n\tASSERTF(rc == -EINVAL,\n\t\t"an undefined lfsp_flags returned %d, expected -EINVAL", rc);\n\tsp.lfsp_flags = 0;\n\n\t/* the scan above delivered records: start the next check from zero */\n', since="c00")
+
 # the same fixes in the spelling the commits below LU-20730 have
 b2bextra.add(t, LIVE, MSG)
 b2bextra.add_ring(t, PROD)
+# LU-20606 c02 reads the count; LU-20611 c05 bounds the array
+b2bextra.add_lmv(t, "c02", "c05")
+b2bextra.add_msgfix(t, MSG)
 
 
 def apply(tree, name, msg):
