@@ -1,0 +1,5 @@
+[
+ {"file": "lustre/utils/libscan_zfs.c", "line": 185,
+  "message": "Done. The guard is now isalnum() on the first character rather than a test for the empty string, since a pool name has to start with an alphanumeric -- so \".\" and \"..\" are -ENOENT rather than being told to export a pool that was never named.",
+  "mark_resolved": true}
+]

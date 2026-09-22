@@ -1,0 +1,8 @@
+[
+ {"file": "lustre/utils/liblustreapi_pfind.c", "line": 1859,
+  "message": "Done, and covered by the same test as %Lo: one lmv_is_foreign() at the top of the directory branch, so %Lc and %Lp print nothing for a foreign directory rather than lfm_length as a stripe count and part of lfm_value as a pool name.",
+  "mark_resolved": true},
+ {"file": "lustre/utils/liblustreapi_pfind.c", "line": 1899,
+  "message": "Confirmed and fixed at both ends -- thank you, this one was real. I checked the arithmetic against the header before touching it: with lfsr_lmvsize 48, counts of 1, 2, 256, 2000 and 2001 all break as intended, and 0x20000000 and its multiples compute back to exactly 48, so 48 < 48 is false. scan_lmv_to_user() now refuses a count above LMV_MAX_STRIPE_COUNT where it reads it, and the bound here is measured from the record's bytes -- (lfsr_lmvsize - lmv_user_md_size(0, ...)) / sizeof(struct lmv_user_mds_data) -- rather than multiplied back, so it cannot wrap. Proved against the unfixed guard: identical for every legitimate count, rejecting where the old one accepted.",
+  "mark_resolved": true}
+]

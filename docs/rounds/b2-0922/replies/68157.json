@@ -1,0 +1,8 @@
+[
+ {"file": "/COMMIT_MSG", "line": 20,
+  "message": "Done. Both are on the list now, and the relocated conditional carries the argument for why it comes out the same: fp_get_lmv stays 0 unless scan_rec_gather_begin() ran, and lfsr_valid gains LLAPI_SCAN_LMV only in scan_rec_gather_finish(), which that arm skips.",
+  "mark_resolved": true},
+ {"file": "lustre/utils/liblustreapi_pfind.c", "line": 2727,
+  "message": "Done, worded the way you suggest. The comment now names find_get_projid() as the step that tests fc_path, says setup_target_indexes(), find_check_xattrs(), the lstat_f() arm and the printing still take it unconditionally, and leaves guarding them to the change that passes NULL.",
+  "mark_resolved": true}
+]

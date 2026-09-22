@@ -1,0 +1,14 @@
+[
+ {"file": "include/lustre/lustreapi.h", "line": 602,
+  "message": "Done. The bit's comment now says that for a directory this is the default layout new files inherit, that it may be the filesystem root's where the directory has none of its own, and that it carries no objects either way.",
+  "mark_resolved": true},
+ {"file": "lustre/tests/llapi_scan_test.c", "line": 492,
+  "message": "Done. A third case beside the two, with lfsp_flags set to an undefined bit. LLAPI_SCAN_F_STOP_ON_ERROR itself is still unexercised -- arranging a fetch that fails is the harder half -- so that part stands.",
+  "mark_resolved": true},
+ {"file": "lustre/utils/lustreapi_internal.h", "line": 33,
+  "message": "Done. The bound is sizeof(ends) / sizeof(ends[0]) and the lstddef.h include is gone, so it no longer reaches the ~27 files that include this header.",
+  "mark_resolved": true},
+ {"file": "lustre/utils/liblustreapi_scan.c", "line": 489,
+  "message": "Half done, and the half that is not is deliberate. RETURN VALUES now says objects may be omitted when a fetch fails for a reason other than the object having gone, and points at LLAPI_SCAN_F_STOP_ON_ERROR and ss_skipped. Keeping the first error in struct llapi_scan_state and returning it changes what a 0 from llapi_scan_namespace() means, which is an API decision rather than a fix, so it is on the board rather than in this patchset.",
+  "mark_resolved": false}
+]

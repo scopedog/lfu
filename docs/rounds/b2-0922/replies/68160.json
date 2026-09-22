@@ -1,0 +1,20 @@
+[
+ {"file": "lustre/tests/conf-sanity.sh", "line": 13363,
+  "message": "Done, both. A positive assertion beside each negative one, so an empty $scan_err can no longer pass both greps while checking nothing.",
+  "mark_resolved": true},
+ {"file": "lustre/utils/lfs.c", "line": 6307,
+  "message": "Done, the progname argument is gone. lfs.c:1498 has the same duplication and is left alone here.",
+  "mark_resolved": true},
+ {"file": "lustre/utils/lfs.c", "line": 6354,
+  "message": "Done. An early `if (pathstart == -1) return false;` above it, and the condition is plain `i < pathend`.",
+  "mark_resolved": true},
+ {"file": "lustre/utils/lfs_find_parse.c", "line": 890,
+  "message": "Done. llapi_name_verify(optarg, \"_-\", LUSTRE_MAXFSNAME, \"filesystem\") replaces both the helper and the fprintf, so too long is told apart from a bad character. conf-sanity 300's grep moved with it.",
+  "mark_resolved": true},
+ {"file": "lustre/utils/lfs_find_parse.c", "line": 992,
+  "message": "Not done, and worth saying so rather than marking this resolved: the body still does not mention it. You are right that `lfs find -f` and `--f` were --foreign and are now ambiguous, and that any new f* option does this. It is on the board for the next time this change is touched.",
+  "mark_resolved": false},
+ {"file": "lustre/utils/lfs_find_parse.c", "line": 1785,
+  "message": "Done. A comment on the store says the three are borrowed from argv rather than strdup()ed, and that lfs_find_parse_fini() must not learn to free them.",
+  "mark_resolved": true}
+]

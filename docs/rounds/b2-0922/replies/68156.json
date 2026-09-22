@@ -1,0 +1,17 @@
+[
+ {"file": "/COMMIT_MSG", "line": 56,
+  "message": "Done, all four. The scanner is new in this patch so those are how it is written rather than fixes; the root-test sentence, the man page example and the stack_trap line are gone.",
+  "mark_resolved": true},
+ {"file": "Documentation/man3/llapi_scan_namespace.3", "line": 418,
+  "message": "Done. The -EINVAL entry now names the lfsp_stats case as well, with the same reason.",
+  "mark_resolved": true},
+ {"file": "lustre/utils/liblustreapi_scan.c", "line": 674,
+  "message": "Done, both sites. scan_stats_whole() rounds an ss_size down to a whole counter, the way scan_param_whole() does for lfsp_size.",
+  "mark_resolved": true},
+ {"file": "lustre/utils/liblustreapi_scan_device.c", "line": 1126,
+  "message": "Done, with the sibling above. ss_size 20 now copies through ss_seen rather than half of ss_emitted.",
+  "mark_resolved": true},
+ {"file": "lustre/utils/lustreapi_internal.h", "line": 512,
+  "message": "Done. The prose names the HSM state now.",
+  "mark_resolved": true}
+]

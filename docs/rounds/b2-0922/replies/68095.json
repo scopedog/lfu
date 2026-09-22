@@ -1,0 +1,8 @@
+[
+ {"file": "lustre/utils/liblustreapi_pfind.c", "line": 1808,
+  "message": "Done, and widened as you suggested: one lmv_is_foreign() test at the top of the directory branch rather than on %Li alone. A foreign LMV is a different structure at the same address, so %Lc was printing lfm_length as a stripe count and %Lp part of lfm_value as a pool name. 'i' still answers, from the directory's own MDT index; the rest print nothing.",
+  "mark_resolved": true},
+ {"file": "lustre/utils/liblustreapi_pfind.c", "line": 2730,
+  "message": "The comment now says it: the predicates that would read the getattr are jumped over with the shortcut, so `lfs find $DIR ! --foreign --uid 0` prints an unstriped directory whatever its owner, and this patch widens what reaches it since llapi_scan_get_lmv() lets ENOTTY through. Fixing the skip is upstream's `goto print` and belongs in its own patch, so it is on the board rather than here.",
+  "mark_resolved": true}
+]

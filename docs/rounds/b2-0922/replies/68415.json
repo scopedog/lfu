@@ -1,0 +1,17 @@
+[
+ {"file": "include/lustre/lustreapi.h", "line": 694,
+  "message": "Done, reflowed.",
+  "mark_resolved": true},
+ {"file": "lustre/tests/llapi_scan_changelog_test.c", "line": 317,
+  "message": "Done for the sc_type_mask-with-sc_user-NULL case, which is there now. sc_padding and a short sc_stats are still untested and are on the board.",
+  "mark_resolved": true},
+ {"file": "lustre/tests/llapi_scan_changelog_test.c", "line": 509,
+  "message": "Done. exit(EXIT_FAILURE), matching llapi_scan_device_test.c.",
+  "mark_resolved": true},
+ {"file": "lustre/utils/liblustreapi_scan_changelog.c", "line": 93,
+  "message": "Done -- you were right that it was an omission rather than a decision. Both are in SCAN_CL_RESOLVE_MASK now, so sc_got names what scan_cl_resolve() can actually set.",
+  "mark_resolved": true},
+ {"file": "lustre/utils/liblustreapi_scan_changelog.c", "line": 238,
+  "message": "Done. The block sits above scan_cl_resolve() again, and both short lines are reflowed.",
+  "mark_resolved": true}
+]

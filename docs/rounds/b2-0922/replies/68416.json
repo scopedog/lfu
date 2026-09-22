@@ -1,0 +1,14 @@
+[
+ {"file": "/COMMIT_MSG", "line": 99,
+  "message": "Done. Both are restated as plain requirements of the new call rather than against an earlier revision of it.",
+  "mark_resolved": true},
+ {"file": "lustre/tests/llapi_scan_test.c", "line": 767,
+  "message": "Done. A second call with a trailing slash on the mount path, asserting the same lfsr_path and lfsr_name.",
+  "mark_resolved": true},
+ {"file": "lustre/utils/liblustreapi_pfind.c", "line": 4064,
+  "message": "Done. The kernel-doc says five fields and names lfsp_got, and llapi_find_device.3 does too -- it had the same list.",
+  "mark_resolved": true},
+ {"file": "lustre/utils/liblustreapi_scan.c", "line": 703,
+  "message": "Done, narrowed the way you suggest. The paragraph now claims only the syscalls this function makes, and names scan_rec_gather()'s opens by pathname for LLAPI_SCAN_PROJID, LLAPI_SCAN_HSM and a regular file's LLAPI_SCAN_MDT_INDEX as the remaining path-based ones. llapi_scan_fid.3 carried the same sentence and is corrected with it.",
+  "mark_resolved": true}
+]
