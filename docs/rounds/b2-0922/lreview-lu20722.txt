@@ -1,0 +1,70 @@
+========================================================================
+lreview: last 1 commit(s) of b2lr3
+========================================================================
+generated: 2026-09-22T14:37:52+00:00
+repository: /tmp/claude-1004/-home-nishida-projects-lustre-lfu/854410f9-d17b-4d3f-9ac5-666eb4041341/scratchpad/b2lr3
+reviews: 1
+totals: 11.4M tokens, $9.02
+
+  1. HEAD  c7bab4f656bf  LU-20722 llapi: a scan backend for a target in service -- findings (10)
+
+========================================================================
+[1/1] HEAD  c7bab4f656bf  LU-20722 llapi: a scan backend for a target in service
+========================================================================
+
+status: findings (10 finding(s)), severity medium
+run:    opus, 11.4M tokens, $9.02, 13m43s
+
+Overall assessment
+------------------------------------------------------------------------
+Some concerns, see inline comments. Two of them are cross-scanner consistency issues that the so_xa_present/so_attrs_mask machinery exists to prevent, so a refresh looks warranted; the rest can ride along.
+
+Two whole-patch points. This adds a third backend with a new routing rule, new error returns and different attribute coverage, but Documentation/man3/llapi_scan_device.3 is not touched -- it still says the target a scan reads is out of service and nothing here is mounted, and it documents the per-backend stx_attributes_mask sets that this backend now departs from. Also, conf-sanity test_300 already exercises the device backends against a stopped target; a companion case scanning the same target while it is mounted (counts, --paths, -name) would cover the new path and is the natural place for it.
+
+Findings (10)
+------------------------------------------------------------------------
+
+(1) /COMMIT_MSG (line 64)
+    (minor) Test-Parameters: ignore on a patch that adds a new server-side scan path means the new code gets no CI at all. Would a real test line, plus a case in conf-sanity, be better here?
+
+    Also on body completeness: find_device_nobytes() refuses the layout options for any scan whose lfsp_got lacks LLAPI_SCAN_LAYOUT, which is every OST scan including the ldiskfs and ZFS ones. `lfs find <ost-device> --stripe-count 2` used to run against the forged default layout and now returns -ENOTSUP. The message attributes the refusal to the in-service backend only -- worth saying it changes the device backends too.
+
+(2) lustre/utils/libscan_kernel.c (line 252)
+    (defect) Is STATX_ATTR_NODUMP right here? libscan_zfs.c declares only
+
+        obj.so_attrs_mask = STATX_ATTR_IMMUTABLE | STATX_ATTR_APPEND;
+
+    and scan_zfs_attrs() never returns NODUMP, so the comment above ("as the device backends declare it") does not match what the ZFS backend actually does.
+
+    osd-zfs's attrs_zfs2fs() does set LUSTRE_NODUMP_FL (0x40) from ZFS_NODUMP, and that value is STATX_ATTR_NODUMP, so lr_flags carries it through and the mask lets it out. The result is that `lfs find --attrs d` on a ZFS target answers one way through this backend and "cannot say" through the device backend and through a namespace scan -- which is the divergence libscan_ldiskfs.c's comment on the same line says must not happen, and which llapi_scan_device.3 spells out as a contract.
+
+(3) lustre/utils/libscan_kernel.c (line 288)
+    (minor) lr_valid is the LA_* mask of the fields the OSD actually filled, and nothing here reads it -- so_valid claims PROJID and BTIME for every record. Both sibling backends gate these:
+
+        if (scan_inode_has(have, i_crtime))
+            obj->so_valid |= LLAPI_SCAN_SO_BTIME;
+
+    On a target whose inodes are too small for i_crtime, osd_raw_attr() leaves la_btime 0 while still setting LA_BTIME, so a record here reports a birth time of the epoch as an answer where a device scan of the same target reports "not known". Should this be `if (lr->lr_valid & LA_BTIME)` and likewise for LA_PROJID?
+
+(4) lustre/utils/libscan_kernel.c (line 304)
+    (minor) An object with no LMA loses its FID entirely here. lr_fid is documented as always being the FID the iterator reports, and for a no-LMA inode osd_scrub_get_fid() fills it with lu_igif_build(i_ino, i_generation) when os_convert_igif is set. The ldiskfs backend reaches the same FID the other way, via so_gen and the SO_GEN bit, which this backend never sets -- so on a filesystem upgraded from 1.8 those objects come back with no FID and no name from a live scan but with an IGIF from a device scan. That is a difference from "what a device scan says of it"; does the record need i_generation, or should the interface let a backend hand over a FID directly?
+
+(5) lustre/utils/libscan_kernel.c (line 210)
+    (minor) scan_ldiskfs_label() is more careful than this on three points and it would be good to match it: it checks strtol() consumed all four hex digits, it sets neither flag when the kind is neither MDT nor OST, and it skips the index when it reads 0xffff, since INDEX_UNASSIGNED is what a target formatted without --index carries until it registers. Here LLAPI_SCAN_TGT_INDEX is set unconditionally inside the block, so a target mounted as fsname-MDTffff reports 65535 as a real index and lfsr_mdt_index is claimed valid for it.
+
+(6) lustre/utils/liblustreapi_scan_device.c (line 627)
+    (minor) This one still asks for the bytes. scan_lmv_is_striped() goes through scan_xattr(), which tests so_xa_valid, so a master striped directory from the kernel backend -- LFU_REC_HAVE_LMV, present but not valid -- reads as not striped and falls into the branch below that assigns the master object's own size and sets STATX_SIZE.
+
+    A device scan leaves the size unanswered there, and ll_dir_ioctl() drops STATX_SIZE for a striped directory too, so `lfs find -size` on an in-service MDT answers for these where neither of the other two does. Does this test want so_xa_present as well, with the byte check only as the refinement?
+
+(7) lustre/utils/liblustreapi_scan_device.c (line 1922)
+    (minor) This sits below the block that does `pre = NULL` when pp_tgt_flags does not match the target, so *pp_live is never written for an OST scan -- llapi_find_device() asks for a directory map with pp_tgt_flags = MDT, and on an OST the caller's fds_tgt_live keeps its initial false even when the OST is in service. It happens not to matter today because find_lookup_spares_tgt() only needs LLAPI_SCAN_OWNER for an OST object, but the field does not mean what its comment says. Moving this above the pp_tgt_flags reset would make it always answer.
+
+(8) lustre/utils/liblustreapi_pfind.c (line 4399)
+    (minor) fds_got and the param flags are both fixed for the whole scan, but this runs once per record. Besides the wasted work it means a target that delivers no records at all succeeds silently with the unsupported option never reported. Checking it once in llapi_find_device(), after scan_device_run_prepass() has filled fds_got, would answer before the sweep instead of on whichever record happens to arrive first.
+
+(9) lustre.spec.in (line 935)
+    (minor) This puts a file in %{_libdir}/@PACKAGE@ into lustre.files without also adding `%dir %{_libdir}/@PACKAGE@` to it. Every other package that owns something under there -- lustre-osd-ldiskfs-mount, lustre-osd-zfs-mount, lustre-osd-wbcfs-mount -- declares the directory alongside the file, so as written the lustre package owns a file in a directory it does not own.
+
+(10) Documentation/man1/lfs-find.1 (line 1152)
+    (minor) The --fid2path and --paths wording is updated for an in-service target, but the new refusal is not documented anywhere: on a target that is in service, --stripe-count and the rest of the layout options, and --mdt-count/--mdt-hash/--hash-flags/--foreign, now fail with -ENOTSUP instead of being evaluated, and -links on a directory comes back undecided. Since that is a user-visible failure that depends on whether the target happens to be mounted, it seems worth a sentence here.
