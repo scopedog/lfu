@@ -4,32 +4,40 @@ Every ticket and Gerrit id in play, and the ones that are *not* ours. Regenerate
 the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
 **2026-09-06**.
 
-## Tomorrow: start here (end of 2026-09-21, evening)
+## Tomorrow: start here (end of 2026-09-22)
 
-**Pushed today, all green on the fast checks, nothing owed in reply:**
-68094 PS22, 68095 PS23, 68156 PS23, 68157 PS23 (round 20 + round 21), then
-68158 PS20, 68159 PS20, 68160 PS21, 68163 PS20 (batch 1). jenkins Verified+1
-on all eight; Janitor initial testing green on 68157; the long `sanity` and
-`conf-sanity` suites report overnight. **Zero open threads on all eight.**
+**On Gerrit:** 68094 PS22, 68095 PS23, 68156 PS23, 68157 PS23, then 68158
+PS20, 68159 PS20, 68160 PS21, 68163 PS20 (batch 1). Zero open threads on all
+eight. **The overnight suites are back and they are not all green**: enforced
+failures on 68158 (1), 68159 (2) and 68160 (3); 68163 has none. The optional
+failures look like the standing noise (sanity-lfsck, racer, sanityn,
+selinux-ssk) -- see [`lfu-autotest-known-noise`]. **The enforced ones are not
+triaged yet, and batch 2's push gate is "batch 1 jenkins-green".**
 
-**The stack:** `b2-tip` = **8f502eff1c** in `~/lfs-carry-0915`, 26 commits.
-Tags below it: `b1-tip` 55a460f437 (what batch 1 was cut from), `r0921c-tip`
-f189a79af4, `r0921b-tip` be97aac251, `backup/fix-0921-pre` c00708148b.
+**The stack:** `b2b-tip` = **10609402a6**, 26 commits, driven in
+`~/projects/lustre/lustre-scanfid` (branch `b2b-tip` there; also fetched into
+`~/lfs-carry-0915`). Below it: `b2-tip` 8f502eff1c, `b1-tip` 55a460f437 (what
+batch 1 was cut from), `r0921c-tip` f189a79af4, `r0921b-tip` be97aac251.
 
 ### 1. First thing: finish batch 2's gate
 
-- **68288 is done: fixed, re-reviewed, 26/26 builds, lab regression green.**
-  Both reviews are in [`rounds/b2-0921/`](rounds/b2-0921/). The re-review
-  came back "nothing here needs a re-spin", so 68288 is ready to push as it
-  stands. **One question to settle first, and it is about the fix I made:**
-  is skipping the lookup right for `--fid2path`, which was handed a *live
-  mount* that a lookup would go through without touching the scanned target?
-  Under DNE that costs exactly the names the mount could produce. Decide
-  between a fallback to `llapi_scan_rec_path()` on a map miss when
-  `fc_mnt_fd >= 0`, or a sentence in lfs-find.1. Two more worth measuring
-  rather than just fixing: `sd_want` never narrowed by the pre-pass's `known`
-  mask (a wasted ZFS `zap_lookup()` per MDT object) and a 256-byte
-  `strncpy()` pad per dirmap insert.
+- **68288 is done, twice over.** The 09-21 question -- whether `--fid2path`
+  should fall back to a lookup on a map miss -- was settled by the user in
+  favour of the fall back, and building it showed the finding's premise is
+  wrong for an MDT: `lmv_fid2path()` routes by FID, so an MDT object's own
+  FID goes to the MDT being scanned. **Measured**: with the gate forced open,
+  `--fid2path` on a stopped MDT0001 ran 180s and printed nothing while the
+  console filled with "not available for connect". So the fall back is gated
+  on the target being in service (or the record carrying an owner), and is
+  **split across the stack** -- 68288 gets the restructuring and the class
+  test, LU-20722 gets the liveness test, since below it the test could only
+  ever be false. Full record in [`rounds/b2-0922/`](rounds/b2-0922/):
+  26/26 builds, checkpatch clean, driven tree identical to the hand-edited
+  one, and an in-service MDT scan naming a DNE remote subtree (3 files)
+  that the b2-tip build counted nameless.
+  **Still held, both wanting measurement rather than a fix:** `sd_want`
+  never narrowed by the pre-pass's `known` mask (a wasted ZFS `zap_lookup()`
+  per MDT object) and a 256-byte `strncpy()` pad per dirmap insert.
 - **Then triage 68415 (5 open threads) and 68416 (4).** Batch 1 and batch 2's
   first change both turned out to be entirely already-fixed, so check each
   against the tree before writing anything.
@@ -42,10 +50,14 @@ f189a79af4, `r0921b-tip` be97aac251, `backup/fix-0921-pre` c00708148b.
 
     git rebase --onto d9757fced0 <driven parent of 68288> <batch branch>
 
-`d9757fced0` is 68163 PS20, the top of what went up today. Then check
+`d9757fced0` is 68163 PS20, the top of what went up on 09-21. Then check
 `git log d9757fced0..<branch>` lists exactly the three, and that checkpatch
-and the per-commit build sweep are clean. Gate: batch 1 jenkins-green, which
-it should be by morning.
+and the per-commit build sweep are clean. Gate: batch 1 jenkins-green --
+which now means triaging those enforced failures first.
+
+**Note for the push:** LU-20722 (c22) now carries part of 68288's fix, so
+that commit differs from what is on Gerrit even though it is not in this
+batch. It goes up with its own batch, not with this one.
 
 ### 3. What batch 2 already holds
 
@@ -74,12 +86,25 @@ measured only for non-regression.
 
 ### 5. The lab, as left
 
-The clone VM at 192.168.122.10 is up with arms A-F under `~/arm?/`
+The clone VM at 192.168.122.10 is up with arms A-H under `~/arm?/`
 (A=r0920-tip, B=r0921-tip, C=r0921b-tip, D=b1-tip, E=pre-fix+debug,
-F=b2-tip), each driven by `LD_PRELOAD` of its own `liblustreapi`. The
-installed scan plugins under `~/r18-inst/lib/lustre` were refreshed from
-today's build. An ldiskfs filesystem is formatted but stopped. **Shut the VM
-down if it is not needed.**
+F=b2-tip, **G=b2b-tip (55c6aaddd9, the split tip less 14 man page lines),
+H=G with the liveness gate forced open** -- the control that hangs), each
+driven by `LD_PRELOAD` of its own `liblustreapi`. Arm G had to be rebuilt
+from `.libs/lfs`: `lustre/utils/lfs` is the libtool *wrapper*, and copying
+it makes the arm load the build tree's library whatever `LD_PRELOAD` says.
+Every arm's loaded library is logged with `LD_DEBUG=libs` rather than
+assumed.
+
+`~/lustre-0918` is checked out at `b2b-tip` and restored. The installed
+scan plugins under `~/r18-inst/lib/lustre` are from the 09-21 build;
+`lfu.ko` loads and gives `/dev/lfu_scan`, which is what makes the
+in-service arm possible at all. The filesystem is unmounted.
+**Shut the VM down if it is not needed.**
+
+The four scripts that built and ran it are in
+[`rounds/b2-0922/`](rounds/b2-0922/): `b2g-setup.sh` (MDSCOUNT=2 ldiskfs
+plus the DNE fixture), `b2g-live2.sh`, `b2g-off.sh`, `b2g-ctl.sh`.
 
 ## The plan for the 22 still unpushed (2026-09-21)
 
