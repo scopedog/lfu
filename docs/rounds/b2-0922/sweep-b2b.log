@@ -1,0 +1,27 @@
+c16a7554cc build=0 hdr=0 tests=0  LU-20603 llapi: namespace scanner API
+b10b06d4b5 build=0 hdr=0 tests=0  LU-20605 llapi: build find on the scan record
+6b8116012a build=0 hdr=0 tests=0  LU-20606 llapi: scan an ldiskfs target direct
+ed56bb2908 build=0 hdr=0 tests=0  LU-20611 llapi: split cb_find_init's decider 
+dddf37eb89 build=0 hdr=0 tests=0  LU-20611 lfs: share find's predicate parsing
+f093f80ac6 build=0 hdr=0 tests=0  LU-20611 llapi: run find over a device scan
+ee04c1a291 build=0 hdr=0 tests=0  LU-20611 lfs: find over a target, with --devi
+e18b4ff2ed build=0 hdr=0 tests=0  LU-20613 llapi: ZFS backend for llapi_scan_de
+d3faad7f40 build=0 hdr=0 tests=0  LU-20637 llapi: name a device scan's objects
+5bbdf03f22 build=0 hdr=0 tests=0  LU-20649 llapi: a changelog as an Object Stre
+bd4daac095 build=0 hdr=0 tests=0  LU-20650 llapi: fill a scan record for one FI
+75d366b8b8 build=0 hdr=0 tests=0  LU-20650 lfs: find --since, from the changelo
+bf86b72c64 build=0 hdr=0 tests=0  LU-20650 lfs: find --changelog, the log as so
+e3aa4923c0 build=0 hdr=0 tests=0  LU-20650 lfs: find --since-cookie, per-MDT an
+925f4877f9 build=0 hdr=0 tests=0  LU-20650 tests: sanity cases for find's chang
+ff03d8081b build=0 hdr=0 tests=0  LU-20603 llapi: pull a scan's records in batc
+4860e79218 build=0 hdr=0 tests=0  LU-20605 llapi: trim a start point's trailing
+e0848b1ea8 build=0 hdr=0 tests=0  LU-20720 osd: attributes and a private otable
+3fce86cc58 build=0 hdr=0 tests=0  LU-20720 osd-ldiskfs: read the inode table ah
+3e11f1c664 build=0 hdr=0 tests=0  LU-20720 osd-ldiskfs: read the inode table, n
+894263f574 build=0 hdr=0 tests=0  LU-20720 osd: xattrs from the otable iterator
+c1c962c52c build=0 hdr=0 tests=0  LU-20720 lfu: an object stream from the OSD o
+1052fea482 build=0 hdr=0 tests=0  LU-20722 llapi: a scan backend for a target i
+9596f9694a build=0 hdr=0 tests=0  LU-20730 lfu: the Object Stream over OBD_IDX_
+ff7f516d90 build=0 hdr=0 tests=0  LU-20730 osd-zfs: the LFU record and an index
+10609402a6 build=0 hdr=0 tests=0  LU-20730 llapi: llapi_scan_mount(), a scan fr
+SWEEP-DONE
