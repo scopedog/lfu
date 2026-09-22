@@ -30,7 +30,12 @@ GAP = 12
 FILES = [("PFIND", "lustre/utils/liblustreapi_pfind.c"),
          ("DEV", "lustre/utils/liblustreapi_scan_device.c"),
          ("INT", "lustre/utils/lustreapi_internal.h"),
-         ("FIND1", "Documentation/man1/lfs-find.1")]
+         ("KERNEL", "lustre/utils/libscan_kernel.c"),
+         ("LFUREC", "lustre/utils/lustreapi_lfu_rec.h"),
+         ("SPEC", "lustre.spec.in"),
+         ("FIND1", "Documentation/man1/lfs-find.1"),
+         ("DEV3", "Documentation/man3/llapi_scan_device.3"),
+         ("CONF", "lustre/tests/conf-sanity.sh")]
 
 
 def git(*args):
@@ -92,7 +97,10 @@ body = []
 counts = {"lower": 0, "upper": 0}
 for var, path in FILES:
     tip = show("b2-tip", path)
-    low = open(LOWER + path).read()
+    # a file with no c08-level change has no lower variant: it starts from
+    # the tip's own content and only the upper set touches it
+    low = (open(LOWER + path).read() if os.path.exists(LOWER + path)
+           else tip)
     up = open(WT + path).read()
     stack = [t for t in (show(s, path) for s in SHAS) if t is not None]
 
@@ -148,8 +156,10 @@ import os
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, HERE)
 sys.path.insert(0, os.path.join(HERE, "..", "b2-0921"))
 sys.path.insert(0, os.path.join(HERE, "..", "r3-0913"))
+import b2bextra  # noqa: E402
 import b2fix  # noqa: E402
 import r3fix  # noqa: E402
 
@@ -159,7 +169,12 @@ r3fix.ORDER = ["c%02d" % i for i in range(64)]
 PFIND = "lustre/utils/liblustreapi_pfind.c"
 DEV = "lustre/utils/liblustreapi_scan_device.c"
 INT = "lustre/utils/lustreapi_internal.h"
+KERNEL = "lustre/utils/libscan_kernel.c"
+LFUREC = "lustre/utils/lustreapi_lfu_rec.h"
+SPEC = "lustre.spec.in"
 FIND1 = "Documentation/man1/lfs-find.1"
+DEV3 = "Documentation/man3/llapi_scan_device.3"
+CONF = "lustre/tests/conf-sanity.sh"
 
 # LU-20722: the first commit with a backend that reads a target in service
 LIVE = "c22"
@@ -175,6 +190,9 @@ def t(tid, path, old, new, only=None, since="c08"):
 '''
 
 TAIL = '''
+# the same fixes in the spelling the commits below LU-20730 have
+b2bextra.add(t, LIVE, MSG)
+
 
 def apply(tree, name, msg):
     saved = r3fix.T

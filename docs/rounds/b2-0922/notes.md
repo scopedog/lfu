@@ -179,3 +179,71 @@ b2fix's transforms and these. Verified:
   - 26/26 per-commit builds clean (`sweep-b2b.log`);
   - checkpatch clean on the three batch-2 patches, the only findings being
     the standing `lustreapi.7` SEE ALSO noise.
+
+## The lreview on LU-20722, and the ten fixes
+
+`c7bab4f656` had never been reviewed with the liveness code the split put
+in it. Ten findings, one defect, "a refresh looks warranted". All ten
+taken. Full text in [`lreview-lu20722.txt`](lreview-lu20722.txt).
+
+1. **The commit message.** `Test-Parameters: ignore` left the new
+   server-side path with no CI at all, so it is now
+   `testlist=conf-sanity env=ONLY=305` and the patch has a test to point
+   at. The body also claimed the `-ENOTSUP` refusal was the new backend's;
+   `find_device_nobytes()` refuses on what the *scan answered*, so it
+   reaches an OST scan through the device backends too. Said so.
+2. **(defect) `STATX_ATTR_NODUMP` on ZFS.** `libscan_zfs.c` declares
+   `IMMUTABLE|APPEND` and nothing else, deliberately, so one file answers
+   `lfs find --attrs d` the same whichever scanner read it. The kernel
+   backend declared NODUMP as well and osd-zfs really does set
+   `LUSTRE_NODUMP_FL`, so the bit came out -- the exact divergence the mask
+   exists to stop. Dropped.
+3. **`so_valid` claimed PROJID and BTIME unconditionally.** Both device
+   backends gate theirs; `lr_valid` is the OSD's own LA_* mask and was
+   being ignored. Now gated, so an inode too small for `i_crtime` answers
+   "not known" instead of the epoch.
+4. **An object with no LMA lost its FID.** The iterator's FID is on the
+   wire whether or not the LMA was readable, and for such an object
+   `os_convert_igif` makes it the IGIF. The generation is handed over as
+   `so_gen`, the way a device backend does, so `scan_rec_class()` rebuilds
+   the same FID -- guarded on the sequence being this object's own id and
+   inside the IGIF range.
+5. **The label parser.** Now as careful as `scan_ldiskfs_label()`: all four
+   hex digits consumed, no kind flag at all when it is neither MDT nor OST,
+   and `INDEX_UNASSIGNED` (0xffff) left as "not known yet" rather than
+   reported as index 65535.
+6. **`scan_lmv_is_striped()` read only the bytes.** The kernel ring sets
+   `so_xa_present` for a master's LMV and `so_xa_valid` only for a shard,
+   whose magic it rebuilds -- so a master read as "not striped" and its own
+   size was reported as the directory's, where neither a device scan nor
+   `ll_dir_ioctl()` reports one. Presence is the question now, the bytes
+   the refinement.
+7. **`*pp_live` was never written for an OST scan** -- it sat below the
+   block that drops `pre` for a target of the wrong kind, and the directory
+   map asks for MDT. Mine, from earlier today. Moved above it.
+8. **The unsupported-option refusal ran per record.** What it tests is
+   fixed for the whole sweep, and a target that delivered nothing never
+   reached the callback at all, so the option went unmentioned and the
+   search succeeded on a question it never asked. Said once, and again
+   after a sweep that delivered nothing.
+9. **`lustre.spec.in`** packaged a file in `%{_libdir}/@PACKAGE@` without
+   owning the directory, where the three `*-osd-*-mount` packages declare
+   it alongside. Added.
+10. **The man pages.** `lfs-find.1` now lists the options a target in
+    service refuses and says to stop the target to ask them;
+    `llapi_scan_device.3` had said flatly that a scanned target is not
+    mounted, and now describes the three backends, presence-not-bytes for
+    the layout and the directory stripe, and that the in-service backend
+    declares whichever attribute set its OSD's device backend does.
+
+**conf-sanity 305** scans a target while it is mounted -- counts, `--paths`,
+`-name`, and the `--stripe-count` refusal -- and skips where `lfu.ko` is not
+there to read one.
+
+Two of the fixes live in `libscan_kernel.c` from c22 and move into
+`lustreapi_lfu_rec.h` when c25 extracts `scan_lfu_rec_to_obj()`. genfix.py
+works from the tip's trees and only ever sees the header spelling, so the
+libscan_kernel.c spelling is hand-written in
+[`b2bextra.py`](b2bextra.py) -- the old-spelling-down, new-spelling-up
+pattern. Confirmed after driving: those two apply at c22-c24 and the
+generated pair at c25.

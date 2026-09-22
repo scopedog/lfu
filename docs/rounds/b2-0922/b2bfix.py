@@ -31,8 +31,10 @@ import os
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, HERE)
 sys.path.insert(0, os.path.join(HERE, "..", "b2-0921"))
 sys.path.insert(0, os.path.join(HERE, "..", "r3-0913"))
+import b2bextra  # noqa: E402
 import b2fix  # noqa: E402
 import r3fix  # noqa: E402
 
@@ -42,7 +44,12 @@ r3fix.ORDER = ["c%02d" % i for i in range(64)]
 PFIND = "lustre/utils/liblustreapi_pfind.c"
 DEV = "lustre/utils/liblustreapi_scan_device.c"
 INT = "lustre/utils/lustreapi_internal.h"
+KERNEL = "lustre/utils/libscan_kernel.c"
+LFUREC = "lustre/utils/lustreapi_lfu_rec.h"
+SPEC = "lustre.spec.in"
 FIND1 = "Documentation/man1/lfs-find.1"
+DEV3 = "Documentation/man3/llapi_scan_device.3"
+CONF = "lustre/tests/conf-sanity.sh"
 
 # LU-20722: the first commit with a backend that reads a target in service
 LIVE = "c22"
@@ -89,31 +96,63 @@ t('pfind-live-2', PFIND,
 
 t('pfind-live-3', PFIND,
   '};\n\n/*\n * What only the mounted filesystem can answer: the xattrs --xattr reads\n',
-  '\t/* whether the scan reads a target that is in service */\n\tbool\t\t\t fds_tgt_live;\n};\n\n/*\n * What only the mounted filesystem can answer: the xattrs --xattr reads\n', since=LIVE)
+  '\t/* whether the scan reads a target that is in service */\n\tbool\t\t\t fds_tgt_live;\n\t/* whether the unsupported-option refusal has been answered once */\n\tbool\t\t\t fds_nobytes_said;\n};\n\n/*\n * What only the mounted filesystem can answer: the xattrs --xattr reads\n', since=LIVE)
 
 t('pfind-live-4', PFIND,
+  'static int find_device_cb(const struct llapi_scan_rec *rec, void *data)\n{\n\tstruct find_device_state *st = data;\n\tstruct find_param *param = st->fds_param;\n\tstruct find_ctx fc = { 0 };\n\tconst char *what;\n\tint checked_type = 0;\n\tint rc;\n\n\t/* a target in service sends no layout bytes: refuse, do not forge */\n\twhat = find_device_nobytes(param, st->fds_got, st->fds_printf_lmm);\n\tif (what != NULL) {\n\t\tllapi_error(LLAPI_MSG_ERROR | LLAPI_MSG_NO_ERRNO, -ENOTSUP,\n\t\t\t    "%s need the layout or directory stripe bytes, which a scan of a target in service does not carry",\n\t\t\t    what);\n\t\treturn -ENOTSUP;\n\t}\n',
+  '/*\n * The refusal, said once for the scan rather than once per record: what it\n * tests -- the demand mask the scan answered and the caller\'s own options\n * -- is fixed for the whole sweep.  Called again when the sweep delivered\n * nothing, so a target with no matching objects still says why instead of\n * succeeding silently with the option never mentioned.\n */\nstatic int find_device_nobytes_say(struct find_device_state *st)\n{\n\tconst char *what;\n\n\tif (st->fds_nobytes_said)\n\t\treturn 0;\n\tst->fds_nobytes_said = true;\n\n\twhat = find_device_nobytes(st->fds_param, st->fds_got,\n\t\t\t\t   st->fds_printf_lmm);\n\tif (what == NULL)\n\t\treturn 0;\n\n\tllapi_error(LLAPI_MSG_ERROR | LLAPI_MSG_NO_ERRNO, -ENOTSUP,\n\t\t    "%s need the layout or directory stripe bytes, which a scan of a target in service does not carry",\n\t\t    what);\n\treturn -ENOTSUP;\n}\n\nstatic int find_device_cb(const struct llapi_scan_rec *rec, void *data)\n{\n\tstruct find_device_state *st = data;\n\tstruct find_param *param = st->fds_param;\n\tstruct find_ctx fc = { 0 };\n\tint checked_type = 0;\n\tint rc;\n\n\t/* a target in service sends no layout bytes: refuse, do not forge */\n\trc = find_device_nobytes_say(st);\n\tif (rc != 0)\n\t\treturn rc;\n', since=LIVE)
+
+t('pfind-live-5', PFIND,
   '\tfc.fc_unresolved = &st->fds_unresolved;\n',
   '\tfc.fc_tgt_live = st->fds_tgt_live;\n\tfc.fc_unresolved = &st->fds_unresolved;\n', since=LIVE)
 
-t('pfind-live-5', PFIND,
+t('pfind-live-6', PFIND,
   '\tfc.fc_mnt_path = st->fss_mnt_path;\n',
   '\t/* the log was read from an MDT in service, and it is the MDT the\n\t * lookup goes to\n\t */\n\tfc.fc_tgt_live = true;\n\tfc.fc_mnt_path = st->fss_mnt_path;\n', since=LIVE)
 
-t('pfind-live-6', PFIND,
+t('pfind-live-7', PFIND,
   '\t\tprep = &pre;\n',
   '\t\tpre.pp_live = &st.fds_tgt_live;\n\t\tprep = &pre;\n', since=LIVE)
+
+t('pfind-live-8', PFIND,
+  '\n\tif (rc == 0 && st.fds_undecided != 0)\n',
+  '\t/*\n\t * A sweep that delivered no record never reached find_device_cb(),\n\t * so an option the scan cannot answer would go unmentioned and the\n\t * search would succeed on a question it never asked.\n\t */\n\tif (rc == 0)\n\t\trc = find_device_nobytes_say(&st);\n\n\tif (rc == 0 && st.fds_undecided != 0)\n', since=LIVE)
 
 t('dev-0', DEV,
   '\t\t/* the caller\'s own answer to "was a map built for this\n\t\t * target", which it cannot get from the map\'s contents\n\t\t */\n\t\tif (pre->pp_ran != NULL)\n\t\t\t*pre->pp_ran = true;\n\t\tllapi_scan_cb_t filter = dev.sd_filter;\n\t\t__u64 want = dev.sd_want;\n\t\t__u32 want_xattr = dev.sd_want_xattr;\n',
   '\t\tllapi_scan_cb_t filter = dev.sd_filter;\n\t\t__u64 want = dev.sd_want;\n\t\t__u32 want_xattr = dev.sd_want_xattr;\n\n\t\t/* the caller\'s own answer to "was a map built for this\n\t\t * target", which it cannot get from the map\'s contents\n\t\t */\n\t\tif (pre->pp_ran != NULL)\n\t\t\t*pre->pp_ran = true;\n')
 
 t('dev-live-0', DEV,
-  '\tif (pre != NULL && pre->pp_cb != NULL) {\n',
-  '\t/*\n\t * Which the caller cannot see from here: a device or a pool is read\n\t * from outside the server and the target is stopped, and every other\n\t * backend reads it through a server that is running.  Put this way\n\t * round so a backend added later is in service unless it says\n\t * otherwise.  find_decide() needs it to know whether a fid2path\n\t * lookup would be sent to the target being scanned.\n\t */\n\tif (pre != NULL && pre->pp_live != NULL)\n\t\t*pre->pp_live = kind != SCAN_BACKEND_LDISKFS &&\n\t\t\t\tkind != SCAN_BACKEND_ZFS;\n\n\tif (pre != NULL && pre->pp_cb != NULL) {\n', since=LIVE)
+  ' */\nstatic bool scan_lmv_is_striped(const struct llapi_scan_obj *obj)\n{\n\tsize_t len = 0;\n\t__u32 magic;\n\tconst void *lmv;\n\n\tlmv = scan_xattr(obj, LLAPI_SCAN_XA_LMV, &len);\n\tif (lmv == NULL || len < sizeof(magic))\n\t\treturn false;\n',
+  ' *\n * Presence is the question and the bytes are the refinement, because a\n * backend may know the object has an LMV without having brought it across:\n * the kernel ring sets so_xa_present for one and so_xa_valid only for a\n * shard, whose magic it rebuilds.  Reading only the bytes made a master\n * from that backend answer "not striped", and its own size was then\n * reported as the directory\'s where neither a device scan nor\n * ll_dir_ioctl() reports one.\n */\nstatic bool scan_lmv_is_striped(const struct llapi_scan_obj *obj)\n{\n\tsize_t len = 0;\n\t__u32 magic;\n\tconst void *lmv;\n\n\tlmv = scan_xattr(obj, LLAPI_SCAN_XA_LMV, &len);\n\tif (lmv == NULL || len < sizeof(magic))\n\t\treturn (obj->so_xa_present &\n\t\t\tLLAPI_SCAN_XA_BIT(LLAPI_SCAN_XA_LMV)) != 0;\n', since=LIVE)
+
+t('dev-live-1', DEV,
+  '\tif (pre != NULL && pre->pp_tgt_flags != 0 &&\n',
+  '\t/*\n\t * Which the caller cannot see from here: a device or a pool is read\n\t * from outside the server and the target is stopped, and every other\n\t * backend reads it through a server that is running.  Put this way\n\t * round so a backend added later is in service unless it says\n\t * otherwise.  find_decide() needs it to know whether a fid2path\n\t * lookup would be sent to the target being scanned.\n\t *\n\t * Answered before the pp_tgt_flags test below, which drops @pre for\n\t * a target of the wrong kind: an OST scan asks for no directory map\n\t * and would otherwise never be told whether its target is running.\n\t */\n\tif (pre != NULL && pre->pp_live != NULL)\n\t\t*pre->pp_live = kind != SCAN_BACKEND_LDISKFS &&\n\t\t\t\tkind != SCAN_BACKEND_ZFS;\n\n\tif (pre != NULL && pre->pp_tgt_flags != 0 &&\n', since=LIVE)
 
 t('int-live-0', INT,
   '};\n\n/* liblustreapi_scan_device.c: FID and name to pathname, for one target */\n',
   '\t/* out or NULL: whether the target being scanned is in service */\n\tbool\t\t*pp_live;\n};\n\n/* liblustreapi_scan_device.c: FID and name to pathname, for one target */\n', since=LIVE)
+
+t('kernel-live-0', KERNEL,
+  '\t/* fsname-MDT0000: the kind and the index are the last eight */\n\tsep = strrchr(name, \'-\');\n\tif (sep != NULL && strlen(sep) == 8) {\n\t\tif (strncmp(sep + 1, "MDT", 3) == 0)\n\t\t\ttgt->tt_flags |= LLAPI_SCAN_TGT_MDT;\n\t\telse if (strncmp(sep + 1, "OST", 3) == 0)\n\t\t\ttgt->tt_flags |= LLAPI_SCAN_TGT_OST;\n\t\ttgt->tt_index = strtoul(sep + 4, NULL, 16);\n\t\ttgt->tt_flags |= LLAPI_SCAN_TGT_INDEX;\n',
+  '\t/*\n\t * fsname-MDT0000: the kind and the index are the last eight.  Read\n\t * exactly as scan_ldiskfs_label() reads the label, so the same\n\t * target answers the same whichever backend opened it: all four hex\n\t * digits consumed, no flag at all for a kind that is neither, and\n\t * INDEX_UNASSIGNED left as "not known yet" rather than 65535.\n\t */\n\tsep = strrchr(name, \'-\');\n\tif (sep != NULL && strlen(sep) == 8) {\n\t\tchar *end;\n\t\tlong idx;\n\n\t\tidx = strtol(sep + 4, &end, 16);\n\t\tif (strncmp(sep + 1, "MDT", 3) == 0)\n\t\t\ttgt->tt_flags |= LLAPI_SCAN_TGT_MDT;\n\t\telse if (strncmp(sep + 1, "OST", 3) == 0)\n\t\t\ttgt->tt_flags |= LLAPI_SCAN_TGT_OST;\n\t\telse\n\t\t\tend = NULL;\n\t\tif (end == sep + 8 && idx >= 0 && idx != 0xffff) {\n\t\t\ttgt->tt_index = (__u32)idx;\n\t\t\ttgt->tt_flags |= LLAPI_SCAN_TGT_INDEX;\n\t\t}\n', since=LIVE)
+
+t('kernel-live-1', KERNEL,
+  "\t * As the device backends declare it: ldiskfs's i_flags carries the\n\t * encrypted bit, ZFS's z_pflags carries nodump, and the module said\n\t * which OSD is underneath.\n\t */\n\tif (t->kt_flags & LFU_INFO_ZFS)\n\t\tw->kw_attrs_mask = STATX_ATTR_IMMUTABLE | STATX_ATTR_APPEND |\n\t\t\t\t   STATX_ATTR_NODUMP;\n",
+  '\t * As the device backends declare it, and no wider: ldiskfs\'s i_flags\n\t * carries the encrypted bit, and the module said which OSD is\n\t * underneath.  osd-zfs does set LUSTRE_NODUMP_FL from ZFS_NODUMP, so\n\t * lr_flags carries it -- but libscan_zfs.c declares IMMUTABLE and\n\t * APPEND only, deliberately, so that one file answers "lfs find\n\t * --attrs d" the same whichever scanner read it.  Letting it out here\n\t * is the divergence that mask exists to prevent.\n\t */\n\tif (t->kt_flags & LFU_INFO_ZFS)\n\t\tw->kw_attrs_mask = STATX_ATTR_IMMUTABLE | STATX_ATTR_APPEND;\n', since=LIVE)
+
+t('lfurec-live-0', LFUREC,
+  '\tobj->so_valid = LLAPI_SCAN_SO_PROJID | LLAPI_SCAN_SO_BTIME;\n',
+  '\t/*\n\t * What the OSD actually filled, not what the record has room for:\n\t * lr_valid is its LA_* mask, and both device backends gate these two\n\t * the same way.  An inode too small for i_crtime leaves la_btime 0,\n\t * and claiming it would answer "born at the epoch" where a device\n\t * scan of the same target answers "not known".\n\t */\n\tif (lr->lr_valid & LA_PROJID)\n\t\tobj->so_valid |= LLAPI_SCAN_SO_PROJID;\n\tif (lr->lr_valid & LA_BTIME)\n\t\tobj->so_valid |= LLAPI_SCAN_SO_BTIME;\n', since=LIVE)
+
+t('lfurec-live-1', LFUREC,
+  '\t\tobj->so_xa_present |= LLAPI_SCAN_XA_BIT(LLAPI_SCAN_XA_LMA);\n',
+  "\t\tobj->so_xa_present |= LLAPI_SCAN_XA_BIT(LLAPI_SCAN_XA_LMA);\n\t}\n\n\t/*\n\t * No LMA, so no FID of its own recorded -- but the iterator still\n\t * reported one, and on MDT0000 with os_convert_igif that is the IGIF\n\t * the inode number and its generation make.  Hand the generation\n\t * over the way a device backend does, so scan_rec_class() rebuilds\n\t * the same FID: below the IGIF range, or where the sequence is not\n\t * this object's id, there is no IGIF and so_gen stays unset.\n\t */\n\tif (!(lr->lr_lfu & LFU_REC_HAVE_LMA) &&\n\t    lr->lr_fid_seq == lr->lr_oid &&\n\t    lr->lr_fid_seq >= FID_SEQ_IGIF &&\n\t    lr->lr_fid_seq <= FID_SEQ_IGIF_MAX) {\n\t\tobj->so_gen = lr->lr_fid_oid;\n\t\tobj->so_valid |= LLAPI_SCAN_SO_GEN;\n", since=LIVE)
+
+t('spec-live-0', SPEC,
+  "\techo '%{_libdir}/@PACKAGE@/scan_osd_kernel.so' >>lustre.files\n",
+  "\techo '%dir %{_libdir}/@PACKAGE@' >>lustre.files\n\techo '%{_libdir}/@PACKAGE@/scan_osd_kernel.so' >>lustre.files\n", since=LIVE)
 
 t('find1-0', FIND1,
   'On an OST each kept object costs one lookup;\non an MDT there is no lookup but a whole extra pass over the target first,\nto build a map of its directories.\n',
@@ -128,8 +167,23 @@ t('find1-live-0', FIND1,
   'On an MDT a whole extra pass over the target runs first,\nto build a map of its directories,\nand no lookup is made at all unless that MDT is in service:\na lookup of an MDT object goes to the MDT holding it,\nso a stopped target cannot name its own objects.\nWhere it is in service,\nan object the map cannot place --\nunder DNE, one whose ancestors are on another MDT --\nis looked up through\n.IR MOUNT .\n', since=LIVE)
 
 t('find1-live-1', FIND1,
-  'nor, under DNE, an object whose ancestors are on another MDT.\n',
-  'nor, on a DNE filesystem, an object whose ancestors are on another MDT --\nunless\n.B --fid2path\ncan look it up, which needs the MDT to be in service.\n', since=LIVE)
+  'nor, under DNE, an object whose ancestors are on another MDT.\nA hardlinked file is printed once, under its first name.\n',
+  'nor, on a DNE filesystem, an object whose ancestors are on another MDT --\nunless\n.B --fid2path\ncan look it up, which needs the MDT to be in service.\nA hardlinked file is printed once, under its first name.\n.PP\nA target that is mounted is read through its own server rather than off the\ndevice, and that scan carries no layout or directory stripe bytes.  So on a\ntarget in service\n.BR --stripe-count ,\n.BR --stripe-size ,\n.BR --pool ,\n.BR --layout ,\n.BR --component-count ,\n.BR --component-start ,\n.BR --component-end ,\n.BR --component-flags ,\n.BR --mirror-count ,\n.BR --mirror-state ,\n.BR --extension-size ,\n.BR --mdt-count ,\n.BR --mdt-hash ,\n.B --hash-flags\nand\n.B --foreign\nare refused rather than answered wrongly,\nand\n.B -links\non a directory is counted undecided.\nStop the target to ask those.\n', since=LIVE)
+
+t('dev3-live-0', DEV3,
+  'The target is opened read-only and there is no write path. It is not\nmounted, not modified, and the server that owns it is neither asked nor\ntold: a scan reads what is on the device, at device speed, and a target\nthat is in service is scanned without interrupting it.\n',
+  'The target is opened read-only and there is no write path; it is never\nmodified.\n.LP\nHow it is read depends on whether it is in service. A stopped target is\nread from the device: not mounted, and the server that owns it neither\nasked nor told, at device speed. A target that\n.I is\nmounted is read through its own server instead, because ZFS refuses a live\npool and ldiskfs on a live device is exposed to torn reads; this needs the\n.B lfu\nmodule, and without it the device backends answer as before. Which one ran\nis not otherwise visible: the record is the same and the answers agree.\n.LP\nA target in service delivers its extended attributes as presence rather\nthan bytes for the layout and the directory stripe \\(em\n.B LLAPI_SCAN_LAYOUT\nand\n.B LLAPI_SCAN_LMV\nsay that the object has one without carrying it \\(em so a consumer that\nneeds the bytes has to ask a stopped target for them.\n', since=LIVE)
+
+t('dev3-live-1', DEV3,
+  'per-file ones, so no per-file answer exists to give.\n',
+  'per-file ones, so no per-file answer exists to give. A scan of a target in\nservice declares whichever of those two sets belongs to the OSD underneath\nit, so the same file answers the same whether it was read through the\nserver or off the device.\n', since=LIVE)
+
+t('conf-live-0', CONF,
+  '#\n# (This was sanity/802a)\n',
+  'test_305() {\n\t[[ "$mds1_FSTYPE" == ldiskfs || "$mds1_FSTYPE" == zfs ]] ||\n\t\tskip "$mds1_FSTYPE has no scan backend"\n\tremote_mds_nodsh && skip "remote MDS with nodsh"\n\t(( MDS1_VERSION >= $(version_code 2.17.58) )) ||\n\t\tskip "Need MDS >= 2.17.58 for a scan of a target in service"\n\n\tlocal got=$TMP/$tfile.got\n\tlocal want=$TMP/$tfile.want\n\n\tstack_trap "rm -f $TMP/$tfile.*"\n\n\tis_mounted $MOUNT || setup_noconfig\n\tcheck_mount || error "check_mount failed"\n\tstack_trap "rm -rf $MOUNT/$tdir"\n\n\t# the backend for a target in service needs the module; without it\n\t# the device backends answer, which the tests above already cover\n\tdo_facet mds1 "modprobe lfu 2>/dev/null; test -c /dev/lfu_scan" ||\n\t\tskip "no lfu module on mds1: nothing reads a target in service"\n\n\t# the device the target is mounted from, which is what the routing\n\t# compares against -- not mdsdevname, which a flakey device replaces\n\tlocal mntdev=$(do_facet mds1 \\\n\t\t"$LCTL get_param -n osd-*.$FSNAME-MDT0000.mntdev")\n\t[[ -n "$mntdev" ]] || error "no mntdev for $FSNAME-MDT0000"\n\n\tmkdir_on_mdt0 $MOUNT/$tdir || error "mkdir $tdir failed"\n\tcreatemany -o $MOUNT/$tdir/f 20 || error "createmany failed"\n\tsync; sync\n\tdo_facet mds1 "sync; sync"\n\n\t# counts: every regular file the client sees under $tdir, named by\n\t# the scan through the mount it is given\n\t$LFS find $MOUNT/$tdir -type f | sort > $want\n\t(( $(wc -l < $want) == 20 )) ||\n\t\terror "client sees $(wc -l < $want) files, want 20"\n\n\tdo_facet mds1 "$LFS find --device $mntdev --paths -type f" \\\n\t\t2> $got.err | grep "/$tdir/" | sort > $got ||\n\t\terror "lfs find --paths on $mntdev failed: $(cat $got.err)"\n\tlocal n=$(wc -l < $got)\n\n\t(( n == 20 )) ||\n\t\terror "a scan of the mounted target named $n objects, want 20"\n\tgrep -q "^\\[0x" $got &&\n\t\terror "--paths printed a FID where a path was asked for"\n\n\t# -name, answered from the same records\n\tdo_facet mds1 "$LFS find --device $mntdev --paths -name f7" \\\n\t\t> $got.name 2> $got.err ||\n\t\terror "lfs find -name on $mntdev failed: $(cat $got.err)"\n\tlocal hits=$(grep -c "/$tdir/f7$" $got.name)\n\n\t(( hits == 1 )) || error "-name f7 matched $hits objects, want 1"\n\n\t# and what such a scan cannot answer is refused, not forged: a target\n\t# in service sends no layout bytes\n\tdo_facet mds1 "$LFS find --device $mntdev --stripe-count 2" \\\n\t\t> /dev/null 2> $got.err &&\n\t\terror "--stripe-count answered on a target in service"\n\tgrep -q "the layout options need" $got.err || {\n\t\tcat $got.err\n\t\terror "--stripe-count was refused without saying why"\n\t}\n\n\techo "a scan of the mounted $FSNAME-MDT0000 named $n objects"\n}\nrun_test 305 "lfs find over a target that is in service"\n\n#\n# (This was sanity/802a)\n', since=LIVE)
+
+# the same fixes in the spelling the commits below LU-20730 have
+b2bextra.add(t, LIVE, MSG)
 
 
 def apply(tree, name, msg):
