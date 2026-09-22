@@ -54,7 +54,11 @@ BACKEND = "lustre/utils/lustreapi_scan_backend.h"
 LDISKFS = "lustre/utils/libscan_ldiskfs.c"
 ZFS = "lustre/utils/libscan_zfs.c"
 MAKEAM = "lustre/utils/Makefile.am"
+LFUH = "include/uapi/linux/lustre/lustre_lfu.h"
+DTOBJ = "lustre/obdclass/dt_object.c"
 
+# LU-20720: the commit that introduces the wire record and fills it
+PROD = "c21"
 # LU-20722: the first commit with a backend that reads a target in service
 LIVE = "c22"
 
@@ -128,17 +132,21 @@ t('dev-0', DEV,
 
 t('dev-live-0', DEV,
   ' */\nstatic bool scan_lmv_is_striped(const struct llapi_scan_obj *obj)\n{\n\tsize_t len = 0;\n\t__u32 magic;\n\tconst void *lmv;\n\n\tlmv = scan_xattr(obj, LLAPI_SCAN_XA_LMV, &len);\n\tif (lmv == NULL || len < sizeof(magic))\n\t\treturn false;\n',
-  ' *\n * Presence is the question and the bytes are the refinement, because a\n * backend may know the object has an LMV without having brought it across:\n * the kernel ring sets so_xa_present for one and so_xa_valid only for a\n * shard, whose magic it rebuilds.  Reading only the bytes made a master\n * from that backend answer "not striped", and its own size was then\n * reported as the directory\'s where neither a device scan nor\n * ll_dir_ioctl() reports one.\n */\nstatic bool scan_lmv_is_striped(const struct llapi_scan_obj *obj)\n{\n\tsize_t len = 0;\n\t__u32 magic;\n\tconst void *lmv;\n\n\tlmv = scan_xattr(obj, LLAPI_SCAN_XA_LMV, &len);\n\tif (lmv == NULL || len < sizeof(magic))\n\t\treturn (obj->so_xa_present &\n\t\t\tLLAPI_SCAN_XA_BIT(LLAPI_SCAN_XA_LMV)) != 0;\n', since=LIVE)
+  ' *\n * Presence is the question and the bytes are the refinement, because a\n * backend may know the object has an LMV without having brought it across:\n * the kernel ring sets so_xa_present for one and so_xa_valid only for a\n * shard, whose magic it rebuilds.  Reading only the bytes made a master\n * from that backend answer "not striped", and its own size was then\n * reported as the directory\'s where neither a device scan nor\n * ll_dir_ioctl() reports one.\n *\n * A foreign LMV is not a striped directory and is not a shard, so presence\n * alone would read it as striped and leave its size unanswered where a\n * device scan reports it.  The backend says which, having read the magic.\n */\nstatic bool scan_lmv_is_striped(const struct llapi_scan_obj *obj)\n{\n\tsize_t len = 0;\n\t__u32 magic;\n\tconst void *lmv;\n\n\tlmv = scan_xattr(obj, LLAPI_SCAN_XA_LMV, &len);\n\tif (lmv == NULL || len < sizeof(magic))\n\t\treturn !(obj->so_valid & LLAPI_SCAN_SO_LMV_FOREIGN) &&\n\t\t       (obj->so_xa_present &\n\t\t\tLLAPI_SCAN_XA_BIT(LLAPI_SCAN_XA_LMV)) != 0;\n', since=LIVE)
 
 t('dev-live-1', DEV,
+  '\t/* released: the MDT inode holds the size; one block, as for a client */\n\tlov = scan_xattr(obj, LLAPI_SCAN_XA_LOV, &len);\n\tif (lov != NULL && scan_lov_released(lov, len)) {\n',
+  "\t/*\n\t * Released: the MDT inode holds the size; one block, as for a client.\n\t *\n\t * The bytes where a backend brought them across, and otherwise the\n\t * backend's own answer -- one that carries the layout as presence\n\t * read the pattern before it decided not to.  Without that, a\n\t * released file fell through to the SOM below and was given its\n\t * pre-release size and blocks, or no size at all.\n\t */\n\tlov = scan_xattr(obj, LLAPI_SCAN_XA_LOV, &len);\n\tif ((lov != NULL && scan_lov_released(lov, len)) ||\n\t    (obj->so_valid & LLAPI_SCAN_SO_RELEASED)) {\n", since=LIVE)
+
+t('dev-live-2', DEV,
   '\tvoid *handle;\n',
   '\tconst __u32 *abi;\n\tvoid *handle;\n', since=LIVE)
 
-t('dev-live-2', DEV,
+t('dev-live-3', DEV,
   '\t\t\t    "%s is not a device scan backend", filename);\n',
   '\t\t\t    "%s is not a device scan backend", filename);\n\t\tdlclose(handle);\n\t\tfree(be);\n\t\treturn;\n\t}\n\n\t/*\n\t * And that it agrees about what the five mean.  The symbols resolving\n\t * says nothing about the struct they fill: a plugin built before\n\t * so_xa_present leaves that field zero, which reads as "no layout"\n\t * and reports a striped file\'s MDT inode size as the file\'s own\n\t * without a word.  Refused rather than believed.\n\t */\n\tsnprintf(symbol, sizeof(symbol), "scan_%s_abi", name);\n\tabi = dlsym(handle, symbol);\n\tif (abi == NULL || *abi != LLAPI_SCAN_BACKEND_ABI) {\n\t\tllapi_error(LLAPI_MSG_ERROR | LLAPI_MSG_NO_ERRNO, -ENOTSUP,\n\t\t\t    "%s speaks scan backend version %u, this library expects %u",\n\t\t\t    filename, abi != NULL ? *abi : 0,\n\t\t\t    LLAPI_SCAN_BACKEND_ABI);\n', since=LIVE)
 
-t('dev-live-3', DEV,
+t('dev-live-4', DEV,
   '\tif (pre != NULL && pre->pp_tgt_flags != 0 &&\n',
   '\t/*\n\t * Which the caller cannot see from here: a device or a pool is read\n\t * from outside the server and the target is stopped, and every other\n\t * backend reads it through a server that is running.  Put this way\n\t * round so a backend added later is in service unless it says\n\t * otherwise.  find_decide() needs it to know whether a fid2path\n\t * lookup would be sent to the target being scanned.\n\t *\n\t * Answered before the pp_tgt_flags test below, which drops @pre for\n\t * a target of the wrong kind: an OST scan asks for no directory map\n\t * and would otherwise never be told whether its target is running.\n\t */\n\tif (pre != NULL && pre->pp_live != NULL)\n\t\t*pre->pp_live = kind != SCAN_BACKEND_LDISKFS &&\n\t\t\t\tkind != SCAN_BACKEND_ZFS;\n\n\tif (pre != NULL && pre->pp_tgt_flags != 0 &&\n', since=LIVE)
 
@@ -163,8 +171,12 @@ t('lfurec-live-0', LFUREC,
   '\t/*\n\t * What the OSD actually filled, not what the record has room for:\n\t * lr_valid is its LA_* mask, and both device backends gate these two\n\t * the same way.  An inode too small for i_crtime leaves la_btime 0,\n\t * and claiming it would answer "born at the epoch" where a device\n\t * scan of the same target answers "not known".\n\t */\n\tif (lr->lr_valid & LA_PROJID)\n\t\tobj->so_valid |= LLAPI_SCAN_SO_PROJID;\n\tif (lr->lr_valid & LA_BTIME)\n\t\tobj->so_valid |= LLAPI_SCAN_SO_BTIME;\n', since=LIVE)
 
 t('lfurec-live-1', LFUREC,
-  '\t\tobj->so_xa_present |= LLAPI_SCAN_XA_BIT(LLAPI_SCAN_XA_LMA);\n',
-  "\t\tobj->so_xa_present |= LLAPI_SCAN_XA_BIT(LLAPI_SCAN_XA_LMA);\n\t}\n\n\t/*\n\t * No LMA, so no FID of its own recorded -- but the iterator still\n\t * reported one, and on MDT0000 with os_convert_igif that is the IGIF\n\t * the inode number and its generation make.  Hand the generation\n\t * over the way a device backend does, so scan_rec_class() rebuilds\n\t * the same FID: below the IGIF range, or where the sequence is not\n\t * this object's id, there is no IGIF and so_gen stays unset.\n\t */\n\tif (!(lr->lr_lfu & LFU_REC_HAVE_LMA) &&\n\t    lr->lr_fid_seq == lr->lr_oid &&\n\t    lr->lr_fid_seq >= FID_SEQ_IGIF &&\n\t    lr->lr_fid_seq <= FID_SEQ_IGIF_MAX) {\n\t\tobj->so_gen = lr->lr_fid_oid;\n\t\tobj->so_valid |= LLAPI_SCAN_SO_GEN;\n", since=LIVE)
+  '\tif (lr->lr_lfu & LFU_REC_HAVE_SOM) {\n',
+  "\t/*\n\t * No LMA, so no FID of its own recorded -- but the iterator still\n\t * reported one, and on MDT0000 with os_convert_igif that is the IGIF\n\t * the inode number and its generation make.  Hand the generation\n\t * over the way a device backend does, so scan_rec_class() rebuilds\n\t * the same FID: below the IGIF range, or where the sequence is not\n\t * this object's id, there is no IGIF and so_gen stays unset.\n\t */\n\tif (!(lr->lr_lfu & LFU_REC_HAVE_LMA) &&\n\t    lr->lr_fid_seq == lr->lr_oid &&\n\t    lr->lr_fid_seq >= FID_SEQ_IGIF &&\n\t    lr->lr_fid_seq <= FID_SEQ_IGIF_MAX) {\n\t\tobj->so_gen = lr->lr_fid_oid;\n\t\tobj->so_valid |= LLAPI_SCAN_SO_GEN;\n\t}\n\n\tif (lr->lr_lfu & LFU_REC_HAVE_SOM) {\n", since=LIVE)
+
+t('lfurec-live-2', LFUREC,
+  '\tif (lr->lr_lfu & LFU_REC_LMV_SHARD) {\n',
+  '\t/*\n\t * What the OSD read of them before it decided to carry presence\n\t * only.  Without these a consumer has the question and no bytes to\n\t * answer it with: a released file would be given its pre-release\n\t * size, and a foreign directory read as a striped one.\n\t */\n\tif (lr->lr_lfu & LFU_REC_LOV_RELEASED)\n\t\tobj->so_valid |= LLAPI_SCAN_SO_RELEASED;\n\tif (lr->lr_lfu & LFU_REC_LMV_FOREIGN)\n\t\tobj->so_valid |= LLAPI_SCAN_SO_LMV_FOREIGN;\n\tif (lr->lr_lfu & LFU_REC_LMV_SHARD) {\n', since=LIVE)
 
 t('spec-live-0', SPEC,
   "\techo '%{_libdir}/@PACKAGE@/scan_osd_kernel.so' >>lustre.files\n",
@@ -199,6 +211,10 @@ t('conf-live-0', CONF,
   'test_305() {\n\t[[ "$mds1_FSTYPE" == ldiskfs || "$mds1_FSTYPE" == zfs ]] ||\n\t\tskip "$mds1_FSTYPE has no scan backend"\n\tremote_mds_nodsh && skip "remote MDS with nodsh"\n\t(( MDS1_VERSION >= $(version_code 2.17.58) )) ||\n\t\tskip "Need MDS >= 2.17.58 for a scan of a target in service"\n\n\tlocal got=$TMP/$tfile.got\n\tlocal want=$TMP/$tfile.want\n\n\tstack_trap "rm -f $TMP/$tfile.*"\n\n\tis_mounted $MOUNT || setup_noconfig\n\tcheck_mount || error "check_mount failed"\n\tstack_trap "rm -rf $MOUNT/$tdir"\n\n\t# the backend for a target in service needs the module; without it\n\t# the device backends answer, which the tests above already cover\n\tdo_facet mds1 "modprobe lfu 2>/dev/null; test -c /dev/lfu_scan" ||\n\t\tskip "no lfu module on mds1: nothing reads a target in service"\n\n\t# the device the target is mounted from, which is what the routing\n\t# compares against -- not mdsdevname, which a flakey device replaces\n\tlocal mntdev=$(do_facet mds1 \\\n\t\t"$LCTL get_param -n osd-*.$FSNAME-MDT0000.mntdev")\n\t[[ -n "$mntdev" ]] || error "no mntdev for $FSNAME-MDT0000"\n\n\tmkdir_on_mdt0 $MOUNT/$tdir || error "mkdir $tdir failed"\n\tcreatemany -o $MOUNT/$tdir/f 20 || error "createmany failed"\n\tsync; sync\n\tdo_facet mds1 "sync; sync"\n\n\t# counts: every regular file the client sees under $tdir, named by\n\t# the scan through the mount it is given\n\t$LFS find $MOUNT/$tdir -type f | sort > $want\n\t(( $(wc -l < $want) == 20 )) ||\n\t\terror "client sees $(wc -l < $want) files, want 20"\n\n\tdo_facet mds1 "$LFS find --device $mntdev --paths -type f" \\\n\t\t2> $got.err | grep "/$tdir/" | sort > $got ||\n\t\terror "lfs find --paths on $mntdev failed: $(cat $got.err)"\n\tlocal n=$(wc -l < $got)\n\n\t(( n == 20 )) ||\n\t\terror "a scan of the mounted target named $n objects, want 20"\n\tgrep -q "^\\[0x" $got &&\n\t\terror "--paths printed a FID where a path was asked for"\n\n\t# -name, answered from the same records\n\tdo_facet mds1 "$LFS find --device $mntdev --paths -name f7" \\\n\t\t> $got.name 2> $got.err ||\n\t\terror "lfs find -name on $mntdev failed: $(cat $got.err)"\n\tlocal hits=$(grep -c "/$tdir/f7$" $got.name)\n\n\t(( hits == 1 )) || error "-name f7 matched $hits objects, want 1"\n\n\t# and what such a scan cannot answer is refused, not forged: a target\n\t# in service sends no layout bytes\n\tdo_facet mds1 "$LFS find --device $mntdev --stripe-count 2" \\\n\t\t> /dev/null 2> $got.err &&\n\t\terror "--stripe-count answered on a target in service"\n\tgrep -q "the layout options need" $got.err || {\n\t\tcat $got.err\n\t\terror "--stripe-count was refused without saying why"\n\t}\n\n\techo "a scan of the mounted $FSNAME-MDT0000 named $n objects"\n}\nrun_test 305 "lfs find over a target that is in service"\n\n#\n# (This was sanity/802a)\n', since=LIVE)
 
 t('backend-live-0', BACKEND,
+  '\n/* Target flags a backend reports at open time. */\n',
+  '/*\n * What a backend that carries the layout and the directory stripe as\n * presence rather than as bytes has read of them anyway.  Both mean "known\n * to be", so clear is "not known", not "not so": a backend that brought the\n * bytes across leaves them clear and the reader looks at the bytes.\n */\n#define LLAPI_SCAN_SO_RELEASED\t0x00000010U\t/* the layout is released */\n#define LLAPI_SCAN_SO_LMV_FOREIGN 0x00000020U\t/* the LMV is a foreign one */\n\n/* Target flags a backend reports at open time. */\n', since=LIVE)
+
+t('backend-live-1', BACKEND,
   'struct llapi_scan_backend {\n',
   '/*\n * What a plugin is built against.  so_xa_present took over so_padding[1],\n * and a plugin built before that leaves it zero -- which reads as "this\n * object has no layout" and makes scan_size() report a striped file\'s MDT\n * inode size as the file\'s own, silently.  This library and the plugins\n * ship in separate RPMs and the $LUSTRE fallback loads whatever a build\n * tree has, so the skew is reachable; each plugin exports\n * scan_<name>_abi and the loader refuses one that disagrees.  Bump it\n * whenever struct llapi_scan_obj or this interface changes meaning.\n */\n#define LLAPI_SCAN_BACKEND_ABI\t1U\n\nstruct llapi_scan_backend {\n', since=LIVE)
 
@@ -214,8 +230,25 @@ t('makeam-live-0', MAKEAM,
   'endif\nif SERVER\nLIB_TARGETS += mount_osd_wbcfs.so\n',
   'LIB_TARGETS += mount_osd_wbcfs.so\n', since=LIVE)
 
+t('lfuh-live-0', LFUH,
+  "#define LFU_REC_HAVE_PFID\t0x80\t/* lr_pfid_*: an OST object's parent */\n",
+  '#define LFU_REC_HAVE_PFID\t0x80\t/* lr_pfid_*: an OST object\'s parent */\n/*\n * What the layout and the directory stripe say, for a consumer that is\n * given them as presence rather than as bytes.  Set only where the OSD read\n * enough to tell: a layout too large for the xattr buffer is reported\n * present and unjudged, so the absence of LFU_REC_LOV_RELEASED means "not\n * known to be released" and not "not released".\n */\n#define LFU_REC_LOV_RELEASED\t0x100\t/* every component released (HSM) */\n#define LFU_REC_LMV_FOREIGN\t0x200\t/* the trusted.lmv is a foreign one */\n', since=PROD)
+
+t('dtobj-live-0', DTOBJ,
+  '/**\n * dt_otable_lfu_rec() - build the LFU wire record for the current object\n',
+  '/*\n * Whether HSM has released the file: every component released, decided as\n * mdt_hsm_is_released() decides it.  The bytes are raw from the target, and\n * liblustreapi\'s scan_lov_released() reads them the same way for a scan\n * that brought the layout across -- the two have to agree, or one file\n * answers "lfs find --size" differently depending on which read it.\n */\nstatic bool dt_otable_lov_released(const void *buf, int len)\n{\n\tconst struct lov_comp_md_v1 *comp = buf;\n\tconst struct lov_mds_md_v1 *v1 = buf;\n\t__u32 magic;\n\t__u16 count;\n\t__u16 i;\n\n\tif (len < (int)sizeof(*v1))\n\t\treturn false;\n\n\tmagic = le32_to_cpu(v1->lmm_magic);\n\tif (magic == LOV_MAGIC_V1 || magic == LOV_MAGIC_V3)\n\t\treturn le32_to_cpu(v1->lmm_pattern) & LOV_PATTERN_F_RELEASED;\n\tif (magic != LOV_MAGIC_COMP_V1 || len < (int)sizeof(*comp))\n\t\treturn false;\n\n\tcount = le16_to_cpu(comp->lcm_entry_count);\n\tif (len < (int)(sizeof(*comp) + count * sizeof(comp->lcm_entries[0])))\n\t\treturn false;\n\tfor (i = 0; i < count; i++) {\n\t\t__u32 off = le32_to_cpu(comp->lcm_entries[i].lcme_offset);\n\n\t\tif (off > len - sizeof(*v1))\n\t\t\treturn false;\n\t\tv1 = (const struct lov_mds_md_v1 *)((const char *)buf + off);\n\t\tif (!(le32_to_cpu(v1->lmm_pattern) & LOV_PATTERN_F_RELEASED))\n\t\t\treturn false;\n\t}\n\treturn true;\n}\n\n/**\n * dt_otable_lfu_rec() - build the LFU wire record for the current object\n', since=PROD)
+
+t('dtobj-live-1', DTOBJ,
+  '\t\t\tlr->lr_lfu |= LFU_REC_HAVE_LOV;\n',
+  '\t\t\tlr->lr_lfu |= LFU_REC_HAVE_LOV;\n\t\t/*\n\t\t * The layout crosses as presence, so whether it is released\n\t\t * has to cross as an answer: a consumer without the bytes\n\t\t * cannot tell, and would report the pre-release size and\n\t\t * blocks for a file that has neither.  Judged only where the\n\t\t * whole layout was read -- -ERANGE leaves it unjudged.\n\t\t */\n\t\tif (rc > 0 && dt_otable_lov_released(xabuf, rc))\n\t\t\tlr->lr_lfu |= LFU_REC_LOV_RELEASED;\n', since=PROD)
+
+t('dtobj-live-2', DTOBJ,
+  "\t\t/* a stripe's LMV is the short header; a master's may not fit */\n\t\tif (rc >= (int)sizeof(__u32) &&\n\t\t    le32_to_cpu(*(__le32 *)xabuf) == LMV_MAGIC_STRIPE)\n\t\t\tlr->lr_lfu |= LFU_REC_LMV_SHARD;\n",
+  "\t\t/*\n\t\t * A stripe's LMV is the short header; a master's may not fit.\n\t\t * A foreign one is neither, and says so: a consumer given the\n\t\t * LMV as presence would otherwise read it as a striped\n\t\t * directory and leave its size unanswered.\n\t\t */\n\t\tif (rc >= (int)sizeof(__u32)) {\n\t\t\t__u32 magic = le32_to_cpu(*(__le32 *)xabuf);\n\n\t\t\tif (magic == LMV_MAGIC_STRIPE)\n\t\t\t\tlr->lr_lfu |= LFU_REC_LMV_SHARD;\n\t\t\telse if (magic == LMV_MAGIC_FOREIGN)\n\t\t\t\tlr->lr_lfu |= LFU_REC_LMV_FOREIGN;\n\t\t}\n", since=PROD)
+
 # the same fixes in the spelling the commits below LU-20730 have
 b2bextra.add(t, LIVE, MSG)
+b2bextra.add_ring(t, PROD)
 
 
 def apply(tree, name, msg):

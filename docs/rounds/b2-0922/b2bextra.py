@@ -106,3 +106,108 @@ def add(t, live, msg):
     t("msg-naming", msg, MSG_NAMING_OLD, MSG_NAMING_NEW, only=[live])
     t("msg-testparams", msg, MSG_TESTPARAMS_OLD, MSG_TESTPARAMS_NEW,
       only=[live])
+
+
+# ---- the released and foreign bits, in the spelling c21-c22 have ----
+#
+# The fill is inline in lustre/lfu/lfu_ring.c until LU-20730 extracts
+# dt_otable_lfu_rec() into lustre/obdclass/dt_object.c, which genfix.py
+# generates from the tip.  These are the same two additions against the
+# inline spelling, plus the helper they call.
+RING = "lustre/lfu/lfu_ring.c"
+
+RING_LOV_OLD = """		rc = lfu_fill_xattr(env, iops, di, r, XATTR_NAME_LOV, buf,
+				    LFU_XA_BUFLEN);
+		if (rc >= 0 || rc == -ERANGE)
+			lr->lr_lfu |= LFU_REC_HAVE_LOV;
+"""
+
+RING_LOV_NEW = """		rc = lfu_fill_xattr(env, iops, di, r, XATTR_NAME_LOV, buf,
+				    LFU_XA_BUFLEN);
+		if (rc >= 0 || rc == -ERANGE)
+			lr->lr_lfu |= LFU_REC_HAVE_LOV;
+		/*
+		 * The layout crosses as presence, so whether it is released
+		 * has to cross as an answer: a consumer without the bytes
+		 * cannot tell, and would report the pre-release size and
+		 * blocks for a file that has neither.  Judged only where the
+		 * whole layout was read -- -ERANGE leaves it unjudged.
+		 */
+		if (rc > 0 && lfu_lov_released(buf, rc))
+			lr->lr_lfu |= LFU_REC_LOV_RELEASED;
+"""
+
+RING_LMV_OLD = """		/* a stripe's LMV is the short header; a master's may not fit */
+		if (rc >= (int)sizeof(__u32) &&
+		    le32_to_cpu(*(__le32 *)buf) == LMV_MAGIC_STRIPE)
+			lr->lr_lfu |= LFU_REC_LMV_SHARD;
+"""
+
+RING_LMV_NEW = """		/*
+		 * A stripe's LMV is the short header; a master's may not fit.
+		 * A foreign one is neither, and says so: a consumer given the
+		 * LMV as presence would otherwise read it as a striped
+		 * directory and leave its size unanswered.
+		 */
+		if (rc >= (int)sizeof(__u32)) {
+			__u32 magic = le32_to_cpu(*(__le32 *)buf);
+
+			if (magic == LMV_MAGIC_STRIPE)
+				lr->lr_lfu |= LFU_REC_LMV_SHARD;
+			else if (magic == LMV_MAGIC_FOREIGN)
+				lr->lr_lfu |= LFU_REC_LMV_FOREIGN;
+		}
+"""
+
+# the helper, ahead of the function that fills a record
+RING_HELPER_ANCHOR = \
+    "static void lfu_fill_pfid(struct lfu_rec *lr, const struct lu_fid *pfid)\n"
+
+RING_HELPER = """/*
+ * Whether HSM has released the file: every component released, decided as
+ * mdt_hsm_is_released() decides it.  The bytes are raw from the target, and
+ * liblustreapi's scan_lov_released() reads them the same way for a scan
+ * that brought the layout across -- the two have to agree, or one file
+ * answers "lfs find --size" differently depending on which read it.
+ */
+static bool lfu_lov_released(const void *buf, int len)
+{
+	const struct lov_comp_md_v1 *comp = buf;
+	const struct lov_mds_md_v1 *v1 = buf;
+	__u32 magic;
+	__u16 count;
+	__u16 i;
+
+	if (len < (int)sizeof(*v1))
+		return false;
+
+	magic = le32_to_cpu(v1->lmm_magic);
+	if (magic == LOV_MAGIC_V1 || magic == LOV_MAGIC_V3)
+		return le32_to_cpu(v1->lmm_pattern) & LOV_PATTERN_F_RELEASED;
+	if (magic != LOV_MAGIC_COMP_V1 || len < (int)sizeof(*comp))
+		return false;
+
+	count = le16_to_cpu(comp->lcm_entry_count);
+	if (len < (int)(sizeof(*comp) + count * sizeof(comp->lcm_entries[0])))
+		return false;
+	for (i = 0; i < count; i++) {
+		__u32 off = le32_to_cpu(comp->lcm_entries[i].lcme_offset);
+
+		if (off > len - sizeof(*v1))
+			return false;
+		v1 = (const struct lov_mds_md_v1 *)((const char *)buf + off);
+		if (!(le32_to_cpu(v1->lmm_pattern) & LOV_PATTERN_F_RELEASED))
+			return false;
+	}
+	return true;
+}
+
+""" + RING_HELPER_ANCHOR
+
+
+def add_ring(t, prod):
+    """the producer half, in the spelling the commits below LU-20730 have"""
+    t("ring-lov-released", RING, RING_LOV_OLD, RING_LOV_NEW, since=prod)
+    t("ring-lmv-foreign", RING, RING_LMV_OLD, RING_LMV_NEW, since=prod)
+    t("ring-released-helper", RING, RING_HELPER_ANCHOR, RING_HELPER,
+      since=prod)

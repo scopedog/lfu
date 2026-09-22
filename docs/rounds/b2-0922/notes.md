@@ -301,3 +301,48 @@ directory above. Both want one more bit in `lr_lfu`, set where
 `lfu_fill_xattrs()` already has the bytes in hand -- a change to the module
 and the wire format, in a commit of its own, and LU-20722 is 2.19 material
 that gates nothing today.
+
+## The defect fixed: two bits on the wire
+
+`scan_size()` asked for the *bytes* of `trusted.lov` to decide whether a
+file is released, and the in-service backend carries the layout as presence.
+So `lov` was NULL and a released file fell into the SOM branch: with no
+`trusted.som` nothing set `STATX_SIZE` at all; with one, `stx_blocks` was
+the pre-release count. A device scan of the same MDT answers the inode size
+and one block. The foreign-directory regression from the morning is the same
+shape, so both are fixed together.
+
+`lr_lfu` had room (bits ran to `0x80`), so:
+
+    #define LFU_REC_LOV_RELEASED	0x100	/* every component released */
+    #define LFU_REC_LMV_FOREIGN	0x200	/* the trusted.lmv is a foreign one */
+
+The fill already has the bytes in hand where it sets `LFU_REC_HAVE_LOV`, and
+already reads the LMV magic one branch below for the shard case, so setting
+them is two conditions and a helper. The helper mirrors
+`scan_lov_released()` line for line -- following `lcme_offset` to each
+component rather than reading a pattern off the entry, which is what the
+first attempt got wrong and the module build caught
+(`lov_comp_md_entry_v1 has no member named lcme_pattern`).
+
+**Where it lands.** The header and the fill belong to **c21** (LU-20720),
+which introduces both; the consumer half to **c22**. genfix.py grew a
+per-file `since`, `PROD = c21` against `LIVE = c22`, for exactly this. And
+the fill has two spellings again -- inline in `lustre/lfu/lfu_ring.c` at
+c21-c22, extracted into `dt_otable_lfu_rec()` in
+`lustre/obdclass/dt_object.c` from c23 -- so the ring spelling is
+hand-written in [`b2bextra.py`](b2bextra.py) and the `dt_object.c` one
+generated. Confirmed after driving: the ring hunks land at c21 and c22, the
+`dt_object.c` hunks at c23 and up, the header bits from c21.
+
+**The residue, documented in the header rather than hidden:** the fill sets
+`HAVE_LOV` on `-ERANGE` too, so a layout too large for the xattr buffer is
+present and unjudged. The bit's absence therefore means "not known to be
+released", not "not released", and such a file keeps the old behaviour.
+
+**Verified:** 26/26 userspace builds; **the kernel modules build at c21**
+and at the tip, on the clone VM, which is the only place configured for
+them -- the local tree is `--disable-modules`, so the sweep never would have
+caught the `lcme_pattern` error; checkpatch clean on all three changed
+commits (c21's seven warnings are pre-existing `lfu_ring.c` ones);
+tip tree identical to the hand-edited tree.

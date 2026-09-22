@@ -14,7 +14,7 @@ failures look like the standing noise (sanity-lfsck, racer, sanityn,
 selinux-ssk) -- see [`lfu-autotest-known-noise`]. **The enforced ones are not
 triaged yet, and batch 2's push gate is "batch 1 jenkins-green".**
 
-**The stack:** `b2b-tip` = **434c3c58ec**, 26 commits, driven in
+**The stack:** `b2b-tip` = **63e0b42a28**, 26 commits, driven in
 `~/projects/lustre/lustre-scanfid` (branch `b2b-tip` there; also fetched into
 `~/lfs-carry-0915`). Below it: `b2-tip` 8f502eff1c, `b1-tip` 55a460f437 (what
 batch 1 was cut from), `r0921c-tip` f189a79af4, `r0921b-tip` be97aac251.
@@ -61,19 +61,11 @@ including conf-sanity 305, which **passes** on the clone VM, and a real
 `Test-Parameters` line in place of `ignore`. It differs from what is on
 Gerrit, and it goes up with its own batch, not with this one.
 
-**Two findings deliberately left on LU-20722**, both needing one more bit in
-`lr_lfu` where `lfu_fill_xattrs()` already has the bytes, which is a change
-to the module and the wire format in a commit of its own:
-
-- **(defect)** the released-file check in `scan_size()` still goes through
-  `scan_xattr()`, which needs the bytes. On the kernel backend a released
-  file gets no `STATX_SIZE` at all, or, with a `trusted.som`, the
-  pre-release `stx_blocks`. A device scan of the same MDT answers the inode
-  size and one block.
-- a **foreign** directory reads as striped, `trusted.lmv` holding
-  `LMV_MAGIC_FOREIGN` and the module setting `LFU_REC_HAVE_LMV` for it, so
-  a live MDT leaves its size unanswered where a device scan reports it.
-  Introduced by the 09-22 fix that made the striped test read presence.
+**Both findings left on LU-20722 are now fixed**, with two bits in `lr_lfu`
+(`LFU_REC_LOV_RELEASED`, `LFU_REC_LMV_FOREIGN`) set at c21 where the fill
+has the bytes and read at c22. The kernel side builds only on the clone VM
+-- the local tree is `--disable-modules`, so **a module change is not
+covered by the per-commit sweep** and has to be built there by hand.
 
 ### 3. What batch 2 already holds
 
