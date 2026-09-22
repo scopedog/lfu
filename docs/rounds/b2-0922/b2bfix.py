@@ -66,6 +66,9 @@ SCAN = "lustre/utils/liblustreapi_scan.c"
 APIH = "include/lustre/lustreapi.h"
 MAN3NS = "Documentation/man3/llapi_scan_namespace.3"
 SCANTEST = "lustre/tests/llapi_scan_test.c"
+CLOG = "lustre/utils/liblustreapi_scan_changelog.c"
+CLOGTEST = "lustre/tests/llapi_scan_changelog_test.c"
+MAN3FD = "Documentation/man3/llapi_find_device.3"
 
 # LU-20720: the commit that introduces the wire record and fills it
 PROD = "c21"
@@ -381,8 +384,36 @@ t('man3ns-live-1', MAN3NS,
   'guarantee fields already have: a caller never has one silently ignored.\nIt is also returned when\n.I lfsp_stats\nis not NULL and its\n.I ss_size\nis shorter than the minimum a scan writes back, which reaches through\n.IR ss_seen ,\nfor the same reason.\n', since="c02")
 
 t('scantest-live-0', SCANTEST,
+  '#include <libgen.h>\n#include <time.h>\n#include <ftw.h>\n#include <fnmatch.h>\n#include <getopt.h>\n',
+  '#include <time.h>\n#include <ftw.h>\n#include <fnmatch.h>\n#include <getopt.h>\n#include <libgen.h>\n', since="c00")
+
+t('scantest-live-1', SCANTEST,
   '\n\t/* the scan above delivered records: start the next check from zero */\n',
   '\n\t/* and the third of the same family: a flag this library does not\n\t * define, which the man page\'s ERRORS names beside the other two\n\t */\n\tsp.lfsp_flags = LLAPI_SCAN_F_STOP_ON_ERROR << 1;\n\trc = llapi_scan_namespace(testdir, &sp, count_cb, &res);\n\tASSERTF(rc == -EINVAL,\n\t\t"an undefined lfsp_flags returned %d, expected -EINVAL", rc);\n\tsp.lfsp_flags = 0;\n\n\t/* the scan above delivered records: start the next check from zero */\n', since="c00")
+
+t('clog-live-0', CLOG,
+  '\tif (!glimpse) {\n\t\tif (statx(fd, "", AT_EMPTY_PATH | AT_STATX_DONT_SYNC,\n\t\t\t  STATX_SIZE | STATX_BLOCKS, &lz) != 0)\n\t\t\treturn -errno;\n\t\tmask &= ~(STATX_SIZE | STATX_BLOCKS | STATX_MTIME);\n\t}\n\tif (statx(fd, "", AT_EMPTY_PATH, mask, &stx) != 0)\n',
+  '\tif (!glimpse)\n\t\tmask &= ~(STATX_SIZE | STATX_BLOCKS | STATX_MTIME);\n\tif (statx(fd, "", AT_EMPTY_PATH, mask, &stx) != 0)\n\t\treturn -errno;\n\t/*\n\t * The lazy read second, and not first.  ll_getattr_dentry() skips\n\t * ll_inode_revalidate() for AT_STATX_DONT_SYNC, and\n\t * llapi_open_by_fid_at() sends no RPC for an inode already in cache,\n\t * so read first it answers from the last revalidation -- often this\n\t * FID\'s previous resolve in event mode -- and the revalidating call\n\t * below it never reaches the size.  After it, the cached size is at\n\t * least as new as the attributes beside it.\n\t */\n\tif (!glimpse &&\n\t    statx(fd, "", AT_EMPTY_PATH | AT_STATX_DONT_SYNC,\n\t\t  STATX_SIZE | STATX_BLOCKS, &lz) != 0)\n', since="c09")
+
+t('clog-live-1', CLOG,
+  ' * why object mode exists: a file written a\n * hundred times is one lookup here, not a hundred.  An object that has since\n * been unlinked cannot be opened, and that is not an error -- the record is\n * delivered with what the event said and the rest absent, and a predicate\n * that needed more counts undecided.\n',
+  ' * why object mode exists: a file written a hundred times is one lookup\n * here, not a hundred.  An object that has since been unlinked cannot be\n * opened, and that is not an error -- the record is delivered with what the\n * event said and the rest absent, and a predicate that needed more counts\n * undecided.\n', since="c09")
+
+t('clog-live-2', CLOG,
+  '\tint rc = 0;\n\tint i = 0;\n',
+  '\t__u64 before = sl->sl_accepted;\n\tint rc = 0;\n\tint i = 0;\n', since="c09")
+
+t('clog-live-3', CLOG,
+  '\t} while (rc == 0 && ++i < n);\n',
+  '\t} while (rc == 0 && ++i < n);\n\n\t/*\n\t * A rename over an existing name is two objects under one cr_index,\n\t * and sl_accepted moves per object.  A consumer that stops on the\n\t * second would otherwise leave the whole record counted as consumed,\n\t * and _CLEAR would purge it with no callback having seen that\n\t * object -- which is what llapi_scan_changelog.3 promises cannot\n\t * happen.  The cache is empty in event mode, so scan_cl_held_first()\n\t * does not hold it back either.  Put it back where it was: a record\n\t * is consumed only when all of it is.\n\t */\n\tif (rc != 0)\n\t\tsl->sl_accepted = before;\n', since="c09")
+
+t('clogtest-live-0', CLOGTEST,
+  'static struct test_tbl_entry test_tbl[] = {\n\tTEST_REGISTER(0),\n\tTEST_REGISTER(1),\n\tTEST_REGISTER(2),\n\tTEST_REGISTER(3),\n\tTEST_REGISTER(4),\n\tTEST_REGISTER(5),\n\tTEST_REGISTER(6),\n\tTEST_REGISTER(7),\n\tTEST_REGISTER(8),\n',
+  '#define T9_DESC "sc_type_mask filters on the server, through the user"\nstatic void test9(void)\n{\n\tstruct llapi_scan_changelog_param sc;\n\tstruct cl_result all = { 0 }, masked = { 0 };\n\tint rc;\n\n\tif (cluser == NULL) {\n\t\tprintf("  no -u, so no user to filter for; skipped\\n");\n\t\treturn;\n\t}\n\n\tASSERTF(make_events(testdir) != 0, "cannot make events under %s",\n\t\ttestdir);\n\n\t/* the whole stream, for something to compare against */\n\tparam_init(&sc);\n\trc = llapi_scan_changelog(&sc, cl_cb, &all);\n\tASSERTF(rc == 0, "the unmasked scan failed: %s", strerror(-rc));\n\tASSERTF(all.cr_with_event > 0, "the unmasked scan delivered nothing");\n\n\t/*\n\t * sc_type_mask reaches the server only through\n\t * llapi_changelog_start_user(), which the library calls only when\n\t * the mask is set -- so this is the one case that exercises it, and\n\t * the refusals in test4 cover the mask without a user.\n\t */\n\tparam_init(&sc);\n\tsc.sc_type_mask = 1ULL << CL_CREATE;\n\trc = llapi_scan_changelog(&sc, cl_cb, &masked);\n\tASSERTF(rc == 0, "the masked scan failed: %s", strerror(-rc));\n\tASSERTF(masked.cr_with_event <= all.cr_with_event,\n\t\t"the mask delivered more than the whole stream: %llu > %llu",\n\t\t(unsigned long long)masked.cr_with_event,\n\t\t(unsigned long long)all.cr_with_event);\n\n\tprintf("  %llu of %llu records with CL_CREATE asked for\\n",\n\t       (unsigned long long)masked.cr_with_event,\n\t       (unsigned long long)all.cr_with_event);\n}\n\nstatic struct test_tbl_entry test_tbl[] = {\n\tTEST_REGISTER(0),\n\tTEST_REGISTER(1),\n\tTEST_REGISTER(2),\n\tTEST_REGISTER(3),\n\tTEST_REGISTER(4),\n\tTEST_REGISTER(5),\n\tTEST_REGISTER(6),\n\tTEST_REGISTER(7),\n\tTEST_REGISTER(8),\n\tTEST_REGISTER(9),\n', since="c09")
+
+t('man3fd-live-0', MAN3FD,
+  "as it does for a scan.  Four of its fields are the search's to decide and\nare overwritten whatever the caller set:\n.IR lfsp_want ,\n.IR lfsp_thread_count ,\n.I lfsp_stats\nand\n.IR lfsp_filter .\n",
+  "as it does for a scan.  Five of its fields are the search's to decide and\nare overwritten whatever the caller set:\n.IR lfsp_want ,\n.IR lfsp_thread_count ,\n.IR lfsp_stats ,\n.I lfsp_filter\nand\n.IR lfsp_got .\nThe last is cleared rather than filled for the caller: it would report the\ndemand mask the search settled on and not the one the caller asked for.\n", since="c10")
 
 # the same fixes in the spelling the commits below LU-20730 have
 b2bextra.add(t, LIVE, MSG)

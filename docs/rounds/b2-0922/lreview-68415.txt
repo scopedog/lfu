@@ -1,0 +1,41 @@
+========================================================================
+lreview: last 1 commit(s) of b2lr3
+========================================================================
+generated: 2026-09-22T20:23:30+00:00
+repository: /tmp/claude-1004/-home-nishida-projects-lustre-lfu/854410f9-d17b-4d3f-9ac5-666eb4041341/scratchpad/b2lr3
+reviews: 1
+totals: 5.6M tokens, $3.23
+
+  1. HEAD  9a316be5d13e  LU-20649 llapi: a changelog as an Object Stream -- findings (4)
+
+========================================================================
+[1/1] HEAD  9a316be5d13e  LU-20649 llapi: a changelog as an Object Stream
+========================================================================
+
+status: findings (4 finding(s)), severity medium
+run:    opus, 5.6M tokens, $3.23, 6m09s
+
+Overall assessment
+------------------------------------------------------------------------
+Some concerns, see inline comments. One path lets LLAPI_SCAN_CL_F_CLEAR purge a record whose second object never reached the callback; the rest are minor and can ride along on that refresh.
+
+Findings (4)
+------------------------------------------------------------------------
+
+(1) /COMMIT_MSG (line 7)
+    (style) This isn't a bug, but the summary is a noun phrase, not an imperative, and it doesn't name the new entry point, so `git log --grep llapi_scan_changelog` won't find it. Something like "llapi: add llapi_scan_changelog() changelog reader" would do. If the patch is refreshed.
+
+(2) lustre/utils/liblustreapi_scan_changelog.c (line 831)
+    (defect) In event mode a rename over an existing name delivers two records under one cr_index. If the first gets through (or sc_filter consumes it), scan_cl_deliver() sets sl_accepted to cr_index. If the callback then stops on the second, the loop breaks with rc = 0, and the final scan_cl_clear(sl, true) clears through cr_index. The cache is empty in event mode, so scan_cl_held_first() doesn't hold it back:
+
+        scan_cl_event(): deliver(fids[0]) -> sl_accepted = cr_index
+                         deliver(fids[1]) -> cb returns stop
+        llapi_scan_changelog(): rc >= 0 -> scan_cl_clear(sl, true) -> clear:cr_index
+
+    With LLAPI_SCAN_CL_F_CLEAR, the second object's record is then gone before any callback took it, which the man page says cannot happen ("never ahead of the consumer"). Could sl_accepted move only after every object of the record has been decided, or drop to cr_index - 1 when a later one stops?
+
+(3) lustre/utils/liblustreapi_scan_changelog.c (line 260)
+    (minor) The lazy size is read here with AT_STATX_DONT_SYNC, before the statx() below that revalidates. ll_getattr_dentry() skips ll_inode_revalidate() for DONT_SYNC. llapi_open_by_fid_at() also sends no RPC for an inode already in cache: search_inode_for_lustre() returns the ilookup5() hit. So for a cached inode, st_size/st_blocks come from the last revalidation, often the previous resolve of the same FID in event mode, and the revalidation this call pays for never reaches the size. Would it work to swap the two calls, so the lazy read follows the revalidating one?
+
+(4) lustre/tests/sanity.sh (line 21305)
+    (minor) This comment doesn't match the library. llapi_scan_changelog() calls llapi_changelog_start_user() only when sc_type_mask is non-zero, and none of the cases in llapi_scan_changelog_test.c sets sc_type_mask with a user (test4 sets it with sc_user NULL, which is refused first). So -u reaches only test6's clear, and the filter path is never exercised. For the same reason, the "-m ALL" comment above about the filter's MDD lookup doesn't apply either. Could a case with sc_type_mask and -u be added, since that is the path those comments describe? Otherwise the comments need to change.

@@ -392,3 +392,52 @@ in the uapi header where a consumer sizing a read buffer will look for it
 VM**; checkpatch 0 errors, and c21's warnings went 7 -> 9, the two new ones
 being the "review error messages" class the file already carries for its
 existing `CERROR`. Tip tree identical to the hand-edited tree.
+
+## lreview on 68415 and 68416 — batch 2's last gate item
+
+Their trees were settled by the AI round, so the reviews were finally worth
+running. **68415: 4 findings, one defect. 68416: 2 findings, no defects
+("neither needs a new revision on its own").** All six taken.
+
+### The defect: _CLEAR could purge a record no callback saw
+
+In event mode a rename over an existing name is **two objects under one
+`cr_index`**, and `scan_cl_deliver()` moves `sl_accepted` to that index after
+each acceptance. Traced through the code before fixing:
+
+    scan_cl_event():  deliver(fids[0]) -> sl_accepted = cr_index
+                      deliver(fids[1]) -> callback stops
+    the read loop:    if (crc != 0) { sl_stop_rc = crc; rc = 0; break; }
+    llapi_scan_changelog(): if (rc >= 0) scan_cl_clear(sl, true)
+
+so the clear runs through `cr_index` — the record whose *second* object the
+consumer never took. The cache is empty in event mode, so
+`scan_cl_held_first()` returns 0 and does not hold it back either. That is
+exactly what llapi_scan_changelog.3 says cannot happen, "never ahead of the
+consumer".
+
+`scan_cl_event()` now saves `sl_accepted` before the loop and puts it back
+if any object stopped: a record is consumed only when all of it is.
+
+### The rest
+
+- **68415** the lazy `AT_STATX_DONT_SYNC` read moved *after* the
+  revalidating `statx()`: `ll_getattr_dentry()` skips revalidation for
+  `DONT_SYNC` and `llapi_open_by_fid_at()` sends no RPC for a cached inode,
+  so read first it answered from this FID's previous resolve and the
+  revalidation this call pays for never reached the size.
+- **68415** `test9` added — `sc_type_mask` **with** a user, which is the one
+  case that reaches `llapi_changelog_start_user()`, since the library calls
+  it only when the mask is set. Until now sanity 157d's comments described a
+  path the binary never ran.
+- **68415** the summary names its entry point:
+  `llapi: llapi_scan_changelog(), a changelog as a stream`, the shape c25
+  already uses, so `git log --grep llapi_scan_changelog` finds it.
+- **68416** `llapi_find_device.3` said "Four fields are the search's to
+  decide" where the kernel-doc says five; `lfsp_got` is now listed, with the
+  reason it is cleared rather than filled.
+- **68416** `<libgen.h>` moved after `<getopt.h>`.
+
+**Verified:** tip `7f9b243c26` identical to the hand-edited tree, 26/26
+per-commit builds, checkpatch 0 errors on both (the recurring
+"1 errors, 45 warnings, 215 lines" is the standing `lustreapi.7` noise).

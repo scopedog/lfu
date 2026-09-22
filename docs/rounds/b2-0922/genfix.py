@@ -67,10 +67,13 @@ FILE_SINCE = {
     "lustre/utils/liblustreapi_scan.c": "c02",
     "Documentation/man3/llapi_scan_namespace.3": "c02",
     "lustre/tests/llapi_scan_test.c": "c00",
+    "lustre/tests/llapi_scan_changelog_test.c": "c09",
     "include/lustre/lustreapi.h": "c00",
     "lustre/utils/lfs.c": "c06",
     "lustre/utils/lfs_find_parse.c": "c06",
     "lustre/utils/libscan_zfs.c": "c07",
+    "lustre/utils/liblustreapi_scan_changelog.c": "c09",
+    "Documentation/man3/llapi_find_device.3": "c10",
 }
 
 
@@ -114,7 +117,10 @@ FILES = [("PFIND", "lustre/utils/liblustreapi_pfind.c"),
          ("SCAN", "lustre/utils/liblustreapi_scan.c"),
          ("APIH", "include/lustre/lustreapi.h"),
          ("MAN3NS", "Documentation/man3/llapi_scan_namespace.3"),
-         ("SCANTEST", "lustre/tests/llapi_scan_test.c")]
+         ("SCANTEST", "lustre/tests/llapi_scan_test.c"),
+         ("CLOG", "lustre/utils/liblustreapi_scan_changelog.c"),
+         ("CLOGTEST", "lustre/tests/llapi_scan_changelog_test.c"),
+         ("MAN3FD", "Documentation/man3/llapi_find_device.3")]
 
 
 def git(*args):
@@ -275,6 +281,9 @@ SCAN = "lustre/utils/liblustreapi_scan.c"
 APIH = "include/lustre/lustreapi.h"
 MAN3NS = "Documentation/man3/llapi_scan_namespace.3"
 SCANTEST = "lustre/tests/llapi_scan_test.c"
+CLOG = "lustre/utils/liblustreapi_scan_changelog.c"
+CLOGTEST = "lustre/tests/llapi_scan_changelog_test.c"
+MAN3FD = "Documentation/man3/llapi_find_device.3"
 
 # LU-20720: the commit that introduces the wire record and fills it
 PROD = "c21"

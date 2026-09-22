@@ -1,0 +1,29 @@
+========================================================================
+lreview: last 1 commit(s) of b2lr3
+========================================================================
+generated: 2026-09-22T20:27:57+00:00
+repository: /tmp/claude-1004/-home-nishida-projects-lustre-lfu/854410f9-d17b-4d3f-9ac5-666eb4041341/scratchpad/b2lr3
+reviews: 1
+totals: 2.6M tokens, $2.00
+
+  1. HEAD  156acde58ce3  LU-20650 llapi: fill a scan record for one FID -- findings (2)
+
+========================================================================
+[1/1] HEAD  156acde58ce3  LU-20650 llapi: fill a scan record for one FID
+========================================================================
+
+status: findings (2 finding(s)), severity low
+run:    opus, 2.6M tokens, $2.00, 3m37s
+
+Overall assessment
+------------------------------------------------------------------------
+Looks good. There are two optional items inline. Neither needs a new revision on its own, so pick them up next time the patch is refreshed.
+
+Findings (2)
+------------------------------------------------------------------------
+
+(1) Documentation/man3/llapi_find_device.3 (line 66)
+    (minor) llapi_find_device() now also clears lfsp_got, and its kernel-doc was updated to say "Five fields". This page still says four and lists only lfsp_want, lfsp_thread_count, lfsp_stats and lfsp_filter. A caller reading only the man page would set lfsp_got, expect it to be filled, and read back whatever was there before the call. If the patch is refreshed, could lfsp_got be added here, with the reason that it would report find's demand mask and not the caller's?
+
+(2) lustre/tests/llapi_scan_test.c (line 16)
+    (style) This isn't a bug, but <libgen.h> is placed between <fcntl.h> and <ftw.h>. In alphabetical order it goes after <getopt.h>. The ftw/fnmatch order just below was already wrong before this patch, so it's fine to leave that alone.

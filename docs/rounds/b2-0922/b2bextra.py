@@ -289,6 +289,12 @@ MSG_FIXES = [
     # 68158: a bullet describing an edit that is not in the diff
     ("msg-68158-phantom", "c04",
      "- \"param.\" becomes \"param->\"\n", ""),
+    # 68415: the summary did not name the entry point, so git log --grep
+    # llapi_scan_changelog missed it.  The shape is c25's own:
+    # "llapi: llapi_scan_mount(), a scan from a client".
+    ("msg-68415-subject", "c09",
+     "LU-20649 llapi: a changelog as an Object Stream\n",
+     "LU-20649 llapi: llapi_scan_changelog(), a changelog as a stream\n"),
 ]
 
 
