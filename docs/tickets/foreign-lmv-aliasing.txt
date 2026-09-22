@@ -1,0 +1,33 @@
+Project: LU    Type: Bug    Severity: 3    (LU defines no components)
+Summary: lfs find -printf %L* reads a foreign LMV through lmv_user_md
+
+In {{printf_format_lustre()}} the directory branch reads
+{{param->fp_lmv_md}} as {{struct lmv_user_md}}. A *foreign* LMV is
+{{struct lmv_foreign_md}}: a different structure at the same address. So
+every field is somebody else's bytes:
+
+{noformat}
+lum_stripe_count  overlays  lfm_length
+lum_hash_type     overlays  lfm_flags
+lum_pool_name     overlays  lfm_value[16..32]
+lum_objects[]     overlays  lfm_value
+{noformat}
+
+On the foreign directory sanity 27K builds, {{-printf %Lc}} prints 73 --
+the foreign value's length -- as a stripe count, and {{%Lo}} then walks 73
+entries of {{lum_objects[]}}, which is whatever the previously scanned
+directory left in {{fp_lmv_md}}. {{%Lp}} prints part of the foreign
+payload as a pool name.
+
+{{%Li}} already tests {{lmv_is_foreign()}}; the other arms do not.
+
+h3. Landed code, and the fix is already written
+
+This is not introduced by the LFU series -- a namespace walk reaches the
+same line with an {{lmv_foreign_md}} in {{fp_lmv_md}}.
+
+https://review.whamcloud.com/c/fs/lustre-release/+/68095 now guards the
+whole directory branch with one {{lmv_is_foreign()}} test at the top, so
+the bug is fixed *when that series lands*. A backport to a maintenance
+branch wants that guard split out as a standalone patch, which is what
+this ticket is for.

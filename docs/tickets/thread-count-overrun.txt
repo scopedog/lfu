@@ -1,0 +1,23 @@
+Project: LU    Type: Bug    Severity: 3    (LU defines no components)
+Summary: lfs find --thread-count overruns a path buffer (landed, from LU-17814)
+
+Found by an AI review of an unrelated change on 2026-09-21. This is in
+*landed* code and is not introduced by the LFU series; it is filed so the
+fix can stand on its own and be backported.
+
+h3. Where
+
+Introduced with the threaded walk in LU-17814. See the board entry in
+scopedog/lfu docs/BOARD.md, "Two upstream bugs to file".
+
+h3. Why it matters
+
+A heap write past the end of a path buffer, reachable from an ordinary
+{{lfs find --thread-count N}} on a deep enough tree.
+
+h3. Status
+
+Not yet reproduced against a build. Before this is fixed it wants the
+lift-and-compare treatment the LFU work uses: lift the real static
+functions into a harness, demonstrate the overrun on the unfixed build,
+then show the fix closes it.

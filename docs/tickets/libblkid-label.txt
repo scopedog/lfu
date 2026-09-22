@@ -1,0 +1,55 @@
+Project: LU    Type: Improvement    (LU defines no components)
+Summary: lfs find --label: resolve a scan target by filesystem label, via libblkid
+
+{{lfs find --target NAME}} resolves the target through
+{{osd-*/*/mntdev}}, which exists only while that target is mounted. A
+device scanner exists to read a target that is *stopped*, so the option
+that names a target cannot name the ones the scanner is for.
+lfs-find.1 has to warn about this today.
+
+Andreas Dilger raised this on https://review.whamcloud.com/c/fs/lustre-release/+/68160
+(2026-09-11, three places on what was then lfind):
+
+{noformat}
+For e2fsprogs and blkid, this is `--label`, which would be a useful alias
+for this argument and if libblkid is linked in then the device can be
+found by the label instead of doing a manual device scan ourselves.
+
+Using libblkid would allow NAME to be resolved even if the device is
+unmounted.
+
+This could use `blkid_get_devname()` to look up the device by the label.
+{noformat}
+
+h3. Proposed
+
+* {{--label LABEL}} as the spelling, matching e2fsprogs and blkid.
+* libblkid *optional*, behind a configure check, so a build without it
+  still works. Nothing in the tree links libblkid today: no configure
+  check, no Makefile.am link, no BuildRequires.
+* {{--target}} keeps the mntdev path as the fallback.
+
+h3. Scope, measured
+
+{{lfs_find_local_targets()}} is 86 lines doing three jobs. Only one of them
+is replaced:
+
+* {{--target}}: one {{blkid_get_devname(NULL, "LABEL=NAME", NULL)}} in
+  place of the glob, the per-match read and the dirname/basename recovery
+  of the target name. This is the simplification, and it gains the
+  unmounted case.
+* {{--local}} means "every target this node serves". blkid answers "every
+  Lustre-labelled device attached", which also catches another node's
+  filesystem and stale snapshots. Not replaceable.
+* {{--fsname}} likewise: blkid would find that filesystem's targets this
+  node does not serve, which is a behaviour change rather than a
+  simplification.
+* {{scan_device_in_service()}} keeps the same glob whatever happens, since
+  in-service is a mount question. So the code leaves one of three callers,
+  not the tree.
+
+h3. Not urgent
+
+The scanner works on a stopped target today by naming its device directly
+({{lfs find --device}}). This makes the *label* usable for that, which is
+what an admin has.
