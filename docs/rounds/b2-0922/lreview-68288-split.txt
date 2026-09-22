@@ -1,0 +1,36 @@
+========================================================================
+lreview: last 1 commit(s) of b2lr3
+========================================================================
+generated: 2026-09-22T14:15:29+00:00
+repository: /tmp/claude-1004/-home-nishida-projects-lustre-lfu/854410f9-d17b-4d3f-9ac5-666eb4041341/scratchpad/b2lr3
+reviews: 1
+totals: 7.1M tokens, $6.79
+
+  1. HEAD  d3faad7f4041  LU-20637 llapi: name a device scan's objects -- findings (2)
+
+========================================================================
+[1/1] HEAD  d3faad7f4041  LU-20637 llapi: name a device scan's objects
+========================================================================
+
+status: findings (2 finding(s)), severity low
+run:    opus, 7.1M tokens, $6.79, 10m45s
+
+Overall assessment
+------------------------------------------------------------------------
+Looks good. The new naming paths hold up under review: the OST owner is read from both trusted.fid and the LMA (length-checked to the end of loa_parent_fid), the directory map is bounded and load-factor safe, the pre-pass reuses the same open and correctly resets the cursor/end/stop state between sweeps, and the -EXDEV label check is the only place the mount and the target can be matched. Two optional nits inline for whenever it is next refreshed -- no need to re-spin for them.
+
+Findings (2)
+------------------------------------------------------------------------
+
+(1) lustre/utils/liblustreapi_pfind.c (line 3458)
+    (minor) This opening sentence looks like a leftover from an earlier revision: it promises the lookup runs for what the map cannot place, but the guard below is `fc->fc_dirmap == NULL && fc->fc_mnt_fd >= 0`, so once a map exists there is never a lookup. The next paragraph of the same comment says the opposite ("An MDT's own map answers or nothing does"), and that is what the code and the commit message describe.
+
+    If the patch is refreshed, dropping the first paragraph would leave the two in agreement.
+
+(2) lustre/utils/liblustreapi_pfind.c (line 4537)
+    (minor) Is -ENOTDIR specific enough to key this explanation off? It is the pre-pass's own answer via `pp_missing_rc`, but the same call can return -ENOTDIR from much earlier: `scan_device_exists()` answers `-errno` from `stat()`, so `lfs find --device /dev/null/x --paths` gives
+
+        cannot scan '/dev/null/x': Not a directory
+        --paths composes a pathname from an MDT's own directories, and '/dev/null/x' has none; ...
+
+    which points the reader at the wrong thing. If the patch is refreshed, a `bool` out-parameter on `struct scan_prepass` (alongside `pp_ran`) saying the pre-pass refused the target would make the message fire only for the case it describes.

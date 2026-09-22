@@ -14,7 +14,7 @@ failures look like the standing noise (sanity-lfsck, racer, sanityn,
 selinux-ssk) -- see [`lfu-autotest-known-noise`]. **The enforced ones are not
 triaged yet, and batch 2's push gate is "batch 1 jenkins-green".**
 
-**The stack:** `b2b-tip` = **10609402a6**, 26 commits, driven in
+**The stack:** `b2b-tip` = **5af252f0e1**, 26 commits, driven in
 `~/projects/lustre/lustre-scanfid` (branch `b2b-tip` there; also fetched into
 `~/lfs-carry-0915`). Below it: `b2-tip` 8f502eff1c, `b1-tip` 55a460f437 (what
 batch 1 was cut from), `r0921c-tip` f189a79af4, `r0921b-tip` be97aac251.
@@ -76,6 +76,11 @@ measured only for non-regression.
   `--thread-count` path-buffer overrun from LU-17814, and
   `printf_format_lustre()` reading a foreign LMV through `lmv_user_md`.
   Neither is ours, neither is filed, both want the user's go-ahead.
+- **Queued from the 09-22 lreview on 68288:** the `--paths` explanation is
+  keyed off `-ENOTDIR`, which `scan_device_exists()` also answers, so
+  `lfs find --device /dev/null/x --paths` explains that an MDT has no
+  directories when the path simply is not there. A second `bool` out on
+  `struct scan_prepass`, beside `pp_ran`, fixes it. Not a defect.
 - **Queued for a later round on already-pushed changes:** 68160's doubled
   program name in `llapi_error()`, its `# name (device)` header keyed off
   targets found rather than scanned, the `--target`/`--fsname` coverage gap,

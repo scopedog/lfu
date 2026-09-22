@@ -141,6 +141,23 @@ upper anchor against the stack **as the lower set leaves it**, not against
 the raw commit. Confirmed after driving: `fc_tgt_live` appears 0 times at
 c08 and c21, 4 times at c22 and c25.
 
+## The lreview on the split, and what is left of it
+
+`d3faad7f40`, 2 findings, no defects, "no need to re-spin":
+
+1. **Taken.** The comment's opening paragraph was a leftover of the
+   unsplit version -- it promised a lookup for what the map cannot place,
+   while the guard right below it is `fc_dirmap == NULL` and the next
+   paragraph said the opposite. Dropped from the lower variant; the upper
+   one keeps it, where it is true again.
+2. **Queued, not ours from this round.** The `--paths` explanation is keyed
+   off `-ENOTDIR`, which the pre-pass answers through `pp_missing_rc` --
+   but so does `scan_device_exists()` via `stat()`, so
+   `lfs find --device /dev/null/x --paths` explains that an MDT has no
+   directories when the real answer is that the path is not there. A second
+   `bool` out on `struct scan_prepass`, next to `pp_ran`, would make the
+   message fire only for its own case.
+
 The lab numbers above were measured on `55c6aaddd9`, whose only difference
 from the split tip is those 14 EXAMPLES lines.
 
