@@ -35,7 +35,11 @@ FILES = [("PFIND", "lustre/utils/liblustreapi_pfind.c"),
          ("SPEC", "lustre.spec.in"),
          ("FIND1", "Documentation/man1/lfs-find.1"),
          ("DEV3", "Documentation/man3/llapi_scan_device.3"),
-         ("CONF", "lustre/tests/conf-sanity.sh")]
+         ("CONF", "lustre/tests/conf-sanity.sh"),
+         ("BACKEND", "lustre/utils/lustreapi_scan_backend.h"),
+         ("LDISKFS", "lustre/utils/libscan_ldiskfs.c"),
+         ("ZFS", "lustre/utils/libscan_zfs.c"),
+         ("MAKEAM", "lustre/utils/Makefile.am")]
 
 
 def git(*args):
@@ -175,6 +179,10 @@ SPEC = "lustre.spec.in"
 FIND1 = "Documentation/man1/lfs-find.1"
 DEV3 = "Documentation/man3/llapi_scan_device.3"
 CONF = "lustre/tests/conf-sanity.sh"
+BACKEND = "lustre/utils/lustreapi_scan_backend.h"
+LDISKFS = "lustre/utils/libscan_ldiskfs.c"
+ZFS = "lustre/utils/libscan_zfs.c"
+MAKEAM = "lustre/utils/Makefile.am"
 
 # LU-20722: the first commit with a backend that reads a target in service
 LIVE = "c22"

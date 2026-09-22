@@ -247,3 +247,57 @@ libscan_kernel.c spelling is hand-written in
 [`b2bextra.py`](b2bextra.py) -- the old-spelling-down, new-spelling-up
 pattern. Confirmed after driving: those two apply at c22-c24 and the
 generated pair at c25.
+
+## conf-sanity 305, run
+
+**PASS in 17s** on the clone VM, against the plugin rebuilt from the fixed
+tip and installed to `/usr/lib64/lustre/scan_osd_kernel.so` -- the installed
+`.so` beats the build tree, so a run against the September 17 one would have
+tested nothing. Output: `a scan of the mounted lustre-MDT0000 named 20
+objects`, and the `--stripe-count` refusal held.
+
+**The first run skipped**: `Need MDS >= 2.17.58`, and the rig's modules are
+`2.17.57_206_g6a13016`. That guard is the one all of 300-304 carry, so none
+of this block runs here without a full module build. The passing run had the
+guard removed **in the VM's working copy only** ([`conf305b.sh`](conf305b.sh));
+the committed test keeps it. The script's EXIT trap did not fire, so the file
+was restored from git by hand and checked: guard present, test present,
+working tree clean. What is proven is the test body against a real mounted
+target -- the thing that would have broken in Maloo -- not the version gate.
+
+## The second lreview on LU-20722: seven more, five taken
+
+`ff9f8a36cf`, 7 findings, one defect. **One was mine from an hour earlier:**
+reading presence as striped also reads a *foreign* directory as striped,
+since `trusted.lmv` holds `LMV_MAGIC_FOREIGN` too and the module sets
+`LFU_REC_HAVE_LMV` for it -- so a live MDT leaves its size unanswered where
+a device scan reports it. Traded one divergence for a smaller one.
+
+**Taken (5):**
+
+1. The commit message did not mention the naming half at all -- `pp_live`,
+   `fc_tgt_live`, `find_lookup_spares_tgt()` and the changelog's hard-coded
+   true. It is user-visible and the man page documents it, so the hunk read
+   as unrelated. Said.
+4. The refusal text asserted "a target in service", but it fires on
+   `lfsp_got`, so a **stopped** OST read off the device lands there too --
+   an OST scan never answers `LLAPI_SCAN_LAYOUT`. Now it says what the scan
+   does not carry without claiming why, and lfs-find.1 with it.
+5. The `-links` undecided count ran *before* the prefilter, so
+   `-type f -links +1` reported every directory on the target as undecided.
+   Moved below it.
+6. `so_xa_present` took over `so_padding[1]` and nothing versioned the
+   plugin interface: a `scan_osd_*.so` built before it leaves the field
+   zero, which reads as "no layout" and reports a striped file's MDT inode
+   size as the file's own, silently -- and the `$LUSTRE` fallback loads
+   whatever a build tree has. Each plugin now exports `scan_<name>_abi` and
+   the loader refuses one that disagrees.
+7. Two `if SERVER` blocks in `Makefile.am` where one does.
+
+**Left, on the board:** (2) the released-file check still goes through
+`scan_xattr()`, so on the kernel backend a released file gets no
+`STATX_SIZE` at all, or the pre-release `stx_blocks`; and (3) the foreign
+directory above. Both want one more bit in `lr_lfu`, set where
+`lfu_fill_xattrs()` already has the bytes in hand -- a change to the module
+and the wire format, in a commit of its own, and LU-20722 is 2.19 material
+that gates nothing today.

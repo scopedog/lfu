@@ -75,6 +75,25 @@ a target while it is mounted -- counts, --paths, -name, and that
 refusal -- and skips where lfu.ko is not there to read one.
 """
 
+# and the naming half of the same commit, which the message did not mention
+MSG_NAMING_OLD = """A stripe of a striped directory is marked in the record and rebuilt
+as its LMV magic, so --paths does not print a shard as a directory.
+"""
+
+MSG_NAMING_NEW = """A stripe of a striped directory is marked in the record and rebuilt
+as its LMV magic, so --paths does not print a shard as a directory.
+
+Naming changes with it.  A scan reports whether its target is in
+service, and lfs find takes a fid2path lookup only where that
+lookup will not be sent to the target being scanned -- the target
+is running, or the object is an OST object named through its owner
+on an MDT.  So --fid2path on a running MDT now names what the
+directory map could not place, under DNE the objects whose
+ancestors are on another MDT, at one ioctl each; on a stopped one
+it names no more than it did.  A changelog is read from a running
+MDT, so that source says so.
+"""
+
 MSG_TESTPARAMS_OLD = "Test-Parameters: ignore\n"
 MSG_TESTPARAMS_NEW = "Test-Parameters: testlist=conf-sanity env=ONLY=305\n"
 
@@ -84,5 +103,6 @@ def add(t, live, msg):
     t("kernel-so-valid", KERNEL, SO_VALID_OLD, SO_VALID_NEW, since=live)
     t("kernel-igif", KERNEL, IGIF_ANCHOR, IGIF_NEW, since=live)
     t("msg-refusal-reach", msg, MSG_REFUSE_OLD, MSG_REFUSE_NEW, only=[live])
+    t("msg-naming", msg, MSG_NAMING_OLD, MSG_NAMING_NEW, only=[live])
     t("msg-testparams", msg, MSG_TESTPARAMS_OLD, MSG_TESTPARAMS_NEW,
       only=[live])

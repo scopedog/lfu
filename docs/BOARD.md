@@ -14,7 +14,7 @@ failures look like the standing noise (sanity-lfsck, racer, sanityn,
 selinux-ssk) -- see [`lfu-autotest-known-noise`]. **The enforced ones are not
 triaged yet, and batch 2's push gate is "batch 1 jenkins-green".**
 
-**The stack:** `b2b-tip` = **1a4e8b87b9**, 26 commits, driven in
+**The stack:** `b2b-tip` = **434c3c58ec**, 26 commits, driven in
 `~/projects/lustre/lustre-scanfid` (branch `b2b-tip` there; also fetched into
 `~/lfs-carry-0915`). Below it: `b2-tip` 8f502eff1c, `b1-tip` 55a460f437 (what
 batch 1 was cut from), `r0921c-tip` f189a79af4, `r0921b-tip` be97aac251.
@@ -56,10 +56,24 @@ and the per-commit build sweep are clean. Gate: batch 1 jenkins-green --
 which now means triaging those enforced failures first.
 
 **Note for the push:** LU-20722 (c22) now carries part of 68288's fix and
-the ten fixes from its own 09-22 lreview, including conf-sanity 305 and a
-real `Test-Parameters` line in place of `ignore`. It differs from what is on
-Gerrit, and it goes up with its own batch, not with this one. **It has not
-been re-lreviewed since those fixes.**
+two rounds of its own 09-22 lreview -- ten findings then five more --
+including conf-sanity 305, which **passes** on the clone VM, and a real
+`Test-Parameters` line in place of `ignore`. It differs from what is on
+Gerrit, and it goes up with its own batch, not with this one.
+
+**Two findings deliberately left on LU-20722**, both needing one more bit in
+`lr_lfu` where `lfu_fill_xattrs()` already has the bytes, which is a change
+to the module and the wire format in a commit of its own:
+
+- **(defect)** the released-file check in `scan_size()` still goes through
+  `scan_xattr()`, which needs the bytes. On the kernel backend a released
+  file gets no `STATX_SIZE` at all, or, with a `trusted.som`, the
+  pre-release `stx_blocks`. A device scan of the same MDT answers the inode
+  size and one block.
+- a **foreign** directory reads as striped, `trusted.lmv` holding
+  `LMV_MAGIC_FOREIGN` and the module setting `LFU_REC_HAVE_LMV` for it, so
+  a live MDT leaves its size unanswered where a device scan reports it.
+  Introduced by the 09-22 fix that made the striped test read presence.
 
 ### 3. What batch 2 already holds
 
