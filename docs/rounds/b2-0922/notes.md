@@ -346,3 +346,49 @@ them -- the local tree is `--disable-modules`, so the sweep never would have
 caught the `lcme_pattern` error; checkpatch clean on all three changed
 commits (c21's seven warnings are pre-existing `lfu_ring.c` ones);
 tip tree identical to the hand-edited tree.
+
+## The lreview on c21 (LU-20720): severity high, nine findings, all taken
+
+`e9525db572`, the commit that introduces the ring and the wire record, had
+never been reviewed with the bits added to it today. Three defects.
+
+**(1) and (2), two races in the ring's end of stream.** The reader loaded
+`avail` and then `done`, so a producer that advanced `head` and only then
+set `done` between those two loads gave the reader a clean EOF with records
+still in the ring -- the window opens exactly once per scan, when the reader
+catches up. And `r->err` was a plain store before `WRITE_ONCE(r->done, 1)`
+with no acquire on the read side, so a scan that ended in `-ESHUTDOWN` could
+be reported as a clean EOF on a weakly ordered CPU. Now `done` is read
+first with `smp_load_acquire()` and published with `smp_store_release()`.
+
+**(3) a failed xattr read is not an absent one.** The fill's comment claimed
+a clear `LFU_REC_HAVE_LOV` reads as "not answered"; the header says it means
+"the object has a trusted.lov", so an `-EIO` built a record identical to a
+file with no layout and a consumer took the MDT inode's size for the file's.
+A third bit, `LFU_REC_XA_INCOMPLETE`, now says the HAVE_* bits are not a
+complete answer for this object, and `scan_size()` leaves the size
+unanswered rather than guessing.
+
+**(4) and this is the one that matters for this morning's work:** the xattr
+scratch was **64 bytes**. A `lov_mds_md_v1` is 32 plus 24 a stripe, a v3
+with a pool name is 48 before its first, and every composite layout is
+larger again -- so they all came back `-ERANGE`, the released question went
+unanswered, and the `LOV_MAGIC_COMP_V1` arm of the helper written an hour
+earlier was unreachable. `LFU_REC_LMV_FOREIGN` had the same hole for a
+foreign value over 48 bytes. **The fix as first written was very nearly
+inert.** `DT_LFU_XA_BUFLEN` is now a page. The read costs the same either
+way -- the OSD has located the xattr by the time the size is compared, so
+what changes is how much is copied out of a block it already holds, not
+whether the block is read.
+
+The rest: the producer kthread is named for its target, a bad `ring_size` or
+`batch` says which and why instead of a silent `-EINVAL`, `LFU_REC_MAX` is
+in the uapi header where a consumer sizing a read buffer will look for it
+(and no longer duplicated in `lfu_ring.c`), and the two man4 pages point at
+`lfu.batch(4)` and `lfu.ring_size(4)` rather than `batch(4)` and
+`ring_size(4)`, which `man` would not find.
+
+**Verified:** 26/26 userspace builds; **modules built at c21 on the clone
+VM**; checkpatch 0 errors, and c21's warnings went 7 -> 9, the two new ones
+being the "review error messages" class the file already carries for its
+existing `CERROR`. Tip tree identical to the hand-edited tree.

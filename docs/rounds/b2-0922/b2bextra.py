@@ -127,6 +127,15 @@ RING_LOV_NEW = """		rc = lfu_fill_xattr(env, iops, di, r, XATTR_NAME_LOV, buf,
 		if (rc >= 0 || rc == -ERANGE)
 			lr->lr_lfu |= LFU_REC_HAVE_LOV;
 		/*
+		 * Not there and not readable are different answers, and a
+		 * clear HAVE_LOV can only carry one of them: an -EIO here
+		 * would otherwise build a record identical to a file that
+		 * has no layout, and a consumer would take the MDT inode's
+		 * own size for the file's.
+		 */
+		else if (rc != -ENODATA)
+			lr->lr_lfu |= LFU_REC_XA_INCOMPLETE;
+		/*
 		 * The layout crosses as presence, so whether it is released
 		 * has to cross as an answer: a consumer without the bytes
 		 * cannot tell, and would report the pre-release size and
@@ -135,6 +144,20 @@ RING_LOV_NEW = """		rc = lfu_fill_xattr(env, iops, di, r, XATTR_NAME_LOV, buf,
 		 */
 		if (rc > 0 && lfu_lov_released(buf, rc))
 			lr->lr_lfu |= LFU_REC_LOV_RELEASED;
+"""
+
+RING_LMV_INCOMPLETE_OLD = """		rc = lfu_fill_xattr(env, iops, di, r, XATTR_NAME_LMV, buf,
+				    LFU_XA_BUFLEN);
+		if (rc >= 0 || rc == -ERANGE)
+			lr->lr_lfu |= LFU_REC_HAVE_LMV;
+"""
+
+RING_LMV_INCOMPLETE_NEW = """		rc = lfu_fill_xattr(env, iops, di, r, XATTR_NAME_LMV, buf,
+				    LFU_XA_BUFLEN);
+		if (rc >= 0 || rc == -ERANGE)
+			lr->lr_lfu |= LFU_REC_HAVE_LMV;
+		else if (rc != -ENODATA)
+			lr->lr_lfu |= LFU_REC_XA_INCOMPLETE;
 """
 
 RING_LMV_OLD = """		/* a stripe's LMV is the short header; a master's may not fit */
@@ -208,6 +231,10 @@ static bool lfu_lov_released(const void *buf, int len)
 def add_ring(t, prod):
     """the producer half, in the spelling the commits below LU-20730 have"""
     t("ring-lov-released", RING, RING_LOV_OLD, RING_LOV_NEW, since=prod)
+    t("ring-lmv-incomplete", RING, RING_LMV_INCOMPLETE_OLD,
+      RING_LMV_INCOMPLETE_NEW, since=prod)
+    t("ring-lmv-incomplete", RING, RING_LMV_INCOMPLETE_OLD,
+      RING_LMV_INCOMPLETE_NEW, since=prod)
     t("ring-lmv-foreign", RING, RING_LMV_OLD, RING_LMV_NEW, since=prod)
     t("ring-released-helper", RING, RING_HELPER_ANCHOR, RING_HELPER,
       since=prod)

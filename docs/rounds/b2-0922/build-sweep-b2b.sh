@@ -2,7 +2,7 @@
 cd /home/nishida/projects/lustre/lustre-scanfid
 T=$(mktemp -d)
 printf '#include <lustre/lustreapi.h>\nint main(void){return 0;}\n' > $T/h.c
-for c in $(git rev-list --reverse b7b1332a42a6959375c296f7a28564dcb90b2763..63e0b42a28a925c8c17fbbdb07ca4b20fdbbf43c); do
+for c in $(git rev-list --reverse b7b1332a42a6959375c296f7a28564dcb90b2763..6b8c75d729791f31cac9d2cf366d6b243d368692); do
 	git checkout -q -f --detach $c || { echo "$c CHECKOUT FAIL"; continue; }
 	(cd lustre/utils && make -j8) > $T/b.log 2>&1
 	b=$?

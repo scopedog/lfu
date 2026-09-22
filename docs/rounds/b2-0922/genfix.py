@@ -32,7 +32,10 @@ GAP = 12
 # since value and everything else the consumer's.
 PROD_FILES = {"include/uapi/linux/lustre/lustre_lfu.h",
               "lustre/obdclass/dt_object.c",
-              "lustre/lfu/lfu_ring.c"}
+              "lustre/include/dt_object.h",
+              "lustre/lfu/lfu_ring.c",
+              "Documentation/man4/lfu.ring_size.4",
+              "Documentation/man4/lfu.batch.4"}
 
 FILES = [("PFIND", "lustre/utils/liblustreapi_pfind.c"),
          ("DEV", "lustre/utils/liblustreapi_scan_device.c"),
@@ -48,7 +51,11 @@ FILES = [("PFIND", "lustre/utils/liblustreapi_pfind.c"),
          ("ZFS", "lustre/utils/libscan_zfs.c"),
          ("MAKEAM", "lustre/utils/Makefile.am"),
          ("LFUH", "include/uapi/linux/lustre/lustre_lfu.h"),
-         ("DTOBJ", "lustre/obdclass/dt_object.c")]
+         ("DTOBJ", "lustre/obdclass/dt_object.c"),
+         ("DTOBJH", "lustre/include/dt_object.h"),
+         ("RING", "lustre/lfu/lfu_ring.c"),
+         ("MAN4RS", "Documentation/man4/lfu.ring_size.4"),
+         ("MAN4B", "Documentation/man4/lfu.batch.4")]
 
 
 def git(*args):
@@ -195,6 +202,10 @@ ZFS = "lustre/utils/libscan_zfs.c"
 MAKEAM = "lustre/utils/Makefile.am"
 LFUH = "include/uapi/linux/lustre/lustre_lfu.h"
 DTOBJ = "lustre/obdclass/dt_object.c"
+DTOBJH = "lustre/include/dt_object.h"
+RING = "lustre/lfu/lfu_ring.c"
+MAN4RS = "Documentation/man4/lfu.ring_size.4"
+MAN4B = "Documentation/man4/lfu.batch.4"
 
 # LU-20720: the commit that introduces the wire record and fills it
 PROD = "c21"
