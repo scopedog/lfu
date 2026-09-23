@@ -290,8 +290,8 @@ LI_NEW = """\t\tcase 'i':\t/* starting index */
 # lreview c05 (4): the layout options over an OST were compared against a
 # default that was never read; refused, as --mdt over an OST is.  From c22
 # find_device_nobytes() refuses the same on lfsp_got; this fires first.
-OSTLAY_FN_OLD = """static int find_device_targets(struct find_param *param,
-\t\t\t       const struct llapi_scan_tgt *tgt)
+OSTLAY_FN_OLD = """/*
+ * --ost and --mdt against the target being scanned, rather than against a
 """
 OSTLAY_FN_NEW = """/* the options only a layout answers; not --projid, which an OST has */
 static bool find_asks_layout(const struct find_param *param)
@@ -347,16 +347,21 @@ T157D_OLD = """\t# -u puts the read on llapi_changelog_start_user(), which is th
 \t\t-u $cl_user || error "llapi_scan_changelog_test failed"
 """
 T157D_NEW = """\t# test9 filters on the server, with a key the MDS has only from
-\t# 2.17.0 (LU-19296); an older MDS skips that case, not the rest
+\t# 2.17.0 (LU-19296); test6 sees a clear purge the log only when no
+\t# other changelog user holds it back.  Either skips that case alone.
+\tlocal users=$(do_facet mds1 $LCTL get_param -n \\
+\t\tmdd.$(facet_svc mds1).changelog_users | grep -c "^cl")
 \tlocal skip=""
 
-\t(( MDS1_VERSION >= $(version_code 2.17.50) )) || skip="-e 9"
+\t(( MDS1_VERSION >= $(version_code 2.17.50) )) || skip="9"
+\t(( users <= 1 )) || skip="${skip:+$skip,}6"
 
 \t# -u puts the read on llapi_changelog_start_user(), which is the
 \t# path that sets the server-side filter; without it the binary
 \t# never exercises that call at all
 \tllapi_scan_changelog_test -m $(facet_svc mds1) -d $MOUNT \\
-\t\t-u $cl_user $skip || error "llapi_scan_changelog_test failed"
+\t\t-u $cl_user ${skip:+-e $skip} ||
+\t\terror "llapi_scan_changelog_test failed"
 """
 CLSIZE_OLD = """\tif (sc->sc_size < LLAPI_SCAN_CL_PARAM_MIN_SIZE)
 \t\treturn -EINVAL;

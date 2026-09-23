@@ -936,3 +936,33 @@ events from the previous arm, and passed in 2 s for the wrong reason):
 new 8.3 s pass, old 22.6 s fail "held until it went quiet", new 8.3 s
 pass. Tip **`65937da9dc`**, c09 `115ec7a624`: 26/26 with -O2 tests,
 macro check clean, c09 checkpatch the same as pushed.
+
+## The fix-now group after lreview 0923d (user: fix now)
+
+- c00: the subject names the function: `LU-20603 llapi: add
+  llapi_scan_namespace()`.
+- c05: its message no longer says "Before" of an earlier patchset; the
+  `find_needs_lmv()` comment no longer says a target scan refuses -printf;
+  `find_asks_layout()` moved above `find_device_targets()`'s comment, which
+  it had split from its function.
+- c06: lfs-find.1 says only one selector may be given, and that
+  `--stripe-index` acts as `--ost` on a target.
+- c08: lfs-find.1 says `CAP_DAC_READ_SEARCH` is for FIDs looked up through
+  the mount (an OST's, always), not for an MDT's map; `find_decide()`'s
+  comment moved back onto it from above the helper(s) inserted between
+  (one comment, identical c08-c25, moved rather than the helpers, since
+  c22 adds a second one there).
+- c09: under `FOLLOW`, the scan ends on `sc_endrec` instead of waiting for
+  a record past it; a shadowed loop variable renamed; "three pointers" is
+  four, with `sc_got` named; test9 asserts the filter ran (CL_CREATE
+  delivered, nothing but CL_CREATE and CL_MARK); 157d skips test6 when
+  mds1 has another changelog user (counted on the MDS in the shell, since
+  the binary runs on the client) as well as test9 on an old MDS.
+
+Tip **`b7bf2a622d`**: 26/26 with -O2 tests, macro check clean, checkpatch on
+c00/c05/c06/c08/c09 the same as their pushed versions (a first 157d line was
+81 columns). VM, c09 `43836ae544`: the full test binary passes with one
+user; the `changelog_users | grep -c "^cl"` count reads 1, then 2 with a
+second user; `sc_endrec` = the current index with `FOLLOW` on an idle MDT:
+old library still waiting at the 10 s timeout, new returns in 1 s with 59
+records.

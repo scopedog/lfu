@@ -319,8 +319,9 @@ MSG_C05_NEW = """is the id, and there is no field for the rest. Building one fro
 id alone would be a FID that names a different object.
 
 A size the scan did not report is undecided for -size and -blocks,
-whatever the layout says. Before, a Data-on-MDT file, whose stripe count
-is 0, was decided on a size of 0. The fix is Artem Blagodarenko's.
+whatever the layout says: a Data-on-MDT file's stripe count is 0, so
+it would otherwise be decided on a stx_size the scan never reported.
+The fix is Artem Blagodarenko's.
 
 """ + SOB + SOB_ARTEM
 

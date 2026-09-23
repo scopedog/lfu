@@ -478,6 +478,126 @@ static void test10(void)
 T10_REG_OLD = "\tTEST_REGISTER(9),\n"
 T10_REG_NEW = "\tTEST_REGISTER(9),\n\tTEST_REGISTER(10),\n"
 
+# -- the fix-now group after lreview 0923d (user: fix now) ------------------
+FDCMT = '/*\n * Everything from the MDT\'s answer onwards: the checks that need it, the\n * glimpse for what only a stat can settle, and the printing.  Split out so\n * that a scan with no namespace behind it can reach it too.\n *\n * A target scan passes no path.  find_get_projid() tests fc_path itself,\n * and the other steps that take it are kept from NULL elsewhere: --xattr is\n * refused before the scan, setup_target_indexes() runs only where\n * lustre_fs is set, which a scan leaves 0, the stat arm counts the object\n * undecided when there is no path, descriptor or dirent, and the printing\n * tests the path where it needs one.\n *\n * Return: 0 once the object is decided, printed or rejected, or a negative\n * errno.  Which of the two it was is not reported: printing is the answer,\n * and no caller has ever read it.  A positive would collide with the 1\n * cb_find_init() returns for "do not descend", which is the value this\n * lands in there.\n */\n'
+FDCMT_DEL_OLD = FDCMT + "/*\n * Whether an object of this class has a pathname anywhere"
+FDCMT_DEL_NEW = "/*\n * Whether an object of this class has a pathname anywhere"
+FDCMT_ADD_OLD = "static int find_decide(struct find_ctx *fc, struct find_param *param)\n"
+FDCMT_ADD_NEW = FDCMT + FDCMT_ADD_OLD
+NEEDLMV_OLD = """ * set before calling cb_get_dirstripe(), and gather_all with it, which a
+ * target scan refuses along with -printf.
+"""
+NEEDLMV_NEW = """ * set before calling cb_get_dirstripe(), and gather_all with it; a target
+ * scan asks for LLAPI_SCAN_LMV itself where -printf needs it.
+"""
+EREC_DECL_OLD = "\tstruct scan_cl *sl;\n\tint crc;\t/* what a consumer or a flush returned, not the read */\n"
+EREC_DECL_NEW = "\tstruct scan_cl *sl;\n\t__u64 idx;\n\tint crc;\t/* what a consumer or a flush returned, not the read */\n"
+EREC_IDX_OLD = """\t\t\tcrc = scan_cl_event(sl, rec);
+
+\t\tllapi_changelog_free(&rec);
+"""
+EREC_IDX_NEW = """\t\t\tcrc = scan_cl_event(sl, rec);
+
+\t\tidx = rec->cr_index;
+\t\tllapi_changelog_free(&rec);
+"""
+EREC_BRK_OLD = """\t\tscan_cl_clear(sl, false);
+\t}
+
+\tif (rc == 1)\t\t/* the end of the log, not an error */
+"""
+EREC_BRK_NEW = """\t\tscan_cl_clear(sl, false);
+
+\t\t/* sc_endrec is inclusive: under _FOLLOW the next record may
+\t\t * never come, so the range ends on this one
+\t\t */
+\t\tif (scl.sc_endrec != 0 && idx >= scl.sc_endrec)
+\t\t\tbreak;
+\t}
+
+\tif (rc == 1)\t\t/* the end of the log, not an error */
+"""
+SHADOW_OLD = """\t\t__u32 i;
+
+\t\tfor (i = 0; i < sc->sc_size - (__u32)sizeof(scl); i++)
+\t\t\tif (tail[i] != 0)
+"""
+SHADOW_NEW = """\t\t__u32 j;
+
+\t\tfor (j = 0; j < sc->sc_size - (__u32)sizeof(scl); j++)
+\t\t\tif (tail[j] != 0)
+"""
+PTRS1_OLD = " * llapi_scan_changelog(), whose parameter has three pointers past its own\n"
+PTRS1_NEW = " * llapi_scan_changelog(), whose parameter has four pointers past its own\n"
+PTRS2_OLD = """ * through sc_mdtname, but sc_user, sc_mnt and sc_stats are pointers beyond
+ * it, so a size stopping inside one of them would leave it half the
+"""
+PTRS2_NEW = """ * through sc_mdtname, but sc_user, sc_mnt, sc_stats and sc_got are pointers
+ * beyond it, so a size stopping inside one of them would leave it half the
+"""
+T9_OLD = """\t\t(unsigned long long)masked.cr_with_event,
+\t\t(unsigned long long)all.cr_with_event);
+
+"""
+T9_NEW = """\t\t(unsigned long long)masked.cr_with_event,
+\t\t(unsigned long long)all.cr_with_event);
+\t/* and the filter ran: make_events() created a file, and nothing
+\t * else but the log's own markers may come through
+\t */
+\tASSERTF(masked.cr_types & (1ULL << CL_CREATE),
+\t\t"the mask delivered no CL_CREATE, though a file was created");
+\tASSERTF(!(masked.cr_types & ~((1ULL << CL_CREATE) | (1ULL << CL_MARK))),
+\t\t"the mask let other types through: %#llx",
+\t\t(unsigned long long)masked.cr_types);
+
+"""
+MAN_ONE_OLD = """Only one target may be named, other than through
+.B --local
+or
+.BR --fsname .
+"""
+MAN_ONE_NEW = """Only one of
+.BR --device ,
+.BR --target ,
+.B --fsname
+and
+.B --local
+may be given, and only one target named;
+.B --fsname
+and
+.B --local
+may read several.
+"""
+MAN_OST_OLD = """.BR --ost ", " --mdt
+These name the target being read, so every object on it matches or none does.
+.B --ost
+applies to an OST, and
+.B --mdt
+to an MDT.
+"""
+MAN_OST_NEW = """.BR --ost ", " --stripe-index ", " --mdt
+These name the target being read, so every object on it matches or none does.
+.B --ost
+applies to an OST, and so does
+.BR --stripe-index ,
+which is taken the same way;
+.B --mdt
+applies to an MDT.
+"""
+MSG_C00_SUBJ = ("LU-20603 llapi: namespace scanner API\n",
+                "LU-20603 llapi: add llapi_scan_namespace()\n")
+CAP_OLD = """Resolving FIDs needs
+.BR CAP_DAC_READ_SEARCH ,
+and a FID that cannot be looked up at all is an error, not a missing name.
+"""
+CAP_NEW = """A FID looked up through
+.I MOUNT
+needs
+.BR CAP_DAC_READ_SEARCH ,
+which an OST's objects always are, and a FID that cannot be looked up at all
+is an error, not a missing name. On an MDT the names come from the map first.
+"""
+
 
 def add(t, msg):
     t('m-c00-max', msg, MSG_C00_MAX[0], MSG_C00_MAX[1], since="c00")
@@ -530,4 +650,22 @@ def add(t, msg):
     t('m-c09-t10-inc', CLOGTEST, T10_INC_OLD, T10_INC_NEW, since="c09")
     t('m-c09-t10', CLOGTEST, T10_OLD, T10_NEW, since="c09")
     t('m-c09-t10-reg', CLOGTEST, T10_REG_OLD, T10_REG_NEW, since="c09")
+    t('f-c08-fdcmt-del', PFIND, FDCMT_DEL_OLD, FDCMT_DEL_NEW, since="c08")
+    t('f-c08-fdcmt-add', PFIND, FDCMT_ADD_OLD, FDCMT_ADD_NEW, since="c08")
+    t('f-c05-needlmv', PFIND, NEEDLMV_OLD, NEEDLMV_NEW, since="c05")
+    t('f-c09-erec-decl', CLOG, EREC_DECL_OLD, EREC_DECL_NEW, since="c09")
+    t('f-c09-erec-idx', CLOG, EREC_IDX_OLD, EREC_IDX_NEW, since="c09")
+    t('f-c09-erec-brk', CLOG, EREC_BRK_OLD, EREC_BRK_NEW, since="c09")
+    t('f-c09-shadow', CLOG, SHADOW_OLD, SHADOW_NEW, since="c09")
+    t('f-c09-ptrs1', INT, PTRS1_OLD, PTRS1_NEW, since="c09")
+    t('f-c09-ptrs2', INT, PTRS2_OLD, PTRS2_NEW, since="c09")
+    t('f-c09-t9', CLOGTEST, T9_OLD, T9_NEW, since="c09")
+    t('f-c06-man-one', "Documentation/man1/lfs-find.1", MAN_ONE_OLD,
+      MAN_ONE_NEW, since="c06")
+    t('f-c06-man-ost', "Documentation/man1/lfs-find.1", MAN_OST_OLD,
+      MAN_OST_NEW, since="c06")
+    t('f-c00-subj', msg, MSG_C00_SUBJ[0], MSG_C00_SUBJ[1], only=["c00"],
+      since="c00")
+    t('f-c08-cap', "Documentation/man1/lfs-find.1", CAP_OLD, CAP_NEW,
+      since="c08")
     t('m-c00-tests', msg, MSG_C00_TESTS[0], MSG_C00_TESTS[1], since="c00")
