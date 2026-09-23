@@ -599,3 +599,35 @@ conversion, not `convert_lmd_statx()` itself, whose third caller runs after
 the V2 ioctl and must keep the MDT's mask. One line in c00's message.
 Transforms `c00-stx-*` in b2cextra.py, 26/26 commits. Tip **`747f07589d`**:
 26/26 builds, macro check clean, c00 checkpatch unchanged.
+
+### 2. 68095 (c01): an unreadable MDT index under `--mdt` -- CONFIRMED, FIXED
+
+`scan_rec_gather_finish()` turns any `llapi_file_fget_mdtidx()` failure into
+`fp_file_mdt_index = OBD_NOT_FOUND`, `rc = 0`, and nothing tests
+`LLAPI_SCAN_MDT_INDEX`, so `check_mdt_match()` compares `OBD_NOT_FOUND`
+against the list: `--mdt` drops the object silently, and under the
+negation it is printed as not on that MDT. Before the series the error
+went to `goto out`. `want` always keeps `LLAPI_SCAN_MDT_INDEX` under
+`--mdt`, and a device scan under `--mdt` must be of an MDT with an index,
+so every record there carries it: the guard catches only a real failure.
+
+Fix is Artem's guard: under `--mdt`, a record with no index is left out
+(`goto decided` inline at c01-c02; `return 0`, `find_decide()`'s reject,
+from c03 -- a first draft had `return -1`, caught by reading the function
+before driving). One line in c01's message. Tip **`902fca0065`**, 26/26,
+checkpatch on c01 and c03 the same as pushed.
+
+**Lab (clone VM):** a directory with `open.txt` (644) and `secret.txt`
+(600, root), searched as nishida. Three traps before it measured anything:
+- with `-type f`, `secret.txt` was the first object to reach the `--mdt`
+  UUID setup, whose open failed with EACCES for the whole directory;
+- **`! --mdt` is a no-op in every lfs, stock included**: the parser sets
+  `fp_exclude_obd` for `-m` and nothing sets `fp_exclude_mdt` -- also so
+  on upstream master. Upstream's bug, not ours; to file.
+- so the A/B used one lfs, built with that line corrected in the VM's
+  working copy only (reverted, and the tree rebuilt), against the old and
+  the new library.
+
+Result: old library, `! --mdt lfsc-MDT0000_UUID` printed
+`/mnt/lfsc/mdtab/secret.txt`, which is on MDT0000. New library: nothing.
+`--mdt` identical in both (the directory and `open.txt`).

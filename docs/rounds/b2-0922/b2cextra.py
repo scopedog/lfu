@@ -182,6 +182,35 @@ MSG_C00_STX = ("""  have no FID now clear it. convert_lmd_statx() no longer clea
   so a long name could set STATX_BTIME with no btime behind it.
 """)
 
+# Artem 09-23 on 68095: --mdt with no index is left out, not guessed
+MDTIDX_C01_OLD = """\t\t/*
+\t\t * An unstriped directory answered ENODATA, or one off Lustre
+\t\t * answered ENOTTY: no stripe of its own either way.
+\t\t */
+"""
+MDTIDX_C01_NEW = """\t\t/* --mdt cannot be answered without the index: leave it out */
+\t\tif (param->fp_mdt_uuid != NULL &&
+\t\t    !(rec.lfsr_valid & LLAPI_SCAN_MDT_INDEX))
+\t\t\tgoto decided;
+
+""" + MDTIDX_C01_OLD
+MDTIDX_C03_OLD = """\t/*
+\t * An unstriped directory answered ENODATA, or one off Lustre answered
+\t * ENOTTY: no stripe of its own either way.
+\t */
+"""
+MDTIDX_C03_NEW = """\t/* --mdt cannot be answered without the index: leave it out */
+\tif (param->fp_mdt_uuid != NULL &&
+\t    !(fc->fc_rec->lfsr_valid & LLAPI_SCAN_MDT_INDEX))
+\t\treturn 0;
+
+""" + MDTIDX_C03_OLD
+MSG_C01_MDTIDX = ("""- An MDT index that cannot be fetched no longer fails the object.
+""", """- An MDT index that cannot be fetched no longer fails the object.
+  With --mdt, such an object is left out: it matches neither --mdt
+  nor ! --mdt.
+""")
+
 
 def add(t, msg):
     t('c00-stx-v1', "lustre/utils/liblustreapi_pfind.c", STX_V1_OLD,
@@ -189,6 +218,12 @@ def add(t, msg):
     t('c00-stx-enotty', "lustre/utils/liblustreapi_pfind.c", STX_ENOTTY_OLD,
       STX_ENOTTY_NEW, since="c00")
     t('c00-msg-stx', msg, MSG_C00_STX[0], MSG_C00_STX[1], since="c00")
+    t('c01-mdtidx', "lustre/utils/liblustreapi_pfind.c", MDTIDX_C01_OLD,
+      MDTIDX_C01_NEW, since="c01")
+    t('c03-mdtidx', "lustre/utils/liblustreapi_pfind.c", MDTIDX_C03_OLD,
+      MDTIDX_C03_NEW, since="c03")
+    t('c01-msg-mdtidx', msg, MSG_C01_MDTIDX[0], MSG_C01_MDTIDX[1],
+      since="c01")
     t('c06-msg-verify', msg, MSG_C06[0], MSG_C06[1], since="c06")
     t('c06-msg-stat', msg, MSG_C06_STAT[0], MSG_C06_STAT[1], since="c06")
     t('c06-find1-naming', "Documentation/man1/lfs-find.1", FIND1_NAMING_OLD,
