@@ -1,0 +1,48 @@
+========================================================================
+lreview: last 1 commit(s) of lrr-c09
+========================================================================
+generated: 2026-09-23T18:06:05+00:00
+repository: /tmp/claude-1004/-home-nishida-projects-lustre-lfu/bb4cc32a-183d-4988-bb80-1709bb772f66/scratchpad/lrr-c09
+reviews: 1
+totals: 6.5M tokens, $3.49
+
+  1. HEAD  43836ae54421  LU-20649 llapi: llapi_scan_changelog(), a changelog as a stream -- findings (6)
+
+========================================================================
+[1/1] HEAD  43836ae54421  LU-20649 llapi: llapi_scan_changelog(), a changelog as a stream
+========================================================================
+
+status: findings (6 finding(s)), severity low
+run:    opus, 6.5M tokens, $3.49, 5m23s
+
+Overall assessment
+------------------------------------------------------------------------
+Mostly good; one question inline about the lazy size under _RESOLVE, and a few commit-message and comment points that can ride along on the next refresh.
+
+Findings (6)
+------------------------------------------------------------------------
+
+(1) /COMMIT_MSG (line 7)
+    (style) This isn't a bug, but the summary isn't an imperative phrase. Something like "LU-20649 llapi: add llapi_scan_changelog()" says what the patch does and still names the symbol.
+
+(2) /COMMIT_MSG (line 33)
+    (minor) The body never mentions LLAPI_SCAN_CL_F_ONCE, even though the patch adds it along with the delivered-FID set behind it (scan_cl_seen_*()), an -EINVAL for _ONCE without _COALESCE, and test5 to cover it. LLAPI_SCAN_CL_F_FOLLOW isn't mentioned either. Both are new public flags and user-visible behaviour, so could each get a sentence here?
+
+(3) /COMMIT_MSG (line 156)
+    (minor) Two sentences in this paragraph don't match the code:
+
+    - "The second fstat() is taken only when the glimpse replaced the descriptor": scan_cl_resolve() does no fstat() and no second open. scan_cl_mdt_stat() uses statx() on the O_PATH fd, and its second call is the AT_STATX_DONT_SYNC lazy read.
+    - "The sc_mdtname test after the memcpy goes ... the caller's own struct was tested at the top": nothing tests sc->sc_mdtname at the top, and llapi_scan_changelog() does test scl.sc_mdtname after the memcpy.
+
+    If the patch is refreshed, could these two sentences be dropped or changed to describe the current code?
+
+(4) lustre/utils/liblustreapi_scan_changelog.c (line 395)
+    (minor) Is the value here always the MDT's lazy size? scan_cl_mdt_stat() sets *lazy for any regular file when no glimpse was taken. But the MDT only sends a lazy size when it has one: mdt_pack_attr2body() sets OBD_MD_FLLAZYSIZE only under MA_SOM. Without it, ll_getattr_dentry() with AT_STATX_DONT_SYNC returns the cached i_size, and that is 0 for an inode that open_by_handle_at() has just instantiated.
+
+    So with sc_want = LLAPI_SCAN_LAZY_SIZE, a striped file that has no trusted.som arrives with stx_size 0 and LLAPI_SCAN_LAZY_SIZE set, and liblustreapi_pfind.c maps that bit to OBD_MD_FLLAZYSIZE. liblustreapi_scan.c sets the bit only when the MDT returned OBD_MD_FLLAZYSIZE. Could this take the same flag, for example through llapi_get_lum_file_fd() on the O_PATH fd, rather than inferring it from S_ISREG?
+
+(5) lustre/utils/liblustreapi_scan_changelog.c (line 371)
+    (style) This isn't a bug, but the comment no longer describes the code. scan_cl_mdt_stat() reads a statx, as llapi_scan_namespace() does, and the nanoseconds are lost only because the result goes through a struct stat. If the patch is refreshed, filling lfsr_stx from the struct statx directly would keep tv_nsec and drop the conversion.
+
+(6) lustre/utils/liblustreapi_scan_changelog.c (line 1173)
+    (style) This isn't a bug, but calling uid and gid "the only object attributes a changelog has" contradicts the rest of the patch. The uidgid extension carries the acting client's credentials and is delivered as lfsr_event_uid for that reason. If the patch is refreshed, could this comment say "who acted" instead?

@@ -4,6 +4,21 @@ Every ticket and Gerrit id in play, and the ones that are *not* ours. Regenerate
 the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
 **2026-09-06**.
 
+## End of 2026-09-23: ready to push, NOT pushed
+
+Final tip **`4966ac5055`**; push c00-c10 (68094-68416, 11 patchsets),
+abandon 68340 (folded into 68094). Everything done today is in
+[`rounds/b2-0922/notes.md`](rounds/b2-0922/notes.md) from "09-23"
+onwards: the conf-sanity 300 grep, lreview x3 rounds, Artem's 7 comments
+(his MDT-scan fix folded into 68156/68159 with his sign-off), the
+AI rounds on 68163/68288/68415/68416, the ENOTSUP sweep, the busy-object
+hold limit, the pre-pass filter (measured 64% of the pass). Regression at
+c10 on the VM: sanity 56 86/0, 157c/157d, conf-sanity 300-304 all pass.
+Reply drafts: `rounds/b2-0922/replies-0923/` (7 to Artem, 12 to the AI).
+Owed from the user: a sentence each on Artem's 3 older 68094 threads, and
+yes/no on dropping 68163's bare `testlist=sanity ONLY=157c`.
+Held for a later round: see notes.md, "held".
+
 ## 2026-09-23: conf-sanity 300 fixed, NOT pushed
 
 CI failed conf-sanity 300 on every ldiskfs run from 68160 up (Janitor CR-1 on

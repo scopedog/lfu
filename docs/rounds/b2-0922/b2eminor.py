@@ -598,6 +598,37 @@ which an OST's objects always are, and a FID that cannot be looked up at all
 is an error, not a missing name. On an MDT the names come from the map first.
 """
 
+# -- c09 text, lreview 0923e (1, 2, 3, 6) ------------------------------------
+MSG_C09_SUBJ = ("LU-20649 llapi: llapi_scan_changelog(), a changelog as a stream\n",
+                "LU-20649 llapi: add llapi_scan_changelog()\n")
+MSG_C09_FLAGS = ("""per object once it has been quiet, so a file written a hundred times
+is one record and one lookup rather than a hundred of each.
+""", """per object once it has been quiet, so a file written a hundred times
+is one record and one lookup rather than a hundred of each.
+
+LLAPI_SCAN_CL_F_FOLLOW keeps reading as the log grows, as lfs changelog
+--follow does. LLAPI_SCAN_CL_F_ONCE, which needs _COALESCE, delivers an
+object at most once per run: a set of the FIDs already delivered drops
+the repeats. test5 covers it.
+""")
+MSG_C09_SMALL = ("""Three smaller things.  The second fstat() is taken only when the
+glimpse replaced the descriptor.  scan_cl_bucket() drops a modulo
+that cannot change llapi_fid_hash()'s value, that being hash_long()
+on the same shift.  The sc_mdtname test after the memcpy goes: the
+minimum sc_size reaches through that field and the caller's own
+struct was tested at the top, so it could never fire.  Four comments
+described an earlier revision of this patch rather than the code and
+now describe the code.
+""", """scan_cl_bucket() takes llapi_fid_hash() as it is: that is hash_long()
+on the same shift, and a modulo on top could not change it.
+""")
+UIDCMT_OLD = """\t * EXTRA_FLAGS is what carries uid and gid, which are the only object
+\t * attributes a changelog has; asking for JOBID costs nothing when the
+"""
+UIDCMT_NEW = """\t * EXTRA_FLAGS is what carries the uid and gid of whoever acted; asking
+\t * for JOBID costs nothing when the
+"""
+
 
 def add(t, msg):
     t('m-c00-max', msg, MSG_C00_MAX[0], MSG_C00_MAX[1], since="c00")
@@ -668,4 +699,9 @@ def add(t, msg):
       since="c00")
     t('f-c08-cap', "Documentation/man1/lfs-find.1", CAP_OLD, CAP_NEW,
       since="c08")
+    t('g-c09-subj', msg, MSG_C09_SUBJ[0], MSG_C09_SUBJ[1], only=["c09"],
+      since="c09")
+    t('g-c09-flags', msg, MSG_C09_FLAGS[0], MSG_C09_FLAGS[1], since="c09")
+    t('g-c09-small', msg, MSG_C09_SMALL[0], MSG_C09_SMALL[1], since="c09")
+    t('g-c09-uidcmt', CLOG, UIDCMT_OLD, UIDCMT_NEW, since="c09")
     t('m-c00-tests', msg, MSG_C00_TESTS[0], MSG_C00_TESTS[1], since="c00")

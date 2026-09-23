@@ -966,3 +966,37 @@ user; the `changelog_users | grep -c "^cl"` count reads 1, then 2 with a
 second user; `sc_endrec` = the current index with `FOLLOW` on an idle MDT:
 old library still waiting at the 10 s timeout, new returns in 1 s with 59
 records.
+
+## Before the push: regression run, last lreview, and a sweep that lied
+
+**Regression run at c10 (`244ed8b0d0` on the VM, the final code):** the
+c10 utils installed into the VM's `~/lfs68160-inst` prefix (backup
+`~/lfs68160-inst.bak-0923`; `/sbin/mount.lustre` was refused, correctly,
+and left alone) and c10's plugin put in its PLUGIN_DIR, so the tree's
+binaries load c10 through their own RPATH -- no LD_PRELOAD or bind of the
+plugin. Test binaries bound over the installed 09-09 ones for the run.
+- sanity 56 (MDSCOUNT=2, OSTCOUNT=2): **86 PASS, 0 FAIL**, 1 SKIP (56xc,
+  2 GB free space). A first 2-OST run failed 15 subtests because ost2
+  never started -- the framework reused the 1-OST images; `llmount.sh`
+  with fresh images first fixed it.
+- sanity 157c, 157d: **PASS**.
+- conf-sanity 300, 301, 302, 303, 304: **PASS** (305 arrives at c22).
+
+**lreview c09 (the final code):** a first run failed ("claude exited 1",
+no output); the rerun: 6 low. Text fixed -- the subject names the
+function (as c00's does), the message mentions `_FOLLOW` and `_ONCE`
+(test5 confirmed to cover it), the "Three smaller things" paragraph that
+described patchset history is gone, and the uid/gid comment says who
+acted. Held: the lazy-size question (already held) and filling the
+record from `struct statx` directly.
+
+**The sweep was sweeping the wrong tip.** build-sweep-b2b.sh carried a
+literal range, updated by a `sed` of the previous SHA. After `ef896a898b`
+one update missed and every later one matched nothing, so every "26/26"
+reported for `a32c4b074d`, `a684772d41`, `140060a3b6`, `65937da9dc`,
+`1725b772b1` and `b7bf2a622d` rebuilt `ef896a898b`. The VM builds of
+c08/c09/c10 did compile the real code in between. Found while updating it
+for the final tip; the script now takes the tip as an argument and prints
+the range it sweeps. **Final tip `4966ac5055`: 26/26 for real**
+(`SWEEP b7b1332a42..4966ac5055, 26 commits`), -O2 test compiles, macro
+check clean.
