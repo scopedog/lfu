@@ -629,6 +629,19 @@ UIDCMT_NEW = """\t * EXTRA_FLAGS is what carries the uid and gid of whoever acte
 \t * for JOBID costs nothing when the
 """
 
+# -- c07: Andreas's rule (user 09-23): the bare 157c session goes, the ZFS
+# conf-sanity one stays -- 157c already runs in the default review testing
+MSG_C07_TPTXT = ("""headers; the Test-Parameters lines below ask for the two sessions that
+can say something.
+
+Neither of them exercises the weak slot, and that is not an omission.
+""", """headers; the Test-Parameters line below asks for the ZFS session that
+can say something, and the default testing already runs sanity 157c.
+
+Neither exercises the weak slot, and that is not an omission.
+""")
+MSG_C07_TP = ("Test-Parameters: testlist=sanity env=ONLY=157c\n", "")
+
 
 def add(t, msg):
     t('m-c00-max', msg, MSG_C00_MAX[0], MSG_C00_MAX[1], since="c00")
@@ -704,4 +717,8 @@ def add(t, msg):
     t('g-c09-flags', msg, MSG_C09_FLAGS[0], MSG_C09_FLAGS[1], since="c09")
     t('g-c09-small', msg, MSG_C09_SMALL[0], MSG_C09_SMALL[1], since="c09")
     t('g-c09-uidcmt', CLOG, UIDCMT_OLD, UIDCMT_NEW, since="c09")
+    t('g-c07-tptxt', msg, MSG_C07_TPTXT[0], MSG_C07_TPTXT[1], only=["c07"],
+      since="c07")
+    t('g-c07-tp', msg, MSG_C07_TP[0], MSG_C07_TP[1], only=["c07"],
+      since="c07")
     t('m-c00-tests', msg, MSG_C00_TESTS[0], MSG_C00_TESTS[1], since="c00")

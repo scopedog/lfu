@@ -6,7 +6,7 @@ the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
 
 ## End of 2026-09-23: ready to push, NOT pushed
 
-Final tip **`4966ac5055`**; push c00-c10 (68094-68416, 11 patchsets),
+Final tip **`0ef719269e`** (trees = swept `4966ac5055`); push c00-c10 (68094-68416, 11 patchsets),
 abandon 68340 (folded into 68094). Everything done today is in
 [`rounds/b2-0922/notes.md`](rounds/b2-0922/notes.md) from "09-23"
 onwards: the conf-sanity 300 grep, lreview x3 rounds, Artem's 7 comments
@@ -16,7 +16,7 @@ hold limit, the pre-pass filter (measured 64% of the pass). Regression at
 c10 on the VM: sanity 56 86/0, 157c/157d, conf-sanity 300-304 all pass.
 Reply drafts: `rounds/b2-0922/replies-0923/` (7 to Artem, 12 to the AI).
 Owed from the user: a sentence each on Artem's 3 older 68094 threads, and
-yes/no on dropping 68163's bare `testlist=sanity ONLY=157c`.
+(68163's bare 157c line: dropped, user 09-23).
 Held for a later round: see notes.md, "held".
 
 ## 2026-09-23: conf-sanity 300 fixed, NOT pushed

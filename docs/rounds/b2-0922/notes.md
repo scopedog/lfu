@@ -1000,3 +1000,10 @@ for the final tip; the script now takes the tip as an argument and prints
 the range it sweeps. **Final tip `4966ac5055`: 26/26 for real**
 (`SWEEP b7b1332a42..4966ac5055, 26 commits`), -O2 test compiles, macro
 check clean.
+
+**68163's Test-Parameters (user, 09-23):** the bare `testlist=sanity
+env=ONLY=157c` is dropped under Andreas's rule (the default review testing
+runs 157c); `fstype=zfs testlist=conf-sanity env=ONLY=300` stays, and the
+message paragraph that spoke of "the two sessions" now speaks of one.
+Message-only: every tree is identical to the swept `4966ac5055`. Final tip
+**`0ef719269e`**, c10 `5b1c87cba0`.
