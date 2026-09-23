@@ -4,7 +4,7 @@
   "file": "lustre/tests/sanity.sh",
   "line": 21282,
   "in_reply_to": "efe7eccc_2780707b",
-  "message": "Done. 157d passes -e 9 when the MDS is older than 2.17.50, the same gate as 160w.",
+  "message": "Done. 157d passes -e 9 when the MDS is older than 2.17.50, the same gate as 160w. It also skips test6 when mds1 has another changelog user, since that user holds the clear back.",
   "mark_resolved": true
  },
  {
