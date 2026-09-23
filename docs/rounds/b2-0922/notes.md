@@ -631,3 +631,47 @@ checkpatch on c01 and c03 the same as pushed.
 Result: old library, `! --mdt lfsc-MDT0000_UUID` printed
 `/mnt/lfsc/mdtab/secret.txt`, which is on MDT0000. New library: nothing.
 `--mdt` identical in both (the directory and `open.txt`).
+
+### 3-6. 68156 (c02) and 68159 (c05): Artem's own fix, folded -- CONFIRMED, FIXED
+
+His TLC commit `ae5a21241a` (fetched with `gh api`; the public URL 404s)
+fixes three wrong answers from a device scan of an MDT. The user chose to
+fold it in with his credit: a sentence in c02's and c05's messages and his
+`Signed-off-by` under ours. Ported in [`b2dartem.py`](b2dartem.py): his code
+and man text where they apply unchanged, with two changes of ours:
+- **`scan_has_link()`**: bytes at c02-c21 (the device backends read every
+  xattr in one pass, external block included on ldiskfs, the xattr
+  directory on ZFS; `SCAN_EA_BUFS` is `LLAPI_SCAN_XA_MAX`, so the
+  always-read link cannot crowd another out). **Presence from c22**: the
+  kernel ring always sends the link (`dt_otable_lfu_rec()` reads it
+  unconditionally) but one over `LFU_LINK_MAX` as presence only
+  (`LFU_REC_LINK_BIG`), so his `scan_xattr() != NULL` would have demoted
+  every file with a large link on an in-service scan; and an object read
+  in part (`SO_XA_PARTIAL`) keeps its class.
+- `size_elsewhere` declared at the top of `find_decide()`.
+The `path == NULL` rule is safe on every record source: they all go
+through `find_rec_to_lmd()`, which sets `OBD_MD_FLSIZE` from the record's
+own `STATX_SIZE`.
+
+Transforms: classification, DoM size and man text c02-c25 (24 commits),
+the presence helper c22-c25, the undecided size c05-c25. Tip
+**`22fa94968d`**: 26/26 builds, macro check clean, checkpatch on c02 and
+c05 unchanged.
+
+**Lab, a fresh `lfsd` filesystem** (reg.txt 1000 B on an OST, dom.txt
+1000 B with `-E 1M -L mdt -E -1`), stopped, its MDT image scanned:
+
+| | unfixed c06 | fixed c06 `feaec761bc` |
+|---|---|---|
+| visible regular files | 4: `[0xe:0x0:0x0]` (mountdata), `[0x200000400:0x1:0x0]` (update log), reg, dom | 2: reg, dom |
+| dom.txt size | 0 (none reported) | 1000 |
+| `-size 1000c` | reg | reg, dom |
+| `-size -1k` | update log, dom | nothing |
+
+conf-sanity 300 **PASS (38s)** on the fixed c06. At c08 (`3f0c4c547c`,
+its own plugin built by hand), `--paths -type f` names `/t/reg.txt` and
+`/t/dom.txt`, so gating `scan_linkea()` on the demand mask loses no name.
+Not run: fix 3 on its own (with fix 2 in, the DoM file has a size), and
+the in-service path at c22 (2.19, parked), whose helper was reviewed only.
+
+All seven of Artem's comments are now addressed in the tree.
