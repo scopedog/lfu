@@ -761,3 +761,40 @@ takes 68340's `Fixes: 11aa7f8704c4`. Tip **`5d4033c318`**: 26/26,
 c00 checkpatch unchanged; the `-B +20000` repro still matches nothing.
 
 **Owed on Gerrit, not done:** abandon 68340 with a note pointing at 68094.
+
+## 09-23 afternoon: AI round on 68163 PS22 and 68415 PS14
+
+Six comments. Checked against the tree:
+- 68163 `<ctype.h>` in libscan_zfs.c: already fixed this morning (c07).
+- 68163 the two comments above `scan_device_exists()` and at the end of
+  `scan_backend_kind()` predate the leading-slash rule: real, text, in
+  the minor batch.
+- 68163 `-ENOTSUP` ends the whole `--local`/`--fsname` sweep, which on a
+  node with both ldiskfs and ZFS targets and one backend missing stops
+  before the rest: real, a behaviour change, **held for the user**.
+- 68415, three real ones, **FIXED** (below).
+
+Maloo's Verified-1 on 68163/68288/68415/68416 is conf-sanity 300 in
+review-dne-part-3: the grep already fixed this morning.
+
+### 68415 (c09): three fixes
+
+1. sanity 157d skips the binary's test9 (`-e 9`) when the MDS is older
+   than 2.17.50: its filter goes through `KEY_CHANGELOG_USER`, which the
+   server has only from 2.17.0 (LU-19296); the same gate as sanity 160w.
+2. `llapi_scan_changelog()` refuses `sc_size > LLAPI_SCAN_PARAM_MAX_SIZE`,
+   as its two siblings do and as its man page already said.
+3. The stats copy rounds down with `scan_stats_whole()`, as the siblings.
+All c09-c25 (17). Tip **`14ca21843e`**: 26/26, macro check clean, c09
+checkpatch unchanged.
+
+Lab:
+- `sc_size` 8192, local harness: old library proceeds and fails opening
+  the changelog (ENOENT); new refuses with EINVAL.
+- `ss_size` 20, on the VM's lfsc with a registered user, old c09
+  (`4e8cc53274`) vs new (`08646b2317`): old gave back ss_size 20 and
+  `ss_emitted = 0xabababab0000000b`, half the count and half the caller's
+  bytes; new gives back 16 and leaves ss_emitted alone.
+- The binary as 157d runs it: pass, test9 included; with `-e 9`, test9
+  is reported "skip". The version gate itself was not run: no pre-2.17
+  server here.

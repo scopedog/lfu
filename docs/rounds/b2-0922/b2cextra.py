@@ -340,6 +340,44 @@ layout options over an OST are refused for the same reason: an OST
 object has no layout, so they would compare a default never read.
 """)
 
+# AI round on 68415 PS14 (09-23): the MDS gate on 157d's test9, an upper
+# bound on sc_size, and whole counters in the stats copy, as the siblings
+T157D_OLD = """\t# -u puts the read on llapi_changelog_start_user(), which is the
+\t# path that sets the server-side filter; without it the binary
+\t# never exercises that call at all
+\tllapi_scan_changelog_test -m $(facet_svc mds1) -d $MOUNT \\
+\t\t-u $cl_user || error "llapi_scan_changelog_test failed"
+"""
+T157D_NEW = """\t# test9 filters on the server, with a key the MDS has only from
+\t# 2.17.0 (LU-19296); an older MDS skips that case, not the rest
+\tlocal skip=""
+
+\t(( MDS1_VERSION >= $(version_code 2.17.50) )) || skip="-e 9"
+
+\t# -u puts the read on llapi_changelog_start_user(), which is the
+\t# path that sets the server-side filter; without it the binary
+\t# never exercises that call at all
+\tllapi_scan_changelog_test -m $(facet_svc mds1) -d $MOUNT \\
+\t\t-u $cl_user $skip || error "llapi_scan_changelog_test failed"
+"""
+CLSIZE_OLD = """\tif (sc->sc_size < LLAPI_SCAN_CL_PARAM_MIN_SIZE)
+\t\treturn -EINVAL;
+"""
+CLSIZE_NEW = """\tif (sc->sc_size < LLAPI_SCAN_CL_PARAM_MIN_SIZE ||
+\t    sc->sc_size > LLAPI_SCAN_PARAM_MAX_SIZE)
+\t\treturn -EINVAL;
+"""
+CLSTATS_OLD = """\t\tif (room > sizeof(sl->sl_stats))
+\t\t\troom = sizeof(sl->sl_stats);
+\t\tmemcpy(scl.sc_stats, &sl->sl_stats, room);
+"""
+CLSTATS_NEW = """\t\tif (room > sizeof(sl->sl_stats))
+\t\t\troom = sizeof(sl->sl_stats);
+\t\t/* a whole counter, never half of one */
+\t\troom = scan_stats_whole(room);
+\t\tmemcpy(scl.sc_stats, &sl->sl_stats, room);
+"""
+
 
 def add(t, msg):
     t('c00-stx-v1', "lustre/utils/liblustreapi_pfind.c", STX_V1_OLD,
@@ -367,6 +405,12 @@ def add(t, msg):
       OSTLAY_PROBE_C05, OSTLAY_PROBE_C07, since="c07")
     t('c05-msg-ostlay', msg, MSG_C05_OSTLAY[0], MSG_C05_OSTLAY[1],
       since="c05")
+    t('c09-157d-gate', "lustre/tests/sanity.sh", T157D_OLD, T157D_NEW,
+      since="c09")
+    t('c09-clsize', "lustre/utils/liblustreapi_scan_changelog.c",
+      CLSIZE_OLD, CLSIZE_NEW, since="c09")
+    t('c09-clstats', "lustre/utils/liblustreapi_scan_changelog.c",
+      CLSTATS_OLD, CLSTATS_NEW, since="c09")
     t('c06-msg-verify', msg, MSG_C06[0], MSG_C06[1], since="c06")
     t('c06-msg-stat', msg, MSG_C06_STAT[0], MSG_C06_STAT[1], since="c06")
     t('c06-find1-naming', "Documentation/man1/lfs-find.1", FIND1_NAMING_OLD,
