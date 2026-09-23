@@ -1,0 +1,37 @@
+========================================================================
+lreview: last 1 commit(s) of lr-c06
+========================================================================
+generated: 2026-09-23T14:20:24+00:00
+repository: /tmp/claude-1004/-home-nishida-projects-lustre-lfu/bb4cc32a-183d-4988-bb80-1709bb772f66/scratchpad/lr-c06
+reviews: 1
+totals: 5.2M tokens, $3.02
+
+  1. HEAD  6f783415546a  LU-20611 lfs: find over a target, with --device -- findings (4)
+
+========================================================================
+[1/1] HEAD  6f783415546a  LU-20611 lfs: find over a target, with --device
+========================================================================
+
+status: findings (4 finding(s)), severity low
+run:    opus, 5.2M tokens, $3.02, 6m08s
+
+Overall assessment
+------------------------------------------------------------------------
+Looks good. A few optional minor items are inline for the next refresh; none of them needs a re-spin on its own.
+
+Findings (4)
+------------------------------------------------------------------------
+
+(1) /COMMIT_MSG (line 17)
+    (minor) If the patch is refreshed: lfs_find_is_device() now also calls statfs(), and a block device node stored on Lustre is walked, not scanned. lfs-find.1 describes this, but the message still says the check is stat() alone. Since this is the one case where a block device in the path list is not treated as a target, it might be worth half a line here.
+
+(2) lustre/utils/lfs.c (line 6451)
+    (minor) This is an unlikely case, but the role is found by strstr() here, and also in the "-MDT"/"-OST" filter in lfs_find_local_targets(). lfs_find_label_of() takes the role from after the last '-', for the reason the commit message gives: a filesystem name can contain '-'. mkfs.lustre accepts an fsname such as "db-OST", and server_name2fsname() parses it correctly, so the MDT is labelled "db-OST-MDT0000".
+
+    On that node, `lfs find --local --ost db-OST-OST0000` does not skip the MDT, because its name contains "-OST". llapi_find_device() -> find_device_targets() then returns -ENOTSUP ("--ost needs an OST"), and the ENOTSUP break ends the sweep before the OST is read. If the patch is refreshed, could one small helper that looks at the text after strrchr(name, '-') serve all three checks?
+
+(3) Documentation/man1/lfs-find.1 (line 855)
+    (minor) The code prints the naming line when more than one target was found (`nr > 1`), not when more than one is read. With `--local --ost ...` on a node that has one MDT and one OST, the MDT is skipped and only the OST is read, but its line is still printed. conf-sanity 300 depends on that. If the page is refreshed, wording like "where the sweep finds more than one target" would match what the code does.
+
+(4) include/lustre/lustreapi.h (line 500)
+    (suggestion) This isn't a bug, but these three pointers, and the fp_local_targets/fp_scan_internal bits, are lfs command-line state placed in the installed public struct find_param. The library never reads them. lfs_find_parse() has one caller, lfs_find(), so a small lfs-private struct in lfs_find_parse.h (or an extra out-parameter) could hold them. liblustreapi users would then not see fields they are told to ignore.

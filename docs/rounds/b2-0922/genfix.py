@@ -259,6 +259,7 @@ sys.path.insert(0, HERE)
 sys.path.insert(0, os.path.join(HERE, "..", "b2-0921"))
 sys.path.insert(0, os.path.join(HERE, "..", "r3-0913"))
 import b2bextra  # noqa: E402
+import b2cextra  # noqa: E402
 import b2fix  # noqa: E402
 import r3fix  # noqa: E402
 
@@ -316,6 +317,8 @@ b2bextra.add_ring(t, PROD)
 # LU-20606 c02 reads the count; LU-20611 c05 bounds the array
 b2bextra.add_lmv(t, "c02", "c05")
 b2bextra.add_msgfix(t, MSG)
+# the 09-23 lreview fixes on c06 and c07
+b2cextra.add(t, MSG)
 
 
 def apply(tree, name, msg):

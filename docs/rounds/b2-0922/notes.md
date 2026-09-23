@@ -488,3 +488,70 @@ traps, all in the rig and none in the code. The first two runs segfaulted in
 Before the run, c06's `lfs find --fsname fsname_too_long` printed CI's exact
 message: `filesystem name 'fsname_too_long' longer than maximum 8 chars`.
 Checkpatch totals on c06 and c07 are the same as their pushed versions.
+
+## 09-23: lreview on c06 and c07
+
+[`lreview-68160-0923.txt`](lreview-68160-0923.txt) (4 findings, $2.70) and
+[`lreview-68163-0923.txt`](lreview-68163-0923.txt) (2 findings, $3.72), both
+severity low. All six were checked against the tree and all six are real.
+The user took the recommendation: fix 1, 3, 5; reword for 4; fix 2 with a
+lab check; document 6 and defer the fix.
+
+1. **c06 message** named `llapi_name_validate()`; the code calls
+   `llapi_name_verify()` since the AI round. Fixed.
+2. **c06, a block-device node stored on Lustre** was taken as a target by
+   `lfs_find_is_device()`. Now skipped when `statfs()` on the path says
+   Lustre; lfs-find.1 says so. `statfs()` on a node reports the fs holding
+   the node, so a real `/dev/...` is unaffected.
+3. **c06, lfs-find.1 `--local`** said only a missing backend ends the sweep;
+   the code stops on any `ENOTSUP`. Reworded.
+4. **c06, `fp_device`/`fp_target`/`fp_fsname` in public `struct
+   find_param`.** Declined as a refactor (c06-c10 would all move). The
+   header comment's "nowhere but here" claim was false and is replaced by
+   what is true: only lfs uses them, the library ignores them. c07 re-wraps
+   that comment when it adds `--search`, so it needs a second transform --
+   the first drive showed the c06 one applying at c06 only.
+5. **c07, the `enum scan_backend_kind` comment** predated the leading-slash
+   rule. Rewritten to match `scan_backend_kind()`.
+6. **c07, a nested scan of the same ZFS pool** skips the EBUSY checks while
+   the in-process import is still loaded. No in-tree tool nests (lfs find
+   closes each target first), so it is documented under `-EBUSY` in
+   llapi_scan_device.3 and the fix is deferred.
+
+All in [`b2cextra.py`](b2cextra.py), wired into genfix.py's output.
+Driven against Gerrit's chain: c00-c05 reused, new tip `696b8c4419`,
+tip-to-tip diff is exactly these five files. 26/26 builds, macro check
+clean, checkpatch on c06 and c07 the same as their pushed versions (a first
+wrap of the header comment was 81 columns, and was rewrapped).
+
+**Lab, clone VM, new c06 `6f78341554` (code identical to the final c06):**
+- conf-sanity 300 **PASS (38s)**.
+- A block node on Lustre (`mknod b 240 99` under /mnt/lfsc): old lfs
+  `failed for '/mnt/lfsc/blkab/node': No such device or address`; new lfs
+  prints `/mnt/lfsc/blkab/node`, rc 0.
+- A real block device (`losetup -r` of the MDT image) with `--internal`:
+  both arms scan it, 4 objects, first `obj:11`. Without `--internal` both
+  print nothing, which a walk would also do, so that run proved nothing.
+
+### The second lreview on c06
+
+[`lreview-68160-0923b.txt`](lreview-68160-0923b.txt), on `6f78341554`: 4
+findings, severity low, "none needs a re-spin", $3.02. None is about the
+`statfs()` guard itself.
+1. The commit message still said the device check is `stat()` alone.
+   **Fixed:** half a line on the Lustre-stored node.
+2. `--local --ost/--mdt` finds a target's role with `strstr("-OST")`, so a
+   filesystem named e.g. `db-OST` puts its MDT through the OST filter, and
+   the `ENOTSUP` break ends the sweep before the OST is read. Real, and
+   already in this patch's code. **Held for the user:** a small helper
+   reading after `strrchr(name, '-')`, which `lfs_find_label_of()` already
+   does.
+3. lfs-find.1 says the naming line is printed "where more than one target
+   is read"; the code prints it where more than one is *found* (`nr > 1`),
+   and conf-sanity 300 depends on that. **Fixed** the wording.
+4. The public `struct find_param` fields again: **declined**, as decided
+   above.
+
+Final tip **`0938f1c9e6`**: c06 = `11ee45fd71`, c07 = `818ae5de64`. Only
+lfs-find.1 and c06's message differ from the swept and lab-tested
+`696b8c4419`; checkpatch totals unchanged.

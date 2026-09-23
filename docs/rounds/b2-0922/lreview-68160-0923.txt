@@ -1,0 +1,40 @@
+========================================================================
+lreview: last 1 commit(s) of lr-c06
+========================================================================
+generated: 2026-09-23T13:50:51+00:00
+repository: /tmp/claude-1004/-home-nishida-projects-lustre-lfu/bb4cc32a-183d-4988-bb80-1709bb772f66/scratchpad/lr-c06
+reviews: 1
+totals: 4.3M tokens, $2.70
+
+  1. HEAD  4baedd408ce7  LU-20611 lfs: find over a target, with --device -- findings (4)
+
+========================================================================
+[1/1] HEAD  4baedd408ce7  LU-20611 lfs: find over a target, with --device
+========================================================================
+
+status: findings (4 finding(s)), severity low
+run:    opus, 4.3M tokens, $2.70, 5m12s
+
+Overall assessment
+------------------------------------------------------------------------
+Mostly good. One behaviour change for existing walks is worth a look (a block-special file inside Lustre is now taken as a target), plus some minor doc and API points inline.
+
+Findings (4)
+------------------------------------------------------------------------
+
+(1) /COMMIT_MSG (line 27)
+    (typo) The code calls llapi_name_verify(), the wrapper that prints the error, not llapi_name_validate() directly. Naming the function the patch actually calls would make it easier to find with git log -S.
+
+(2) lustre/utils/lfs.c (line 6357)
+    (minor) This also matches a block-special file that lives inside a Lustre filesystem. Lustre can store device nodes, for example in a container rootfs, and `lfs find` has always accepted a file as well as a directory. Two cases that used to walk now behave differently:
+
+        lfs find /mnt/lustre/root/dev/sda1           -> scans whatever device that node opens
+        lfs find /mnt/lustre/root/dev/*  (mixed)     -> "name one target, not N"
+
+    Should auto-detection skip paths that are on a Lustre mount (for example llapi_search_fsname(), or checking the statfs magic), so that only a real local device is taken as a target? --device would still cover every other case.
+
+(3) Documentation/man1/lfs-find.1 (line 859)
+    (minor) This doesn't quite match lfs_find_device(). The sweep breaks on any -ENOTSUP, which ends it for every remaining target, whatever its type. A missing backend isn't per-type either: when scan_backend is NULL, llapi_scan_device() returns -ENOTSUP for every target. A target the ldiskfs backend can't read, such as a ZFS dataset, fails with EINVAL or ENOENT instead, and the sweep continues past it. Maybe something like "a refused option, or no scan backend on this node, ends the sweep, since every remaining target would fail the same way"? That would also avoid calling a missing backend a failure "the command line caused".
+
+(4) include/lustre/lustreapi.h (line 496)
+    (suggestion) This isn't a bug, but lfs_find_parse() is only built into lfs (lfs_SOURCES in lustre/utils/Makefile.am), not into liblustreapi. So the parser does have somewhere else to keep these: a small lfs-private struct, or an extra out-parameter. Once fp_device/fp_target/fp_fsname and fp_local_targets/fp_scan_internal are in the public struct find_param, they are part of the installed API even though no library function reads them. If the patch is refreshed, keeping them in lfs would avoid that.

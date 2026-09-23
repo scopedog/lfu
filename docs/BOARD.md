@@ -14,8 +14,9 @@ misplaced `since` (the ZFS `<ctype.h>`). Re-driven with commit reuse: new tip
 would get a new patchset**. 26/26 builds, macro check clean, conf-sanity 300
 PASS on the clone VM. Full record in
 [`rounds/b2-0922/notes.md`](rounds/b2-0922/notes.md).
-Still owed before a push: lreview on c06/c07 (or a named skip), then the
-user's go-ahead. The 68160 reply "conf-sanity 300's grep moved with it" only
+**Then lreview on c06/c07**, and its fixes (see notes.md, "09-23: lreview on
+c06 and c07"): tip now **`0938f1c9e6`**. One finding held for the user
+(the `-OST`/`-MDT` strstr role test); then the push-ask. The 68160 reply "conf-sanity 300's grep moved with it" only
 becomes true once that push lands.
 
 ## Tomorrow: start here (end of 2026-09-22)

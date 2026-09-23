@@ -1,0 +1,40 @@
+========================================================================
+lreview: last 1 commit(s) of lr-c07
+========================================================================
+generated: 2026-09-23T13:59:37+00:00
+repository: /tmp/claude-1004/-home-nishida-projects-lustre-lfu/bb4cc32a-183d-4988-bb80-1709bb772f66/scratchpad/lr-c07
+reviews: 1
+totals: 6.3M tokens, $3.72
+
+  1. HEAD  a1fbf84a7030  LU-20613 llapi: ZFS backend for llapi_scan_device -- findings (2)
+
+========================================================================
+[1/1] HEAD  a1fbf84a7030  LU-20613 llapi: ZFS backend for llapi_scan_device
+========================================================================
+
+status: findings (2 finding(s)), severity low
+run:    opus, 6.3M tokens, $3.72, 8m26s
+
+Overall assessment
+------------------------------------------------------------------------
+Looks good overall. Two optional comments are inline for the next refresh; neither needs a re-spin on its own.
+
+Findings (2)
+------------------------------------------------------------------------
+
+(1) lustre/utils/libscan_zfs.c (line 333)
+    (minor) Could a second scan of the same pool, in the same process, skip the EBUSY checks and read an old import?
+
+    The import is dropped only at kernel_fini(), which runs when scan_zfs_users reaches 0. If another scan is still open (the nesting the scan_zfs_lock comment allows, such as a tool that keeps an MDT scan open while it scans OSTs), this can happen:
+
+        scan X:  dmu_objset_own() ENOENT -> scan_zfs_import() -> spa_import()
+        scan_zfs_close(X): disown, users still > 0, spa X stays loaded
+        (server: zpool import X, mount, writes)
+        scan X again: dmu_objset_own() finds the loaded spa and succeeds
+
+    The second open never reaches the kstat probe or the POOL_STATE_ACTIVE check. It then reads the pool at the first import's uberblock while the server is writing to it, which is the wrong scan that the scan_zfs_import() comment says EBUSY is there to prevent.
+
+    Would it help to run the /proc/spl/kstat/zfs/<pool> probe before every dmu_objset_own()? At least that would catch a pool this host has since imported. If not, could llapi_scan_device(3) document the limit?
+
+(2) lustre/utils/liblustreapi_scan_device.c (line 921)
+    (style) This isn't a bug, but this comment no longer matches scan_backend_kind(). A name that begins with '/' goes to ldiskfs whatever it is, a directory included. A relative name that exists as a directory, FIFO or character device goes to ZFS. So 'which never names an existing file' is not what the code relies on. If the patch is refreshed, something like: 'a name beginning with '/', or a relative block device or regular file, is ldiskfs's; any other name is read as a ZFS dataset.'
