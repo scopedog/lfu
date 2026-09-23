@@ -37,6 +37,7 @@ sys.path.insert(0, os.path.join(HERE, "..", "r3-0913"))
 import b2bextra  # noqa: E402
 import b2cextra  # noqa: E402
 import b2dartem  # noqa: E402
+import b2eminor  # noqa: E402
 import b2fix  # noqa: E402
 import r3fix  # noqa: E402
 
@@ -203,7 +204,7 @@ t('int-live-3', INT,
 
 t('int-live-4', INT,
   '};\n\n/* liblustreapi_scan_device.c: FID and name to pathname, for one target */\n',
-  '\t/* out or NULL: whether the target being scanned is in service */\n\tbool\t\t*pp_live;\n};\n\n/* liblustreapi_scan_device.c: FID and name to pathname, for one target */\n', since="c02")
+  '\t/* out or NULL: whether the target being scanned is in service */\n\tbool\t\t*pp_live;\n};\n\n/* liblustreapi_scan_device.c: FID and name to pathname, for one target */\n', since=LIVE)
 
 t('kernel-live-0', KERNEL,
   '#include "lustreapi_scan_backend.h"\n',
@@ -427,6 +428,8 @@ b2bextra.add_msgfix(t, MSG)
 b2cextra.add(t, MSG)
 # Artem Blagodarenko's fix for 68156/68159, TLC ae5a21241a
 b2dartem.add(t, MSG)
+# the 09-23 minor batch
+b2eminor.add(t, MSG)
 
 
 def apply(tree, name, msg):

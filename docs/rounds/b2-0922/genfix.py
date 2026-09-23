@@ -65,6 +65,9 @@ SINCE_MARKERS = (
     ('grep -q "filesystem name" $scan_err', "c06"),
     # zfs-live-2 calls isalnum() from c07, so the include goes there too
     ("#include <ctype.h>\n#include <errno.h>", "c07"),
+    # pp_live is written and read only from LU-20722; FILE_SINCE's c02 for
+    # lustreapi_internal.h left it a dead field in c08-c21 (AI on 68288)
+    ("whether the target being scanned is in service */", "c22"),
 )
 
 
@@ -261,6 +264,7 @@ sys.path.insert(0, os.path.join(HERE, "..", "r3-0913"))
 import b2bextra  # noqa: E402
 import b2cextra  # noqa: E402
 import b2dartem  # noqa: E402
+import b2eminor  # noqa: E402
 import b2fix  # noqa: E402
 import r3fix  # noqa: E402
 
@@ -322,6 +326,8 @@ b2bextra.add_msgfix(t, MSG)
 b2cextra.add(t, MSG)
 # Artem Blagodarenko's fix for 68156/68159, TLC ae5a21241a
 b2dartem.add(t, MSG)
+# the 09-23 minor batch
+b2eminor.add(t, MSG)
 
 
 def apply(tree, name, msg):

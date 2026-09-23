@@ -38,10 +38,8 @@ FIND1_LOCAL_OLD = """A failure the command line caused rather than the target en
 this build having no backend for a target's type stops it there, since
 every later target of that type would fail the same way.
 """
-FIND1_LOCAL_NEW = """The sweep stops at the first target that fails with
-.BR ENOTSUP :
-an option a target scan cannot answer,
-or no scan backend in this build for that target's type.
+FIND1_LOCAL_NEW = """So is a target this build has no scan backend for,
+and one that cannot answer an option, such as an OST asked about layouts.
 """
 
 FIND1_BLK_OLD = """without
@@ -378,6 +376,33 @@ CLSTATS_NEW = """\t\tif (room > sizeof(sl->sl_stats))
 \t\tmemcpy(scl.sc_stats, &sl->sl_stats, room);
 """
 
+# AI round on 68163 PS22, user's call 09-23: ENOTSUP no longer ends a
+# --local/--fsname sweep -- one backend per kind of target since c07, and
+# an OST refuses the layout options an MDT answers
+SWEEP_CODE_OLD = """\t\t\tif (ret == 0)
+\t\t\t\tret = rc;
+\t\t\tif (rc == -ENOTSUP)
+\t\t\t\tbreak;
+"""
+SWEEP_CODE_NEW = """\t\t\tif (ret == 0)
+\t\t\t\tret = rc;
+"""
+SWEEP_CMT_OLD = """ * A sweep skips the targets --ost or --mdt cannot name.  After that, ENOTSUP
+ * ends the sweep: a predicate a target scan cannot answer is a property of
+ * the command line, and would fail the same way for every remaining target.
+"""
+SWEEP_CMT_NEW = """ * A sweep skips the targets --ost or --mdt cannot name.  ENOTSUP does not
+ * end it: an OST cannot answer everything an MDT can, and a node may serve
+ * a kind of target this build has no backend for.
+"""
+MSG_C06_SWEEP = ("""the targets of the other type, which those options cannot name. After
+that, ENOTSUP ends the sweep: it comes from the command line, and would
+fail the same way for every remaining target.
+""", """the targets of the other type, which those options cannot name.
+ENOTSUP does not end a sweep either: an OST cannot answer everything an
+MDT can, and a node may serve a kind of target this build cannot read.
+""")
+
 
 def add(t, msg):
     t('c00-stx-v1', "lustre/utils/liblustreapi_pfind.c", STX_V1_OLD,
@@ -411,6 +436,11 @@ def add(t, msg):
       CLSIZE_OLD, CLSIZE_NEW, since="c09")
     t('c09-clstats', "lustre/utils/liblustreapi_scan_changelog.c",
       CLSTATS_OLD, CLSTATS_NEW, since="c09")
+    t('c06-sweep-code', "lustre/utils/lfs.c", SWEEP_CODE_OLD, SWEEP_CODE_NEW,
+      since="c06")
+    t('c06-sweep-cmt', "lustre/utils/lfs.c", SWEEP_CMT_OLD, SWEEP_CMT_NEW,
+      since="c06")
+    t('c06-msg-sweep', msg, MSG_C06_SWEEP[0], MSG_C06_SWEEP[1], since="c06")
     t('c06-msg-verify', msg, MSG_C06[0], MSG_C06[1], since="c06")
     t('c06-msg-stat', msg, MSG_C06_STAT[0], MSG_C06_STAT[1], since="c06")
     t('c06-find1-naming', "Documentation/man1/lfs-find.1", FIND1_NAMING_OLD,

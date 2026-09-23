@@ -798,3 +798,60 @@ Lab:
 - The binary as 157d runs it: pass, test9 included; with `-e 9`, test9
   is reported "skip". The version gate itself was not run: no pre-2.17
   server here.
+
+### 68163: ENOTSUP no longer ends a sweep -- user: go ahead
+
+`lfs_find_device()` broke out of a `--local`/`--fsname` sweep on the
+first `-ENOTSUP`. With one backend per kind of target (c07) and the OST
+refusing layout options (this afternoon), that stopped short: the rest
+of the node was never read. The break is gone from c06; the code comment,
+lfs-find.1 and c06's message say what is true now. Lab, a scratch `lfse`
+(2 MDTs, 2 OSTs) with `--local --stripe-count 1 --type f`, old c06
+(`4e3635fb2d`) vs new (`8ad538f2db`): both read both MDTs, find the same
+3 files and return 95; the old one stops at OST0000, the new one goes on
+to OST0001 and reports its refusal too. (A stale `ost2_flakey` dm device,
+still mapped to `/tmp/lfsc-ost2`, made the first try mount lfsc's
+OST0001; llmountcleanup cleared it.)
+
+## The minor batch, 09-23 -- [`b2eminor.py`](b2eminor.py)
+
+All from lreview c00-c06 and the AI rounds on 68163/68288/68416, each
+checked against the tree first:
+- c00 message: the limit as "4096 bytes" (the macro is internal); new
+  code described as properties, not fixes against master; the test file
+  and what tests 0-9 cover.
+- c00 code: the `liblustreapi_scan.c` memset comment no longer gives a
+  reason that stopped being true; `LLAPI_SCAN_MDT_MASK`'s "used to
+  return zero"; llapi_scan_namespace.3 drops "the HLD" and names the
+  callback's negative returns; a comment on Artem's test-400 assertion.
+- c01 message: `Fixes: 501e5b2c8a47` (LU-18027) -- checked, in the base.
+- c02: the message says why lstddef.h went (the 09-22 AI round: 27
+  files for one ARRAY_SIZE), and the blank line it left is gone;
+  llapi_scan_device.3 says shards are delivered as visible, that a
+  device scan sets LLAPI_SCAN_HSM only for an object with trusted.hsm
+  (the walk sets it with no states for any regular file -- documented,
+  not changed: from c22 the ring carries no trusted.hsm, so "absent"
+  would claim "never archived" for a released file), and that
+  trusted.link is now always read, which Artem's fold had not said.
+- c05: its message's IGIF paragraph (MDT0000 does build one, from the
+  inode and generation); the NULL-path comment names the guards that
+  exist (each checked in the code).
+- c06: conf-sanity 300 runs `--target` and `--fsname --mdt` against
+  mds1 while it is up (ldiskfs only), which a multi-node cluster had
+  never reached; one error string shortened to keep checkpatch at 2.
+- c07: the two routing comments after the leading-slash rule.
+- c08: the directory-map figure (288-byte slots, a 2^21 table: about
+  576 MiB, 864 MiB mid-grow -- the growth simulated to check it); lfs-
+  find.1 gains lfs-fid2path(1) (a second spelling from c12, which adds
+  lfs-changelog(1)); llapi_find_device.3's -EXDEV and NOTES say that
+  fp_fid2path_mnt's filesystem is compared on its own.
+- c10: the two "The last" sentences name their fields.
+- `pp_live`: `int-live-4` had `since="c02"` from genfix's per-file
+  default and left a dead field in c08-c21; it is LIVE now, with a
+  SINCE_MARKERS entry so a regeneration keeps it there.
+Held for the user: the pre-pass `!S_ISDIR` filter (68288, a performance
+suggestion, to be measured).
+
+Tip **`757ea661f1`**: 26/26 builds, macro check clean, checkpatch on
+c00-c10 identical to their pushed versions. conf-sanity 300 PASS (41s) on
+the new c06, the new block present in the script it ran.
