@@ -55,6 +55,16 @@ SINCE_MARKERS = (
     ("mkfs.lustre's own check, through the wrapper it", "c06"),
     ("Borrowed from argv, not strdup()ed", "c06"),
     ("neither do \".\" and \"..\"", "c07"),
+    # the ABI word belongs with the macro, which LU-20722 defines: a
+    # FILE_SINCE entry dragged this to c07 and broke every ZFS build from
+    # there to c21, which the sweep could not see because the local tree is
+    # configured without ZFS
+    ("what this plugin was built against", "c22"),
+    # conf-sanity 300's half of the llapi_name_verify() change above: left
+    # at LIVE, the grep missed every pushed commit and 300 failed in CI
+    ('grep -q "filesystem name" $scan_err', "c06"),
+    # zfs-live-2 calls isalnum() from c07, so the include goes there too
+    ("#include <ctype.h>\n#include <errno.h>", "c07"),
 )
 
 
@@ -71,7 +81,6 @@ FILE_SINCE = {
     "include/lustre/lustreapi.h": "c00",
     "lustre/utils/lfs.c": "c06",
     "lustre/utils/lfs_find_parse.c": "c06",
-    "lustre/utils/libscan_zfs.c": "c07",
     "lustre/utils/liblustreapi_scan_changelog.c": "c09",
     "Documentation/man3/llapi_find_device.3": "c10",
 }

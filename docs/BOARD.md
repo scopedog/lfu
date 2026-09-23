@@ -4,6 +4,20 @@ Every ticket and Gerrit id in play, and the ones that are *not* ours. Regenerate
 the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
 **2026-09-06**.
 
+## 2026-09-23: conf-sanity 300 fixed, NOT pushed
+
+CI failed conf-sanity 300 on every ldiskfs run from 68160 up (Janitor CR-1 on
+68160 and 68163). The cause was a `since=LIVE` in b2bfix.py that kept the
+test's new grep out of every pushed commit. Fixed along with a second
+misplaced `since` (the ZFS `<ctype.h>`). Re-driven with commit reuse: new tip
+**`ae25cffdf8`**, c00-c05 keep Gerrit's SHAs, so **only 68160-68416 (c06-c10)
+would get a new patchset**. 26/26 builds, macro check clean, conf-sanity 300
+PASS on the clone VM. Full record in
+[`rounds/b2-0922/notes.md`](rounds/b2-0922/notes.md).
+Still owed before a push: lreview on c06/c07 (or a named skip), then the
+user's go-ahead. The 68160 reply "conf-sanity 300's grep moved with it" only
+becomes true once that push lands.
+
 ## Tomorrow: start here (end of 2026-09-22)
 
 **PUSHED today, 11 new patchsets** from the driven tip `7f9b243c26`, pushed

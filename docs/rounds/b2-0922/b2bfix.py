@@ -205,7 +205,7 @@ t('int-live-4', INT,
 
 t('kernel-live-0', KERNEL,
   '#include "lustreapi_scan_backend.h"\n',
-  '#include "lustreapi_scan_backend.h"\n\n/* what this plugin was built against; see the loader */\nconst __u32 scan_kernel_abi = LLAPI_SCAN_BACKEND_ABI;\n', since=LIVE)
+  '#include "lustreapi_scan_backend.h"\n\n/* what this plugin was built against; see the loader */\nconst __u32 scan_kernel_abi = LLAPI_SCAN_BACKEND_ABI;\n', since="c22")
 
 t('kernel-live-1', KERNEL,
   '\t/* fsname-MDT0000: the kind and the index are the last eight */\n\tsep = strrchr(name, \'-\');\n\tif (sep != NULL && strlen(sep) == 8) {\n\t\tif (strncmp(sep + 1, "MDT", 3) == 0)\n\t\t\ttgt->tt_flags |= LLAPI_SCAN_TGT_MDT;\n\t\telse if (strncmp(sep + 1, "OST", 3) == 0)\n\t\t\ttgt->tt_flags |= LLAPI_SCAN_TGT_OST;\n\t\ttgt->tt_index = strtoul(sep + 4, NULL, 16);\n\t\ttgt->tt_flags |= LLAPI_SCAN_TGT_INDEX;\n',
@@ -261,7 +261,7 @@ t('conf-live-0', CONF,
 
 t('conf-live-1', CONF,
   '\tgrep -q "is not a filesystem name" $scan_err || {\n',
-  '\tgrep -q "filesystem name" $scan_err || {\n', since=LIVE)
+  '\tgrep -q "filesystem name" $scan_err || {\n', since="c06")
 
 t('conf-live-2', CONF,
   '#\n# (This was sanity/802a)\n',
@@ -277,7 +277,7 @@ t('backend-live-1', BACKEND,
 
 t('ldiskfs-live-0', LDISKFS,
   '#include "lustreapi_scan_backend.h"\n',
-  '#include "lustreapi_scan_backend.h"\n\n/* what this plugin was built against; see the loader */\nconst __u32 scan_ldiskfs_abi = LLAPI_SCAN_BACKEND_ABI;\n', since=LIVE)
+  '#include "lustreapi_scan_backend.h"\n\n/* what this plugin was built against; see the loader */\nconst __u32 scan_ldiskfs_abi = LLAPI_SCAN_BACKEND_ABI;\n', since="c22")
 
 t('zfs-live-0', ZFS,
   '#include <errno.h>\n',
@@ -285,7 +285,7 @@ t('zfs-live-0', ZFS,
 
 t('zfs-live-1', ZFS,
   '#include "lustreapi_scan_backend.h"\n',
-  '#include "lustreapi_scan_backend.h"\n\n/* what this plugin was built against; see the loader */\nconst __u32 scan_zfs_abi = LLAPI_SCAN_BACKEND_ABI;\n', since="c07")
+  '#include "lustreapi_scan_backend.h"\n\n/* what this plugin was built against; see the loader */\nconst __u32 scan_zfs_abi = LLAPI_SCAN_BACKEND_ABI;\n', since="c22")
 
 t('zfs-live-2', ZFS,
   '\t * An empty name or "@snap" has no pool.  An empty pool name would\n\t * reach the kstat probe below as "/proc/spl/kstat/zfs/", which\n\t * exists whenever the module is loaded, and answer "in use".\n\t */\n\tif (t->zt_pool[0] == \'\\0\') {\n',

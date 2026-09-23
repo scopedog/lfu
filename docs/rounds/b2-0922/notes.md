@@ -441,3 +441,50 @@ if any object stopped: a record is consumed only when all of it is.
 **Verified:** tip `7f9b243c26` identical to the hand-edited tree, 26/26
 per-commit builds, checkpatch 0 errors on both (the recurring
 "1 errors, 45 warnings, 215 lines" is the standing `lustreapi.7` noise).
+
+## 09-23: conf-sanity 300 red in CI, and two `since` values
+
+**What CI said.** On every ldiskfs run of 68160, 68163, 68288, 68415 and
+68416, conf-sanity 300 failed with "lfs find did not refuse fsname_too_long
+as a name". The Janitor gave CR-1 on 68160 and 68163. ZFS passed.
+
+**Why.** `lfs find` did refuse the name. It said so in a new way: the AI
+round moved `--fsname` to `llapi_name_verify()` (`parse-live-1`, c06), which
+prints `filesystem name '...' longer than maximum 8 chars`. The test's grep
+for the new wording (`conf-live-1`) was generated with `since=LIVE`, so it
+only reached c22 and up, none of which is pushed. The 68160 reply "conf-sanity
+300's grep moved with it" was true of the tip and false of what we pushed.
+
+**The audit.** Every c21/c22 transform whose old text is already in a lower
+commit was listed (26) and read. 24 belong to LU-20722 and stay. The other
+one is `zfs-live-0`: `zfs-live-2` calls `isalnum()` from c07 but last
+night's edit moved `#include <ctype.h>` to c22. It compiled only because
+another header pulls it in. Both are back where they belong (c06, c07), and
+genfix.py has a `SINCE_MARKERS` entry for each, so a regeneration keeps them.
+
+**The driver.** `b2bdrive.py` now pins `GIT_COMMITTER_DATE` and takes an
+optional PREV_TIP: a commit whose tree, parent and message match the one at
+the same position there is reused. Driven against `39a4eb18d0` (what is on
+Gerrit): c00-c05 **reused, same SHAs as Gerrit**; c06 differs by the grep,
+c07-c21 by the grep and the include; c22-c25 trees identical. Two drives
+give the same tip, `ae25cffdf8`. (The first try reused nothing: commit-tree
+normalises the trailing newline, so the messages are compared rstripped.)
+
+**Verified:** 26/26 per-commit builds, plugin macro check clean.
+
+**Lab: conf-sanity 300 PASS (40s)** on the clone VM at the new c06
+(`4baedd408c`, 68160), fixture untouched. Getting a fair run took three lab
+traps, all in the rig and none in the code. The first two runs segfaulted in
+`scan_ldiskfs_open()`, at a step CI had passed on the same commit:
+- `.libs/lfs` has a DT_RPATH to `~/lfs68160-inst/lib`, so it loaded a 09-13
+  liblustreapi: fixed with an LD_PRELOAD wrapper for `lfs` and for the
+  scanner.
+- This build's `PLUGIN_DIR` is `~/lfs68160-inst/lib/lustre`, not
+  `/usr/lib64/lustre`, and holds a 09-11 `scan_osd_ldiskfs.so`: fixed by
+  building c06's plugin by hand and bind-mounting it over that path for the
+  run only (checksums logged before, during and after).
+- A failed run leaves `lfsc` mounted and the next one aborts, so the wrapper
+  now runs llmountcleanup first.
+Before the run, c06's `lfs find --fsname fsname_too_long` printed CI's exact
+message: `filesystem name 'fsname_too_long' longer than maximum 8 chars`.
+Checkpatch totals on c06 and c07 are the same as their pushed versions.
