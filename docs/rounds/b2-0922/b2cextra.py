@@ -221,6 +221,31 @@ MSG_C01_MDTIDX = ("""- An MDT index that cannot be fetched no longer fails the o
   nor ! --mdt.
 """)
 
+# lreview c05 (2): %Li on a target scan -- an unstriped directory has no
+# stub there, and fp_file_mdt_index is set only under --mdt
+LI_OLD = """\t\tcase 'i':\t/* starting index */
+\t\t\t/*
+\t\t\t * A foreign LMV has no stripe offset: lfm_type is
+"""
+LI_NEW = """\t\tcase 'i':\t/* starting index */
+\t\t\t/*
+\t\t\t * A target scan builds no stub for an unstriped
+\t\t\t * directory and sets fp_file_mdt_index only under
+\t\t\t * --mdt: the record's own index answers, or nothing.
+\t\t\t */
+\t\t\tif (path == NULL && rec != NULL &&
+\t\t\t    (lum->lum_magic == 0 ||
+\t\t\t     lmv_is_foreign(lum->lum_magic))) {
+\t\t\t\tif (!(rec->lfsr_valid & LLAPI_SCAN_MDT_INDEX))
+\t\t\t\t\tgoto format_done;
+\t\t\t\t*wrote = snprintf(buffer, size, "%d",
+\t\t\t\t\t\t  (int)rec->lfsr_mdt_index);
+\t\t\t\tbreak;
+\t\t\t}
+\t\t\t/*
+\t\t\t * A foreign LMV has no stripe offset: lfm_type is
+"""
+
 
 def add(t, msg):
     t('c00-stx-v1', "lustre/utils/liblustreapi_pfind.c", STX_V1_OLD,
@@ -234,6 +259,8 @@ def add(t, msg):
       MDTIDX_C03_NEW, since="c03")
     t('c01-msg-mdtidx', msg, MSG_C01_MDTIDX[0], MSG_C01_MDTIDX[1],
       since="c01")
+    t('c05-li', "lustre/utils/liblustreapi_pfind.c", LI_OLD, LI_NEW,
+      since="c05")
     t('c06-msg-verify', msg, MSG_C06[0], MSG_C06[1], since="c06")
     t('c06-msg-stat', msg, MSG_C06_STAT[0], MSG_C06_STAT[1], since="c06")
     t('c06-find1-naming', "Documentation/man1/lfs-find.1", FIND1_NAMING_OLD,

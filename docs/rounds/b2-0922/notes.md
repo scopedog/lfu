@@ -701,3 +701,21 @@ negation corrected (working copy only, reverted), on lfsc:
 - `! --mdt`, as nishida, root-only `secret.txt`: nothing in both, so
   Artem's fix still holds in its new position.
 Tip **`2ad21b33d6`**: 26/26, macro check clean, c03 checkpatch clean.
+
+### lreview c05 (2): -printf %Li on a target scan -- FIXED
+
+An unstriped directory has no LMV stub on a target scan (the walk builds
+one, `llapi_scan_get_lmv()`, with its MDT as `lum_stripe_offset`), so the
+zeroed buffer printed 0 on every MDT; the foreign arm read
+`fp_file_mdt_index`, which a device scan sets only under `--mdt`. Fixed in
+the print alone: on a target scan, `%Li` for a directory with no LMV or a
+foreign one prints the record's `lfsr_mdt_index`, or nothing if the scan
+does not know it. Not by building a stub: that would change what
+`--foreign`, `--mdt-count` and the hash checks see, which the finding did
+not ask for. Transform `c05-li`, c05-c25; tip **`9b40ac0e17`**, 26/26,
+macro check clean, c05 checkpatch unchanged.
+
+Lab: a two-MDT `lfse` (MDSCOUNT=2), `d0` on MDT0000, `d1` and `d1/sub` on
+MDT0001, stopped, both MDT images scanned with `-type d -printf "%LF %Li"`:
+the walk says d0 0, d1 1, sub 1; the old c08 says 0 for all three; the new
+c08 (`974573270c`) says 0, 1, 1.
