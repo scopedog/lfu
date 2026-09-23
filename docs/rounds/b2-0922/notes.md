@@ -567,3 +567,35 @@ stack, only upstream's in obd.c. Tip **`e8def2606b`**, c06 `127cf1fd05`:
 **PASS (41s)** on the VM, with the `--local --ost/--mdt` sweep branch taken
 (no "not sweeping" in the log). Not lab-tested with a `db-OST` filesystem
 name; the helper's logic is the one `lfs_find_label_of()` already relies on.
+
+## 09-23: Artem's review, finding by finding
+
+Seven inline comments from ablagodarenko on 68094, 68095, 68156, 68159 and
+68160, some from the TLC GitHub review bot checked against the current
+patchsets, some from a conf-sanity run on a rocky10 cluster confirmed with
+debugfs. 68160's is conf-sanity 300's grep, already fixed. Taken one at a
+time in stack order, verified against the tree first.
+
+### 1. 68094 (c00): stale bytes in `lmd_stx` -- CONFIRMED, FIXED
+
+`convert_lmd_statx()` ORs `STATX_BASIC_STATS` into `stx_mask` and does not
+clear `lmd_stx`. Two callers hand it a buffer full of other bytes:
+- `convert_lmdbuf_v1v2()`: the V1 `lmd_st` is still there after the
+  memmove, and `stx_mask` (16 bytes in) lies over the V1 `st_nlink`: a
+  directory with 2048 links reads as `STATX_BTIME`.
+- the ENOTTY branch of `get_lmd_info_fd()`: the name written for the ioctl
+  is still there, so bytes 16-19 of a long name become mask bits.
+
+**Reproduced locally** before the fix, on a plain local directory (the
+ENOTTY path): `measurements-2026.csv` matched `lfs find -type f -B +20000`
+(born over 20000 days ago) and `short.csv`, with the same timestamps, did
+not. After: neither matches, and both are still found with no predicate.
+Both arms were this tree's own build (no RPATH locally; the libtool wrapper
+puts `.libs` first). The V1 path needs a pre-V2 server to reach, and has
+not been run.
+
+Fix as Artem suggested: those two callers clear `lmd_stx` before the
+conversion, not `convert_lmd_statx()` itself, whose third caller runs after
+the V2 ioctl and must keep the MDT's mask. One line in c00's message.
+Transforms `c00-stx-*` in b2cextra.py, 26/26 commits. Tip **`747f07589d`**:
+26/26 builds, macro check clean, c00 checkpatch unchanged.

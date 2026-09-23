@@ -152,8 +152,43 @@ ROLE_SWEEP_NEW = """\t\t    ((param->fp_obd_uuid != NULL &&
 \t\t      !lfs_find_label_is(tgts[i].lt_name, "MDT"))))
 """
 
+# Artem 09-23 on 68094: lmd_stx holds old bytes, and stx_mask is only ORed
+STX_V1_OLD = """\tmemmove(&lmd_v2->lmd_lmm, &lmd_v1->lmd_lmm,
+\t\tlmdlen - (&lmd_v2->lmd_lmm - &lmd_v1->lmd_lmm));
+\tconvert_lmd_statx(lmd_v2, &st, false);
+"""
+STX_V1_NEW = """\tmemmove(&lmd_v2->lmd_lmm, &lmd_v1->lmd_lmm,
+\t\tlmdlen - (&lmd_v2->lmd_lmm - &lmd_v1->lmd_lmm));
+\t/* the V1 lmd_st is still here: stx_mask would keep st_nlink's bits */
+\tmemset(&lmd_v2->lmd_stx, 0, sizeof(lmd_v2->lmd_stx));
+\tconvert_lmd_statx(lmd_v2, &st, false);
+"""
+STX_ENOTTY_OLD = """\t\t\tconvert_lmd_statx(lmd, &st, true);
+\t\t\t/*
+\t\t\t * A stat answers for an object the ioctl could not,
+"""
+STX_ENOTTY_NEW = """\t\t\t/* the name written for the ioctl is still here */
+\t\t\tmemset(&lmd->lmd_stx, 0, sizeof(lmd->lmd_stx));
+\t\t\tconvert_lmd_statx(lmd, &st, true);
+\t\t\t/*
+\t\t\t * A stat answers for an object the ioctl could not,
+"""
+MSG_C00_STX = ("""  have no FID now clear it. convert_lmd_statx() no longer clears it,
+  because cb_find_init() has a real FID there.
+""", """  have no FID now clear it. convert_lmd_statx() no longer clears it,
+  because cb_find_init() has a real FID there.
+- The same two callers clear lmd_stx. It held the old V1 lmd_st or
+  the file name, and convert_lmd_statx() only adds bits to stx_mask,
+  so a long name could set STATX_BTIME with no btime behind it.
+""")
+
 
 def add(t, msg):
+    t('c00-stx-v1', "lustre/utils/liblustreapi_pfind.c", STX_V1_OLD,
+      STX_V1_NEW, since="c00")
+    t('c00-stx-enotty', "lustre/utils/liblustreapi_pfind.c", STX_ENOTTY_OLD,
+      STX_ENOTTY_NEW, since="c00")
+    t('c00-msg-stx', msg, MSG_C00_STX[0], MSG_C00_STX[1], since="c00")
     t('c06-msg-verify', msg, MSG_C06[0], MSG_C06[1], since="c06")
     t('c06-msg-stat', msg, MSG_C06_STAT[0], MSG_C06_STAT[1], since="c06")
     t('c06-find1-naming', "Documentation/man1/lfs-find.1", FIND1_NAMING_OLD,
