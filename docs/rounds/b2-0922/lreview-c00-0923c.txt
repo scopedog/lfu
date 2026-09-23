@@ -1,0 +1,55 @@
+========================================================================
+lreview: last 1 commit(s) of lrq-c00
+========================================================================
+generated: 2026-09-23T15:13:27+00:00
+repository: /tmp/claude-1004/-home-nishida-projects-lustre-lfu/bb4cc32a-183d-4988-bb80-1709bb772f66/scratchpad/lrq-c00
+reviews: 1
+totals: 6.5M tokens, $3.69
+
+  1. HEAD  d917252c85eb  LU-20603 llapi: namespace scanner API -- findings (8)
+
+========================================================================
+[1/1] HEAD  d917252c85eb  LU-20603 llapi: namespace scanner API
+========================================================================
+
+status: findings (8 finding(s)), severity low
+run:    opus, 6.5M tokens, $3.69, 7m06s
+
+Overall assessment
+------------------------------------------------------------------------
+Mostly good; no correctness problems found in the scanner itself. The one point worth settling before landing is the overlap with change 68340 on the liblustreapi_pfind.c hunks. The rest are optional minors to pick up whenever the patch is next refreshed.
+
+Findings (8)
+------------------------------------------------------------------------
+
+(1) /COMMIT_MSG (line 31)
+    (minor) Most of this list describes changes relative to earlier patchsets rather than to master. llapi_scan_get_lmv(), LLAPI_SCAN_MDT_MASK, LLAPI_SCAN_LMV_FOREIGN and the foreign-LMV offset-8 store are all new in this patch, so once it lands there is no earlier behaviour for "also clears lum_pool_name", "is not changed", "STATX_INO is added" or "now also fetches" to refer to. Likewise, convert_lmd_statx() in master never cleared lmd_fid (`git show HEAD^:lustre/utils/liblustreapi_pfind.c | grep lmd_fid` finds nothing), so "no longer clears it" has no counterpart in the history.
+
+    Only the lmd_fid and lmd_stx bullets change existing code. If the patch is refreshed, consider keeping those two and describing the others as properties of the new code, or dropping them. Separately, LLAPI_SCAN_PARAM_MAX_SIZE is named here but is defined only in lustreapi_internal.h, so callers cannot use it. Saying "4096 bytes" would be enough.
+
+(2) /COMMIT_MSG (line 55)
+    (minor) This is the only place the body mentions the tests, and "test10" doesn't say what it is part of. If the message is refreshed, a line saying that lustre/tests/llapi_scan_test.c is new, what tests 0-9 cover, and that sanity test_157c runs it would make those hunks easy to find later.
+
+(3) lustre/utils/liblustreapi_pfind.c (line 309)
+    (minor) Change 68340 (LU-20643 "utils: clear stale lmd fields on reuse") is still open and patches these same two sites, in convert_lmdbuf_v1v2() and in the lstat() fallback of get_lmd_info_fd(). The patchset 9 reply said this fix would go there rather than here. As things stand, whichever change lands second will conflict.
+
+    The two fixes also cover different fields. 68340 clears everything up to lmd_lmm, including lmd_lmmsize and lmd_padding. This change clears only lmd_stx and lmd_fid, so on the fallback path lmd_lmmsize still holds the previous object's value, and llapi_get_lum_file_fd() uses that value as a memcpy() length. That problem predates this patch, but it is exactly what 68340 addresses.
+
+    Should these hunks be dropped in favour of 68340 (with this change based on it), or should 68340 be abandoned and its lmd_lmmsize clear folded in here?
+
+(4) lustre/utils/liblustreapi_scan.c (line 333)
+    (minor) The reason this comment gives no longer holds after this patch. It says the lstat() fallback "builds lmd_stx field by field rather than replacing it", but the same patch makes the fallback memset() lmd_stx itself (liblustreapi_pfind.c, just before convert_lmd_statx()), and convert_lmdbuf_v1v2() now does the same. The next sentence then uses that fallback clear as the reason lmd_fid needs no clear here.
+
+    On the ioctl success path, llite copies out a complete statx. On the parent_fd path, the name is written over lmd_stx before the ioctl anyway. So this memset() now looks redundant. If the patch is refreshed, either drop it or reword the comment so it doesn't contradict the fallback.
+
+(5) lustre/utils/lustreapi_internal.h (line 315)
+    (style) This isn't a bug, but "used to return zero with the bit clear" describes an earlier patchset of this change, not any code in the tree. Once this lands, a reader has nothing to compare it with. If the patch is refreshed, the sentence could just say that the ioctl is the only source of stx_ino, so a demand for STATX_INO alone has to reach the MDT.
+
+(6) Documentation/man3/llapi_scan_namespace.3 (line 377)
+    (minor) This leaves out one case: a negative value returned by `cb`. llapi_scan_cb_init() sends any non-zero return from ss_cb through the `stop` label into ss_stop_rc, and llapi_scan_namespace() returns it unchanged, so a callback returning -ENOMEM (as layout_cb() in llapi_scan_test.c does) also comes back under <0. It is just as indistinguishable from an errno as the filter's value is. If the page is refreshed, consider "a negative errno on failure, or the negative value `cb` or `lfsp_filter` returned to stop the scan", and in the >0 entry note that it applies to positive `cb` values.
+
+(7) Documentation/man3/llapi_scan_namespace.3 (line 366)
+    (style) This isn't a bug, but "the HLD" refers to a design document that a man page reader has no way to find. If the page is refreshed, consider dropping the sentence or describing the behaviour directly (the same walk, with stat(2) as the attribute source).
+
+(8) lustre/tests/llapi_scan_test.c (line 400)
+    (minor) Carrying forward an unanswered point from patchset 21 (Artem): it isn't obvious to a reader what this assertion checks, or that it depends on the tree yielding exactly the two *.txt records asserted just above. The code here is unchanged since then. A short comment would cover it: every delivered record passed the filter and so must have been gathered, since name_filter_cb() returns -EIO if it ever sees a gathered record.

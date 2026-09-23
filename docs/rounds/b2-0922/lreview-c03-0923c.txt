@@ -1,0 +1,37 @@
+========================================================================
+lreview: last 1 commit(s) of lrq-c03
+========================================================================
+generated: 2026-09-23T15:32:14+00:00
+repository: /tmp/claude-1004/-home-nishida-projects-lustre-lfu/bb4cc32a-183d-4988-bb80-1709bb772f66/scratchpad/lrq-c03
+reviews: 1
+totals: 1.7M tokens, $1.29
+
+  1. HEAD  fa2d68f376a5  LU-20611 llapi: split cb_find_init's decider out -- findings (2)
+
+========================================================================
+[1/1] HEAD  fa2d68f376a5  LU-20611 llapi: split cb_find_init's decider out
+========================================================================
+
+status: findings (2 finding(s)), severity medium
+run:    opus, 1.7M tokens, $1.29, 2m05s
+
+Overall assessment
+------------------------------------------------------------------------
+Some concerns, see inline comments. The split looks mechanical apart from where the --mdt guard landed, which changes lfs find output on one path.
+
+Findings (2)
+------------------------------------------------------------------------
+
+(1) lustre/utils/liblustreapi_pfind.c (line 2774)
+    (defect) This guard used to sit inside `if (want != 0)` after scan_rec_gather_finish(), so the find_foreign_accepts() shortcut (`goto print`) jumped over it. Now `goto decide` lands in find_decide(), and this guard runs first.
+
+    On that arm `rec` has only what scan_rec_dirent() set. scan_rec_gather_finish() never ran, so LLAPI_SCAN_MDT_INDEX is never set. With `--mdt` given, every unstriped directory that takes the shortcut now returns 0 here and is not printed:
+
+        lfs find $DIR ! --foreign --mdt 0
+
+    Before: unstriped directories print, from the shortcut. After: none of them print. The fp_get_lmv/fp_check_foreign block just below would still reach `print`, but only if this guard didn't return first.
+
+    Could this guard stay in cb_find_init() at its old spot, after the gather and before `decide:`? The scan caller could then apply its own copy against its record.
+
+(2) /COMMIT_MSG (line 27)
+    (minor) The list covers the fp_get_lmv/fp_check_foreign block that moved out of `if (want != 0)`, but not the `--mdt` / LLAPI_SCAN_MDT_INDEX guard, which moved with it. That guard does not come out the same on the find_foreign_accepts() arm (see the inline comment in find_decide()), so the "No behaviour change" claim doesn't hold as written.

@@ -1,0 +1,44 @@
+========================================================================
+lreview: last 1 commit(s) of lrq-c02
+========================================================================
+generated: 2026-09-23T15:30:08+00:00
+repository: /tmp/claude-1004/-home-nishida-projects-lustre-lfu/bb4cc32a-183d-4988-bb80-1709bb772f66/scratchpad/lrq-c02
+reviews: 1
+totals: 10.6M tokens, $5.40
+
+  1. HEAD  75eb4a66b487  LU-20606 llapi: scan an ldiskfs target directly -- findings (3)
+
+========================================================================
+[1/1] HEAD  75eb4a66b487  LU-20606 llapi: scan an ldiskfs target directly
+========================================================================
+
+status: findings (3 finding(s)), severity low
+run:    opus, 10.6M tokens, $5.40, 11m12s
+
+Overall assessment
+------------------------------------------------------------------------
+Looks good; a few optional items inline for whenever the patch is next refreshed. None of them is a reason to re-spin on its own.
+
+Findings (3)
+------------------------------------------------------------------------
+
+(1) lustre/utils/liblustreapi_scan_device.c (line 433)
+    (minor) Do the two scanners really answer alike for a file that was never archived? The comment says they do.
+
+    On a walk, llapi_hsm_state_get_fd() succeeds for any regular file. mdt_attr_get_complex() treats a missing trusted.hsm as -ENODATA and not as an error, so the file comes back with LLAPI_SCAN_HSM set and lfsr_hsm_states == 0.
+
+    Here, the same file has no trusted.hsm, so scan_hsm() returns early and LLAPI_SCAN_HSM stays clear, even though lfsp_got promised HSM on an MDT. A consumer then reads "unknown" from a device scan and "no HSM state" from a walk.
+
+    The xattr was asked for and read, so its absence is a real answer. Should a regular file on an MDT get LLAPI_SCAN_HSM with zero states when XA_HSM was requested but not found?
+
+(2) lustre/utils/liblustreapi_scan_device.c (line 219)
+    (minor) A striped directory's shards seem to land here as CLS_VISIBLE.
+
+    lod gives each stripe a normal FID and a trusted.link of its own: the parent is the master, and the name is "<DFID>:<index>". The link test therefore passes, and each shard is delivered by default as a plain directory. scan_lmv_to_user() drops LMV_MAGIC_STRIPE, so nothing in the record marks it as a shard.
+
+    So a directory striped over N MDTs gives 1 record from a walk and N+1 across the device scans. That does not fit the CLS_VISIBLE description in lustreapi.h and llapi_scan_device.3 ("a file or directory a client can name").
+
+    LLAPI_SCAN_LMV_SHARD later in the series (68288) lets a consumer tell them apart. Until then, would it be worth at least saying in the class description that shards are delivered as visible?
+
+(3) lustre/utils/lustreapi_internal.h (line 33)
+    (style) This isn't a bug, but the commit message does not mention dropping lstddef.h from this header. Nothing in this patch appears to need it gone, and the removal leaves two blank lines in a row. Was it intended? If so, a word on why would help.

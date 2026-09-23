@@ -1,0 +1,40 @@
+========================================================================
+lreview: last 1 commit(s) of lrq-c06
+========================================================================
+generated: 2026-09-23T15:47:59+00:00
+repository: /tmp/claude-1004/-home-nishida-projects-lustre-lfu/bb4cc32a-183d-4988-bb80-1709bb772f66/scratchpad/lrq-c06
+reviews: 1
+totals: 7.0M tokens, $3.71
+
+  1. HEAD  feaec761bc4b  LU-20611 lfs: find over a target, with --device -- findings (2)
+
+========================================================================
+[1/1] HEAD  feaec761bc4b  LU-20611 lfs: find over a target, with --device
+========================================================================
+
+status: findings (2 finding(s)), severity low
+run:    opus, 7.0M tokens, $3.71, 7m40s
+
+Overall assessment
+------------------------------------------------------------------------
+Looks good. Two optional items inline for whenever this is next refreshed; neither needs a re-spin on its own.
+
+Findings (2)
+------------------------------------------------------------------------
+
+(1) lustre/tests/conf-sanity.sh (line 13389)
+    (minor) When MDS and OSS are on separate VMs, as in the usual multi-node test clusters, this skips the only successful run of `--local`. `--target` and `--fsname` run only after stopall, where they are expected to fail.
+
+    So no test ever runs the path where `lfs_find_local_targets()` resolves `osd-*/*/mntdev`, splits the label with `lfs_find_label_of()`, and then scans what it found. mds1 alone is enough to cover that before stopall. For example:
+
+        do_facet mds1 "$LFS find --target $(facet_svc mds1) --type f -printf '%LF\n'"
+        do_facet mds1 "$LFS find --fsname $FSNAME --mdt $(facet_svc mds1) --type f"
+
+    Checking the exit status and a non-empty answer would do. If the patch is refreshed, worth adding.
+
+(2) include/lustre/lustreapi.h (line 437)
+    (suggestion) This isn't a bug, but it puts a second way of asking for the internal objects into the public `struct find_param`. `llapi_find_device()` takes that request as `LLAPI_SCAN_F_INTERNAL` in `sp->lfsp_flags`.
+
+    A library caller that sets `fp_scan_internal = 1` gets no internal objects and no error, because only lfs.c translates the field. `fp_device`, `fp_target`, `fp_fsname` and `fp_local_targets` are the same for `llapi_find()`: they look like search inputs, but the library never reads them.
+
+    Could these CLI-only selectors go in a small lfs-private struct that `lfs_find_parse()` fills alongside `find_param`, so they stay out of lustreapi.h?

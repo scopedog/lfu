@@ -1,0 +1,35 @@
+========================================================================
+lreview: last 1 commit(s) of lrq-c01
+========================================================================
+generated: 2026-09-23T15:18:55+00:00
+repository: /tmp/claude-1004/-home-nishida-projects-lustre-lfu/bb4cc32a-183d-4988-bb80-1709bb772f66/scratchpad/lrq-c01
+reviews: 1
+totals: 4.7M tokens, $2.70
+
+  1. HEAD  a8d9938cce86  LU-20605 llapi: build find on the scan record -- findings (1)
+
+========================================================================
+[1/1] HEAD  a8d9938cce86  LU-20605 llapi: build find on the scan record
+========================================================================
+
+status: findings (1 finding(s)), severity low
+run:    opus, 4.7M tokens, $2.70, 5m26s
+
+Overall assessment
+------------------------------------------------------------------------
+Looks good; one optional commit-message note inline for whenever the patch is next refreshed, no need to re-spin for it.
+
+Findings (1)
+------------------------------------------------------------------------
+
+(1) /COMMIT_MSG (line 57)
+    (minor) Should the project-id half also name the commit that made it reachable from -printf and from symlinks?
+
+        Fixes: 501e5b2c8a47 ("LU-18027 lfs: lfs find handling special files")
+
+    Before 501e5b2c8a, cb_find_init() checked the fget_projid() result only under fp_check_projid, so a -printf-only walk (gather_all) ignored the error. A symlink was opened through to its target and asked FS_IOC_FSGETXATTR. 501e5b2c8a made two changes:
+
+    - `if (ret) goto out` now covers gather_all too.
+    - A special file now goes through LL_IOC_PROJECT on its parent, and a parent off Lustre answers that with ENOTTY on every kernel.
+
+    That is the failure the new ENOTTY branch and sanity 56El's symlink case exercise, and the "Before, the walk failed" line in the body describes it. 3dad616e09fc covers only the older `--projid` half on a pre-v6.0 tmpfs.

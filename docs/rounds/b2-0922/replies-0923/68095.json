@@ -1,0 +1,10 @@
+[
+ {
+  "patch_set": 25,
+  "file": "lustre/utils/liblustreapi_pfind.c",
+  "line": 2768,
+  "in_reply_to": "b686cca3_2156fa51",
+  "message": "Done, with your guard; from 68157 it is in find_decide(). Tested as a normal user on a 600 file owned by root: `! --mdt MDT0000` printed it before and prints nothing now. Found on the way: lfs never sets fp_exclude_mdt (-m sets fp_exclude_obd), so `! --mdt` is a no-op in stock lfs too. The test needed a patched lfs for that reason. I will file it separately.",
+  "mark_resolved": true
+ }
+]

@@ -1,0 +1,18 @@
+[
+ {
+  "patch_set": 24,
+  "file": "lustre/utils/liblustreapi_pfind.c",
+  "line": 308,
+  "in_reply_to": "06b947f8_4057cbbd",
+  "message": "Done. convert_lmdbuf_v1v2() clears lmd_stx after the memmove and before the conversion.",
+  "mark_resolved": true
+ },
+ {
+  "patch_set": 24,
+  "file": "lustre/utils/liblustreapi_pfind.c",
+  "line": 438,
+  "in_reply_to": "120c71eb_2d144b94",
+  "message": "Done, in this caller too, and not in convert_lmd_statx(), for the reason you give. Reproduced first on a local directory: measurements-2026.csv matched lfs find -B +20000 and short.csv did not. Now neither does.",
+  "mark_resolved": true
+ }
+]

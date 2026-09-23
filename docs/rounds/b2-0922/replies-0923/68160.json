@@ -1,0 +1,10 @@
+[
+ {
+  "patch_set": 23,
+  "file": "lustre/tests/conf-sanity.sh",
+  "line": 13533,
+  "in_reply_to": "d6d91b13_b71a4841",
+  "message": "Done. The grep now matches \"filesystem name\"; the fix was generated at the wrong commit, which is why PS23 lacked it. conf-sanity 300 passes locally.",
+  "mark_resolved": true
+ }
+]

@@ -1,0 +1,55 @@
+========================================================================
+lreview: last 1 commit(s) of lrq-c05
+========================================================================
+generated: 2026-09-23T15:40:17+00:00
+repository: /tmp/claude-1004/-home-nishida-projects-lustre-lfu/bb4cc32a-183d-4988-bb80-1709bb772f66/scratchpad/lrq-c05
+reviews: 1
+totals: 8.8M tokens, $4.35
+
+  1. HEAD  10e519579bf2  LU-20611 llapi: run find over a device scan -- findings (4)
+
+========================================================================
+[1/1] HEAD  10e519579bf2  LU-20611 llapi: run find over a device scan
+========================================================================
+
+status: findings (4 finding(s)), severity medium
+run:    opus, 8.8M tokens, $4.35, 8m01s
+
+Overall assessment
+------------------------------------------------------------------------
+Some concerns, see inline comments. Two target-scan answers disagree with what a walk (or the target itself) would say: -printf %Li on an unstriped directory, and layout predicates over an OST. The rest are optional minors for the same refresh.
+
+Findings (4)
+------------------------------------------------------------------------
+
+(1) /COMMIT_MSG (line 111)
+    (minor) Does this paragraph still match the code? On MDT0000 the scanner already builds the IGIF from the inode number and generation: scan_rec_obj() calls lu_igif_build(&rec.lfsr_fid, obj->so_id, obj->so_gen) under scan_tgt_has_igif() and sets LLAPI_SCAN_FID. find_decide() then prints it as a FID, and llapi_find_device.3 says the same ("On MDT0000 it still has one ... an IGIF, which is built and printed").
+
+    So only an MDT object on another MDT, or one outside the IGIF range, keeps obj:ID. As written, the message says every LMA-less MDT object does, and that no generation is available.
+
+(2) lustre/utils/liblustreapi_pfind.c (line 1904)
+    (defect) On a target scan, what does %Li print for an unstriped directory on MDT0001?
+
+    find_rec_to_lmv() zeroes the header and copies nothing when the record has no LLAPI_SCAN_LMV, so lum_magic is 0 and lum_stripe_offset is 0. Then this prints 0 for every unstriped directory, whichever MDT is scanned.
+
+    A walk prints the directory's own MDT: llapi_scan_get_lmv() builds the LMV_MAGIC_V1 stub, and scan_rec_gather_finish() sets lum_stripe_offset = fp_file_mdt_index (-printf sets gather_all, so the index is fetched). This is the MDT0000 misreport that the %Lo comment below guards against, but for %Li.
+
+    The record already carries the index. scan_rec_obj() sets lfsr_mdt_index and LLAPI_SCAN_MDT_INDEX whenever the label has one. Could find_rec_to_lmv() build the same stub from rec->lfsr_mdt_index for a directory with no LMV?
+
+    The foreign arm above has a related problem. It prints param->fp_file_mdt_index, and llapi_find_device() only sets that under --mdt. Otherwise it is whatever the caller left there (0 for a zeroed find_param, as in the man page example).
+
+(3) lustre/utils/liblustreapi_pfind.c (line 2945)
+    (minor) This patch is the caller that passes a NULL path, so this paragraph looks stale now. The printing and the lstat arm are guarded on path, --xattr is refused before the scan, and setup_target_indexes() is skipped because fc_lustre_fs is 0. If the patch is refreshed, could the comment say which guards cover which step, so it doesn't claim nothing passes NULL yet?
+
+(4) lustre/utils/liblustreapi_pfind.c (line 4007)
+    (defect) What should --stripe-count, --pool, --layout or --comp-count answer over an OST?
+
+    The OST scan never delivers a layout: LLAPI_SCAN_LAYOUT is in LLAPI_SCAN_WANT_MDT_ONLY, and an OST object has no trusted.lov anyway. So find_rec_to_lmd() returns false ("none" rather than "unread"), and this forges the filesystem default for every OST object. Then:
+
+        --stripe-count 4    ->  stripe count 0, no object matches
+        ! --stripe-count 4  ->  every object on the OST matches
+        ! --pool fast       ->  every object matches
+
+    This happens even when the objects belong to 4-stripe files in pool "fast". The results come back with rc 0 and nothing counted as undecided.
+
+    The commit message refuses --ost over an MDT because it "asks about layouts, not about the target", and refuses --mdt over an OST for a similar reason. The layout predicates over an OST seem to be the same kind of question. Should they be refused with -ENOTSUP (or counted undecided) when the target is an OST, rather than compared against a default that was never read?

@@ -1,0 +1,10 @@
+[
+ {
+  "patch_set": 22,
+  "file": "lustre/utils/liblustreapi_pfind.c",
+  "line": 3279,
+  "in_reply_to": "ec057228_0b4c1a65",
+  "message": "Done, your fix, with size_elsewhere declared at the top of find_decide().",
+  "mark_resolved": true
+ }
+]

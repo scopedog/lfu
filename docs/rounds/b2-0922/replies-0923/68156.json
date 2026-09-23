@@ -1,0 +1,18 @@
+[
+ {
+  "patch_set": 25,
+  "file": "lustre/utils/liblustreapi_scan_device.c",
+  "line": 204,
+  "in_reply_to": "8432072c_46681ce4",
+  "message": "Done: your ae5a21241a folded into this change and 68159, with your Signed-off-by. One change: from LU-20722 the link test is on presence, because the ring sends a link bigger than LFU_LINK_MAX as presence only, and an object read only in part is not demoted. On a new filesystem, mountdata and the update log are no longer visible.",
+  "mark_resolved": true
+ },
+ {
+  "patch_set": 25,
+  "file": "lustre/utils/liblustreapi_scan_device.c",
+  "line": 506,
+  "in_reply_to": "690d00c8_c24aac84",
+  "message": "Done, your fix. A 1000-byte DoM-only file now reports 1000 and matches -size 1000c.",
+  "mark_resolved": true
+ }
+]
