@@ -246,6 +246,57 @@ LI_NEW = """\t\tcase 'i':\t/* starting index */
 \t\t\t * A foreign LMV has no stripe offset: lfm_type is
 """
 
+# lreview c05 (4): the layout options over an OST were compared against a
+# default that was never read; refused, as --mdt over an OST is.  From c22
+# find_device_nobytes() refuses the same on lfsp_got; this fires first.
+OSTLAY_FN_OLD = """static int find_device_targets(struct find_param *param,
+\t\t\t       const struct llapi_scan_tgt *tgt)
+"""
+OSTLAY_FN_NEW = """/* the options only a layout answers; not --projid, which an OST has */
+static bool find_asks_layout(const struct find_param *param)
+{
+\treturn param->fp_check_pool || param->fp_check_stripe_count ||
+\t       param->fp_check_stripe_size || param->fp_check_layout ||
+\t       param->fp_check_comp_count || param->fp_check_comp_end ||
+\t       param->fp_check_comp_start || param->fp_check_comp_flags ||
+\t       param->fp_check_mirror_count || param->fp_check_foreign ||
+\t       param->fp_check_mirror_state || param->fp_check_ext_size;
+}
+
+""" + OSTLAY_FN_OLD
+OSTLAY_CALL_OLD = """\t\tif (param->fp_mdt_uuid != NULL)
+\t\t\tparam->fp_file_mdt_index = (int)tgt.tt_index;
+\t}
+"""
+OSTLAY_CALL_NEW = OSTLAY_CALL_OLD + """
+\t/*
+\t * An OST object has no layout, so these would be compared against a
+\t * default that was never read.  A target the probe cannot name is
+\t * left to answer as before.
+\t */
+\tif (find_asks_layout(param)) {
+\t\tif (param->fp_obd_uuid == NULL && param->fp_mdt_uuid == NULL &&
+\t\t    scan_device_target(target, &tgt) != 0)
+\t\t\ttgt.tt_flags = 0;
+\t\tif (tgt.tt_flags & LLAPI_SCAN_TGT_OST) {
+\t\t\tllapi_error(LLAPI_MSG_ERROR | LLAPI_MSG_NO_ERRNO,
+\t\t\t\t    -ENOTSUP,
+\t\t\t\t    "the layout options need an MDT; '%s' is an OST, whose objects carry no layout",
+\t\t\t\t    tgt.tt_label);
+\t\t\trc = -ENOTSUP;
+\t\t\tgoto out;
+\t\t}
+\t}
+"""
+# c07 gives scan_device_target() the search path
+OSTLAY_PROBE_C05 = "\t\t    scan_device_target(target, &tgt) != 0)\n"
+OSTLAY_PROBE_C07 = "\t\t    scan_device_target(target, spl.lfsp_search, &tgt) != 0)\n"
+MSG_C05_OSTLAY = ("""and --ost over an MDT asks about layouts, not about the target.
+""", """and --ost over an MDT asks about layouts, not about the target. The
+layout options over an OST are refused for the same reason: an OST
+object has no layout, so they would compare a default never read.
+""")
+
 
 def add(t, msg):
     t('c00-stx-v1', "lustre/utils/liblustreapi_pfind.c", STX_V1_OLD,
@@ -260,6 +311,14 @@ def add(t, msg):
     t('c01-msg-mdtidx', msg, MSG_C01_MDTIDX[0], MSG_C01_MDTIDX[1],
       since="c01")
     t('c05-li', "lustre/utils/liblustreapi_pfind.c", LI_OLD, LI_NEW,
+      since="c05")
+    t('c05-ostlay-fn', "lustre/utils/liblustreapi_pfind.c", OSTLAY_FN_OLD,
+      OSTLAY_FN_NEW, since="c05")
+    t('c05-ostlay-call', "lustre/utils/liblustreapi_pfind.c",
+      OSTLAY_CALL_OLD, OSTLAY_CALL_NEW, since="c05")
+    t('c07-ostlay-probe', "lustre/utils/liblustreapi_pfind.c",
+      OSTLAY_PROBE_C05, OSTLAY_PROBE_C07, since="c07")
+    t('c05-msg-ostlay', msg, MSG_C05_OSTLAY[0], MSG_C05_OSTLAY[1],
       since="c05")
     t('c06-msg-verify', msg, MSG_C06[0], MSG_C06[1], since="c06")
     t('c06-msg-stat', msg, MSG_C06_STAT[0], MSG_C06_STAT[1], since="c06")

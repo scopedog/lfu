@@ -3,25 +3,25 @@ a8d9938cce build=0 hdr=0 tests=0  LU-20605 llapi: build find on the scan record
 75eb4a66b4 build=0 hdr=0 tests=0  LU-20606 llapi: scan an ldiskfs target direct
 cd3f1ae08e build=0 hdr=0 tests=0  LU-20611 llapi: split cb_find_init's decider 
 02ca0f52f2 build=0 hdr=0 tests=0  LU-20611 lfs: share find's predicate parsing
-a8ba8f6b30 build=0 hdr=0 tests=0  LU-20611 llapi: run find over a device scan
-78f66d6e25 build=0 hdr=0 tests=0  LU-20611 lfs: find over a target, with --devi
-4cccd6c2e8 build=0 hdr=0 tests=0  LU-20613 llapi: ZFS backend for llapi_scan_de
-974573270c build=0 hdr=0 tests=0  LU-20637 llapi: name a device scan's objects
-500517283b build=0 hdr=0 tests=0  LU-20649 llapi: llapi_scan_changelog(), a cha
-7266e3b37c build=0 hdr=0 tests=0  LU-20650 llapi: fill a scan record for one FI
-278950a22b build=0 hdr=0 tests=0  LU-20650 lfs: find --since, from the changelo
-4b5ad39982 build=0 hdr=0 tests=0  LU-20650 lfs: find --changelog, the log as so
-c5b64ad0a9 build=0 hdr=0 tests=0  LU-20650 lfs: find --since-cookie, per-MDT an
-ffb0dddc29 build=0 hdr=0 tests=0  LU-20650 tests: sanity cases for find's chang
-e2eaf0d451 build=0 hdr=0 tests=0  LU-20603 llapi: pull a scan's records in batc
-f8db3ad425 build=0 hdr=0 tests=0  LU-20605 llapi: trim a start point's trailing
-445d8bafbf build=0 hdr=0 tests=0  LU-20720 osd: attributes and a private otable
-afbefd120c build=0 hdr=0 tests=0  LU-20720 osd-ldiskfs: read the inode table ah
-03d761ab2b build=0 hdr=0 tests=0  LU-20720 osd-ldiskfs: read the inode table, n
-85b74b51ee build=0 hdr=0 tests=0  LU-20720 osd: xattrs from the otable iterator
-f418962724 build=0 hdr=0 tests=0  LU-20720 lfu: an object stream from the OSD o
-1c40326271 build=0 hdr=0 tests=0  LU-20722 llapi: a scan backend for a target i
-3346dcf84e build=0 hdr=0 tests=0  LU-20730 lfu: the Object Stream over OBD_IDX_
-bb171b375d build=0 hdr=0 tests=0  LU-20730 osd-zfs: the LFU record and an index
-9b40ac0e17 build=0 hdr=0 tests=0  LU-20730 llapi: llapi_scan_mount(), a scan fr
+2ac4cfbb8c build=0 hdr=0 tests=0  LU-20611 llapi: run find over a device scan
+6b90b7ab6c build=0 hdr=0 tests=0  LU-20611 lfs: find over a target, with --devi
+dfb9b7f96a build=0 hdr=0 tests=0  LU-20613 llapi: ZFS backend for llapi_scan_de
+9fb37d04ab build=0 hdr=0 tests=0  LU-20637 llapi: name a device scan's objects
+e319b183be build=0 hdr=0 tests=0  LU-20649 llapi: llapi_scan_changelog(), a cha
+034fcf299b build=0 hdr=0 tests=0  LU-20650 llapi: fill a scan record for one FI
+e25952cbec build=0 hdr=0 tests=0  LU-20650 lfs: find --since, from the changelo
+739123508b build=0 hdr=0 tests=0  LU-20650 lfs: find --changelog, the log as so
+5f4452c91c build=0 hdr=0 tests=0  LU-20650 lfs: find --since-cookie, per-MDT an
+12782a49b4 build=0 hdr=0 tests=0  LU-20650 tests: sanity cases for find's chang
+a5898a03cb build=0 hdr=0 tests=0  LU-20603 llapi: pull a scan's records in batc
+0f1f682084 build=0 hdr=0 tests=0  LU-20605 llapi: trim a start point's trailing
+b692db1b92 build=0 hdr=0 tests=0  LU-20720 osd: attributes and a private otable
+aec06bf45d build=0 hdr=0 tests=0  LU-20720 osd-ldiskfs: read the inode table ah
+5cb24bd3a6 build=0 hdr=0 tests=0  LU-20720 osd-ldiskfs: read the inode table, n
+3fd3d240b8 build=0 hdr=0 tests=0  LU-20720 osd: xattrs from the otable iterator
+989272bc74 build=0 hdr=0 tests=0  LU-20720 lfu: an object stream from the OSD o
+7dc02f6bd5 build=0 hdr=0 tests=0  LU-20722 llapi: a scan backend for a target i
+5f5f5c59d3 build=0 hdr=0 tests=0  LU-20730 lfu: the Object Stream over OBD_IDX_
+b4a2f1be47 build=0 hdr=0 tests=0  LU-20730 osd-zfs: the LFU record and an index
+7af134d9b9 build=0 hdr=0 tests=0  LU-20730 llapi: llapi_scan_mount(), a scan fr
 SWEEP-DONE

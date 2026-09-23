@@ -719,3 +719,29 @@ Lab: a two-MDT `lfse` (MDSCOUNT=2), `d0` on MDT0000, `d1` and `d1/sub` on
 MDT0001, stopped, both MDT images scanned with `-type d -printf "%LF %Li"`:
 the walk says d0 0, d1 1, sub 1; the old c08 says 0 for all three; the new
 c08 (`974573270c`) says 0, 1, 1.
+
+### lreview c05 (4): the layout options over an OST -- FIXED
+
+An OST scan never delivers a layout, so `find_rec_to_lmd()` read "none"
+and the default was forged: `--stripe-count`, `--pool`, `--layout` and the
+rest compared against a layout that was never read, rc 0. c22's
+`find_device_nobytes()` already refuses this on `lfsp_got`, so the defect
+lived in c05-c21 -- the commits being pushed. Fixed at c05:
+`find_asks_layout()` (c22's list, without `--projid`, which an OST object
+answers), and when one is asked the target is probed as `--ost`/`--mdt`
+already do; an OST is refused with -ENOTSUP, a target the probe cannot
+name answers as before. From c22 this fires before `find_device_nobytes()`
+for an OST, which is harmless. c07 gives `scan_device_target()` the search
+path, so the call has a second spelling there -- the first sweep broke
+from c07 (7/26) until it did. One sentence in c05's message.
+
+Tip **`7af134d9b9`**: 26/26, macro check clean, c05 checkpatch unchanged
+(a first wrap of the `llapi_error()` was 83 columns).
+
+Lab, the stopped `lfsd` images, old c08 (`974573270c`) vs new
+(`9fb37d04ab`):
+- OST `! --pool fast`: old 33 objects rc 0; new refused, rc 95.
+- OST `--stripe-count 1`: old **0** objects rc 0, though reg.txt's object
+  is of a 1-stripe file; new refused.
+- OST `--projid 0`: 33 in both. MDT `-type f --stripe-count 1`: reg.txt
+  in both.
