@@ -855,3 +855,36 @@ suggestion, to be measured).
 Tip **`757ea661f1`**: 26/26 builds, macro check clean, checkpatch on
 c00-c10 identical to their pushed versions. conf-sanity 300 PASS (41s) on
 the new c06, the new block present in the script it ran.
+
+## 68288: the pre-pass directory filter, measured (user asked 09-23)
+
+The AI suggestion on 68288 PS16: the `--paths` pre-pass reads xattrs for
+every object on the MDT, and its callback then drops all but the
+directories. A `pp_filter` returning 1 for `!S_ISDIR` would skip them
+before the xattr read, since both backends call `ss_prefilter()` first.
+
+**Method.** A real MDT (dirdata, so the VM: stock e2fsprogs 1.47.0 here
+refuses it) of a scratch `lfsf`: 300 directories x 1000 files made with
+`createmany -m` (LMA and link inline, no LOV), 300,572 inodes. Arm A is
+c08 `db91411dcc`; arm B is the same plus the filter (a 10-line patch in
+the VM working copy, reverted after), `scan_dirmap_filter` present in B's
+library only. `lfs find --device IMG --paths -type f -name nosuch`
+(nothing printed), `/usr/bin/time`, the c08 plugin bound over the stale
+one. `--paths -type f` output: 300,000 lines in both, identical.
+
+**Result** ([`ppbench-0923.log`](ppbench-0923.log)):
+
+| | A (now) | B (filter) | |
+|---|---|---|---|
+| warm, 20 alternating pairs, elapsed | 0.28 s (0.24-0.29) | 0.19 s (0.17-0.20) | B faster in 20/20 |
+| warm, user CPU | 0.23 s | 0.14 s | |
+| cold, 5 pairs, caches dropped | 0.40 s (0.38-0.49) | 0.30 s (0.29-0.30) | B faster in 5/5 |
+| no pre-pass at all (reference) | 0.14 s | | |
+
+So the pre-pass itself costs 0.14 s warm now and 0.05 s with the filter:
+about **64% of its cost is the xattr reads of objects it throws away**.
+The whole `--paths` search is 32% faster warm, 25% cold. 20/20 pairs is a
+sign-test p of about 1e-6; the noise between pairs is +-0.02 s, far below
+the 0.09 s effect. These files carry no LOV; a real file's layout sits in
+the same inode area the read parses, so a real MDT should save at least
+as much. Not measured: ZFS, and a DNE target.

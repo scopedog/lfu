@@ -1,0 +1,26 @@
+========================================================================
+lreview: last 1 commit(s) of lrr-c03
+========================================================================
+generated: 2026-09-23T17:03:49+00:00
+repository: /tmp/claude-1004/-home-nishida-projects-lustre-lfu/bb4cc32a-183d-4988-bb80-1709bb772f66/scratchpad/lrr-c03
+reviews: 1
+totals: 2.1M tokens, $1.61
+
+  1. HEAD  f64a08121ac4  LU-20611 llapi: split cb_find_init's decider out -- findings (1)
+
+========================================================================
+[1/1] HEAD  f64a08121ac4  LU-20611 llapi: split cb_find_init's decider out
+========================================================================
+
+status: findings (1 finding(s)), severity low
+run:    opus, 2.1M tokens, $1.61, 2m42s
+
+Overall assessment
+------------------------------------------------------------------------
+Looks good. The split checks out as behaviour-neutral, including the relocated fp_get_lmv/fp_check_foreign test. One optional nit inline for whenever the patch is next refreshed; no need to re-spin for it.
+
+Findings (1)
+------------------------------------------------------------------------
+
+(1) lustre/utils/liblustreapi_pfind.c (line 2750)
+    (style) This isn't a bug, but find_decide() and find_get_projid() only read *fc. The one write, get_projid() opening into *fc_fdp, goes through the pointer member, not the struct. Could both take `const struct find_ctx *fc`? find_lmv_rejects() and find_foreign_accepts() already take const params, and the device-scan caller that builds a find_ctx later in the series would then know find_decide() leaves it alone.

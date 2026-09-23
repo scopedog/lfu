@@ -1,0 +1,62 @@
+========================================================================
+lreview: last 1 commit(s) of lrr-c00
+========================================================================
+generated: 2026-09-23T17:01:05+00:00
+repository: /tmp/claude-1004/-home-nishida-projects-lustre-lfu/bb4cc32a-183d-4988-bb80-1709bb772f66/scratchpad/lrr-c00
+reviews: 1
+totals: 7.0M tokens, $3.95
+
+  1. HEAD  c54e4b03d0ae  LU-20603 llapi: namespace scanner API -- findings (6)
+
+========================================================================
+[1/1] HEAD  c54e4b03d0ae  LU-20603 llapi: namespace scanner API
+========================================================================
+
+status: findings (6 finding(s)), severity low
+run:    opus, 7.0M tokens, $3.95, 8m17s
+
+Overall assessment
+------------------------------------------------------------------------
+Mostly good; no correctness defects found in the new scanner. There are a few API-contract and documentation points inline, for whenever the patch is next refreshed.
+
+Findings (6)
+------------------------------------------------------------------------
+
+(1) /COMMIT_MSG (line 7)
+    (style) This isn't a bug, but the subject is a noun phrase and doesn't name the new function. Something like "LU-20603 llapi: add llapi_scan_namespace()" would read as an imperative, and `git log --grep` would find it.
+
+(2) /COMMIT_MSG (line 38)
+    (suggestion) Change 68340 (LU-20643) is still open with the same two memset() hunks. If both land, the second one conflicts or duplicates the first.
+
+    Could the fix stay in 68340, with this change rebased on top of it and the Fixes: line dropped from here? Then the stale-buffer fix, which also changes `lfs find` behavior off Lustre, could be cherry-picked to maintenance branches without pulling in a 2400-line feature patch. Otherwise 68340 should probably be abandoned.
+
+(3) lustre/utils/liblustreapi_scan.c (line 504)
+    (suggestion) A consumer stop keeps the rest of the traversal running. After cb_init starts returning -1:
+
+    - every open directory up the stack still reads its remaining entries;
+    - each remaining sibling subdirectory is still opened twice (O_DIRECTORY, then the O_NOFOLLOW reopen in llapi_semantic_traverse()) before cb_init refuses it;
+    - above one thread, each one also becomes a queued work unit with its own copy_find_param() (fp_lmd alone is ~64KiB).
+
+    For a "find the first match" consumer, or the batch close in 68726, stopping near the top of a wide tree still costs about one open RPC pair per remaining directory.
+
+    Would it work to set `param->fp_stop_on_error = 1` here? The traversal already treats a negative return as final when that flag is set: the readdir loop does `goto out`, and find_worker() sets fwq_shutdown for that unit, which drains the queue. ss_stop_rc already overrides the return value.
+
+(4) lustre/utils/liblustreapi_scan.c (line 598)
+    (minor) Is the return value right for a scan that visits everything it can? The traversal records the first child error and returns it at the end, even without STOP_ON_ERROR:
+
+    - A subdirectory removed between readdir() and llapi_semantic_traverse()'s open() returns -ENOENT from the whole scan. cb_init treats the same race as "not an error".
+    - A subdirectory the caller cannot open returns -EACCES from the whole scan. That directory's own record is never delivered, because sem_init is never reached, although IOC_MDC_GETFILEINFO on the parent could have answered for it.
+
+    The man page says objects that can't be read are skipped and that <0 means failure, and ERRORS lists only EINVAL and ENAMETOOLONG. On a live filesystem, a caller can't tell "aborted" from "completed, one directory vanished".
+
+    This is pre-existing llapi_find_with_cb() behavior, which `lfs find` shares. Worth either documenting it (ERRORS, and "other errors from the walk") or having the scanner's entry point ignore child errors unless STOP_ON_ERROR is set. The same ENOENT path in llapi_semantic_traverse() also calls sem_fini (cb_common_fini(), fp_depth--) without the matching increment, so after that race lfsp_max_depth is off by one for the rest of the walk. That is pre-existing too, and probably a separate fix.
+
+(5) Documentation/man3/llapi_scan_namespace.3 (line 31)
+    (minor) Carried over from PS18, where it had no reply: this page describes the lfsp_* and lfsr_* fields in prose but never shows struct llapi_scan_param or struct llapi_scan_rec, as llapi_ladvise(3) and llapi_heat_get(3) do. Showing both definitions in the SYNOPSIS or a short DATA STRUCTURES section would make the size and padding rules much easier to follow.
+
+(6) Documentation/man3/llapi_scan_namespace.3 (line 106)
+    (minor) Above one thread, a subdirectory never carries LLAPI_SCAN_TYPE here, and neither does the start point. The dirent did know the type, but find_worker() calls llapi_semantic_traverse(..., NULL) and drops the unit->fwu_de that work_unit_create() saved. lustreapi.h mentions this, but this page doesn't.
+
+    The same applies to a TYPE-only scan, not just to lfsp_filter. lfsp_got reports LLAPI_SCAN_TYPE, yet with lfsp_thread_count > 1 no directory arrives with it, which is exactly the cheap name-plus-type search LLAPI_SCAN_DIRENT_MASK is meant for.
+
+    Could find_worker() pass unit->fwu_de instead? If that isn't safe for cb_find_init(), the multi-thread caveat should at least be documented here.
