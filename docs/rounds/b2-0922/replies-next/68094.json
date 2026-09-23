@@ -4,7 +4,8 @@
   "file": "Documentation/man3/llapi_scan_namespace.3",
   "line": 29,
   "in_reply_to": "cfea00d2_192ac368",
-  "message": "Agreed. The next patchset prints struct llapi_scan_param at the top of DESCRIPTION, as llapi_ladvise.3 does, and it grows with the fields later changes add.",
-  "mark_resolved": false
+  "message": "Done.",
+  "mark_resolved": true,
+  "post_when": "after the next 68094 patchset is up (the user already replied 'Will appear in the next refresh')"
  }
 ]

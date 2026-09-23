@@ -1055,3 +1055,9 @@ man page (+20 lines at the tip) and c00's message; c00 checkpatch
 unchanged. **Drive the next round with PREV_TIP = `5b1c87cba0`** (what is
 on Gerrit), so unchanged commits keep their SHAs. Reply draft for Artem in
 `replies-next/68094.json`, left unresolved until the patchset is up.
+
+**Artem's three older 68094 threads: answered by the user, 09-23 19:02.**
+PS18 struct-in-man-page: "OK. Will appear in the next refresh." (left
+open -- close it with "Done." once the next patchset is up; that is
+`replies-next/68094.json` now). PS21 test-400: "Done", resolved. PS21
+"overkill": "Acknowledged", resolved. The draft reply was not posted.

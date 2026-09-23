@@ -7,7 +7,7 @@ the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
 ## End of 2026-09-23: PUSHED 68094-68416 (11 patchsets), 68340 abandoned
 
 See `rounds/b2-0922/notes.md`, "PUSHED, 2026-09-23". 19 replies posted and resolved.
-Owed: the user's sentences on Artem's 3 older 68094 threads; watch the
+Owed: close Artem's PS18 thread ("Done.") once the next 68094 PS is up; watch the
 Janitor, Maloo and the AI reviewer on the new patchsets.
 
 ### (the pre-push entry, kept)
