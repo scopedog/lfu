@@ -1,0 +1,26 @@
+[
+ {
+  "patch_set": 14,
+  "file": "lustre/tests/sanity.sh",
+  "line": 21282,
+  "in_reply_to": "efe7eccc_2780707b",
+  "message": "Done. 157d passes -e 9 when the MDS is older than 2.17.50, the same gate as 160w.",
+  "mark_resolved": true
+ },
+ {
+  "patch_set": 14,
+  "file": "lustre/utils/liblustreapi_scan_changelog.c",
+  "line": 1029,
+  "in_reply_to": "3cc1f9f8_d43f5523",
+  "message": "Done. sc_size above LLAPI_SCAN_PARAM_MAX_SIZE is refused with -EINVAL, as the siblings do.",
+  "mark_resolved": true
+ },
+ {
+  "patch_set": 14,
+  "file": "lustre/utils/liblustreapi_scan_changelog.c",
+  "line": 1293,
+  "in_reply_to": "1f16907f_5b542144",
+  "message": "Done. With ss_size 20 the old code returned half a counter; now it returns 16.",
+  "mark_resolved": true
+ }
+]

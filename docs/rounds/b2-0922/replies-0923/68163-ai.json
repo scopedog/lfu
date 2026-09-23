@@ -1,0 +1,26 @@
+[
+ {
+  "patch_set": 22,
+  "file": "lustre/utils/liblustreapi_scan_device.c",
+  "line": 1117,
+  "in_reply_to": "760423d8_4748b4aa",
+  "message": "Done. Both comments now say what the code does: a name that begins with '/' goes to ldiskfs, and scan_device_exists() answers the real errno first.",
+  "mark_resolved": true
+ },
+ {
+  "patch_set": 22,
+  "file": "lustre/utils/liblustreapi_scan_device.c",
+  "line": 1259,
+  "in_reply_to": "7784c5a0_4e915c0d",
+  "message": "Done. ENOTSUP no longer ends a --local or --fsname sweep; the others are still read and the exit status says it was partial. Checked with two MDTs and two OSTs: the old code stopped at OST0000, the new one reaches OST0001.",
+  "mark_resolved": true
+ },
+ {
+  "patch_set": 22,
+  "file": "lustre/utils/libscan_zfs.c",
+  "line": 312,
+  "in_reply_to": "cc5b697a_09d8311c",
+  "message": "Done.",
+  "mark_resolved": true
+ }
+]

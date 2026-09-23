@@ -1,0 +1,10 @@
+[
+ {
+  "patch_set": 14,
+  "file": "Documentation/man3/llapi_find_device.3",
+  "line": 76,
+  "in_reply_to": "5cc900da_377ad829",
+  "message": "Done. Both sentences name their field now.",
+  "mark_resolved": true
+ }
+]

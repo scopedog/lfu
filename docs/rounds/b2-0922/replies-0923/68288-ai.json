@@ -1,0 +1,42 @@
+[
+ {
+  "patch_set": 16,
+  "file": "/COMMIT_MSG",
+  "line": 86,
+  "in_reply_to": "7f086b0e_bb85c21a",
+  "message": "Done. You are right: 288-byte entries in a 2^21 table, about 576 MiB, and about 864 MiB while it grows.",
+  "mark_resolved": true
+ },
+ {
+  "patch_set": 16,
+  "file": "Documentation/man1/lfs-find.1",
+  "line": 1177,
+  "in_reply_to": "fb925642_51301196",
+  "message": "Done, in SEE ALSO.",
+  "mark_resolved": true
+ },
+ {
+  "patch_set": 16,
+  "file": "Documentation/man3/llapi_find_device.3",
+  "line": 175,
+  "in_reply_to": "e67a9ca6_ea7e9145",
+  "message": "Done. -EXDEV and NOTES now say that the fp_fid2path_mnt filesystem is checked on its own, and that lfsp_fsname is for fp_paths and a plain llapi_scan_device() caller.",
+  "mark_resolved": true
+ },
+ {
+  "patch_set": 16,
+  "file": "lustre/utils/liblustreapi_scan_device.c",
+  "line": 1870,
+  "in_reply_to": "da8be726_1811c22d",
+  "message": "Done: pp_filter, set to skip anything that is not a directory. Measured on a 300,000-file MDT: the pre-pass went from 0.14 s to 0.05 s warm, and the --paths search is 32% faster warm and 25% cold. The paths printed are the same.",
+  "mark_resolved": true
+ },
+ {
+  "patch_set": 16,
+  "file": "lustre/utils/lustreapi_internal.h",
+  "line": 602,
+  "in_reply_to": "b069fb5c_508515ef",
+  "message": "Done. pp_live now appears only in LU-20722, which is the first change that writes and reads it.",
+  "mark_resolved": true
+ }
+]
