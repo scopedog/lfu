@@ -1,0 +1,36 @@
+========================================================================
+lreview: last 1 commit(s) of lrr-c06
+========================================================================
+generated: 2026-09-23T17:17:49+00:00
+repository: /tmp/claude-1004/-home-nishida-projects-lustre-lfu/bb4cc32a-183d-4988-bb80-1709bb772f66/scratchpad/lrr-c06
+reviews: 1
+totals: 4.7M tokens, $2.83
+
+  1. HEAD  8ad538f2db18  LU-20611 lfs: find over a target, with --device -- findings (3)
+
+========================================================================
+[1/1] HEAD  8ad538f2db18  LU-20611 lfs: find over a target, with --device
+========================================================================
+
+status: findings (3 finding(s)), severity low
+run:    opus, 4.7M tokens, $2.83, 6m16s
+
+Overall assessment
+------------------------------------------------------------------------
+Looks good. There are a few optional doc and design notes inline for whenever the patch is next refreshed; none of them needs a re-spin on its own.
+
+Findings (3)
+------------------------------------------------------------------------
+
+(1) include/lustre/lustreapi.h (line 500)
+    (suggestion) This isn't a bug, but fp_device, fp_target, fp_fsname and the fp_local_targets/fp_scan_internal bits are lfs-only command-line state. The comment above says the library ignores them. They still go into the installed lustreapi.h, where every llapi consumer sees fields that no llapi function reads. Could lfs_find_parse() return them in a small lfs-private struct declared in lfs_find_parse.h instead, or through extra out-parameters like pathstart/pathend? Then struct find_param stays the library's search description only.
+
+(2) Documentation/man1/lfs-find.1 (line 868)
+    (minor) "other than through --local or --fsname" reads as if those two could be combined with another target. lfs_find_device() counts them in `named` with the rest, so `--fsname testfs --target testfs-MDT0000` and `--local /dev/vdb` are both refused. Maybe say that only one of the selectors may be given, and that --local and --fsname may read several targets?
+
+(3) Documentation/man1/lfs-find.1 (line 922)
+    (minor) -i/--stripe-index belongs in this entry too. lfs_find_parse() stores it in fp_obd_uuid, the same as --ost, so a target search treats it exactly like --ost:
+
+        lfs find --local --stripe-index 0 --type f
+
+    On an MDS+OSS node, the sweep filter in lfs_find_device() skips every MDT, and on OST0000 every object matches. That answers something different from "File has stripe on OST index N", which is how -i is described further up this page. Something like `.BR --ost ", " --stripe-index ", " --mdt` would cover it.

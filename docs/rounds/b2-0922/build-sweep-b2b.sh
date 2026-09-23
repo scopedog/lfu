@@ -11,7 +11,7 @@ for c in $(git rev-list --reverse b7b1332a42a6959375c296f7a28564dcb90b2763..ef89
 	for f in lustre/tests/llapi_scan_test.c lustre/tests/llapi_scan_device_test.c \
 		 lustre/tests/llapi_scan_changelog_test.c; do
 		[ -f $f ] || continue
-		gcc -c -o /dev/null -Wall -Werror -D_GNU_SOURCE -Iinclude -Iinclude/uapi \
+		gcc -c -o /dev/null -O2 -Wall -Werror -D_GNU_SOURCE -Iinclude -Iinclude/uapi \
 		    -Ilustre/utils -Ilustre/tests $f 2>>$T/t.err || t=1
 	done
 	echo "${c:0:10} build=$b hdr=$h tests=$t  $(git log -1 --format=%s $c | cut -c1-45)"

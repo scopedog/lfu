@@ -898,3 +898,41 @@ over a stray filter. Tip **`a32c4b074d`**: 26/26, macro check clean, c08
 checkpatch unchanged. On the VM the driven c08 (`9d75455e31`) prints the
 same 300,000 paths as the old c08 and times 0.20 s against 0.29 s in 6/6
 pairs, which is the B arm.
+
+## 68415 (c09): a busy object is delivered, not held for ever -- user chose (a)
+
+lreview c09 (1), medium: under `COALESCE|FOLLOW|CLEAR`, an object changed
+more often than `sc_min_age` goes back to the tail of `sl_aged` on every
+event, so `scan_cl_flush()` (which stops at the first object not quiet
+enough) never reaches it, the cache-full eviction (always the head) never
+does either, and `FOLLOW` never reaches the end-of-stream flush. It is
+never delivered, and its `co_first` caps `scan_cl_clear()` via
+`scan_cl_held_first()` for as long as it stays busy, so the registered
+user's backlog on the MDT grows until the changelog fills.
+
+Fix, in `scan_cl_object_one()`'s re-seen branch rather than the flush (a
+busy object is by definition one seen again, so the test is O(1) there,
+where the flush would have to walk up to 100k entries per record): once
+`co_time - co_first_time >= SCAN_CL_MAX_HOLD (6) x sl_min_age`, on the
+stream's clock like the quiet test, the object is delivered (keyed, as
+flush and eviction do) and unlinked; its next event starts a fresh entry
+with a fresh `co_first`. New field `co_first_time`, set with `co_first`.
+llapi_scan_changelog.3 says so under `sc_min_age`; one sentence in c09's
+message. c09-c25 (17).
+
+test10 in llapi_scan_changelog_test.c: a writer thread chmods one file
+every 200 ms for 20 s (SETATTR is in the default mask), the scan runs
+`COALESCE|FOLLOW` with `sc_min_age = 1`, and the consumer stops on that
+file's record and notes whether the writer was still running. A marker
+file 2 s after the writer stops keeps the unfixed library from waiting
+for ever. Two traps on the way: `volatile` flags (checkpatch) became
+`__atomic` loads/stores, and `"%s/busy"` into `PATH_MAX` failed the real
+`-O2 -Werror` build with -Wformat-truncation -- **the sweep compiled the
+test files without -O2 and could not see it; it now uses -O2.**
+
+Lab, VM, lfsc, test10 alone (`-e 0,...,9`), a fresh changelog user and
+test directory per arm (a first run reused `busy`, whose FID then had
+events from the previous arm, and passed in 2 s for the wrong reason):
+new 8.3 s pass, old 22.6 s fail "held until it went quiet", new 8.3 s
+pass. Tip **`65937da9dc`**, c09 `115ec7a624`: 26/26 with -O2 tests,
+macro check clean, c09 checkpatch the same as pushed.

@@ -331,6 +331,153 @@ that was about two thirds of the pass.
 
 Documentation: lfs-find.1 describes both options""")
 
+# -- c09: a busy object is delivered after SCAN_CL_MAX_HOLD x sc_min_age
+# (lreview c09 1, user chose (a) 09-23) -----------------------------------
+CLOG = "lustre/utils/liblustreapi_scan_changelog.c"
+CLOGTEST = "lustre/tests/llapi_scan_changelog_test.c"
+HOLD_DEF_OLD = """/* Held before emitting, so a burst of events on one object is one record. */
+#define SCAN_CL_MIN_AGE_DEF	600
+"""
+HOLD_DEF_NEW = HOLD_DEF_OLD + """/*
+ * An object changed without pause is never quiet for sc_min_age.  Held past
+ * this many times it, it is delivered on its next event and held afresh.
+ */
+#define SCAN_CL_MAX_HOLD	6
+"""
+HOLD_FIELD_OLD = "\t__s64\t\t\t co_time;\t/* the latest event's */\n"
+HOLD_FIELD_NEW = HOLD_FIELD_OLD + "\t__s64\t\t\t co_first_time;\t/* the earliest event's */\n"
+HOLD_SET_OLD = "\to->co_first = o->co_index;\t/* only here: absorb() moves co_index */\n"
+HOLD_SET_NEW = HOLD_SET_OLD + "\to->co_first_time = o->co_time;\n"
+HOLD_SEEN_OLD = """\t\tlist_del(&o->co_link);
+\t\tscan_cl_absorb(o, r, fid);
+\t\tlist_add_tail(&o->co_link, &sl->sl_aged);
+\t\treturn 0;
+"""
+HOLD_SEEN_NEW = """\t\tlist_del(&o->co_link);
+\t\tscan_cl_absorb(o, r, fid);
+\t\tlist_add_tail(&o->co_link, &sl->sl_aged);
+\t\t/*
+\t\t * Busy past the limit: delivered now, so that it is reported
+\t\t * at all and its first record can be cleared.  Its next event
+\t\t * starts it afresh.
+\t\t */
+\t\tif (o->co_time - o->co_first_time >=
+\t\t    (__s64)sl->sl_min_age * SCAN_CL_MAX_HOLD) {
+\t\t\tint rc = scan_cl_deliver(sl, o, true);
+
+\t\t\tif (rc != 0)
+\t\t\t\treturn rc;
+\t\t\tscan_cl_unlink(sl, o);
+\t\t\tscan_cl_obj_free(o);
+\t\t}
+\t\treturn 0;
+"""
+MAN_HOLD_OLD = """and how many objects may be held. Zero takes the defaults, 600 seconds and
+100000 objects.
+"""
+MAN_HOLD_NEW = MAN_HOLD_OLD + """.IP
+An object that keeps changing is not held for ever: once six times
+.I sc_min_age
+has passed since its first event, it is delivered on its next one and held
+afresh from there. A file written without pause is then delivered about once
+every six
+.IR sc_min_age ,
+and the records behind it can be cleared.
+"""
+MSG_C09_HOLD = ("""restart from sc_startrec cannot read it back, because the record is
+gone.
+""", """restart from sc_startrec cannot read it back, because the record is
+gone. An object that never goes quiet would hold that point for ever,
+and would never be delivered either, so one held for six times
+sc_min_age since its first event is delivered on its next event and
+held afresh.
+""")
+T10_INC_OLD = "#include <errno.h>\n#include <getopt.h>\n#include <stdbool.h>\n"
+T10_INC_NEW = "#include <errno.h>\n#include <fcntl.h>\n#include <getopt.h>\n#include <pthread.h>\n#include <stdbool.h>\n"
+T10_OLD = "static struct test_tbl_entry test_tbl[] = {\n"
+T10_NEW = """struct busy_state {
+\tchar\t\t path[PATH_MAX + 16];	/* testdir, plus the name */
+\tstruct lu_fid\t fid;
+\tbool\t\t running;\t/* the writer is still writing */
+\tbool\t\t stop;
+\tbool\t\t delivered;
+\tbool\t\t while_running;
+};
+
+/* 200 ms apart for 20 s: never quiet for the 1 s sc_min_age below */
+static void *busy_writer(void *arg)
+{
+\tstruct busy_state *bs = arg;
+\tchar marker[PATH_MAX + 32];
+\tint fd;
+\tint i;
+
+\tfor (i = 0; i < 100 && !__atomic_load_n(&bs->stop, __ATOMIC_ACQUIRE);
+\t     i++) {
+\t\t(void)chmod(bs->path, i % 2 ? 0644 : 0640);
+\t\tusleep(200000);
+\t}
+\t__atomic_store_n(&bs->running, false, __ATOMIC_RELEASE);
+
+\t/* an event elsewhere, so a scan still holding the file sees it go
+\t * quiet and ends rather than waiting for a record that never comes
+\t */
+\tsleep(2);
+\tsnprintf(marker, sizeof(marker), "%s.marker", bs->path);
+\tfd = creat(marker, 0644);
+\tif (fd >= 0)
+\t\tclose(fd);
+\treturn NULL;
+}
+
+static int busy_cb(const struct llapi_scan_rec *rec, void *data)
+{
+\tstruct busy_state *bs = data;
+
+\tif (!(rec->lfsr_valid & LLAPI_SCAN_FID) ||
+\t    memcmp(&rec->lfsr_fid, &bs->fid, sizeof(bs->fid)) != 0)
+\t\treturn 0;
+\tbs->delivered = true;
+\tbs->while_running = __atomic_load_n(&bs->running, __ATOMIC_ACQUIRE);
+\treturn 1;\t/* stop: this is what the case waits for */
+}
+
+#define T10_DESC "an object changed without pause is delivered, not held"
+static void test10(void)
+{
+\tstruct llapi_scan_changelog_param sc;
+\tstruct busy_state bs = { .running = true };
+\tpthread_t th;
+\tint rc;
+\tint fd;
+
+\tsnprintf(bs.path, sizeof(bs.path), "%s/busy", testdir);
+\tfd = creat(bs.path, 0644);
+\tASSERTF(fd >= 0, "cannot create %s: %s", bs.path, strerror(errno));
+\tclose(fd);
+\trc = llapi_path2fid(bs.path, &bs.fid);
+\tASSERTF(rc == 0, "no FID for %s: %s", bs.path, strerror(-rc));
+\tASSERTF(pthread_create(&th, NULL, busy_writer, &bs) == 0,
+\t\t"cannot start the writer");
+
+\t/* the hold limit is six sc_min_age, so 6 s of changes here */
+\tparam_init(&sc);
+\tsc.sc_flags = LLAPI_SCAN_CL_F_COALESCE | LLAPI_SCAN_CL_F_FOLLOW;
+\tsc.sc_min_age = 1;
+\trc = llapi_scan_changelog(&sc, busy_cb, &bs);
+\t__atomic_store_n(&bs.stop, true, __ATOMIC_RELEASE);
+\tpthread_join(th, NULL);
+
+\tASSERTF(rc == 1, "the scan returned %d, not the consumer's stop", rc);
+\tASSERTF(bs.delivered, "the busy file was never delivered");
+\tASSERTF(bs.while_running,
+\t\t"the busy file was held until it went quiet");
+}
+
+""" + T10_OLD
+T10_REG_OLD = "\tTEST_REGISTER(9),\n"
+T10_REG_NEW = "\tTEST_REGISTER(9),\n\tTEST_REGISTER(10),\n"
+
 
 def add(t, msg):
     t('m-c00-max', msg, MSG_C00_MAX[0], MSG_C00_MAX[1], since="c00")
@@ -373,4 +520,14 @@ def add(t, msg):
     t('m-c08-ppf-set', DEV, PPF_SET_OLD, PPF_SET_NEW, since="c08")
     t('m-c08-ppf-run', DEV, PPF_RUN_OLD, PPF_RUN_NEW, since="c08")
     t('m-c08-ppf-msg', msg, MSG_C08_PPF[0], MSG_C08_PPF[1], since="c08")
+    t('m-c09-hold-def', CLOG, HOLD_DEF_OLD, HOLD_DEF_NEW, since="c09")
+    t('m-c09-hold-field', CLOG, HOLD_FIELD_OLD, HOLD_FIELD_NEW, since="c09")
+    t('m-c09-hold-set', CLOG, HOLD_SET_OLD, HOLD_SET_NEW, since="c09")
+    t('m-c09-hold-seen', CLOG, HOLD_SEEN_OLD, HOLD_SEEN_NEW, since="c09")
+    t('m-c09-hold-man', "Documentation/man3/llapi_scan_changelog.3",
+      MAN_HOLD_OLD, MAN_HOLD_NEW, since="c09")
+    t('m-c09-hold-msg', msg, MSG_C09_HOLD[0], MSG_C09_HOLD[1], since="c09")
+    t('m-c09-t10-inc', CLOGTEST, T10_INC_OLD, T10_INC_NEW, since="c09")
+    t('m-c09-t10', CLOGTEST, T10_OLD, T10_NEW, since="c09")
+    t('m-c09-t10-reg', CLOGTEST, T10_REG_OLD, T10_REG_NEW, since="c09")
     t('m-c00-tests', msg, MSG_C00_TESTS[0], MSG_C00_TESTS[1], since="c00")

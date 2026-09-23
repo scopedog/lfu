@@ -1,0 +1,46 @@
+========================================================================
+lreview: last 1 commit(s) of lrr-c08
+========================================================================
+generated: 2026-09-23T17:31:18+00:00
+repository: /tmp/claude-1004/-home-nishida-projects-lustre-lfu/bb4cc32a-183d-4988-bb80-1709bb772f66/scratchpad/lrr-c08
+reviews: 1
+totals: 7.1M tokens, $3.84
+
+  1. HEAD  9d75455e3153  LU-20637 llapi: name a device scan's objects -- findings (5)
+
+========================================================================
+[1/1] HEAD  9d75455e3153  LU-20637 llapi: name a device scan's objects
+========================================================================
+
+status: findings (5 finding(s)), severity low
+run:    opus, 7.1M tokens, $3.84, 7m25s
+
+Overall assessment
+------------------------------------------------------------------------
+Looks good; no correctness problems found in the scan, pre-pass or directory-map code. A few optional minors and suggestions inline for whenever the patch is next refreshed -- no need to re-spin for them.
+
+Findings (5)
+------------------------------------------------------------------------
+
+(1) lustre/utils/liblustreapi_scan.c (line 803)
+    (minor) With mnt_path NULL this passes fid2path's answer through unchanged, so the root-relative form depends on the object:
+
+        ordinary file    dir/f     (mdt_path_current() skips the leading '/')
+        encrypted file   /dir/f    (the same code keeps it)
+        the root         /         (copy_strip_dne_path())
+
+    The man page promises "one relative to the filesystem root", and --paths gives "/dir/f" for the same object. A public caller has to strip or add the '/' itself to get one form. Since rp is already computed, would "/%s" with rp in this arm give one form that matches --paths? If so, the man page could then say the result begins with '/'.
+
+(2) Documentation/man1/lfs-find.1 (line 915)
+    (minor) Is CAP_DAC_READ_SEARCH needed on an MDT? There --fid2path only opens the mount root and uses its path as a prefix. Names come from the directory map, and llapi_fid2path_at() is never called. The capability, and the "FID that cannot be looked up" error, apply only to the OST case. If the patch is refreshed, consider saying "On an OST, resolving FIDs needs ...".
+
+(3) lustre/utils/liblustreapi_pfind.c (line 2976)
+    (style) This isn't a bug, but find_rec_may_have_name() was inserted between find_decide()'s comment block ("Everything from the MDT's answer onwards ... lands in there.") and find_decide(). That comment now sits directly on top of this helper's comment. If the patch is refreshed, consider moving the helper above that block.
+
+(4) lustre/utils/liblustreapi_pfind.c (line 3500)
+    (suggestion) The filesystem root always ends up in the nameless count. ROOT carries no trusted.link, so lfsr_name is NULL and prc stays -ENOENT. The same goes for .lustre and its children, according to the comment in find_device_cb().
+
+    As a result, every unfiltered `lfs find --device <MDT> --paths` on a healthy filesystem ends with "N matching objects have no pathname" (on stderr, exit 0). Its name is already known: scan_dirmap_path() stops at LU_ROOT_FID. Would it be worth naming fid_is_root(&r->lfsr_fid) as "/" here (or as the mount point under --fid2path), so the warning only counts objects that really have no name?
+
+(5) lustre/utils/lfs.c (line 6464)
+    (suggestion) On a node that serves both an MDT and OSTs, `lfs find --local --paths` (or --fsname) scans the MDT and then fails on every OST with -ENOTDIR, so the command exits non-zero even though the MDT was searched completely. This sweep already skips targets that --ost/--mdt cannot name. Should it also skip OSTs under --paths, since --paths can only ever answer on an MDT, and keep the -ENOTDIR refusal for an OST named explicitly?

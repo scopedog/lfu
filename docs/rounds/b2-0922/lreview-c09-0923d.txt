@@ -1,0 +1,52 @@
+========================================================================
+lreview: last 1 commit(s) of lrr-c09
+========================================================================
+generated: 2026-09-23T17:23:41+00:00
+repository: /tmp/claude-1004/-home-nishida-projects-lustre-lfu/bb4cc32a-183d-4988-bb80-1709bb772f66/scratchpad/lrr-c09
+reviews: 1
+totals: 5.4M tokens, $3.16
+
+  1. HEAD  9ff968020f84  LU-20649 llapi: llapi_scan_changelog(), a changelog as a stream -- findings (7)
+
+========================================================================
+[1/1] HEAD  9ff968020f84  LU-20649 llapi: llapi_scan_changelog(), a changelog as a stream
+========================================================================
+
+status: findings (7 finding(s)), severity medium
+run:    opus, 5.4M tokens, $3.16, 5m50s
+
+Overall assessment
+------------------------------------------------------------------------
+Some concerns, see inline comments. The one worth a refresh is how object mode plus follow plus clearing behaves on a busy filesystem; the rest are minor and can ride along.
+
+Findings (7)
+------------------------------------------------------------------------
+
+(1) lustre/utils/liblustreapi_scan_changelog.c (line 976)
+    (defect) With LLAPI_SCAN_CL_F_FOLLOW | _COALESCE | _CLEAR, can one busy file pin the clear point forever?
+
+    A file written more often than sc_min_age (for example a log appended every minute, against the 600s default) goes back to the tail of sl_aged on every event:
+
+        scan_cl_object_one() -> list_del(); scan_cl_absorb(); list_add_tail()
+
+    so scan_cl_flush() never finds it old enough. The sc_max_cached eviction always takes the head, so that never reaches it either. Its co_first stays at its first event, so scan_cl_held_first() caps upto at that index for as long as the file stays busy. Under FOLLOW the end-of-log flush never runs, so the object is never delivered, and the registered user's backlog on the MDT grows without bound until the changelog fills or GC deregisters the user.
+
+    The man page covers the quiet-filesystem case under sc_min_age, but not this one, where the filesystem is active. Would a maximum hold time measured from the first event (deliver once now - first event time exceeds some multiple of sc_min_age) bound it? If this is intended, could the page at least say that a continuously modified object is held indefinitely and blocks clearing?
+
+(2) lustre/utils/liblustreapi_scan_changelog.c (line 1207)
+    (minor) sc_endrec is inclusive, but the loop only stops when a record past it arrives. Without FOLLOW the end of the log ends it anyway. With LLAPI_SCAN_CL_F_FOLLOW, the scan delivers record sc_endrec and then blocks in llapi_changelog_recv() until some later record is written, which may be never on an idle MDT. In object mode, everything held also stays undelivered until then. Could the loop break after processing a record with cr_index >= sc_endrec instead?
+
+(3) lustre/utils/liblustreapi_scan_changelog.c (line 389)
+    (minor) LLAPI_SCAN_LAZY_SIZE/_BLOCKS are set here for every regular file on the no-glimpse path, whether or not the MDT had a lazy size to give. Take a file with no LSOM, for example one still open for write or on a filesystem with LSOM disabled. ll_getattr_dentry() with AT_STATX_DONT_SYNC then returns i_size as-is, which is 0 for an inode just instantiated by FID, and it only substitutes lli_lazysize when OBD_MD_FLLAZYSIZE is set. That 0 then goes out as a lazy answer. scan_rec_mdt() in liblustreapi_scan.c sets these bits only under OBD_MD_FLLAZYSIZE/FLLAZYBLOCKS. This path is reached by a caller whose sc_want names LLAPI_SCAN_LAZY_SIZE without LLAPI_SCAN_SIZE, or any non-zero sc_want that names a mode or owner but no size. Is there a way to tell a real lazy size apart here, or should the bits stay clear when the value can't be trusted?
+
+(4) lustre/utils/liblustreapi_scan_changelog.c (line 1045)
+    (style) This isn't a bug, but this `__u32 i` shadows the `int i` declared at the top of the function. If the patch is refreshed, a distinct name would avoid the shadow.
+
+(5) lustre/utils/lustreapi_internal.h (line 370)
+    (typo) There are four pointers past the minimum, not three: sc_user, sc_mnt, sc_stats and sc_got. The comment on scan_cl_param_whole() below also leaves out sc_got, although ends[] does include it.
+
+(6) lustre/tests/llapi_scan_changelog_test.c (line 448)
+    (minor) Clearing only purges up to the minimum endrec across all registered users (mdd_changelog_clear() -> mcuc_minrec -> mdd_changelog_llog_cancel()). If the MDT has any other changelog user, for example one left by an earlier subtest or an external consumer, the records test6 cleared for -u stay readable. The second scan, which reads without a user from index 0, then returns an index below cleared.cr_last_index and the case fails even though the library behaved correctly. Could this read the user's own position instead, or skip when more than one user is registered?
+
+(7) lustre/tests/llapi_scan_changelog_test.c (line 648)
+    (minor) `masked <= all` still holds if the mask is ignored completely: for example, if llapi_changelog_start_user() applied no filter, both counts would be equal and this would pass. Asserting that masked.cr_types == 1ULL << CL_CREATE, and that masked delivered at least one record since make_events() just created a file, would show that the server-side filter actually ran.
