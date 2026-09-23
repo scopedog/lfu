@@ -642,6 +642,58 @@ Neither exercises the weak slot, and that is not an omission.
 """)
 MSG_C07_TP = ("Test-Parameters: testlist=sanity env=ONLY=157c\n", "")
 
+# -- next round: Artem's PS18 thread on 68094 (user 09-23: "for the next
+# PS") -- print struct llapi_scan_param in llapi_scan_namespace.3, as
+# llapi_ladvise.3 does; it grows at c02, c07 and c08 and the copy follows
+NS3 = "Documentation/man3/llapi_scan_namespace.3"
+
+
+def _fld(typ, name, comment):
+    """One struct line, spaces only: .nf keeps them, where tab stops wander."""
+    ptr = name.startswith("*")
+    return "    %-24s%s%-19s%s\n" % (typ, "*" if ptr else " ",
+                                     name.lstrip("*"), comment)
+
+
+PSTRUCT_OLD = """unchanged.
+.LP
+.I sp
+may be NULL for the defaults. Otherwise its
+"""
+PSTRUCT_END = _fld("__u64", "*lfsp_got;", "/* or NULL */") + "};\n"
+PSTRUCT_NEW = ("""unchanged.
+.LP
+The parameters are:
+.PP
+.RS 3.5
+.nf
+struct llapi_scan_param {
+""" + _fld("__u32", "lfsp_size;", "/* sizeof(*sp) */")
+    + _fld("__u32", "lfsp_max_depth;", "/* 0: unlimited */")
+    + _fld("__u64", "lfsp_flags;", "/* LLAPI_SCAN_F_* */")
+    + _fld("__u64", "lfsp_want;", "/* LLAPI_SCAN_* */")
+    + _fld("llapi_scan_cb_t", "lfsp_filter;", "/* or NULL */")
+    + _fld("__u8", "lfsp_thread_count;", "/* 0, 1: one thread */")
+    + _fld("__u8", "lfsp_padding[7];", "/* must be zero */")
+    + PSTRUCT_END + """.fi
+.RE
+.LP
+.I sp
+may be NULL for the defaults. Otherwise its
+""")
+STATS_LINE = _fld("struct llapi_scan_stats", "*lfsp_stats;", "/* or NULL */")
+SEARCH_LINE = _fld("const char", "*lfsp_search;", "/* device scans */")
+FSNAME_LINE = _fld("const char", "*lfsp_fsname;", "/* device scans */")
+PSTRUCT_C02 = PSTRUCT_END.replace("};\n", STATS_LINE + "};\n")
+PSTRUCT_C07_OLD = STATS_LINE + "};\n"
+PSTRUCT_C07_NEW = STATS_LINE + SEARCH_LINE + "};\n"
+PSTRUCT_C08_OLD = SEARCH_LINE + "};\n"
+PSTRUCT_C08_NEW = SEARCH_LINE + FSNAME_LINE + "};\n"
+MSG_C00_PSTRUCT = ("""LMV buffers stay until the next object is gathered.
+""", """LMV buffers stay until the next object is gathered. It also prints
+struct llapi_scan_param, as llapi_ladvise.3 prints its own.
+""")
+
 
 def add(t, msg):
     t('m-c00-max', msg, MSG_C00_MAX[0], MSG_C00_MAX[1], since="c00")
@@ -721,4 +773,10 @@ def add(t, msg):
       since="c07")
     t('g-c07-tp', msg, MSG_C07_TP[0], MSG_C07_TP[1], only=["c07"],
       since="c07")
+    t('n-c00-msg', msg, MSG_C00_PSTRUCT[0], MSG_C00_PSTRUCT[1], only=["c00"],
+      since="c00")
+    t('n-c00-pstruct', NS3, PSTRUCT_OLD, PSTRUCT_NEW, since="c00")
+    t('n-c02-pstats', NS3, PSTRUCT_END, PSTRUCT_C02, since="c02")
+    t('n-c07-psearch', NS3, PSTRUCT_C07_OLD, PSTRUCT_C07_NEW, since="c07")
+    t('n-c08-pfsname', NS3, PSTRUCT_C08_OLD, PSTRUCT_C08_NEW, since="c08")
     t('m-c00-tests', msg, MSG_C00_TESTS[0], MSG_C00_TESTS[1], since="c00")

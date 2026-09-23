@@ -1032,3 +1032,26 @@ sentence from the user.
 
 The VM's `~/lfs68160-inst` now holds c10's utils and plugin (backup in
 `~/lfs68160-inst.bak-0923`), so the tree's binaries there load c10.
+
+## Next round: Artem's PS18 thread on 68094 (user: "for the next PS")
+
+Missed before the push -- it had been filed as a carry-forward needing a
+sentence from the user, and nobody turned it into work while 68094 was
+being re-pushed anyway ([[carry-forward-when-respinning]] in memory).
+Done locally now, NOT pushed:
+
+llapi_scan_namespace.3 prints `struct llapi_scan_param` in a `.RS 3.5` /
+`.nf` block after the first paragraph of DESCRIPTION, as llapi_ladvise.3
+does. The struct grows at c02 (`lfsp_stats`), c07 (`lfsp_search`) and c08
+(`lfsp_fsname`); c10 changes only comments. So the printed copy has three
+extensions, each anchored on the line the previous one added; checked
+field-for-field against the header at all 26 commits. Spaces, not tabs:
+`man` put the tab-aligned columns at the wrong stops. Rendered at
+MANWIDTH=80, the widest line is 80 (two comments shortened to get there).
+One sentence in c00's message.
+
+Tip **`218cdea575`**; against the pushed chain the only difference is the
+man page (+20 lines at the tip) and c00's message; c00 checkpatch
+unchanged. **Drive the next round with PREV_TIP = `5b1c87cba0`** (what is
+on Gerrit), so unchanged commits keep their SHAs. Reply draft for Artem in
+`replies-next/68094.json`, left unresolved until the patchset is up.
