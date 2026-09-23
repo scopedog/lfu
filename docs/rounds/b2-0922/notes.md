@@ -555,3 +555,15 @@ findings, severity low, "none needs a re-spin", $3.02. None is about the
 Final tip **`0938f1c9e6`**: c06 = `11ee45fd71`, c07 = `818ae5de64`. Only
 lfs-find.1 and c06's message differ from the swept and lab-tested
 `696b8c4419`; checkpatch totals unchanged.
+
+### The `-OST` fix (user: do it)
+
+`lfs_find_label_is(label, role)` reads the role after the last `-`, as
+`lfs_find_label_of()` already does, and replaces the four `strstr()` tests
+in `lfs_find_local_targets()` and the `--local --ost/--mdt` filter. Applied
+c06-c25 (20 commits); no `strstr("-OST"/"-MDT")` of ours is left in the
+stack, only upstream's in obd.c. Tip **`e8def2606b`**, c06 `127cf1fd05`:
+26/26 builds, macro check clean, checkpatch unchanged; conf-sanity 300
+**PASS (41s)** on the VM, with the `--local --ost/--mdt` sweep branch taken
+(no "not sweeping" in the log). Not lab-tested with a `db-OST` filesystem
+name; the helper's logic is the one `lfs_find_label_of()` already relies on.

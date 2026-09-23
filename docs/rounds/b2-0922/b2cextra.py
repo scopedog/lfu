@@ -115,6 +115,43 @@ FIND1_NAMING_NEW = """Where the sweep finds more than one target,
 a line naming each one it reads goes to standard error ahead of its objects,
 """
 
+# second lreview on c06, finding 2: the role is after the last '-', so a
+# filesystem named db-OST does not put its MDT through the OST filter
+ROLE_HELPER_OLD = """\treturn dash != NULL && (size_t)(dash - label) == strlen(fsname) &&
+\t       strncmp(label, fsname, dash - label) == 0;
+}
+"""
+ROLE_HELPER_NEW = """\treturn dash != NULL && (size_t)(dash - label) == strlen(fsname) &&
+\t       strncmp(label, fsname, dash - label) == 0;
+}
+
+/* Is @label's role @role ("MDT" or "OST")?  Read after the last '-' too. */
+static bool lfs_find_label_is(const char *label, const char *role)
+{
+\tconst char *dash = strrchr(label, '-');
+
+\treturn dash != NULL && strncmp(dash + 1, role, 3) == 0;
+}
+"""
+ROLE_LOCAL_OLD = """\t\tif (strstr(name, "-MDT") == NULL &&
+\t\t    strstr(name, "-OST") == NULL)
+\t\t\tcontinue;
+"""
+ROLE_LOCAL_NEW = """\t\tif (!lfs_find_label_is(name, "MDT") &&
+\t\t    !lfs_find_label_is(name, "OST"))
+\t\t\tcontinue;
+"""
+ROLE_SWEEP_OLD = """\t\t    ((param->fp_obd_uuid != NULL &&
+\t\t      strstr(tgts[i].lt_name, "-OST") == NULL) ||
+\t\t     (param->fp_mdt_uuid != NULL &&
+\t\t      strstr(tgts[i].lt_name, "-MDT") == NULL)))
+"""
+ROLE_SWEEP_NEW = """\t\t    ((param->fp_obd_uuid != NULL &&
+\t\t      !lfs_find_label_is(tgts[i].lt_name, "OST")) ||
+\t\t     (param->fp_mdt_uuid != NULL &&
+\t\t      !lfs_find_label_is(tgts[i].lt_name, "MDT"))))
+"""
+
 
 def add(t, msg):
     t('c06-msg-verify', msg, MSG_C06[0], MSG_C06[1], since="c06")
@@ -132,6 +169,12 @@ def add(t, msg):
     t('c06-lfs-inc', "lustre/utils/lfs.c", LFS_INC_OLD, LFS_INC_NEW,
       since="c06")
     t('c06-lfs-blk', "lustre/utils/lfs.c", LFS_BLK_OLD, LFS_BLK_NEW,
+      since="c06")
+    t('c06-role-helper', "lustre/utils/lfs.c", ROLE_HELPER_OLD,
+      ROLE_HELPER_NEW, since="c06")
+    t('c06-role-local', "lustre/utils/lfs.c", ROLE_LOCAL_OLD, ROLE_LOCAL_NEW,
+      since="c06")
+    t('c06-role-sweep', "lustre/utils/lfs.c", ROLE_SWEEP_OLD, ROLE_SWEEP_NEW,
       since="c06")
     t('c07-kind-comment', "lustre/utils/liblustreapi_scan_device.c",
       KIND_OLD, KIND_NEW, since="c07")
