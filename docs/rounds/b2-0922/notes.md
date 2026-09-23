@@ -745,3 +745,19 @@ Lab, the stopped `lfsd` images, old c08 (`974573270c`) vs new
   is of a 1-stripe file; new refused.
 - OST `--projid 0`: 33 in both. MDT `-type f --stripe-count 1`: reg.txt
   in both.
+
+### 68340 (LU-20643) folded into 68094 -- user's choice (b)
+
+lreview c00 (3): our standalone 68340 patches the same two callers as the
+morning's `lmd_stx` fix, and whichever landed second would conflict; it
+also clears `lmd_lmmsize`, the length `llapi_get_lum_file_fd()` copies by,
+which ours did not. The user chose to fold it in and abandon 68340.
+Both callers now do 68340's one `memset()` of the record up to `lmd_lmm`
+before `convert_lmd_statx()`, replacing the separate `lmd_fid` and
+`lmd_stx` clears and the `lmd_lmmsize`/`lmd_padding` stores. c03 renames
+the third caller in the ENOTTY comment, so that hunk has two spellings
+(c00-c02, c03-c25). c00's bullet is rewritten and names LU-20643, and c00
+takes 68340's `Fixes: 11aa7f8704c4`. Tip **`5d4033c318`**: 26/26,
+c00 checkpatch unchanged; the `-B +20000` repro still matches nothing.
+
+**Owed on Gerrit, not done:** abandon 68340 with a note pointing at 68094.

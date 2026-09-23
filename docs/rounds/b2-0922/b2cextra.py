@@ -152,35 +152,78 @@ ROLE_SWEEP_NEW = """\t\t    ((param->fp_obd_uuid != NULL &&
 \t\t      !lfs_find_label_is(tgts[i].lt_name, "MDT"))))
 """
 
-# Artem 09-23 on 68094: lmd_stx holds old bytes, and stx_mask is only ORed
+# Artem 09-23 on 68094, and LU-20643 (68340) folded in at the user's call:
+# both callers with no FID clear the record up to lmd_lmm before the
+# conversion -- lmd_fid, lmd_stx, lmd_flags and lmd_lmmsize alike
 STX_V1_OLD = """\tmemmove(&lmd_v2->lmd_lmm, &lmd_v1->lmd_lmm,
 \t\tlmdlen - (&lmd_v2->lmd_lmm - &lmd_v1->lmd_lmm));
 \tconvert_lmd_statx(lmd_v2, &st, false);
+\t/*
+\t * The bytes at lmd_fid are the V1 lmd_st that sat where a FID sits
+\t * now -- st_dev in f_seq, the halves of st_ino in f_oid and f_ver --
+\t * which reads as a plausible IGIF.
+\t */
+\tmemset(&lmd_v2->lmd_fid, 0, sizeof(lmd_v2->lmd_fid));
+\tlmd_v2->lmd_lmmsize = 0;
+\tlmd_v2->lmd_padding = 0;
 """
 STX_V1_NEW = """\tmemmove(&lmd_v2->lmd_lmm, &lmd_v1->lmd_lmm,
 \t\tlmdlen - (&lmd_v2->lmd_lmm - &lmd_v1->lmd_lmm));
-\t/* the V1 lmd_st is still here: stx_mask would keep st_nlink's bits */
-\tmemset(&lmd_v2->lmd_stx, 0, sizeof(lmd_v2->lmd_stx));
+\t/*
+\t * Everything up to lmd_lmm is still the V1 lmd_st: lmd_fid would read
+\t * as an IGIF and stx_mask would keep st_nlink's bits, and
+\t * convert_lmd_statx() writes only the fields lstat has.
+\t */
+\tmemset(lmd_v2, 0, offsetof(typeof(*lmd_v2), lmd_lmm));
 \tconvert_lmd_statx(lmd_v2, &st, false);
 """
 STX_ENOTTY_OLD = """\t\t\tconvert_lmd_statx(lmd, &st, true);
 \t\t\t/*
 \t\t\t * A stat answers for an object the ioctl could not,
+\t\t\t * so there is no FID: what is left at lmd_fid is the
+\t\t\t * name the caller wrote there for that ioctl, which
+\t\t\t * reads as a plausible IGIF.  Cleared here rather
+\t\t\t * than in convert_lmd_statx(), whose third caller --
+\t\t\t * cb_find_init() under gather_all -- runs after the
+\t\t\t * V2 ioctl has put a real FID there.
+\t\t\t */
+\t\t\tmemset(&lmd->lmd_fid, 0, sizeof(lmd->lmd_fid));
 """
-STX_ENOTTY_NEW = """\t\t\t/* the name written for the ioctl is still here */
-\t\t\tmemset(&lmd->lmd_stx, 0, sizeof(lmd->lmd_stx));
-\t\t\tconvert_lmd_statx(lmd, &st, true);
-\t\t\t/*
+STX_ENOTTY_NEW = """\t\t\t/*
 \t\t\t * A stat answers for an object the ioctl could not,
+\t\t\t * and the buffer holds the name written in for that
+\t\t\t * ioctl or the previous object: lmd_fid would read as
+\t\t\t * an IGIF, stx_mask would keep the name's bits, and
+\t\t\t * llapi_get_lum_file_fd() copies by lmd_lmmsize.
+\t\t\t * Cleared here rather than in convert_lmd_statx(),
+\t\t\t * whose third caller -- cb_find_init() under
+\t\t\t * gather_all -- runs after the V2 ioctl has put real
+\t\t\t * values there.
+\t\t\t */
+\t\t\tmemset(lmd, 0, offsetof(typeof(*lmd), lmd_lmm));
+\t\t\tconvert_lmd_statx(lmd, &st, true);
 """
-MSG_C00_STX = ("""  have no FID now clear it. convert_lmd_statx() no longer clears it,
+# c03 names the third caller find_decide() in the same comment
+STX_ENOTTY_OLD_C03 = STX_ENOTTY_OLD.replace("cb_find_init() under gather_all -- runs after the",
+                                            "find_decide() under gather_all -- runs after the")
+STX_ENOTTY_NEW_C03 = STX_ENOTTY_NEW.replace("whose third caller -- cb_find_init() under",
+                                            "whose third caller -- find_decide() under")
+assert STX_ENOTTY_OLD_C03 != STX_ENOTTY_OLD and STX_ENOTTY_NEW_C03 != STX_ENOTTY_NEW
+MSG_C00_STX = ("""- For an object that is not on Lustre, lmd_fid kept an old value, so
+  the record got a FID made from the file name. The two callers that
+  have no FID now clear it. convert_lmd_statx() no longer clears it,
   because cb_find_init() has a real FID there.
-""", """  have no FID now clear it. convert_lmd_statx() no longer clears it,
-  because cb_find_init() has a real FID there.
-- The same two callers clear lmd_stx. It held the old V1 lmd_st or
-  the file name, and convert_lmd_statx() only adds bits to stx_mask,
-  so a long name could set STATX_BTIME with no btime behind it.
+""", """- The two callers that have no FID clear the record up to lmd_lmm
+  before the conversion. lmd_fid held a FID made from the file name,
+  stx_mask kept bits from the V1 lmd_st or the name, which could set
+  STATX_BTIME with no btime behind it, and lmd_lmmsize is the length
+  llapi_get_lum_file_fd() copies by. convert_lmd_statx() clears
+  nothing, because cb_find_init() has real values there. This takes
+  in LU-20643, which was change 68340.
 """)
+MSG_C00_FIXES = ("Signed-off-by: Hiroshi Nishida <hnishida@thelustrecollective.com>\n",
+                 "Fixes: 11aa7f8704c4 (\"LU-11367 som: integrate LSOM with lfs find\")\n"
+                 "Signed-off-by: Hiroshi Nishida <hnishida@thelustrecollective.com>\n")
 
 # Artem 09-23 on 68095: --mdt with no index is left out, not guessed
 MDTIDX_C01_OLD = """\t\t/*
@@ -303,7 +346,11 @@ def add(t, msg):
       STX_V1_NEW, since="c00")
     t('c00-stx-enotty', "lustre/utils/liblustreapi_pfind.c", STX_ENOTTY_OLD,
       STX_ENOTTY_NEW, since="c00")
+    t('c03-stx-enotty', "lustre/utils/liblustreapi_pfind.c",
+      STX_ENOTTY_OLD_C03, STX_ENOTTY_NEW_C03, since="c03")
     t('c00-msg-stx', msg, MSG_C00_STX[0], MSG_C00_STX[1], since="c00")
+    t('c00-msg-fixes', msg, MSG_C00_FIXES[0], MSG_C00_FIXES[1], only=["c00"],
+      since="c00")
     t('c01-mdtidx', "lustre/utils/liblustreapi_pfind.c", MDTIDX_C01_OLD,
       MDTIDX_C01_NEW, since="c01")
     t('c03-mdtidx', "lustre/utils/liblustreapi_pfind.c", MDTIDX_C03_OLD,
