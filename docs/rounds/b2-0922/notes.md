@@ -1007,3 +1007,28 @@ runs 157c); `fstype=zfs testlist=conf-sanity env=ONLY=300` stays, and the
 message paragraph that spoke of "the two sessions" now speaks of one.
 Message-only: every tree is identical to the swept `4966ac5055`. Final tip
 **`0ef719269e`**, c10 `5b1c87cba0`.
+
+## PUSHED, 2026-09-23 (user: "then push")
+
+`git push review 5b1c87cba0:refs/for/master` from `~/projects/lustre/
+lustre-scanfid`, tagged `b2c-pushed`. Gerrit's current revisions checked
+against the pushed chain, all 11 identical:
+
+| change | PS | | change | PS |
+|---|---|---|---|---|
+| 68094 | 25 | | 68160 | 24 |
+| 68095 | 26 | | 68163 | 23 |
+| 68156 | 26 | | 68288 | 17 |
+| 68157 | 26 | | 68415 | 15 |
+| 68158 | 23 | | 68416 | 15 |
+| 68159 | 23 | | | |
+
+68231 (the base, master-next) untouched. **68340 ABANDONED**, pointing at
+68094. **19 replies posted** (7 to Artem, 12 to the AI) on the patchsets
+their comments were written on; read back: 19/19 threads resolved with
+our reply last. Not posted: Artem's three older 68094 threads (PS18
+struct-in-man-page, PS21 test-400, PS21 "overkill"), which want a
+sentence from the user.
+
+The VM's `~/lfs68160-inst` now holds c10's utils and plugin (backup in
+`~/lfs68160-inst.bak-0923`), so the tree's binaries there load c10.

@@ -4,7 +4,13 @@ Every ticket and Gerrit id in play, and the ones that are *not* ours. Regenerate
 the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
 **2026-09-06**.
 
-## End of 2026-09-23: ready to push, NOT pushed
+## End of 2026-09-23: PUSHED 68094-68416 (11 patchsets), 68340 abandoned
+
+See `rounds/b2-0922/notes.md`, "PUSHED, 2026-09-23". 19 replies posted and resolved.
+Owed: the user's sentences on Artem's 3 older 68094 threads; watch the
+Janitor, Maloo and the AI reviewer on the new patchsets.
+
+### (the pre-push entry, kept)
 
 Final tip **`0ef719269e`** (trees = swept `4966ac5055`); push c00-c10 (68094-68416, 11 patchsets),
 abandon 68340 (folded into 68094). Everything done today is in
