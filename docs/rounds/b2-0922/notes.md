@@ -888,3 +888,13 @@ sign-test p of about 1e-6; the noise between pairs is +-0.02 s, far below
 the 0.09 s effect. These files carry no LOV; a real file's layout sits in
 the same inode area the read parses, so a real MDT should save at least
 as much. Not measured: ZFS, and a DNE target.
+
+**Taken (user, 09-23).** Folded into c08 as the measured patch: `pp_filter`
+in `struct scan_prepass`, `scan_dirmap_filter()` set by
+`scan_dirmap_prepass()`, and the pre-pass sweep running with it; one
+paragraph in c08's message. c08-c25 (18); the only `struct scan_prepass`
+declared outside `scan_dirmap_prepass()` is `= { 0 }`, so no caller hands
+over a stray filter. Tip **`a32c4b074d`**: 26/26, macro check clean, c08
+checkpatch unchanged. On the VM the driven c08 (`9d75455e31`) prints the
+same 300,000 paths as the old c08 and times 0.20 s against 0.29 s in 6/6
+pairs, which is the B arm.

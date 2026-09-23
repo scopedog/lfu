@@ -296,6 +296,41 @@ CS300_NEW = """\t\techo "not sweeping: mds1 and ost1 are not one ldiskfs node"
 \t# and now the same objects, read off the device with nothing mounted:
 """
 
+# -- c08: the pre-pass skips non-directories before their xattrs (AI on
+# 68288 PS16, measured 09-23: 64% of the pass on a 300k-file MDT) --------
+INT = "lustre/utils/lustreapi_internal.h"
+PPF_FIELD_OLD = "\tllapi_scan_cb_t\t pp_cb;\n"
+PPF_FIELD_NEW = """\tllapi_scan_cb_t\t pp_cb;
+\t/* before any xattr is read; NULL: none */
+\tllapi_scan_cb_t\t pp_filter;
+"""
+PPF_FN_OLD = """/*
+ * Set up the map and the pass that fills it:"""
+PPF_FN_NEW = """/* the map holds directories: the rest is dropped before its xattrs */
+static int scan_dirmap_filter(const struct llapi_scan_rec *rec, void *data)
+{
+\treturn S_ISDIR(rec->lfsr_stx.stx_mode) ? 0 : 1;
+}
+
+""" + PPF_FN_OLD
+PPF_SET_OLD = "\tpre->pp_cb = scan_dirmap_cb;\n"
+PPF_SET_NEW = "\tpre->pp_cb = scan_dirmap_cb;\n\tpre->pp_filter = scan_dirmap_filter;\n"
+PPF_RUN_OLD = """\t\t/* lfsp_filter is the caller's, and it is paired with the
+\t\t * caller's own data: a pre-pass has neither
+\t\t */
+\t\tdev.sd_filter = NULL;
+"""
+PPF_RUN_NEW = """\t\t/* lfsp_filter is the caller's, paired with the caller's own
+\t\t * data: a pre-pass brings its own, or none
+\t\t */
+\t\tdev.sd_filter = pre->pp_filter;
+"""
+MSG_C08_PPF = ("""Documentation: lfs-find.1 describes both options""", """The pre-pass drops every object that is not a directory before its
+xattrs are read, through a filter of its own. On a 300,000-file MDT
+that was about two thirds of the pass.
+
+Documentation: lfs-find.1 describes both options""")
+
 
 def add(t, msg):
     t('m-c00-max', msg, MSG_C00_MAX[0], MSG_C00_MAX[1], since="c00")
@@ -333,4 +368,9 @@ def add(t, msg):
     t('m-c02-always', DEV3, ALWAYS_OLD, ALWAYS_NEW, since="c02")
     t('m-c06-cs300', "lustre/tests/conf-sanity.sh", CS300_OLD, CS300_NEW,
       since="c06")
+    t('m-c08-ppf-field', INT, PPF_FIELD_OLD, PPF_FIELD_NEW, since="c08")
+    t('m-c08-ppf-fn', DEV, PPF_FN_OLD, PPF_FN_NEW, since="c08")
+    t('m-c08-ppf-set', DEV, PPF_SET_OLD, PPF_SET_NEW, since="c08")
+    t('m-c08-ppf-run', DEV, PPF_RUN_OLD, PPF_RUN_NEW, since="c08")
+    t('m-c08-ppf-msg', msg, MSG_C08_PPF[0], MSG_C08_PPF[1], since="c08")
     t('m-c00-tests', msg, MSG_C00_TESTS[0], MSG_C00_TESTS[1], since="c00")

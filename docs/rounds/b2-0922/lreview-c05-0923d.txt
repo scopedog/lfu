@@ -1,0 +1,40 @@
+========================================================================
+lreview: last 1 commit(s) of lrr-c05
+========================================================================
+generated: 2026-09-23T17:11:31+00:00
+repository: /tmp/claude-1004/-home-nishida-projects-lustre-lfu/bb4cc32a-183d-4988-bb80-1709bb772f66/scratchpad/lrr-c05
+reviews: 1
+totals: 6.8M tokens, $3.83
+
+  1. HEAD  46b389f4c456  LU-20611 llapi: run find over a device scan -- findings (4)
+
+========================================================================
+[1/1] HEAD  46b389f4c456  LU-20611 llapi: run find over a device scan
+========================================================================
+
+status: findings (4 finding(s)), severity low
+run:    opus, 6.8M tokens, $3.83, 7m41s
+
+Overall assessment
+------------------------------------------------------------------------
+Looks good. A few optional minors inline for whenever it is next refreshed; no need to re-spin for them.
+
+Findings (4)
+------------------------------------------------------------------------
+
+(1) /COMMIT_MSG (line 120)
+    (style) This isn't a bug, but "Before, a Data-on-MDT file ... was decided on a size of 0" describes an earlier patchset of this change: llapi_find_device() does not exist on master, so there is no "before" for a reader of the landed commit. Could this say what the code does instead, e.g. that a DoM file, whose stripe count is 0, would otherwise be decided on a stx_size the scan never reported? Crediting the fix is fine, and the second Signed-off-by already does that.
+
+(2) lustre/utils/liblustreapi_pfind.c (line 3529)
+    (style) This isn't a bug, but the last clause is stale. A target scan no longer refuses -printf; find_device_supported() refuses only %p, and printf_format_want() adds LLAPI_SCAN_LMV for a %L directive, so a scan now covers what gather_all covered on a walk. If the patch is refreshed, could this be dropped or reworded?
+
+(3) lustre/utils/liblustreapi_pfind.c (line 3593)
+    (style) This isn't a bug, but the block comment above ("--ost and --mdt against the target being scanned ... Return: 1 for a search no object on this target can match, 0 to go on, or a negative errno") documents find_device_targets(), and find_asks_layout() has been inserted between them. As a result it now reads as the description of a bool helper. Could find_asks_layout() move above that comment, or after find_device_targets()?
+
+(4) lustre/utils/liblustreapi_pfind.c (line 3700)
+    (minor) Is the layout needed for --projid, --size or --blocks here?
+
+    - find_check_lmm_info() includes fp_check_projid, so "--projid N" alone asks the backend for trusted.lov on every object. find_rec_layout() also sees `checked` as true, so an MDT object whose layout fails find_lmm_fits() is counted undecided even though its project id is in the record. find_asks_layout() deliberately leaves --projid out ("not --projid, which an OST has"), so the two tests disagree about whether --projid is a layout predicate.
+    - --size and --blocks no longer use the stripe count on a scan: size_elsewhere is true whenever path == NULL. So the extra `|| fp_check_size || fp_check_blocks` only adds a trusted.lov read per object, OST objects included.
+
+    If the patch is refreshed, find_asks_layout() looks like the right test here and in find_rec_layout(), with the size/blocks terms dropped.
