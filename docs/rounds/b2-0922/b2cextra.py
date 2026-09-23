@@ -194,17 +194,27 @@ MDTIDX_C01_NEW = """\t\t/* --mdt cannot be answered without the index: leave it 
 \t\t\tgoto decided;
 
 """ + MDTIDX_C01_OLD
-MDTIDX_C03_OLD = """\t/*
-\t * An unstriped directory answered ENODATA, or one off Lustre answered
-\t * ENOTTY: no stripe of its own either way.
-\t */
-"""
-MDTIDX_C03_NEW = """\t/* --mdt cannot be answered without the index: leave it out */
-\tif (param->fp_mdt_uuid != NULL &&
-\t    !(fc->fc_rec->lfsr_valid & LLAPI_SCAN_MDT_INDEX))
-\t\treturn 0;
+# from c03 the guard stays in cb_find_init(), after the gather: in
+# find_decide() it ran before the --foreign shortcut, whose record has no
+# index, and dropped every unstriped directory under --mdt (lreview 09-23)
+MDTIDX_C03_OLD = """\t\t} else {
+\t\t\tstripe_count = find_get_stripe_count(param);
+\t\t}
+\t}
 
-""" + MDTIDX_C03_OLD
+decide:
+"""
+MDTIDX_C03_NEW = """\t\t} else {
+\t\t\tstripe_count = find_get_stripe_count(param);
+\t\t}
+\t\t/* --mdt cannot be answered without the index: leave it out */
+\t\tif (param->fp_mdt_uuid != NULL &&
+\t\t    !(rec.lfsr_valid & LLAPI_SCAN_MDT_INDEX))
+\t\t\tgoto decided;
+\t}
+
+decide:
+"""
 MSG_C01_MDTIDX = ("""- An MDT index that cannot be fetched no longer fails the object.
 """, """- An MDT index that cannot be fetched no longer fails the object.
   With --mdt, such an object is left out: it matches neither --mdt

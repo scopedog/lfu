@@ -675,3 +675,29 @@ Not run: fix 3 on its own (with fix 2 in, the DoM file has a size), and
 the in-service path at c22 (2.19, parked), whose helper was reviewed only.
 
 All seven of Artem's comments are now addressed in the tree.
+
+## 09-23: lreview on c00-c06 after Artem's round
+
+Six runs, one at a time (`lreview-c0{0,1,2,3,5,6}-0923c.txt`), 20 findings,
+about $21. c04 and c08-c10 only carry the fixes, and c07 changed only
+comments and man text, so neither was reviewed again.
+
+### The regression I made: the --mdt guard in find_decide() -- FIXED
+
+lreview c03 (1), a defect. From c03 the `find_foreign_accepts()`
+shortcut is `goto decide`, and a guard at the top of `find_decide()` ran
+before it on a record that had never been gathered, so under `--mdt`
+every unstriped directory taking the shortcut was dropped. At c01 the
+guard came after the gather and the shortcut jumped past it. Moved back
+to that spot in `cb_find_init()` for c03-c25; device scans do not need
+it there (under `--mdt` their records always carry an index). This also
+makes c03's "no behaviour change" true again, which was lreview c03 (2).
+
+Lab, c08 old (`3f0c4c547c`) vs new (`02c228e728`), one lfs with the `-m`
+negation corrected (working copy only, reverted), on lfsc:
+- `! --foreign --mdt lfsc-MDT0000_UUID`: old printed only the two files;
+  new prints `mdtab`, `sub1` and `sub2` as well.
+- `--mdt`: the same in both.
+- `! --mdt`, as nishida, root-only `secret.txt`: nothing in both, so
+  Artem's fix still holds in its new position.
+Tip **`2ad21b33d6`**: 26/26, macro check clean, c03 checkpatch clean.
