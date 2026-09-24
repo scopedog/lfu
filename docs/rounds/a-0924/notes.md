@@ -148,3 +148,16 @@ tip **`62f0e957aa`**. Code untouched, so no rebuild. groff -ww clean.
 `followup-68094-struct-listing.diff` is the c00 version; from 68156 the
 listing also has `struct llapi_scan_stats *lfsp_stats` -- the follow-up
 must be written against the top of the series, with llapi_scan_rec too.
+
+## AI round 09-24: fix queue (user: fix now, locally; no push)
+
+Bottom-up. [ ] open, [x] fixed+verified, [-] declined (reason).
+- 68095 PS26: 1816 %Li/%Lo print MDT 0 off Lustre; 328 move two doc paragraphs onto the halves
+- 68156 PS26: 331 LMV count vs 168-entry buffer; 798 ss_class all-or-nothing wording; 383 ext2fs_get_stat_i_blocks; 121 sink prefix ss_ -> sk_
+- 68157 PS26: 2716 -ENOTSUP half-clause; 3248 decide:/decided: labels
+- 68159 PS23: 27 btime walk change in body; 109 trusted.fid sentence; 1534 %Lo count==0; 3892 SPECIFIC pool reason; 4256 tgt init + probed  (3511, 123 done)
+- 68160 PS24: 500 lfs-only fields in public find_param (AI: not worth reworking); 6431 82 columns
+- 68288 PS17: 920 man sentence; 6464 --paths with a sweep; 3916 comment names wrong lever; 4565 fileset mount; 1599 IGIF root
+- 68415 PS15: sanity.sh versions + skip; 279 statx for non-reg; 335 mask; 405 FID eq; 575 ss_emitted order; 687 cr_pfid; 693 cr_prev; 1064 copyin dup
+- 68158, 68416: AI review not in yet
+- 68094: follow-up change (structs in man page, two comments)
