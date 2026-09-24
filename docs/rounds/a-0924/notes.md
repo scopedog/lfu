@@ -136,3 +136,15 @@ comes in a follow-up patch:
   comment): shorten to a line or two
 The artem-0924 c00 must be reset to 68094 PS26 exactly before any refresh
 of the rest; the struct listing moves to the follow-up.
+
+### Local c00 reset to 68094 PS26 (done)
+
+`artem-0924` rebased onto PS26 (`560f1a7cfa`); backup
+`backup/artem-0924-pre-ps26` (= `ca2016b752`). The param listing was
+stripped from llapi_scan_namespace.3 in every commit (3 conflicts: 68156,
+68163, 68288, each resolved by the commit's own page minus the block).
+Proven per commit: all 26 = old tree with only that block removed. New
+tip **`62f0e957aa`**. Code untouched, so no rebuild. groff -ww clean.
+`followup-68094-struct-listing.diff` is the c00 version; from 68156 the
+listing also has `struct llapi_scan_stats *lfsp_stats` -- the follow-up
+must be written against the top of the series, with llapi_scan_rec too.

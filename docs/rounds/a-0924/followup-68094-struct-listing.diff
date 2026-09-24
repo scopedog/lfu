@@ -1,0 +1,28 @@
+diff --git a/Documentation/man3/llapi_scan_namespace.3 b/Documentation/man3/llapi_scan_namespace.3
+index 3ef2792a6f..63d671853b 100644
+--- a/Documentation/man3/llapi_scan_namespace.3
++++ b/Documentation/man3/llapi_scan_namespace.3
+@@ -25,6 +25,23 @@ describing that object and the caller's
+ .I data
+ unchanged.
+ .LP
++The parameters are:
++.PP
++.RS 3.5
++.nf
++struct llapi_scan_param {
++    __u32                    lfsp_size;         /* sizeof(*sp) */
++    __u32                    lfsp_max_depth;    /* 0: unlimited */
++    __u64                    lfsp_flags;        /* LLAPI_SCAN_F_* */
++    __u64                    lfsp_want;         /* LLAPI_SCAN_* */
++    llapi_scan_cb_t          lfsp_filter;       /* or NULL */
++    __u8                     lfsp_thread_count; /* 0, 1: one thread */
++    __u8                     lfsp_padding[7];   /* must be zero */
++    __u64                   *lfsp_got;          /* or NULL */
++};
++.fi
++.RE
++.LP
+ .I sp
+ may be NULL for the defaults. Otherwise its
+ .I lfsp_size
