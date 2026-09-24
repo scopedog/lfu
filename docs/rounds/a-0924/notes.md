@@ -245,3 +245,16 @@ Lab traps: under sudo $HOME is /root; the arms' PLUGIN_DIR is their own
 prefix, so set LUSTRE=<tree>/lustre (the bind mount does nothing);
 lfs mkdir -i 0 for the changelog test dir (DNE put it on MDT0001).
 Still owed: lreview on the changed commits.
+
+### Push plan (user, 09-24): skip changes that already have two CR+1
+68231, 68094, 68095 and 68413 are not refreshed. 68095 is now exactly
+Gerrit PS26 (`d2a385f08f`, on 68094 PS25 `f42d20f639`) in artem-0924; its
+two AI fixes (%Li/%Lo gate, scan_rec_gather_finish() doc) moved into
+68157, whose message says so. 68156 was replayed alone (changed lines
+identical); every other commit keeps its exact tree. Tip `27ea1f5ffa`,
+backup `backup/artem-0924-pre-keep95`. 26/26 build.
+To push after master-next is rebuilt: 68156, 68157, 68158, 68159, 68160,
+68163, 68288, 68415, 68416 (68417+ next week). Gates: 68158 AI review,
+lreview of the changed commits, then ask.
+Trap hit: a `;` after a failed `&&` chain ran `commit --amend` on the
+tip; caught by comparing every message and tree with the backup.
