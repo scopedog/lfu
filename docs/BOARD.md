@@ -4,6 +4,14 @@ Every ticket and Gerrit id in play, and the ones that are *not* ours. Regenerate
 the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
 **2026-09-06**.
 
+## 2026-09-24: Artem's five comments fixed locally, WAITING for the AI round
+
+68159 (2) and 68163 (3) fixed and proven, tip `32721e1a7a` on branch
+`artem-0924` in `~/lfs-artem-0924`; see `rounds/a-0924/notes.md`. User's
+order: wait for the Gerrit AI reviews on the 09-23 patchsets, take them
+into the same round, THEN lreview the changed commits, then the push-ask.
+14 failed enforced sessions retested (LU-20826, LU-20827 raised).
+
 ## End of 2026-09-23: PUSHED 68094-68416 (11 patchsets), 68340 abandoned
 
 See `rounds/b2-0922/notes.md`, "PUSHED, 2026-09-23". 19 replies posted and resolved.
