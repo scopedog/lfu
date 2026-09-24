@@ -213,3 +213,10 @@ refusal, --paths sweep, %Li on Lustre, sanity 157d), lreview.
   directory FID (lfsr_fd open, lfsr_parent_fd -1; checked against
   llapi_scan_fid() lines ~1005). Runs on Lustre only: VM lab owed.
 26/26 build; checkpatch same as before (1 warning, the man-page noise).
+
+### 68231 (timday CR+1 PS8, one comment) -- held on branch r0924-68231
+timday: the prototype comment at lustreapi_internal.h:271 is superfluous.
+Agreed; not a reason to refresh (Andreas). The removal is a fixup on
+branch `r0924-68231` off b7b1332a42 (= 68231 PS8), NOT on artem-0924:
+68231 is the stack's base, and changing it would move 68094 off PS26.
+Squash it in only if 68231 is ever refreshed. User replies on Gerrit.
