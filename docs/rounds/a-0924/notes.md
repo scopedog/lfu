@@ -220,3 +220,28 @@ Agreed; not a reason to refresh (Andreas). The removal is a fixup on
 branch `r0924-68231` off b7b1332a42 (= 68231 PS8), NOT on artem-0924:
 68231 is the stack's base, and changing it would move 68094 off PS26.
 Squash it in only if 68231 is ever refreshed. User replies on Gerrit.
+
+### VM lab 09-24 (clone VM, 2-MDT ldiskfs, server 2.17.57_206) -- 9/10, the 1 not ours
+
+`lab0924.sh` + `cldump.c`; arms: old = backup/artem-0924-pre-ps26,
+new = artem-0924 (tip b902cb7d19 after the test17 fix below).
+1. llapi_scan_test incl. test17's new cases: PASS (after fixing MY test:
+   the type is reported in lfsr_stx.stx_mask as STATX_TYPE, not in
+   lfsr_valid -- folded into 68416).
+2. %Li/%Lo on real Lustre dirs (root, plain, 2-stripe): identical old/new.
+3. changelog (cldump): parent only on MKDIR/CREAT/RENME/UNLNK, never on
+   CLOSE/TRUNC/MARK; lfsr_event_prev 0 everywhere; a stopped scan: old
+   emitted=0, new emitted=1. The stale cr_pfid itself did NOT reproduce
+   (old arm also showed parent=0 on CLOSE) -- one client, one thread.
+   llapi_scan_changelog_test test9 fails ENOENT on BOTH arms: this server
+   lacks 68413 (LU-20647), so the user lookup fails. Not ours.
+4. --fid2path through `mgs:/lustre/sub` on /mnt/sub: OLD prints wrong
+   paths (/mnt/sub/llapi_scan_changelog_test.d/... for files not under
+   sub) and exits 0 -- the AI's bug, reproduced; NEW refuses. A whole-fs
+   mount is not refused.
+5. `lfs find --local --paths`: old tries the OST ("has none"), new skips.
+6. stopped MDT device scan, 24 objects, %LF %b %s %Li %Lo: identical.
+Lab traps: under sudo $HOME is /root; the arms' PLUGIN_DIR is their own
+prefix, so set LUSTRE=<tree>/lustre (the bind mount does nothing);
+lfs mkdir -i 0 for the changelog test dir (DNE put it on MDT0001).
+Still owed: lreview on the changed commits.
