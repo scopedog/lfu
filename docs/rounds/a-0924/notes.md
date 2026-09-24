@@ -95,3 +95,32 @@ Replies, to post only after the push (simple English):
 Still owed before the push: lreview of c05 and c07.
 VM left running: pools a0924z/a0924c exported, vdevs in /tmp/a0924{z,c};
 `~/lustre-a0924` is a tarball tree (no git; server code does not build).
+
+## 68159: fp_max_depth 0 accepted by llapi_find_device(); Fixes: tags -- DONE, unpushed
+
+User's call on the AI's PS23 comment (pfind.c:3511). Fixed on the scan
+side, NOT in `llapi_find_param_alloc()`: in a walk, `fp_max_depth` 0
+already means "do not descend" (the `fp_depth == fp_max_depth` test), so
+seeding -1 in the allocator would change `llapi_find()` for every caller
+that leaves it zeroed. `llapi_find_device()` now accepts 0 as well as -1;
+any other value is still refused. Cost: an explicit
+`lfs find --device --maxdepth 0` is accepted (a scan has no top level).
+`llapi_find_device.3` rewritten to say this. The changelog path (68416's
+`--maxdepth` refusal) was left alone: `--since` walks and honours depth.
+
+User's call on COMMIT_MSG:123: tags only, no split. Added before the
+Signed-off-by lines (both hashes and subjects verified in the tree):
+  Fixes: 6b8e97b76c47 ("LU-10378 utils: add formatted printf to lfs find")
+  Fixes: 186b97e68abb ("LU-11971 utils: Send file creation time to clients")
+
+68159 = `056dae0e01`; tip **`ca2016b752`**; stack diff vs `32721e1a7a` is
+pfind.c + llapi_find_device.3 only. 21/21 build; checkpatch unchanged;
+groff -ww clean. A/B (`zp-alloc-depth.c`, clean mkimage MDT, INTERNAL):
+allocator param old rc=-95 / new 27 objects; 0: -95 / 27; -1: 27 / 27;
+3: -95 / -95.
+
+AI round so far (triaged, NOT yet fixed; batch after the round):
+68094 x4, 68156 x4, 68095 x2, 68157 x2, 68159 x7 (two now done: 3511,
+123), 68160 x2. 68159 COMMIT_MSG:109: our PS17 "Fixed in the next PS" on
+Andreas's trusted.fid point was only half true, and I resolved that
+thread 09-24 as "in the current patch set" -- correct it when we post.
