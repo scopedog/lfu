@@ -161,3 +161,47 @@ Bottom-up. [ ] open, [x] fixed+verified, [-] declined (reason).
 - 68415 PS15: sanity.sh versions + skip; 279 statx for non-reg; 335 mask; 405 FID eq; 575 ss_emitted order; 687 cr_pfid; 693 cr_prev; 1064 copyin dup
 - 68158, 68416: AI review not in yet
 - 68094: follow-up change (structs in man page, two comments)
+
+## AI round 09-24: FIXED locally (tip `a066f586de` + 68156 checkpatch fold)
+
+Tip after all folds: see `git -C ~/lfs-artem-0924 log -1 artem-0924`.
+26/26 build at every commit; libscan_ldiskfs.c compiles at every commit;
+checkpatch totals identical to before the round on all 26 commits.
+
+- 68095: [x] %Li/%Lo print nothing when the MDT index is unknown and the
+  directory is unstriped (A/B off Lustre: `[0] [[0]]` -> `[] []`).
+  [x] the two scan_rec_gather() rules moved onto the halves.
+- 68156: [x] SCAN_LMV_BUF sized for LMV_MAX_STRIPE_COUNT (heap, 48 KB per
+  worker). [x] scan_stats_whole() keeps whole ss_class elements (unit:
+  47->40, 60->56, 95->88). [x] ext2fs_get_stat_i_blocks() + EXT2_I_SIZE().
+  [x] sink fields ss_ -> sk_ in every commit (proven rename-only).
+- 68157: [x] -ENOTSUP comment; [x] decide: -> run_decide: (decided: is
+  68095's, left).
+- 68159: [x] %Lo count==0 (foreign component); [x] pool-size reason is
+  llapi_layout_get_by_xattr(); [x] tgt = {0} + probed; [x] message: btime
+  walk change, trusted.fid left for later, pool reason.
+- 68160: [x] 82 columns. [-] lfs-only fields in public find_param: AI
+  itself says not worth reworking.
+- 68288: [x] fileset mount refused for --fid2path (/proc/self/mounts;
+  llapi_search_fileset() is declared upstream but never implemented).
+  [x] --paths sweep skips non-MDTs. [x] PARENT/LINKEA comment. [x]
+  lfs-find.1 sentence. [-] IGIF root: comment only; guessing ROOT could
+  misname files, today it fails safely.
+- 68415: [x] cr_pfid trusted only for named, non-CL_MARK records (MDS
+  leaves it stale in the reused mdi_chlg_buf -- worth an upstream ticket).
+  [x] cr_prev never written by any MDS: lfsr_event_prev always 0,
+  documented. [x] lazy statx only for S_ISREG, and its failure keeps the
+  first stat. [x] skip test uses SCAN_CL_RESOLVE_MASK (ALWAYS mask
+  removed). [x] lu_fid_eq() everywhere. [x] ss_emitted counted before the
+  callback. [x] sanity gate 2.17.0 (MDS side LU-19296 5b85a4eb75 is in
+  v2_17_0-RC1; the 2.17.53 part is client-side) + skip_cases. [x]
+  scan_cl_param_copyin() in lustreapi_internal.h.
+- 68416: owed -- llapi_find_device()'s doc comment is separated from the
+  function by the --since block.
+
+Local A/B (mkimage MDT, INTERNAL): %b %s, %Lo/%Li/%Lc, %LP %m identical
+old vs new on all 27 objects. NOT yet lab-proven: %Lo count==0 (my
+crafted foreign-in-composite trusted.lov is rejected by
+llapi_layout_get_by_xattr() itself -- fixture wrong, not the code).
+Still owed: VM lab (changelog pfid/prev/statx/mask/emitted, fileset
+refusal, --paths sweep, %Li on Lustre, sanity 157d), lreview.
