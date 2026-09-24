@@ -205,3 +205,11 @@ crafted foreign-in-composite trusted.lov is rejected by
 llapi_layout_get_by_xattr() itself -- fixture wrong, not the code).
 Still owed: VM lab (changelog pfid/prev/statx/mask/emitted, fileset
 refusal, --paths sweep, %Li on Lustre, sanity 157d), lreview.
+
+### 68416 (AI PS15, 3 comments) -- FIXED locally, tip `fe73e1727b`
+- [x] liblustreapi_scan.c + llapi_scan_fid.3: allocation is per object only
+  when lfsp_want needs the MDT; LLAPI_SCAN_TYPE alone allocates nothing.
+- [x] llapi_scan_test test17: a name-only case (TYPE set, no FID) and a
+  directory FID (lfsr_fd open, lfsr_parent_fd -1; checked against
+  llapi_scan_fid() lines ~1005). Runs on Lustre only: VM lab owed.
+26/26 build; checkpatch same as before (1 warning, the man-page noise).
