@@ -124,3 +124,15 @@ AI round so far (triaged, NOT yet fixed; batch after the round):
 123), 68160 x2. 68159 COMMIT_MSG:109: our PS17 "Fixed in the next PS" on
 Andreas's trusted.fid point was only half true, and I resolved that
 thread 09-24 as "in the current patch set" -- correct it when we post.
+
+## 68094 is final at PS26 -- follow-up change owed
+
+PS26 = message-only (user posted it; NO_CODE_CHANGE, votes kept). User:
+no more 68094 patchsets. All 68094 threads resolved; four say the work
+comes in a follow-up patch:
+- llapi_scan_namespace.3: print struct llapi_scan_rec and struct
+  llapi_scan_param (the param listing is already on artem-0924's c00)
+- pfind.c ~437 (lmd clearing comment) and ~2218 (get_projid debug
+  comment): shorten to a line or two
+The artem-0924 c00 must be reset to 68094 PS26 exactly before any refresh
+of the rest; the struct listing moves to the follow-up.
