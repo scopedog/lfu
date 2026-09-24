@@ -7,9 +7,9 @@ the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
 ## 2026-09-24: Artem's five comments fixed locally, WAITING for the AI round
 
 68159 (2) and 68163 (3) fixed and proven, tip `32721e1a7a` on branch
-`artem-0924` in `~/lfs-artem-0924`; see `rounds/a-0924/notes.md`. User's
-order: wait for the Gerrit AI reviews on the 09-23 patchsets, take them
-into the same round, THEN lreview the changed commits, then the push-ask.
+`artem-0924` in `~/lfs-artem-0924`; see `rounds/a-0924/notes.md`. **CHANGED 09-24 afternoon: Andreas asked us NOT to refresh** -- the first
+patches may go into master-next soon. Hold every fix on `artem-0924`; refresh
+next week only for significant issues or conflicts. 68094 PS25 has his CR+1.
 14 failed enforced sessions retested (LU-20826, LU-20827 raised).
 
 ## End of 2026-09-23: PUSHED 68094-68416 (11 patchsets), 68340 abandoned
