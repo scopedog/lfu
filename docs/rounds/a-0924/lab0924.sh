@@ -69,6 +69,9 @@ echo "=== 5. --paths over a --local sweep"
 for n in old new; do lfs_ $n find --local --paths -type f > $L/sw.$n 2>&1; echo "  $n: $(grep -c 'OST' $L/sw.$n) OST lines: $(grep -m2 'OST' $L/sw.$n | tr '\n' '|' | cut -c1-160)"; done
 [ "$(grep -c "failed for '.*OST" $L/sw.new)" = 0 ] && ok "no OST failures in a --paths sweep" || bad "OST failures remain"
 
+echo "=== 9-prep: a striped directory on MDT0000"
+rm -rf $M/sd; lfs mkdir -i 0 -c 2 $M/sd && createmany -o $M/sd/s 20 >/dev/null
+sync; sync
 echo "=== stopping for the device scans"
 ./llmountcleanup.sh > $L/clean.log 2>&1
 
@@ -78,5 +81,26 @@ for n in old new; do
 umount $P 2>/dev/null
 echo "  $(wc -l < $L/dev.new) objects"
 cmp -s $L/dev.old $L/dev.new && ok "device scan output identical" || bad "device scan changed" "$(diff $L/dev.old $L/dev.new | head -6)"
+
+echo "=== 7. --maxdepth 0 over a target is refused"
+lfs_ new find --device $DEV --maxdepth 0 -type f > $L/md.new 2>&1; rc=$?
+[ $rc -ne 0 ] && grep -q "describes a walk" $L/md.new && ok "--maxdepth 0 refused (rc $rc)" || bad "--maxdepth 0 accepted" "$(head -2 $L/md.new)"
+
+echo "=== 8. --paths names the root"
+for n in old new; do lfs_ $n find --device $DEV --paths -type d > $L/root.$n 2>&1; done
+echo "  old has /: $(grep -cx / $L/root.old)  new has /: $(grep -cx / $L/root.new)"
+grep -qx / $L/root.new && ok "the root is printed as /" || bad "no / in --paths"
+
+echo "=== 9. a striped directory: no shard in the path"
+lfs_ new find --device $DEV --paths -type f > $L/sd.new 2>&1
+ns=$(grep -c "^/sd/" $L/sd.new); bad_sd=$(grep "^/sd/" $L/sd.new | grep -vcE "^/sd/s[0-9]+$")
+echo "  $ns files of /sd on MDT0000, $bad_sd with a shard"
+[ $ns -gt 0 ] && [ $bad_sd -eq 0 ] && ok "striped dir paths" || bad "striped dir paths" "$(grep ^/sd/ $L/sd.new | head -3)"
+
+echo "=== 10. the project quota inode"
+PQ=$(dumpe2fs -h $DEV 2>/dev/null | awk -F: "/Project quota inode/{gsub(/ /,\"\",\$2); print \$2}")
+for n in old new; do lfs_ $n find --device $DEV --internal -printf "%i\n" 2>/dev/null > $L/pq.$n; done
+echo "  project quota inode $PQ: old $(grep -cx "$PQ" $L/pq.old), new $(grep -cx "$PQ" $L/pq.new)"
+[ -n "$PQ" ] && [ "$(grep -cx "$PQ" $L/pq.new)" = 0 ] && ok "project quota inode not delivered" || bad "project quota inode" "PQ=$PQ"
 
 echo "=== $pass passed, $fail failed"

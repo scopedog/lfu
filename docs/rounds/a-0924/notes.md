@@ -258,3 +258,47 @@ To push after master-next is rebuilt: 68156, 68157, 68158, 68159, 68160,
 lreview of the changed commits, then ask.
 Trap hit: a `;` after a failed `&&` chain ran `commit --amend` on the
 tip; caught by comparing every message and tree with the backup.
+
+## lreview of the 8 changed commits, 09-24 afternoon -- 27 comments, handled
+
+Reports: ~/projects/llm_code_and_review_tools/lreview-results/markdown/HEAD_*.
+Run on tip 27ea1f5ffa (68158 skipped: code unchanged since the AI's PS20).
+New tip after the fixes: **`88a542200f`**. 26/26 build, ldiskfs backend
+compiles at every commit, checkpatch at baseline on every changed commit.
+Messages changed only on 68156, 68157, 68159, 68288, 68416.
+
+Fixed:
+- 68156: STATX_ATTR_ENCRYPTED from LMAI_ENCRYPT for every backend (osd
+  clears S_ENCRYPTED from the inode); ldiskfs no longer claims it.
+  Project quota inode + ea_inode inodes skipped (as osd_scrub). Message
+  paragraph rewritten, Artem's credit kept.
+- 68157: message: run_decide, "one comment", names LU-20605, "the split
+  itself changes no behaviour" + says the carried fix changes -printf.
+- 68159: a foreign LMV larger than the buffer grows it (as the walk).
+  scan_linkea_entry() comment moved onto it. llapi_find_device.3 ENOTSUP
+  lists the layout options over an OST and --ost/--mdt without an index;
+  --maxdepth "other than 0". Message: obj:ID paragraph reduced, LMV line.
+- 68160: lfs refuses any --maxdepth before the device dispatch (lfs
+  seeds -1, so 0 is the user's). conf-sanity 300's redundant ldiskfs
+  checks dropped.
+- 68163: spa_import() ENOTSUP -> -ENOPKG; both man pages say libzpool.
+- 68288: fileset detection by the mount root's FID (catches nodemap
+  filesets; an IGIF root is let through); root printed as / (or MOUNT);
+  test_303 gains a striped-directory case; message fixed.
+- 68415: man: register with -m for sc_type_mask (LU-20647), sc_flags /
+  sc_mnt / sc_stats / sc_padding entries, -ENOENT note, SEE ALSO; test2
+  asserts full.cr_resolved > 0.
+- 68416: -EXDEV (not -ENOENT) for a non-root mnt_fd, in the message, the
+  kernel-doc and ERRORS; lfsp_got in the two lists.
+Declined: 68416 #6 (move the lfsp_got hunk down to 68159): a suggestion,
+cuts through 7 commits; the gap is llapi-caller-only.
+
+Lab (VM, lab0924.sh + lab-striped.sh), old = pre-round, new = 88a542200f:
+14 checks, all pass except test9 (server lacks 68413, both arms, not
+ours). New since the last run: --maxdepth 0 refused (rc 95); --paths
+prints / (old 0, new 1); striped dir: 10 files on MDT0000 printed as
+/sd/sN, none with a shard; project quota inode 12 delivered by old, not
+new. Local: an LMA-encrypted file with EXT4_ENCRYPT_FL clear is found by
+new, missed by old. NOT lab-tested: the nodemap fileset, ZFS ENOPKG, a
+>6 KB foreign LMV, -EXDEV (code-verified only).
+Lab trap: createmany is not on root's PATH under sudo.
