@@ -302,3 +302,20 @@ new. Local: an LMA-encrypted file with EXT4_ENCRYPT_FL clear is found by
 new, missed by old. NOT lab-tested: the nodemap fileset, ZFS ENOPKG, a
 >6 KB foreign LMV, -EXDEV (code-verified only).
 Lab trap: createmany is not on root's PATH under sudo.
+
+## PUSHED 2026-09-24 evening: 68156-68416 (9 patchsets), tag a0924-pushed
+
+`git push review 38201dcb9a:refs/for/master` from ~/lfs-artem-0924 (user:
+"if you think no more lreview is necessary, push"). 68094 PS26 and 68095
+PS26 untouched (votes kept). New: 68156 PS27, 68157 PS27, 68158 PS24
+(rebase only), 68159 PS24, 68160 PS25, 68163 PS24, 68288 PS18, 68415
+PS16, 68416 PS16.
+Second lreview (28 comments): fixed all but the declined (plugin ABI
+check, %Li fix into 68095, lfsp_got move, the probe's double message).
+Its must-fix pair: conf-sanity 300 lost its ZFS guards through MY 68160
+edit after the first lreview (fixed at 68163), and %s/%b/%k printing 0 on
+a scan with no size. No third lreview: small, reviewed diff, lab-proven.
+Lab (third run): 14 pass + test9 (not ours); check 6's one change is the
+striped directory whose size the scan withholds, now printed empty.
+Owed now: "Done." replies on the AI PS threads and Artem's five, the
+68094 follow-up change, 68417+ next week.

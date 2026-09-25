@@ -4,6 +4,13 @@ Every ticket and Gerrit id in play, and the ones that are *not* ours. Regenerate
 the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
 **2026-09-06**.
 
+## 2026-09-24 evening: PUSHED 68156-68416 (9 patchsets), 68094/68095 kept
+
+Tag `a0924-pushed` (38201dcb9a) in ~/lfs-artem-0924. Artem's five, the
+whole AI round and two lreview rounds are in; see rounds/a-0924/notes.md.
+Next: post "Done." on the threads those patchsets answer; watch CI; the
+68094 follow-up change; 68417+ next week.
+
 ## 2026-09-24: Artem's five comments fixed locally, WAITING for the AI round
 
 68159 (2) and 68163 (3) fixed and proven, tip `32721e1a7a` on branch
