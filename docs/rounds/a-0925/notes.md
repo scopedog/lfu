@@ -122,3 +122,45 @@ unchanged.
 - The ll_dir_ioctl rdev ticket (above), with the user's OK.
 - 68160's commit message: the `-f`/`--foreign` line (09-25 memory), not in
   this round.
+
+## 68416: AI review on PS16 (09-25 afternoon) -- 4 fixed, 1 declined
+
+Tip before: `6a243dd557` (`r0925-tip`), backup `backup/artem-0924-pre-0925b`.
+**New tip `78a5c837d2`** (tag `r0925b-tip`). All changes are in 68416
+("LU-20650 llapi: fill a scan record for one FID") and carried up.
+
+- 7d4bc57c lustreapi.h: "validated as they are for the other two" ->
+  "validated as llapi_scan_device() validates them" (lfsp_flags is checked
+  against LLAPI_SCAN_F_KNOWN_DEV, so F_INTERNAL is accepted here).
+- aad80829 llapi_scan_test.c: <libgen.h> moved after <getopt.h>. LU-20603
+  ("pull a scan's records in batches") already had that order; its
+  conflict was resolved by taking its own file, which is exact.
+- 7a5777eb liblustreapi_scan.c: "llapi_scan_ device()" and the
+  "lfsr_parent_fd is / -1 for a directory" wraps fixed.
+- d885e5c4 liblustreapi_scan.c: the O_DIRECTORY open after the statx maps
+  -ENOTDIR to -ESTALE (a directory replaced by a non-directory). The man
+  page's -ESTALE ("the name ... holds a different object now") and the
+  kernel-doc already cover it; no doc change. Proven with the real arm
+  lifted into `enotdir-harness.c` (statx a dir, replace it with a file,
+  open): old rc=-20 (ENOTDIR), new rc=-116 (ESTALE).
+- [-] 0344623c (fold the lfsp_got hunk into 68159): declined again, as on
+  09-24 -- it cuts through 7 commits and the gap is llapi-caller-only.
+
+lreview of 68416 (`lreview/lr-68416.log`, 2 minor, both fixed):
+- lfsp_got's kernel-doc had lost "a bit ... is dropped rather than
+  refused", which lustreapi_internal.h's "see lfsp_got in lustreapi.h"
+  still points at. Sentence restored.
+- @mnt_fd said "an open descriptor on a client mount"; it must be the
+  mount root (-EXDEV otherwise). Now "the root of a client mount".
+
+Checks:
+- Tree: every commit from 68416 up differs from the old tip by exactly the
+  same hunks (plus the include order from 68416 to below LU-20603).
+- Build sweep of the 16 changed commits (`sweep.sh artem-0924~16`): 16/16
+  clean, on `932d456a5f`. The final tip differs from that at every level
+  in comment lines only, so the sweep stands.
+- checkpatch on 68416: 0 errors, 1 warning (baseline; one pass had an
+  81-column comment, shortened).
+- Change-Ids unchanged; 26 commits; 68094/68095 untouched.
+
+Not done: no Gerrit replies (rule: the reply goes with the push).
