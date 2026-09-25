@@ -4,6 +4,22 @@ Every ticket and Gerrit id in play, and the ones that are *not* ours. Regenerate
 the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
 **2026-09-06**.
 
+## 2026-09-25: start here tomorrow
+
+- **Pushed today:** 69206 (LU-20832 llite rdev decode, standalone, lreview
+  clean). Tickets filed: LU-20832, LU-20834 (lustre-initialization,
+  unprovisioned client). All nine series changes Verified+1 in Maloo except
+  68159, whose LU-20834 retest was still running.
+- **Local, unpushed:** tag `r0925c-tip` in ~/lfs-artem-0924: AI fixes on
+  68156, 68157, 68163, 68416 (notes: rounds/a-0925/notes.md). **Push gate:**
+  wait until 68158, 68159, 68160, 68288, 68415 also have their AI review on
+  the current PS, fix those locally, add 68160's `-f`/`--foreign` line, then
+  ONE push-ask with lreview results.
+- **Polling rules** (memory lfu-polling-rules): AI review -> fix locally, no
+  push; enforced failure -> ticket + retest, none -> ask; system build
+  failure -> BUILD. Restart polling with gpoll.py under Monitor.
+- Deferred by the user: the 68094 follow-up; STATX_PROJID (LU-12480) on hold.
+
 ## 2026-09-24 evening: PUSHED 68156-68416 (9 patchsets), 68094/68095 kept
 
 Tag `a0924-pushed` (38201dcb9a) in ~/lfs-artem-0924. Artem's five, the
