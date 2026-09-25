@@ -218,3 +218,64 @@ bash -n at all 19 commits; not run on a mixed ldiskfs-MDT/ZFS-OST cluster.
 Build sweep `10d2193daa..` 19/19 clean (utils, header, tests, both backends
 -O2 -Werror) on the tree before the conf-sanity edits; libscan_zfs.c is
 unchanged since. checkpatch on 68163 at baseline (2 warnings, as before).
+
+## ll_dir_ioctl rdev: reproduced (09-25 evening)
+
+The user asked to run it on the VM. Clone VM, 2.17.57 ldiskfs (tree
+`~/lustre-0918`, `d749df6ca9f`), 2 MDTs + 1 OST, llmount.sh loads the
+tree's modules. A = stock `lustre.ko` (srcversion `6AF1556074C69F944F10FAA`),
+B = the same tree with `old_decode_dev()` in the V2 arm of `dir.c`
+(srcversion `1EAEDFDD3B6DC43AAFFECDB`). Arms alternated A B A B, each a full
+cleanup + rmmod + remount (NOFORMAT after the first), and each arm checks
+`/sys/module/lustre/srcversion`. `rdevab.sh`, `getinfo.c`.
+
+`getinfo` calls `IOC_MDC_GETFILEINFO_V1` and `_V2` on the parent directory
+with the name, as llapi does. (A first run used `LL_IOC_MDC_GETINFO_*`,
+which answers for the directory itself, and read 0 for everything. That
+run is discarded.)
+
+| node | stat(2), ls -l | V1 st_rdev -> major():minor() | V2 in A | V2 in B |
+|---|---|---|---|---|
+| c 10 200 | 10:200 | 0xac8 -> 10:200 | **0:2760** | 10:200 |
+| b 8 1 | 8:1 | 0x801 -> 8:1 | **0:2049** | 8:1 |
+| c 300 5 | 44:5 | 0x2c05 -> 44:5 | **0:11269** | 44:5 |
+| c 4 1048000 | 253:192 | 0xfdc0 -> 253:192 | **0:64960** | 253:192 |
+
+Both A runs and both B runs are identical. **The bug reproduces and the
+one-line fix works.** V2 now matches stat(2) on every node.
+
+**V1 is correct, not by luck of layout:** it copies the raw old-encoded
+value into `st_rdev`, and glibc's `major()`/`minor()` read bits 8-19 and
+0-7 plus the high bits, which for a value below 0x10000 are exactly the old
+encoding's two bytes. The old encoding holds only 8+8 bits, so V1, V2 fixed
+and stat(2) all show the same truncated numbers (c 300 5 -> 44:5). That
+truncation is the wire format (`mbo_rdev` is 32 bits, old-encoded by
+`ll_mknod()`), not this bug.
+
+No userspace tool in master prints the V2 rdev: `lfs find` has no rdev
+`-printf` field, and `liblustreapi_pfind.c:251` only fills it from lstat()
+on the fallback path. So the impact on master is llapi callers of
+`llapi_get_lmd_info*()`/GETFILEINFO_V2, and our `llapi_scan_namespace()`.
+No sanity subtest in the draft for that reason: it would need a new C
+helper, and `lustre/tests/statx.c` uses the statx syscall, not the ioctl.
+Worth adding if a reviewer asks; `getinfo.c` is the helper.
+
+**Draft patch** (NOT pushed, no ticket): `llite-rdev-draft.patch`, commit
+`f0bf053fba` "LU-XXXXX llite: decode rdev for GETFILEINFO_V2" on master
+`550451c0e4`, in the session scratch clone. One local `dev_t rdev =
+old_decode_dev(body->mbo_rdev)`, used by both MAJOR() and MINOR().
+checkpatch: 0 errors, 0 warnings. The draft's form (local variable) was
+also compiled on the VM tree: clean. The lab's B arm had the same decode
+inline. `--no-verify` only because the hook refuses LU-XXXXX; with a real
+ticket the hook adds the Change-Id.
+
+**Jira:** no existing ticket. Searched `stx_rdev` (0), `mbo_rdev` (LU-20779
+interop 160a and LU-5954 GETFILEINFO ino: neither is about rdev),
+`GETINFO_V2`/`GETFILEINFO_V2` + rdev (LU-14489, unrelated), `old_decode_dev`
+(kernel updates, unrelated), summary ~ rdev (0).
+
+VM state after: `~/lustre-0918/lustre/llite/dir.c` restored and rebuilt,
+`lustre.ko` srcversion back to A, modules unloaded, lab files in
+`~/rdevlab/`. VM shut down.
+
+Owed: file the LU ticket and push the patch -- the user's call.

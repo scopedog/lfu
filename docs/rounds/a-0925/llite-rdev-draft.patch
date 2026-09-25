@@ -1,0 +1,56 @@
+From f0bf053fba9b8a96f36879787099efeb14edb3ac Mon Sep 17 00:00:00 2001
+From: Hiroshi Nishida <hnishida@thelustrecollective.com>
+Date: Fri, 25 Sep 2026 10:21:24 -0700
+Subject: [PATCH] LU-XXXXX llite: decode rdev for GETFILEINFO_V2
+
+The MDT sends mbo_rdev in the old 16-bit encoding (old_encode_dev()
+in ll_mknod()). ll_update_inode() decodes it with old_decode_dev(),
+so stat(2) is right. The V2 arm of IOC_MDC_GETFILEINFO and
+LL_IOC_MDC_GETINFO calls MAJOR() and MINOR() on the raw value, so
+every device node reports major 0 and a wrong minor: c 10 200 is
+returned as 0:2760.
+
+Decode it first, as ll_update_inode() does.
+
+The V1 arm copies the raw value into st_rdev. That is correct:
+userspace major() and minor() read the same bits, as long as the
+old encoding holds the numbers.
+
+Test on 2.17.57 ldiskfs, stock lustre.ko and fixed lustre.ko,
+alternated twice (stat / V2):
+  c 10 200    10:200 / 0:2760 -> 10:200
+  b 8 1       8:1 / 0:2049 -> 8:1
+  c 4 1048000 253:192 / 0:64960 -> 253:192
+
+Signed-off-by: Hiroshi Nishida <hnishida@thelustrecollective.com>
+---
+ lustre/llite/dir.c | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/lustre/llite/dir.c b/lustre/llite/dir.c
+index a8a994860e..952caba20e 100644
+--- a/lustre/llite/dir.c
++++ b/lustre/llite/dir.c
+@@ -2461,6 +2461,8 @@ out_rmdir:
+ 			   cmd == LL_IOC_MDC_GETINFO_V2) {
+ 			lstatx_t stx = { 0 };
+ 			__u64 valid = body->mbo_valid;
++			/* the MDT sends rdev in the old 16-bit encoding */
++			dev_t rdev = old_decode_dev(body->mbo_rdev);
+ 
+ 			stx.stx_blksize = PAGE_SIZE;
+ 			stx.stx_nlink = body->mbo_nlink;
+@@ -2480,8 +2482,8 @@ out_rmdir:
+ 			stx.stx_ctime.tv_sec = body->mbo_ctime;
+ 			stx.stx_mtime.tv_sec = body->mbo_mtime;
+ 			stx.stx_btime.tv_sec = body->mbo_btime;
+-			stx.stx_rdev_major = MAJOR(body->mbo_rdev);
+-			stx.stx_rdev_minor = MINOR(body->mbo_rdev);
++			stx.stx_rdev_major = MAJOR(rdev);
++			stx.stx_rdev_minor = MINOR(rdev);
+ 			stx.stx_dev_major = MAJOR(inode->i_sb->s_dev);
+ 			stx.stx_dev_minor = MINOR(inode->i_sb->s_dev);
+ 			stx.stx_mask |= STATX_BASIC_STATS | STATX_BTIME;
+-- 
+2.43.0
+
