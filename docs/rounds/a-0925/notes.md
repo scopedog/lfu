@@ -164,3 +164,57 @@ Checks:
 - Change-Ids unchanged; 26 commits; 68094/68095 untouched.
 
 Not done: no Gerrit replies (rule: the reply goes with the push).
+
+## 68163 AI PS24 (3ca6a2f2): osd-zfs xattr storage objects -- FIXED
+
+Tip **`58b9bf3708`** (tag `r0925c-tip`), from `78a5c837d2`; backup
+`backup/artem-0924-pre-0925c`. 68163 is now `ef5906ea85`. The bottom seven
+commits (68094 ... 68160) are unchanged. Every commit from 68163 up differs
+from its old version by the same 46 lines (libscan_zfs.c +35/-1,
+conf-sanity.sh +10/-2).
+
+The AI's premise was half right. osd-zfs keeps an xattr that does not fit
+the 64 KB SA (DXATTR_MAX_SA_SIZE) in a directory of its own, one object per
+value, and both reach the scan. But they do not land in NO_LMA, and they are
+not listed under --internal: they have no ZPL_MODE, so they were counted in
+**ss_skipped** (SKIP_INVALID). `lfs find --device` then warned "7 of 339
+objects were skipped: unreadable or inconsistent on the target" on a healthy
+MDT. A single 40 KB value fits the SA and makes no extra object (measured).
+
+What they look like (debug plugin on the VM, 2.2.11):
+- the xattr dir: DMU_OT_DIRECTORY_CONTENTS, SA bonus never written (header
+  magic 0). __osd_xattr_set() creates it with __osd_zap_create() and never
+  calls __osd_attr_init().
+- each value: DMU_OT_PLAIN_FILE_CONTENTS (UINT8_METADATA for a local FID),
+  SA holds only ZPL_SIZE; LINKS, PARENT and GEN answer ENOENT.
+
+Fix: both are dropped before any sink call, as the ldiskfs backend drops an
+ea_inode, so they are not counted anywhere. The dir test is on the bonus
+header, before sa_handle_get(). The value test runs only on the path where
+ZPL_MODE is missing, so the normal path costs nothing. Any other object
+without a mode is still SKIP_INVALID. One paragraph added to the message.
+
+Lab (`zxab0925.sh`, `statdump.c`; clone VM, 1 MDT zfs, stopped, pools
+exported): 3 files hold 7 xattr objects (two with 2x40 KB, one with 3x40
+KB), plus a 61-component PFL file and a char device. 8/8 PASS:
+old skipped=7, new skipped=0; new sees exactly 7 fewer; every class count
+identical (NO_LMA 230 on both); --internal emitted and no-FID records
+identical; `lfs find --device -printf` records identical; the false
+"skipped" warning is gone. Each arm run twice, alternated, same fixture.
+
+Lab trap, new: this `lab0925-new` liblustreapi has no PLUGIN_DIR, so it
+dlopens `$LUSTRE/utils/scan_osd_zfs.so`. A bind mount on
+/usr/lib64/lustre does nothing for it. The first A/B showed no difference
+for that reason. `zlab0925.sh` was still right (each arm had its own
+LUSTRE). The A/B now copies each plugin into its own `$LUSTRE/utils`.
+
+lreview of 68163 (`lreview/lr-68163c.log`): 1 minor, fixed. conf-sanity
+300's OST half errored on ENOTSUP for a ZFS OST in a build without the ZFS
+backend, while the MDT half skips. It now prints "not scanning ost1: no zfs
+scan backend" and goes on. It does not skip, because the MDT half has
+already run. Error text now "scanning DEV failed", as the MDT half's.
+bash -n at all 19 commits; not run on a mixed ldiskfs-MDT/ZFS-OST cluster.
+
+Build sweep `10d2193daa..` 19/19 clean (utils, header, tests, both backends
+-O2 -Werror) on the tree before the conf-sanity edits; libscan_zfs.c is
+unchanged since. checkpatch on 68163 at baseline (2 warnings, as before).
