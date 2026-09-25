@@ -8,8 +8,9 @@ the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
 
 Tag `a0924-pushed` (38201dcb9a) in ~/lfs-artem-0924. Artem's five, the
 whole AI round and two lreview rounds are in; see rounds/a-0924/notes.md.
-Next: post "Done." on the threads those patchsets answer; watch CI; the
-68094 follow-up change; 68417+ next week.
+Next: post "Done." on the threads those patchsets answer; watch CI;
+68417+ next week. The 68094 follow-up change is deferred (user, 09-25).
+STATX_PROJID (LU-12480) is on hold (user, 09-25).
 
 ## 2026-09-24: Artem's five comments fixed locally, WAITING for the AI round
 
