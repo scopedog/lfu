@@ -1,0 +1,8 @@
+/tmp/lab0926-conf/cs.txt:PASS 300 (42s)
+/tmp/lab0926-conf/cs.txt:PASS 301 (0s)
+/tmp/lab0926-conf/cs.txt:PASS 302 (1s)
+/tmp/lab0926-conf/cs.txt:PASS 303 (70s)
+/tmp/lab0926-conf/cs.txt:PASS 304 (2s)
+/tmp/lab0926-conf/cs.txt:FAIL 305 (1s)
+/tmp/lab0926-conf305-new/cs.txt:PASS 305 (16s)
+/tmp/lab0926-conf305-old/cs.txt:FAIL 305 (16s)

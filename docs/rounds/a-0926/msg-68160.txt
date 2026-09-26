@@ -1,0 +1,69 @@
+LU-20611 lfs: find over a target, with --device
+
+lfs find can read a Lustre target directly from its device, instead of
+walking a directory. It runs the same predicates over the target's own
+objects through llapi_find_device(). Nothing needs to be mounted, and
+no client or MDS is used.
+
+There are five ways to name the target:
+- --device DEVICE: a block device, disk image or snapshot
+- a block device given where a directory would be; lfs_find_is_device()
+  checks with stat(), and a disk image is a regular file, so it needs
+  --device. A block device node stored on Lustre is a file, and is
+  walked as before: statfs() tells it apart
+- --target NAME: a target mounted on this node, found through
+  osd-*.NAME.mntdev
+- --fsname FSNAME: this node's mounted targets of that filesystem
+- --local: every MDT and OST mounted here; the MGS is skipped
+Only one target may be named. --internal adds the objects that the
+target keeps for itself; without a target it is a usage error.
+
+--fsname must be a name that mkfs.lustre accepts, checked with
+llapi_name_verify(), so a typo is refused instead of matching
+nothing. A label is split at its last '-', because a filesystem name
+may contain '-'. Unlike lsnapshot -F, the lengths are compared too, so
+test-MDT0000 is not taken as a target of testfs. There is no short
+option, to keep -F free for --fid, as in lfs getstripe. A bare FSNAME
+is still a relative path.
+
+A second f* long option makes "--f" ambiguous: "lfs find --f" and
+"lfs find -f" (which getopt_long_only() reads as a long option) meant
+--foreign before, and are now refused. "--fo" still works.
+
+The options are parsed by lfs_find_parse() and kept in struct
+find_param: fp_device, fp_target and fp_fsname at its end, and two of
+fp_unused_bits for --local and --internal. The library's find
+functions do not read them. lfs_find() hands the search to the target
+before it applies the walk's defaults, because the walk's default
+thread count is one that llapi_find_device() refuses.
+
+--local and --fsname go on past a target that cannot be read, and
+report the failure in the exit status. With --ost or --mdt they skip
+the targets of the other type, which those options cannot name.
+ENOTSUP does not end a sweep either: an OST cannot answer everything an
+MDT can, and a node may serve a kind of target this build cannot read.
+
+Without the scan backend from the server package, llapi_find_device()
+fails with ENOTSUP and says why. This is what a client gets.
+
+conf-sanity 300 runs lfs find over the scan that it already compares
+with a client walk. "--type f" must return every regular file that the
+client listed, and no directory. Both sides print FIDs with
+"-printf %LF", and the temporary files go through stack_trap. The test
+also checks --device=VALUE, both ways of naming a target twice, and
+that --internal only adds objects. Where mds1 and ost1 are one ldiskfs
+node, it runs --local with --ost and with --mdt while the targets are
+mounted, and checks that each reads only targets of that type.
+--local, --target and --fsname run again after everything is stopped,
+and each must report what it could not find; an invalid --fsname is
+refused. The plain-argument form is checked only when the MDT is a
+block device.
+
+lfs-find.1 documents the five selectors, and how a search of a target
+answers differently: one MDT of a DNE namespace, sizes from SOM, --ost
+and --mdt naming the target, and the refused options.
+
+Signed-off-by: Hiroshi Nishida <hnishida@thelustrecollective.com>
+Assisted-by: ClaudeCode:Opus-5 llm_code_and_review_tools
+Change-Id: Ib25109943ad40afbc2d272a65e70c364c376b2b7
+

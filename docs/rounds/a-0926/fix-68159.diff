@@ -1,0 +1,52 @@
+diff --git a/lustre/utils/liblustreapi_pfind.c b/lustre/utils/liblustreapi_pfind.c
+index a209f1eb36..60b0d2a0f8 100644
+--- a/lustre/utils/liblustreapi_pfind.c
++++ b/lustre/utils/liblustreapi_pfind.c
+@@ -1642,6 +1642,7 @@ format_done:
+  * @param[in]	size	Size of the available buffer.
+  * @param[out]	wrote	Number of bytes written to the buffer.
+  * @param[in]	param	The find_param structure associated with the file/dir
++ * @param[in]	rec	The record the object was delivered in
+  * @param[in]	path	Pathname of the current file/dir being handled
+  * @param[in]	projid	Project ID associated with the current file/dir
+  * @param[in]	d	File descriptor for the directory (or -1 for a
+@@ -2095,6 +2096,15 @@ static int parse_format_width(char **seq, size_t buf_size, int *width,
+ 	return parsed;
+ }
+ 
++/* A scan that had no size (or blocks) for the object prints nothing. */
++static bool printf_scan_lacks(const struct find_param *param, const char *path,
++			      __u32 stx_bit, __u64 lazy_flag)
++{
++	return path == NULL &&
++	       !(param->fp_lmd->lmd_stx.stx_mask & stx_bit) &&
++	       !(param->fp_lmd->lmd_flags & lazy_flag);
++}
++
+ /*
+  * Interpret format specifiers beginning with '%'.
+  *
+@@ -2104,6 +2114,7 @@ static int parse_format_width(char **seq, size_t buf_size, int *width,
+  * @param[in]	size	Size of the available buffer.
+  * @param[out]	wrote	Number of bytes written to the buffer.
+  * @param[in]	param	The find_param structure associated with the file/dir
++ * @param[in]	rec	The record the object was delivered in
+  * @param[in]	path	Pathname of the current file/dir being handled
+  * @param[in]	projid	Project ID associated with the current file/dir
+  * @param[in]	d	File descriptor for the directory (or -1 for a
+@@ -2111,15 +2122,6 @@ static int parse_format_width(char **seq, size_t buf_size, int *width,
+  * @return		Number of characters from input string processed
+  *			as part of the format (0 for an unknown format)
+  */
+-/* A scan that had no size (or blocks) for the object prints nothing. */
+-static bool printf_scan_lacks(const struct find_param *param, const char *path,
+-			      __u32 stx_bit, __u64 lazy_flag)
+-{
+-	return path == NULL &&
+-	       !(param->fp_lmd->lmd_stx.stx_mask & stx_bit) &&
+-	       !(param->fp_lmd->lmd_flags & lazy_flag);
+-}
+-
+ static int printf_format_directive(char *seq, char *buffer, size_t size,
+ 				   int *wrote, struct find_param *param,
+ 				   const struct llapi_scan_rec *rec,

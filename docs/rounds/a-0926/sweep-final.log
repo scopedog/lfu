@@ -1,0 +1,25 @@
+SWEEP fb5ef60405..b8c7d9c5b8, 23 commits
+61bf69abba build=0 hdr=0 tests=0 ldiskfs=0 zfs=-  LU-20611 llapi: split cb_find_init's decider 
+6bb4ff5f30 build=0 hdr=0 tests=0 ldiskfs=0 zfs=-  LU-20611 lfs: share find's predicate parsing
+b59bac96ca build=0 hdr=0 tests=0 ldiskfs=0 zfs=-  LU-20611 llapi: run find over a device scan
+bf31230deb build=0 hdr=0 tests=0 ldiskfs=0 zfs=-  LU-20611 lfs: find over a target, with --devi
+102fac994a build=0 hdr=0 tests=0 ldiskfs=0 zfs=0  LU-20613 llapi: ZFS backend for llapi_scan_de
+5109e6f204 build=0 hdr=0 tests=0 ldiskfs=0 zfs=0  LU-20637 llapi: name a device scan's objects
+97ccf0f948 build=0 hdr=0 tests=0 ldiskfs=0 zfs=0  LU-20649 llapi: add llapi_scan_changelog()
+aabe986c25 build=0 hdr=0 tests=0 ldiskfs=0 zfs=0  LU-20650 llapi: fill a scan record for one FI
+1d8a64eaff build=0 hdr=0 tests=0 ldiskfs=0 zfs=0  LU-20650 lfs: find --since, from the changelo
+4f92de379f build=0 hdr=0 tests=0 ldiskfs=0 zfs=0  LU-20650 lfs: find --changelog, the log as so
+3d04b737b3 build=0 hdr=0 tests=0 ldiskfs=0 zfs=0  LU-20650 lfs: find --since-cookie, per-MDT an
+70b8adfb60 build=0 hdr=0 tests=0 ldiskfs=0 zfs=0  LU-20650 tests: sanity cases for find's chang
+a7a60ef67f build=0 hdr=0 tests=0 ldiskfs=0 zfs=0  LU-20603 llapi: pull a scan's records in batc
+59d5a2cade build=0 hdr=0 tests=0 ldiskfs=0 zfs=0  LU-20605 llapi: trim a start point's trailing
+5576096a2f build=0 hdr=0 tests=0 ldiskfs=0 zfs=0  LU-20720 osd: attributes and a private otable
+c1aeda7e24 build=0 hdr=0 tests=0 ldiskfs=0 zfs=0  LU-20720 osd-ldiskfs: read the inode table ah
+9074532cf5 build=0 hdr=0 tests=0 ldiskfs=0 zfs=0  LU-20720 osd-ldiskfs: read the inode table, n
+83e73c6af1 build=0 hdr=0 tests=0 ldiskfs=0 zfs=0  LU-20720 osd: xattrs from the otable iterator
+7b4a611ec2 build=0 hdr=0 tests=0 ldiskfs=0 zfs=0  LU-20720 lfu: an object stream from the OSD o
+24d9e75a76 build=0 hdr=0 tests=0 ldiskfs=0 zfs=0  LU-20722 llapi: a scan backend for a target i
+5598f9fd0b build=0 hdr=0 tests=0 ldiskfs=0 zfs=0  LU-20730 lfu: the Object Stream over OBD_IDX_
+e2c56acceb build=0 hdr=0 tests=0 ldiskfs=0 zfs=0  LU-20730 osd-zfs: the LFU record and an index
+b8c7d9c5b8 build=0 hdr=0 tests=0 ldiskfs=0 zfs=0  LU-20730 llapi: llapi_scan_mount(), a scan fr
+SWEEP-DONE 23/23 clean, tip b8c7d9c5b8

@@ -1,0 +1,273 @@
+diff --git a/Documentation/man3/llapi_scan_changelog.3 b/Documentation/man3/llapi_scan_changelog.3
+index 8a50642790..5f22d68cf9 100644
+--- a/Documentation/man3/llapi_scan_changelog.3
++++ b/Documentation/man3/llapi_scan_changelog.3
+@@ -114,8 +114,8 @@ named, which the rename replaced: it is delivered twice, once with
+ = the one that moved, in event mode as in object mode.
+ .LP
+ .I sc_stats
+-is filled as the scan runs, but not every field means here what it means for
+-a scan of a namespace or a target.
++is filled in when the scan ends, and not every field means here what it
++means for a scan of a namespace or a target.
+ .I ss_seen
+ counts Changelog records examined and
+ .I ss_emitted
+@@ -232,7 +232,10 @@ mask, which needs an MDS of Lustre 2.17.0 or later, and drops the other
+ records as it reads them; they are still read from the MDT. A mask is
+ refused without
+ .IR sc_user ,
+-because there is no user's mask to intersect it with.
++because there is no user's mask to intersect it with, and refused with
++.BR LLAPI_SCAN_CL_F_CLEAR ,
++because a clear purges the user's records of every type, including the ones
++the mask kept from the consumer.
+ .I sc_filter
+ filters without one.
+ .TP
+@@ -445,6 +448,10 @@ non-zero without
+ .I sc_user
+ \(em the mask is a property of a registered user, so there is nothing to
+ apply it to;
++.I sc_type_mask
++non-zero with
++.B LLAPI_SCAN_CL_F_CLEAR
++\(em the clear would purge records the mask never delivered;
+ .I sc_padding
+ non-zero, which is what keeps a field carved out of it later from being
+ ignored without a word; or
+diff --git a/include/lustre/lustreapi.h b/include/lustre/lustreapi.h
+index 4ef684d8ae..736dff5daa 100644
+--- a/include/lustre/lustreapi.h
++++ b/include/lustre/lustreapi.h
+@@ -1240,15 +1240,6 @@ struct llapi_scan_changelog_param {
+ 	__u64			*sc_got;
+ };
+ 
+-/*
+- * Through sc_mdtname, not sc_want: sc_mdtname names the log to read and is
+- * not optional, so a minimum that stops short of it accepts a caller whose
+- * struct never carried one and then reads a NULL out of the copy.
+- */
+-#define LLAPI_SCAN_CL_PARAM_MIN_SIZE \
+-	((__u32)(offsetof(struct llapi_scan_changelog_param, sc_mdtname) + \
+-		 sizeof(const char *)))
+-
+ int llapi_scan_changelog(const struct llapi_scan_changelog_param *sc,
+ 			 llapi_scan_cb_t cb, void *data);
+ 
+diff --git a/lustre/tests/llapi_scan_changelog_test.c b/lustre/tests/llapi_scan_changelog_test.c
+index c36ac93fed..6952074eee 100644
+--- a/lustre/tests/llapi_scan_changelog_test.c
++++ b/lustre/tests/llapi_scan_changelog_test.c
+@@ -324,9 +324,16 @@ static void test4(void)
+ 	rc = llapi_scan_changelog(&sc, cl_cb, &res);
+ 	ASSERTF(rc == -EINVAL, "a type mask without a user returned %d", rc);
+ 
++	param_init(&sc);
++	sc.sc_type_mask = 1ULL << CL_UNLINK;
++	sc.sc_user = "cl1";
++	sc.sc_flags = LLAPI_SCAN_CL_F_CLEAR;
++	rc = llapi_scan_changelog(&sc, cl_cb, &res);
++	ASSERTF(rc == -EINVAL, "a type mask with _CLEAR returned %d", rc);
++
+ 	llapi_msg_set_level(LLAPI_MSG_ERROR);
+ 
+-	printf("  nine bad calls refused with -EINVAL\n");
++	printf("  ten bad calls refused with -EINVAL\n");
+ }
+ 
+ /*
+diff --git a/lustre/utils/lfs.c b/lustre/utils/lfs.c
+index a7a86c5855..570de71b4f 100644
+--- a/lustre/utils/lfs.c
++++ b/lustre/utils/lfs.c
+@@ -6445,12 +6445,19 @@ static int lfs_find_device(char **argv, struct find_param *param,
+ 	}
+ 
+ 	/*
+-	 * lfs seeds fp_max_depth with -1, so any other value, 0 included, is
+-	 * the user's.  The library lets 0 through for a zeroed find_param.
++	 * Refused once here, not once per target of a sweep.  lfs seeds
++	 * fp_max_depth with -1, so any other value, 0 included, is the
++	 * user's.  -printf %p is left to the library, which parses formats.
+ 	 */
+-	if (param->fp_max_depth != (unsigned int)-1) {
++	if (param->fp_max_depth != (unsigned int)-1 ||
++	    param->fp_min_depth != 0 || param->fp_thread_count != 0) {
+ 		fprintf(stderr,
+-			"%s: --maxdepth describes a walk, which a target scan is not\n",
++			"%s: --maxdepth, --mindepth and --threads describe a walk, which a target scan is not\n",
++			argv[0]);
++		return -ENOTSUP;
++	}
++	if (param->fp_xattr_match_info != NULL) {
++		fprintf(stderr, "%s: --xattr needs a mounted filesystem\n",
+ 			argv[0]);
+ 		return -ENOTSUP;
+ 	}
+diff --git a/lustre/utils/liblustreapi_pfind.c b/lustre/utils/liblustreapi_pfind.c
+index a209f1eb36..60b0d2a0f8 100644
+--- a/lustre/utils/liblustreapi_pfind.c
++++ b/lustre/utils/liblustreapi_pfind.c
+@@ -1642,6 +1642,7 @@ format_done:
+  * @param[in]	size	Size of the available buffer.
+  * @param[out]	wrote	Number of bytes written to the buffer.
+  * @param[in]	param	The find_param structure associated with the file/dir
++ * @param[in]	rec	The record the object was delivered in
+  * @param[in]	path	Pathname of the current file/dir being handled
+  * @param[in]	projid	Project ID associated with the current file/dir
+  * @param[in]	d	File descriptor for the directory (or -1 for a
+@@ -2095,6 +2096,15 @@ static int parse_format_width(char **seq, size_t buf_size, int *width,
+ 	return parsed;
+ }
+ 
++/* A scan that had no size (or blocks) for the object prints nothing. */
++static bool printf_scan_lacks(const struct find_param *param, const char *path,
++			      __u32 stx_bit, __u64 lazy_flag)
++{
++	return path == NULL &&
++	       !(param->fp_lmd->lmd_stx.stx_mask & stx_bit) &&
++	       !(param->fp_lmd->lmd_flags & lazy_flag);
++}
++
+ /*
+  * Interpret format specifiers beginning with '%'.
+  *
+@@ -2104,6 +2114,7 @@ static int parse_format_width(char **seq, size_t buf_size, int *width,
+  * @param[in]	size	Size of the available buffer.
+  * @param[out]	wrote	Number of bytes written to the buffer.
+  * @param[in]	param	The find_param structure associated with the file/dir
++ * @param[in]	rec	The record the object was delivered in
+  * @param[in]	path	Pathname of the current file/dir being handled
+  * @param[in]	projid	Project ID associated with the current file/dir
+  * @param[in]	d	File descriptor for the directory (or -1 for a
+@@ -2111,15 +2122,6 @@ static int parse_format_width(char **seq, size_t buf_size, int *width,
+  * @return		Number of characters from input string processed
+  *			as part of the format (0 for an unknown format)
+  */
+-/* A scan that had no size (or blocks) for the object prints nothing. */
+-static bool printf_scan_lacks(const struct find_param *param, const char *path,
+-			      __u32 stx_bit, __u64 lazy_flag)
+-{
+-	return path == NULL &&
+-	       !(param->fp_lmd->lmd_stx.stx_mask & stx_bit) &&
+-	       !(param->fp_lmd->lmd_flags & lazy_flag);
+-}
+-
+ static int printf_format_directive(char *seq, char *buffer, size_t size,
+ 				   int *wrote, struct find_param *param,
+ 				   const struct llapi_scan_rec *rec,
+@@ -3664,9 +3666,7 @@ print:
+ 		 * -EINVAL is the third answer that means "no name", not a
+ 		 * broken search: mdt_fid2path() and ofd_fid2path() give it
+ 		 * for a FID fid_is_namespace_visible() excludes, which an
+-		 * O/<seq>/LAST_ID is.  Counting it as a failure made
+-		 * --fid2path on a healthy OST print every path and then
+-		 * exit non-zero.
++		 * O/<seq>/LAST_ID is, and every OST has one.
+ 		 */
+ 		else if (prc == -ENOENT || prc == -ENODATA || prc == -EINVAL) {
+ 			/*
+@@ -4630,12 +4630,8 @@ static int find_device_cb(const struct llapi_scan_rec *rec, void *data)
+ 	 * root ends the pre-pass with dm_used == 0 -- ROOT, .lustre and
+ 	 * lost+found carry no trusted.link, so scan_dirmap_cb() inserts
+ 	 * none of them -- and composing still answers, scan_dirmap_path()
+-	 * stopping at LU_ROOT_FID without a lookup.  Keying on the contents
+-	 * sent --paths to the FID print, and --fid2path to one
+-	 * llapi_fid2path_at() per object where the map answers all but a
+-	 * few -- the per-object lookup this path exists to avoid.  An OST
+-	 * leaves the flag clear, so --fid2path names its objects through
+-	 * the mount and asks for no map.
++	 * stopping at LU_ROOT_FID without a lookup.  An OST leaves the flag
++	 * clear, so --fid2path names its objects through the mount.
+ 	 */
+ 	fc.fc_dirmap = st->fds_dirmap_built ? &st->fds_dirmap : NULL;
+ 	fc.fc_tgt_live = st->fds_tgt_live;
+diff --git a/lustre/utils/liblustreapi_scan_changelog.c b/lustre/utils/liblustreapi_scan_changelog.c
+index ec9ee9faa9..34d12b37a3 100644
+--- a/lustre/utils/liblustreapi_scan_changelog.c
++++ b/lustre/utils/liblustreapi_scan_changelog.c
+@@ -1077,6 +1077,9 @@ int llapi_scan_changelog(const struct llapi_scan_changelog_param *sc,
+ 	 */
+ 	if (scl.sc_type_mask != 0 && scl.sc_user == NULL)
+ 		return -EINVAL;
++	/* a clear purges every type, so it would drop what the mask hid */
++	if (scl.sc_type_mask != 0 && (scl.sc_flags & LLAPI_SCAN_CL_F_CLEAR))
++		return -EINVAL;
+ 	if (scl.sc_stats != NULL &&
+ 	    scl.sc_stats->ss_size < LLAPI_SCAN_STATS_MIN_SIZE)
+ 		return -EINVAL;
+diff --git a/lustre/utils/liblustreapi_scan_device.c b/lustre/utils/liblustreapi_scan_device.c
+index 68b5f43875..538134a1d1 100644
+--- a/lustre/utils/liblustreapi_scan_device.c
++++ b/lustre/utils/liblustreapi_scan_device.c
+@@ -1665,10 +1665,8 @@ static int scan_dirmap_cb(const struct llapi_scan_rec *rec, void *data)
+ 	/*
+ 	 * A shard is mapped with no name of its own, so the walk steps
+ 	 * through it to the master and the path it composes is the one the
+-	 * filesystem has.  Its linkea reads (name "<DFID>:<index>", parent
+-	 * the master), so composing from it gave /dir/[0x200000400:0x2:0x0]:0/f
+-	 * -- a pathname no lookup answers, printed with a zero exit.
+-	 * mdt_path_current() drops the same element, on the same test.
++	 * filesystem has.  Its linkea name, "<DFID>:<index>", is not a path
++	 * element; mdt_path_current() drops it on the same test.
+ 	 */
+ 	if (rec->lfsr_valid & LLAPI_SCAN_LMV_SHARD)
+ 		return scan_dirmap_put(m, &rec->lfsr_fid, &rec->lfsr_parent_fid,
+@@ -1687,10 +1685,8 @@ static int scan_dirmap_filter(const struct llapi_scan_rec *rec, void *data)
+ /*
+  * Set up the map and the pass that fills it: a pass over the target asking
+  * only for what a directory's place in the tree needs.  It is the scan's
+- * pre-pass and not a scan of its own -- the search that needs the map runs
+- * on the same open, where before this cost a second one, and on ZFS an open
+- * is an import and a close an export, paid twice over for a target the pass
+- * then read a single object of.
++ * pre-pass and not a scan of its own: the search that needs the map runs
++ * on the same open, and on ZFS an open is an import and a close an export.
+  *
+  * Only an MDT has directories to map.  pp_missing_rc is the caller's answer
+  * for a target that has none: --paths has no other way to name an object
+@@ -2081,10 +2077,10 @@ static int scan_run(const char *device, enum scan_backend_kind kind,
+ 		    strncmp(dev.sd_tgt_info.tt_label, want_fsname, flen - 8)) {
+ 			llapi_error(LLAPI_MSG_ERROR | LLAPI_MSG_NO_ERRNO,
+ 				    -EXDEV,
+-				    "the mount given is of '%s', but %s is a target of '%.*s': FIDs from one filesystem resolve on another and would print its paths",
+-				    want_fsname, device,
++				    "%s is a target of '%.*s', not of '%s': FIDs from one filesystem resolve on another and would print its paths",
++				    device,
+ 				    flen > 8 ? (int)(flen - 8) : 0,
+-				    dev.sd_tgt_info.tt_label);
++				    dev.sd_tgt_info.tt_label, want_fsname);
+ 			rc = -EXDEV;
+ 			goto out_close;
+ 		}
+@@ -2111,10 +2107,7 @@ static int scan_run(const char *device, enum scan_backend_kind kind,
+ 
+ 	/*
+ 	 * Whether the pre-pass is this target's, answered from the label the
+-	 * open just read rather than from what a pass over the target found:
+-	 * a directory map is an MDT's, and an OST asked for one used to be
+-	 * told apart by its map coming back empty -- a test on the answer
+-	 * where the question is about the target.
++	 * open just read: a directory map is an MDT's.
+ 	 */
+ 	/*
+ 	 * Which the caller cannot see from here: a device or a pool is read
+diff --git a/lustre/utils/lustreapi_internal.h b/lustre/utils/lustreapi_internal.h
+index e684bc95ba..861f9cd4e4 100644
+--- a/lustre/utils/lustreapi_internal.h
++++ b/lustre/utils/lustreapi_internal.h
+@@ -306,6 +306,12 @@ struct llapi_scan_rec;
+ 				 LLAPI_SCAN_CL_F_RESOLVE |		\
+ 				 LLAPI_SCAN_CL_F_CLEAR |		\
+ 				 LLAPI_SCAN_CL_F_ONCE)
++/* the shortest struct llapi_scan_changelog_param: through sc_mdtname, which
++ * names the log and is not optional
++ */
++#define LLAPI_SCAN_CL_PARAM_MIN_SIZE					\
++	((__u32)(offsetof(struct llapi_scan_changelog_param, sc_mdtname) + \
++		 sizeof(const char *)))
+ /* and the shortest struct llapi_scan_stats a scan will write back */
+ #define LLAPI_SCAN_STATS_MIN_SIZE					\
+ 	((__u32)(offsetof(struct llapi_scan_stats, ss_seen) +		\

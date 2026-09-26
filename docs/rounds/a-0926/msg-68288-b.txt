@@ -1,0 +1,132 @@
+LU-20637 llapi: name a device scan's objects
+
+A target scan has names and parent FIDs but no paths, so lfs find
+prints FIDs, and a user cannot turn them into pathnames. The HLD
+defines an Output Format for this.
+
+Add llapi_scan_rec_path(). It uses the path that a namespace walk put
+in the record, and otherwise resolves the FID through a client mount.
+lfs find gets --fid2path MOUNT and --paths.
+
+An object with no pathname is counted and reported at the end, not
+printed: the target's own internal objects, an OST object that no file
+owns yet, and on DNE an object whose parents are on another MDT. A
+hardlinked object is printed once, under the first name that --name
+matches, or else under its first name. On an OST, a file is printed
+once per object it has there. A lookup that fails for another reason,
+such as -EPERM without CAP_DAC_READ_SEARCH, or -ERANGE, is an error, so
+a broken search does not look complete.
+The message names the FID that was looked up, and names the mount only
+when the lookup went through it.
+
+Neither way of naming asks the target being scanned, so both work on a
+target that is out of service. A ZFS target can only be scanned out of
+service.
+
+OST objects: a data object is named by the file that owns it. Its own
+FID is in an OST sequence, which __ll_fid2path() resolves only by
+asking that OST through the OSC, and that OST is the target being
+read. The owner's MDT FID is ff_parent in the object's trusted.fid;
+the stripe index in f_ver is dropped. An object with no trusted.fid
+(precreated and never written) has no name. An OST with 256-byte
+inodes has no trusted.fid: osd_xattr_set_pfid() stores the parent in
+the LMA as struct lustre_ost_attrs, with LMAC_STRIPE_INFO set. The
+scan reads it from the LMA buffer that it already has. Measured on an
+OST formatted with -I 256: without this, none of 33 objects had an
+owner.
+
+MDT objects: an object is named from its trusted.link and a map of the
+target's directories, from FID to parent FID and name. A pre-pass
+builds the map before the search, because objects arrive in inode
+order and a child usually comes before its parents. The pre-pass asks
+for no layout, SOM or HSM, and runs on the same open as the search
+(scan_device_run_prepass()). On an OST it is skipped, from the label.
+When the map is used there is no fallback to a lookup: a lookup asks
+the target, which may be out of service. Objects the pre-pass skips
+are reported, because everything below a missing directory has no
+name.
+
+A striped directory's shards are in the map with an empty name, and
+scan_dirmap_path() steps through them, so an object under a striped
+directory is named through its master directory. A shard itself is
+not in the namespace, so it is counted as having no name. The
+pre-pass asks for LLAPI_SCAN_LMV, and a search that names objects
+asks for LLAPI_SCAN_LMV_SHARD, which also reads trusted.lmv.
+llapi_scan_namespace.3 has a section on shards.
+
+--paths builds names from the map with no mount, so it works on a
+filesystem that is completely down. The names are relative to the
+filesystem root and begin with '/'. It is refused on an OST. It uses
+the map even when the map is empty, so it never prints a FID in
+place of a name.
+
+--fid2path needs a mount of the same filesystem. A mount of another
+filesystem is refused with -EXDEV when the target is opened, by
+comparing the mount's fsname with the target's label. It cannot be
+checked later: FID sequences are not unique between filesystems
+(FID_SEQ_ROOT is a constant, and every filesystem starts from
+FID_SEQ_NORMAL), so a lookup on the wrong mount returns that
+filesystem's paths and exits 0. The check is inside the scan's own
+open, so the target is opened once. The mount point is resolved
+first, so a bare fsname, a directory inside the mount and a trailing
+slash all work. A fileset mount, whose root is not the filesystem root
+(from the mount source or from a nodemap), is refused with -EINVAL:
+an MDT's paths are composed from the filesystem root.
+
+lfsp_fsname gives a public caller the same check. llapi_scan_device()
+passes it to the scan, and llapi_scan_rec_path.3 points callers to it.
+
+The filesystem root is printed as / (or as MOUNT with --fid2path).
+llapi_scan_rec_path() with no mnt_path returns a pathname that starts
+with /, the same form --paths prints.
+A --local or --fsname sweep with --paths reads only the MDTs, and
+refuses --ost.
+A --local sweep with --fid2path reads only the targets of the mount's
+filesystem.
+
+Refused: --paths with --fid2path, --paths on an OST, either option
+without a target, and -printf with either option, because a format
+prints its own fields and not the pathname.
+
+fp_paths uses fp_unused_bit1.
+
+A directory map entry keeps its name inline, 288 bytes, and the table
+is a power of two at most three quarters full: a million directories
+use a 2^21-entry table, about 576 MiB, and about 864 MiB while
+scan_dirmap_grow() holds both tables. Keeping names in an arena would
+use less. Not done now: no measured case needs it, and an allocation
+failure fails the search cleanly.
+
+Tests, all in conf-sanity:
+- 301: --fid2path on an MDT in service, compared with the client's
+  paths; a hardlinked object is named once. It mounts a client on the
+  MDS. ldiskfs only.
+- 302: stops an OST, exports its pool on ZFS, and compares the names
+  with what the client saw. The files are written, because a
+  precreated object has no name. --search points at the ZFS vdevs in
+  $TMP.
+- 303: --paths on an MDT in service with no mount: one root-relative
+  path per object, the hardlinked object once, no FID and no mount
+  prefix; and the refusals. ldiskfs only.
+- 304: --paths on a stopped MDT, on both backends; on ZFS the pool is
+  exported and --search is given.
+The tests check the server version, so a packaging fault fails them,
+and they skip on ENOTSUP only for a ZFS target. 301 and 303 also sync
+the MDS, because a client sync does not commit the MDT. They call
+$LFS, not a bare lfs.
+
+The pre-pass drops every object that is not a directory before its
+xattrs are read, through a filter of its own. On a 300,000-file MDT
+that was about two thirds of the pass.
+
+Documentation: lfs-find.1 describes both options and their cost (one
+lookup per kept object on an OST, an extra pass on an MDT) and points
+to lfs-fid2path(1), and no longer says the output is always a FID. The
+lfs find usage lists --fid2path and --paths. llapi_find_device.3
+documents fp_fid2path_mnt and its -ENAMETOOLONG, and adds
+llapi_scan_rec_path(3) to SEE ALSO.
+
+Signed-off-by: Hiroshi Nishida <hnishida@thelustrecollective.com>
+Assisted-by: ClaudeCode:Opus-5 llm_code_and_review_tools
+Change-Id: I6476abfd28c91b2ccc04fb08c4e5860aef8fe009
+

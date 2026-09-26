@@ -1,0 +1,86 @@
+diff --git a/lustre/utils/liblustreapi_pfind.c b/lustre/utils/liblustreapi_pfind.c
+index a209f1eb36..60b0d2a0f8 100644
+--- a/lustre/utils/liblustreapi_pfind.c
++++ b/lustre/utils/liblustreapi_pfind.c
+@@ -3664,9 +3666,7 @@ print:
+ 		 * -EINVAL is the third answer that means "no name", not a
+ 		 * broken search: mdt_fid2path() and ofd_fid2path() give it
+ 		 * for a FID fid_is_namespace_visible() excludes, which an
+-		 * O/<seq>/LAST_ID is.  Counting it as a failure made
+-		 * --fid2path on a healthy OST print every path and then
+-		 * exit non-zero.
++		 * O/<seq>/LAST_ID is, and every OST has one.
+ 		 */
+ 		else if (prc == -ENOENT || prc == -ENODATA || prc == -EINVAL) {
+ 			/*
+@@ -4630,12 +4630,8 @@ static int find_device_cb(const struct llapi_scan_rec *rec, void *data)
+ 	 * root ends the pre-pass with dm_used == 0 -- ROOT, .lustre and
+ 	 * lost+found carry no trusted.link, so scan_dirmap_cb() inserts
+ 	 * none of them -- and composing still answers, scan_dirmap_path()
+-	 * stopping at LU_ROOT_FID without a lookup.  Keying on the contents
+-	 * sent --paths to the FID print, and --fid2path to one
+-	 * llapi_fid2path_at() per object where the map answers all but a
+-	 * few -- the per-object lookup this path exists to avoid.  An OST
+-	 * leaves the flag clear, so --fid2path names its objects through
+-	 * the mount and asks for no map.
++	 * stopping at LU_ROOT_FID without a lookup.  An OST leaves the flag
++	 * clear, so --fid2path names its objects through the mount.
+ 	 */
+ 	fc.fc_dirmap = st->fds_dirmap_built ? &st->fds_dirmap : NULL;
+ 	fc.fc_tgt_live = st->fds_tgt_live;
+diff --git a/lustre/utils/liblustreapi_scan_device.c b/lustre/utils/liblustreapi_scan_device.c
+index 68b5f43875..538134a1d1 100644
+--- a/lustre/utils/liblustreapi_scan_device.c
++++ b/lustre/utils/liblustreapi_scan_device.c
+@@ -1665,10 +1665,8 @@ static int scan_dirmap_cb(const struct llapi_scan_rec *rec, void *data)
+ 	/*
+ 	 * A shard is mapped with no name of its own, so the walk steps
+ 	 * through it to the master and the path it composes is the one the
+-	 * filesystem has.  Its linkea reads (name "<DFID>:<index>", parent
+-	 * the master), so composing from it gave /dir/[0x200000400:0x2:0x0]:0/f
+-	 * -- a pathname no lookup answers, printed with a zero exit.
+-	 * mdt_path_current() drops the same element, on the same test.
++	 * filesystem has.  Its linkea name, "<DFID>:<index>", is not a path
++	 * element; mdt_path_current() drops it on the same test.
+ 	 */
+ 	if (rec->lfsr_valid & LLAPI_SCAN_LMV_SHARD)
+ 		return scan_dirmap_put(m, &rec->lfsr_fid, &rec->lfsr_parent_fid,
+@@ -1687,10 +1685,8 @@ static int scan_dirmap_filter(const struct llapi_scan_rec *rec, void *data)
+ /*
+  * Set up the map and the pass that fills it: a pass over the target asking
+  * only for what a directory's place in the tree needs.  It is the scan's
+- * pre-pass and not a scan of its own -- the search that needs the map runs
+- * on the same open, where before this cost a second one, and on ZFS an open
+- * is an import and a close an export, paid twice over for a target the pass
+- * then read a single object of.
++ * pre-pass and not a scan of its own: the search that needs the map runs
++ * on the same open, and on ZFS an open is an import and a close an export.
+  *
+  * Only an MDT has directories to map.  pp_missing_rc is the caller's answer
+  * for a target that has none: --paths has no other way to name an object
+@@ -2081,10 +2077,10 @@ static int scan_run(const char *device, enum scan_backend_kind kind,
+ 		    strncmp(dev.sd_tgt_info.tt_label, want_fsname, flen - 8)) {
+ 			llapi_error(LLAPI_MSG_ERROR | LLAPI_MSG_NO_ERRNO,
+ 				    -EXDEV,
+-				    "the mount given is of '%s', but %s is a target of '%.*s': FIDs from one filesystem resolve on another and would print its paths",
+-				    want_fsname, device,
++				    "%s is a target of '%.*s', not of '%s': FIDs from one filesystem resolve on another and would print its paths",
++				    device,
+ 				    flen > 8 ? (int)(flen - 8) : 0,
+-				    dev.sd_tgt_info.tt_label);
++				    dev.sd_tgt_info.tt_label, want_fsname);
+ 			rc = -EXDEV;
+ 			goto out_close;
+ 		}
+@@ -2111,10 +2107,7 @@ static int scan_run(const char *device, enum scan_backend_kind kind,
+ 
+ 	/*
+ 	 * Whether the pre-pass is this target's, answered from the label the
+-	 * open just read rather than from what a pass over the target found:
+-	 * a directory map is an MDT's, and an OST asked for one used to be
+-	 * told apart by its map coming back empty -- a test on the answer
+-	 * where the question is about the target.
++	 * open just read: a directory map is an MDT's.
+ 	 */
+ 	/*
+ 	 * Which the caller cannot see from here: a device or a pool is read

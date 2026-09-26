@@ -1,0 +1,197 @@
+LU-20649 llapi: add llapi_scan_changelog()
+
+The two scanners we have enumerate what exists.  A changelog
+enumerates what happened, and llapi_scan_changelog() delivers it in
+the same record, so a consumer written against llapi_scan_namespace()
+or llapi_scan_device() can be fed by a delta without being rewritten.
+
+A changelog record carries the FID, the parent FID, the name, the
+event and its time, and -- where the server recorded them -- the uid
+and gid of whoever caused it.  That pair is lfsr_event_uid and
+lfsr_event_gid, not lfsr_uid: mdd_changelog_ns_store() fills the
+uidgid extension from lu_ucred(env), the acting client's credentials,
+so it says who acted and not who owns the object, which is what
+lfsr_uid means in every scanner that fills it and what lfs find -uid
+matches. Delivering it as lfsr_uid would have answered "-uid alice"
+from the identity of whoever last touched her file.  The record
+carries no size, mode, owner, times, layout or HSM state at any
+setting, so those arrive absent with their lfsr_valid bit clear.  With
+LLAPI_SCAN_CL_F_RESOLVE they are filled through a client mount: an
+O_PATH open by FID and a stat for each object, and a glimpse for a
+regular file whose size, blocks or mtime was asked for; the demand
+mask decides whether that happens at all, so a consumer reading only
+what an event carries pays nothing.  Resolution fills what the stream
+lacks and never restates what it has, which is what lets a caller ask
+what an event recorded rather than what is true now.
+
+Two modes.  Event mode delivers one record per event, in order.
+Object mode holds events in a FID-keyed cache and delivers one record
+per object once it has been quiet, so a file written a hundred times
+is one record and one lookup rather than a hundred of each.
+
+LLAPI_SCAN_CL_F_FOLLOW keeps reading as the log grows, as lfs changelog
+--follow does. LLAPI_SCAN_CL_F_ONCE, which needs _COALESCE, delivers an
+object at most once per run: a set of the FIDs already delivered drops
+the repeats. test5 covers it.
+
+Clearing is off by default and never runs ahead of the callback: it is
+irreversible and it purges the registered user's whole backlog, not
+this reader's alone.  Registering that user stays the caller's, since
+registering without consuming is how an MDT fills up.
+
+The record gains lfsr_event_type, _flags, _time, _index and _prev, the
+rename source, and a job id, behind three new validity bits.  An event
+time is not an object time, so it does not land in lfsr_mtime: a
+search asking for one must not be handed the other.
+
+Only an event that implies a type answers for it -- the three
+creations, and CL_RMDIR, whose target is a directory by definition --
+so the mode and its validity bit are set together, and a later event
+leaves both alone.  Setting them as a pair is what keeps "cannot
+answer" apart from "the answer is zero": a mode written on every
+event, with the bit only ever OR'd in, would leave a coalesced object
+claiming a type while carrying zero for it.  An object's type does not
+change, so the first answer stands for every event after it.
+
+lfsr_parent_fd and lfsr_fd are set to -1 rather than left as the
+memset found them.  Zero is stdin, and a consumer written against
+llapi_scan_namespace() is told to test lfsr_parent_fd and then
+fstatat() on it.
+
+The Changelog reader is finished on every path out, the error one
+included.  llapi_changelog_start_user() opens the device and sets
+*priv before it issues OBD_IOC_CHANGELOG_FILTER, so a failure there --
+an unregistered user, an unreachable MDT -- hands back an error with
+the reader live, and the fd, its buffer and the kernel-side reader
+state would stay pinned for the life of the process if nothing closed
+them.
+
+sc_user, sc_mnt and sc_stats are read from the bounded copy rather
+than the caller's structure, and the advertised minimum sc_size
+reaches through sc_mdtname.  A minimum stopping short of it would let
+a caller declare a structure without the field the call cannot work
+without, and reading that field off the caller's own memory would go
+past its end before the size check had a chance to refuse it.
+
+Clearing stops at the oldest record any cached object still needs, not
+at the last index delivered.  Coalescing puts those apart: create B at
+10, create A at 11, touch B at 1000, and A can age out and be accepted
+while B is still held with a record at 10.  Clearing to 11 there and
+then stopping the scan loses B entirely -- no callback saw it, and a
+restart from sc_startrec cannot read it back, because the record is
+gone. An object that never goes quiet would hold that point for ever,
+and would never be delivered either, so one held for six times
+sc_min_age since its first event is delivered on its next event and
+held afresh.
+
+A rename is about the object that moved.  mdd_changelog_ns_store()
+zeroes cr_tfid when mdd_rename() passes no target, which it does
+whenever the destination name did not exist, and the moved object is
+then only in the rename extension's cr_sfid.  Keying on cr_tfid alone
+would give every such rename no object, and a consumer such as
+lfs find --since would miss the renamed file.  A rename over an
+existing name is about both objects, so it is delivered for each.  A
+CL_MARK is about none: cr_markerflags shares its bytes with cr_tfid
+and is not a FID.  A record about no object is delivered per event
+even in object mode, since coalescing keys on the FID.
+
+The parent FID is taken only from an event that carries one.  CL_CLOSE
+does not -- mdd_changelog_data_store() is called with pfid NULL -- so
+assigning it from every event while only ever OR-ing the bit in left
+create+write+close reporting LLAPI_SCAN_PARENT over a zero.  A name or
+job id whose copy failed leaves its bit clear for the same reason: a
+bit that promises a string must not be set over a NULL.
+
+A resolve is skipped only for a demand mask every event can answer,
+which LLAPI_SCAN_TYPE is not: scan_cl_mode() answers it for the four
+record types that imply one and no others, so counting it there would
+leave a consumer asking for FID and type with neither a lookup nor a
+type on a CL_CLOSE.
+
+Resolution opens O_PATH only, never for read. A real open is an MDS
+open, which writes CL_OPEN and CL_CLOSE records when a changelog user's
+mask includes OPEN, so resolving would feed the log it reads; and on a
+device node stored in the filesystem it opens the driver. The stat is
+statx() without AT_STATX_DONT_SYNC, which revalidates with the MDT and
+glimpses the OSTs as stat(2) does, so a cached inode does not answer for
+an owner or mode another client has changed.
+
+The uidgid extension is asked for when sc_want is 0, and that case is
+tested on its own rather than by a mask.  Zero means "everything", so
+it is the caller that most needs the extension -- and `0 &
+~LLAPI_SCAN_EVENT` is 0, so any test of that shape would exclude
+precisely the caller that wanted it, leaving LLAPI_SCAN_EVENT_UID out
+of lfsr_valid.
+
+A regular file's size and mtime are strict only when the OSTs were
+glimpsed, which happens when the demand mask is 0 or names a size,
+blocks or an mtime. Otherwise the size is the MDT's lazy one, which
+LLAPI_SCAN_LAZY_SIZE and LLAPI_SCAN_LAZY_BLOCKS say, and the mtime is
+left out.  liblustreapi_pfind.c maps the two to OBD_MD_FLSIZE and
+OBD_MD_FLLAZYSIZE, so they are not interchangeable.  sc_got counts
+them under a resolve, as both siblings' masks do.
+
+LLAPI_SCAN_CL_F_RESOLVE is one open and a stat, so the page says
+which six of the ten fields it fills.  The project id, the layout,
+the directory stripe and the HSM state each cost an ioctl or an xattr
+of their own and are not filled at any setting; the page said
+otherwise by listing all ten and then naming the flag.
+
+The checkpoint gets its caveat, in the header and the page both.
+Under coalescing a record naming no object goes out as it arrives
+while an object whose earliest record sits lower is still held, so
+the delivered indexes are not a watermark.  A run that reaches the
+end of the log flushes what it holds and the highest index is safe;
+a run the consumer stopped drops it, so that run must leave the
+checkpoint alone.
+
+sc_startrec and sc_endrec are both inclusive and the page now says
+so, the example resuming from the saved index plus one rather than
+re-delivering the record the job already processed.  lfsr_event_flags
+is cr_flags & CLF_FLAGMASK, so CLF_RENAME, CLF_JOBID and
+CLF_EXTRA_FLAGS are masked off -- they say which extensions a record
+carries, not what happened.
+
+scan_cl_bucket() takes llapi_fid_hash() as it is: that is hash_long()
+on the same shift, and a modulo on top could not change it.
+
+The COALESCE flag says which event's fields the one record carries. It
+promised one record per object and left open which of the object's
+events that record spoke for, so a consumer matching on lfsr_name had
+no way to know it sees one name per object rather than every name the
+log recorded -- an object created under one name and hardlinked under
+another arrives carrying only the last of them.  lfs find --changelog
+-name is that consumer, and the gap showed there first.
+
+sc_type_mask without sc_user is refused. The mask is intersected with
+the registered user's own, which the client's mdc asks the MDS for
+through llapi_changelog_start_user(); the mdc then drops the other
+records as it reads them. On the other branch llapi_changelog_start()
+never saw the mask, so a caller asking for CL_UNLINK alone read every
+event type and nothing said so. It is refused rather than given a
+second meaning: sc_filter already filters without a user. The man page
+said only that the mask is intersected with the user's own, which does
+not tell a caller what happens when there is no user. With no mask the
+plain reader is used even when sc_user is set: the filtered one looks
+the user up on the MDS, which an MDS before 2.17.0 cannot do, and
+sc_user is then needed only to clear.
+
+llapi_scan_changelog_test covers the five things the shape of this
+stream turns on: that a record describes the event it came from, that
+object mode collapses a burst into one record, that the demand mask
+keeps a lookup from happening at all, that a consumer's own return
+value comes back unchanged, and that bad parameters are refused rather
+than crashed on.  It takes -m for the MDT, -u for a registered user
+and -d for a client mount, since three of those need a live log.
+sanity 157d runs it, so the binary is not merely built.  Its events
+have to be on the MDT whose log it reads, which under DNE a mkdir
+below a striped root does not guarantee, so the test makes the
+directory on MDT0 itself rather than leaving the binary to notice and
+refuse.  -u passes a registered Changelog user. test6 and test9 need
+it and skip without one: test6 clears, which cannot be undone, and
+test9 filters through the user.
+
+Signed-off-by: Hiroshi Nishida <hnishida@thelustrecollective.com>
+Assisted-by: ClaudeCode:Opus-5 llm_code_and_review_tools
+Change-Id: I12efd3bd2150592a4507533129ab56573ef924d9
+

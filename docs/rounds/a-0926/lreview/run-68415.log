@@ -1,0 +1,25 @@
+  edc3172d53_edc3172  LU-20649 llapi: add llapi_scan_changelog() (worktree)
+
+Reviewing 1 change(s), 1 in parallel, timeout 7200s each
+  prompts:   /home/nishida/projects/llm_code_and_review_tools/review-prompts/kernel
+             (via bundled submodule (/home/nishida/projects/llm_code_and_review_tools/review-prompts))
+  results:   /home/nishida/projects/llm_code_and_review_tools/lreview-results
+  worktrees: /home/nishida/projects/llm_code_and_review_tools/lreview-results/worktrees
+
+running: edc3172d53_edc3172 0m00s | done 0/1
+[edc3172d53_edc3172] review started: LU-20649 llapi: add llapi_scan_changelog()
+running: edc3172d53_edc3172 0m59s 556k tok | done 0/1
+running: edc3172d53_edc3172 2m00s 1.3M tok | done 0/1
+running: edc3172d53_edc3172 3m00s 2.5M tok | done 0/1
+running: edc3172d53_edc3172 4m00s 4.0M tok | done 0/1
+running: edc3172d53_edc3172 5m00s 4.5M tok | done 0/1
+running: edc3172d53_edc3172 6m00s 5.1M tok | done 0/1
+running: edc3172d53_edc3172 7m00s 5.7M tok | done 0/1
+[edc3172d53_edc3172] 3 finding(s), severity low (7m52s, 6.8M tok, $3.90) -> gerrit-review-edc3172d53_edc3172.json
+
+=== Batch summary ===
+  edc3172d53_edc3172 findings (3 finding(s), severity low)  [6.8M tok, $3.90]
+  total: 6.8M tokens, $3.90
+
+Human-readable reports:
+  /home/nishida/projects/llm_code_and_review_tools/lreview-results/markdown/edc3172d53_edc3172_LU-20649_llapi_add_llapi_scan_changelog.md

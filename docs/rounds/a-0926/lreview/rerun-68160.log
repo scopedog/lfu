@@ -1,0 +1,24 @@
+  465bc31421_465bc31  LU-20611 lfs: find over a target, with --device (worktree)
+
+Reviewing 1 change(s), 1 in parallel, timeout 7200s each
+  prompts:   /home/nishida/projects/llm_code_and_review_tools/review-prompts/kernel
+             (via bundled submodule (/home/nishida/projects/llm_code_and_review_tools/review-prompts))
+  results:   /home/nishida/projects/llm_code_and_review_tools/lreview-results
+  worktrees: /home/nishida/projects/llm_code_and_review_tools/lreview-results/worktrees
+
+running: 465bc31421_465bc31 0m00s | done 0/1
+[465bc31421_465bc31] review started: LU-20611 lfs: find over a target, with --device
+running: 465bc31421_465bc31 0m59s 1.1M tok | done 0/1
+running: 465bc31421_465bc31 2m00s 2.1M tok | done 0/1
+running: 465bc31421_465bc31 3m00s 3.0M tok | done 0/1
+running: 465bc31421_465bc31 4m00s 3.7M tok | done 0/1
+running: 465bc31421_465bc31 5m00s 4.3M tok | done 0/1
+running: 465bc31421_465bc31 6m00s 5.4M tok | done 0/1
+[465bc31421_465bc31] 1 finding(s), severity low (6m36s, 6.5M tok, $3.28) -> gerrit-review-465bc31421_465bc31.json
+
+=== Batch summary ===
+  465bc31421_465bc31 findings (1 finding(s), severity low)  [6.5M tok, $3.28]
+  total: 6.5M tokens, $3.28
+
+Human-readable reports:
+  /home/nishida/projects/llm_code_and_review_tools/lreview-results/markdown/465bc31421_465bc31_LU-20611_lfs_find_over_a_target_with_--device.md

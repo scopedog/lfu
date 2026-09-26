@@ -4,7 +4,30 @@ Every ticket and Gerrit id in play, and the ones that are *not* ours. Regenerate
 the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
 **2026-09-06**.
 
-## 2026-09-25: start here tomorrow
+## 2026-09-26: PUSHED 68156-68416 (9 patchsets), 68094/68095 kept — start here
+
+- **Pushed:** tag `a0926-pushed` (aabe986c25) in ~/lfs-artem-0924:
+  68156/68157 PS28, 68158/68159/68163 PS25, 68160 PS26, 68288 PS19,
+  68415/68416 PS17. 68094/68095 stay at PS26. Local tip `r0926b-tip`
+  (b8c7d9c5b8) carries more above 68416 (LU-20650 rest, OSD series,
+  LU-20722, LU-20730), not pushed.
+- **In it:** the 09-25 AI fixes (68156, 68157, 68163, 68416); the 09-25 AI
+  round on 68159, 68160, 68288, 68415 (8 fixed, 2 declined; 68415 defect:
+  `sc_type_mask` + `_CLEAR` now -EINVAL); lreview on those four (8 findings)
+  plus 5 capped reruns (68288 hardlink path, `--local --fid2path` fsname,
+  CLS_INTERNAL lookup on a stopped OST). Notes: rounds/a-0926/notes.md.
+- **Verified:** 23/23 per-commit builds, checkpatch unchanged, tree hash;
+  VM lab 23/23 green A/B on the clone (sanity 56, 56El, 157c/d, 160aa-ae,
+  conf-sanity 300-305): rounds/a-0926/vm-test.md.
+- **Gerrit:** 17 replies posted and resolved (incl. 68416 `0344623c` fold
+  decline, 68160 `-f`/`--foreign`). 68158 PS24 never got an AI review.
+- **CI so far:** Janitor builds + smatch clean on all nine; checkpatch
+  counts unchanged; Jenkins V+1 on 68156-68160, 68163. Maloo and AI pending.
+- **Owed / deferred:** `llapi_uuid_match()` const cleanup (promised on
+  68159); 68160 "skip OSTs when a sweep asks layout options" (declined for
+  now); 68288 `sd_` rename; 69206 PS1 AI said LGTM, Maloo V+1.
+
+## 2026-09-25
 
 - **Pushed today:** 69206 (LU-20832 llite rdev decode, standalone, lreview
   clean). Tickets filed: LU-20832, LU-20834 (lustre-initialization,

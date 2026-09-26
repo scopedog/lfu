@@ -1,0 +1,153 @@
+== start 2026-09-26 10:35:25
+loaded version: [2.17.58_65_g8618869]
+no /dev/lfu_scan: mounted targets are read by the device backend
+osd-ldiskfs.lfst-MDT0000.mntdev=/dev/mapper/mds1_flakey
+osd-ldiskfs.lfst-MDT0001.mntdev=/dev/mapper/mds2_flakey
+osd-ldiskfs.lfst-OST0000.mntdev=/dev/mapper/ost1_flakey
+osd-ldiskfs.lfst-OST0001.mntdev=/dev/mapper/ost2_flakey
+MDTDEV=/dev/mapper/mds1_flakey OSTDEV=/dev/mapper/ost1_flakey OSTMNT=/mnt/lfst-ost1
+  new lfs loads:  /home/nishida/arm0926new/lib/liblustreapi.so.1 (0x00007fb8d7522000)
+  new plugin: openat(AT_FDCWD, "/home/nishida/arm0926new/lib/lustre/scan_osd_ldiskfs.so", O_RDONLY|O_CLOEXEC) = 3 
+  old lfs loads:  /home/nishida/arm0926old/lib/liblustreapi.so.1 (0x00007fe028ddb000)
+  old plugin: openat(AT_FDCWD, "/home/nishida/arm0926old/lib/lustre/scan_osd_ldiskfs.so", O_RDONLY|O_CLOEXEC) = 3 
+=== fixture: files on lfst, and a second filesystem 'lustre'
+  osd-ldiskfs lfst-MDT0000-osd
+  mdt lfst-MDT0000
+  osd-ldiskfs lfst-MDT0001-osd
+  mdt lfst-MDT0001
+  osd-ldiskfs lfst-OST0000-osd
+  obdfilter lfst-OST0000
+  osd-ldiskfs lfst-OST0001-osd
+  obdfilter lfst-OST0001
+  osd-ldiskfs lustre-MDT0000-osd
+  mdt lustre-MDT0000
+  osd-ldiskfs lustre-OST0000-osd
+  obdfilter lustre-OST0000
+  mounted: /dev/mapper/mds1_flakey on /mnt/lfst-mds1
+  mounted: /dev/mapper/mds2_flakey on /mnt/lfst-mds2
+  mounted: /dev/mapper/ost1_flakey on /mnt/lfst-ost1
+  mounted: /dev/mapper/ost2_flakey on /mnt/lfst-ost2
+  mounted: 192.168.122.10@tcp:/lfst on /mnt/lfst
+  mounted: /dev/loop4 on /mnt/lab-ls-mdt
+  mounted: /dev/loop5 on /mnt/lab-ls-ost
+  mounted: 192.168.122.10@tcp:/lustre on /mnt/lustre
+=== 68415: sc_type_mask with _CLEAR
+  users: new=cl7 old=cl8
+  new: [mask: rc=0 records=5] idx 173->173 | [both: rc=-22 records=0] idx 173->173 | [clear: rc=0 records=18] idx 173->191
+  old: [mask: rc=0 records=5] idx 173->173 | [both: rc=0 records=5] idx 173->187 | [clear: rc=0 records=4] idx 187->191
+  PASS  68415 new: mask alone reads (mask: rc=0 records=5)
+  PASS  68415 new: mask+CLEAR -> -EINVAL, user index unchanged (173)
+  PASS  68415 new: CLEAR alone clears (idx 173->191)
+  PASS  68415 old arm: mask+CLEAR accepted and cleared (idx 173->187): the defect
+=== 68160: --device/--local refusals
+  [refmindepth] new rc=95 out=0 err: find: --maxdepth, --mindepth and --threads describe a walk, which a target scan is not|
+  [refmindepth] old rc=95 out=0 err: # lfst-MDT0000 (/dev/mapper/mds1_flakey)|lfs find: --maxdepth and --mindepth describes a walk, which a target scan is not|lfs: failed for '/dev/mapper/mds1_flakey': Operation not supported|
+  PASS  68160 --local --mindepth 1: one refusal, rc 95, no target opened (find: --maxdepth, --mindepth and --threads describe a walk, which a target scan is not)
+  [refthreads] new rc=95 out=0 err: find: --maxdepth, --mindepth and --threads describe a walk, which a target scan is not|
+  [refthreads] old rc=95 out=0 err: # lfst-MDT0000 (/dev/mapper/mds1_flakey)|lfs find: --threads describes a walk, which a target scan is not|lfs: failed for '/dev/mapper/mds1_flakey': Operation not supported|
+  PASS  68160 --local --threads 2: one refusal, rc 95, no target opened (find: --maxdepth, --mindepth and --threads describe a walk, which a target scan is not)
+  [refmaxdepth] new rc=95 out=0 err: find: --maxdepth, --mindepth and --threads describe a walk, which a target scan is not|
+  [refmaxdepth] old rc=95 out=0 err: find: --maxdepth describes a walk, which a target scan is not|
+  PASS  68160 --local --maxdepth 1: one refusal, rc 95, no target opened (find: --maxdepth, --mindepth and --threads describe a walk, which a target scan is not)
+  [refxattruserx] new rc=95 out=0 err: find: --xattr needs a mounted filesystem|
+  [refxattruserx] old rc=95 out=0 err: # lfst-MDT0000 (/dev/mapper/mds1_flakey)|lfs find: --xattr needs a mounted filesystem|lfs: failed for '/dev/mapper/mds1_flakey': Operation not supported|
+  PASS  68160 --local --xattr user.x: one refusal, rc 95, no target opened (find: --xattr needs a mounted filesystem)
+  [refdev] new rc=95 out=0 err: find: --maxdepth, --mindepth and --threads describe a walk, which a target scan is not|
+  [refdev] old rc=95 out=0 err: lfs find: --maxdepth and --mindepth describes a walk, which a target scan is not|lfs: failed for '/dev/mapper/mds1_flakey': Operation not supported|
+  PASS  68160 --device --mindepth 1 refused, rc 95
+  [mgs] new rc=22 out=0 err: find: 'MGS' is not an MDT or an OST|
+  [mgs] old rc=19 out=0 err: lfs: no target 'MGS' mounted here|
+  PASS  68160 --target MGS -> EINVAL: find: 'MGS' is not an MDT or an OST
+  [nomdt] new rc=19 out=0 err: lfs: no target 'lfst-MDT0009' mounted here|
+  [nomdt] old rc=19 out=0 err: lfs: no target 'lfst-MDT0009' mounted here|
+  PASS  68160 an MDT name not mounted still says 'no target ... mounted here' rc 19
+  [ls] new rc=95 out=0 err: lfs find: -printf %p needs a path, which a target scan has not|lfs: failed for '/dev/mapper/mds1_flakey': Operation not supported|
+  [ls] old rc=95 out=0 err: lfs find: -printf %p needs a path, which a target scan has not|lfs: failed for '/dev/mapper/mds1_flakey': Operation not supported|
+  PASS  68160 --device --ls refused by the library (rc 95): lfs find: -printf %p needs a path, which a target scan has not
+  PASS  68160 lfs-find.1 lists --ls among the refused
+  [livedev] new rc=0 out=7 err: 
+  [livedev] old rc=0 out=7 err: 
+  client sees 8 files on lfst; device scan of MDT0000 new=7 old=7
+  PASS  68160 a normal --device find works on the live MDT (7 files)
+=== 68288: naming
+  [xdev] new rc=18 out=0 err: lfs find: /dev/mapper/mds1_flakey is a target of 'lfst', not of 'lustre': FIDs from one filesystem resolve on another and would print its paths|lfs: failed for '/dev/mapper/mds1_flakey': Invalid cross-device link|
+  [xdev] old rc=18 out=0 err: lfs find: the mount given is of 'lustre', but /dev/mapper/mds1_flakey is a target of 'lfst': FIDs from one filesystem resolve on another and would print its paths|lfs: failed for '/dev/mapper/mds1_flakey': Invalid cross-device lin
+  PASS  68288 target mismatch: lfs find: /dev/mapper/mds1_flakey is a target of 'lfst', not of 'lustre': FIDs from one filesystem resolve on another and would print its paths
+  [ostpaths] new rc=22 out=0 err: find: --paths names MDT objects only, so --ost matches no target of a sweep|
+  [ostpaths] old rc=19 out=0 err: lfs: no local OST to search|
+  PASS  68288 --local --ost --paths refused rc 22
+  [locpaths] new rc=0 out=8 err: # lfst-MDT0000 (/dev/mapper/mds1_flakey)|# lfst-MDT0001 (/dev/mapper/mds2_flakey)|# lustre-MDT0000 (/dev/loop4)|
+  [locpaths] old rc=0 out=8 err: # lfst-MDT0000 (/dev/mapper/mds1_flakey)|# lfst-MDT0001 (/dev/mapper/mds2_flakey)|# lustre-MDT0000 (/dev/loop4)|
+  PASS  68288 --local --paths alone still runs (rc 0, 8 lines)
+  [locost] new rc=0 out=90 err: # lfst-OST0000 (/dev/mapper/ost1_flakey)|# lfst-OST0001 (/dev/mapper/ost2_flakey)|# lustre-OST0000 (/dev/loop5)|
+  [locost] old rc=0 out=90 err: # lfst-OST0000 (/dev/mapper/ost1_flakey)|# lfst-OST0001 (/dev/mapper/ost2_flakey)|# lustre-OST0000 (/dev/loop5)|
+  PASS  68288 --local --ost 0 alone still runs (rc 0)
+  [f2pm] new rc=0 out=14 err: # lfst-MDT0000 (/dev/mapper/mds1_flakey)|# lfst-MDT0001 (/dev/mapper/mds2_flakey)|# lfst-OST0000 (/dev/mapper/ost1_flakey)|
+  [f2pm] old rc=18 out=14 err: # lfst-MDT0000 (/dev/mapper/mds1_flakey)|# lfst-MDT0001 (/dev/mapper/mds2_flakey)|# lfst-OST0000 (/dev/mapper/ost1_flakey)|
+  [f2pf] new rc=0 out=14 err: # lfst-MDT0000 (/dev/mapper/mds1_flakey)|# lfst-MDT0001 (/dev/mapper/mds2_flakey)|# lfst-OST0000 (/dev/mapper/ost1_flakey)|
+  [f2pf] old rc=18 out=14 err: # lfst-MDT0000 (/dev/mapper/mds1_flakey)|# lfst-MDT0001 (/dev/mapper/mds2_flakey)|# lfst-OST0000 (/dev/mapper/ost1_flakey)|
+  [f2pl] new rc=0 out=2 err: # lustre-MDT0000 (/dev/loop4)|# lustre-OST0000 (/dev/loop5)|lfs find: /dev/loop5: 32 matching objects have no pathname and were not printed|
+  [f2pl] old rc=18 out=2 err: # lfst-MDT0000 (/dev/mapper/mds1_flakey)|lfs find: the mount given is of 'lustre', but /dev/mapper/mds1_flakey is a target of 'lfst': FIDs from one filesystem resolve on another and would print its paths|lfs: failed for '/dev/mapp
+  f2pm new targets read: lfst-MDT0000 lfst-MDT0001 lfst-OST0000 lfst-OST0001   failed: 0
+  f2pm old targets read: lfst-MDT0000 lfst-MDT0001 lfst-OST0000 lfst-OST0001 lustre-MDT0000 lustre-OST0000   failed: 2
+  f2pf new targets read: lfst-MDT0000 lfst-MDT0001 lfst-OST0000 lfst-OST0001   failed: 0
+  f2pf old targets read: lfst-MDT0000 lfst-MDT0001 lfst-OST0000 lfst-OST0001 lustre-MDT0000 lustre-OST0000   failed: 2
+  f2pl new targets read: lustre-MDT0000 lustre-OST0000   failed: 0
+  f2pl old targets read: lfst-MDT0000 lfst-MDT0001 lfst-OST0000 lfst-OST0001 lustre-MDT0000 lustre-OST0000   failed: 4
+  PASS  68288 --local --fid2path /mnt/lfst: only lfst targets, rc 0, paths under /mnt/lfst
+  PASS  68288 --local --fid2path lfst (bare fsname, cwd /mnt/lustre): only lfst targets, rc 0
+  PASS  68288 --local --fid2path /mnt/lustre (cwd in lfst): only lustre targets, rc 0
+  PASS  68288 old arm: --local --fid2path read the other filesystem's targets and failed (rc 18)
+=== 68288: llapi_scan_rec_path() on a stopped OST's internal records
+  OST0000 stopped (/dev/mapper/ost1_flakey)
+  new exit 0
+    scan rc=-22 asked=0
+  FAIL  68288 rec_path on CLS_INTERNAL
+        scan rc=-22 asked=0
+  old exit 0 after 0s
+    scan rc=-22 asked=0
+  NOTE old arm did not hang (exit 0)
+  OST0000 back
+  client still answers
+=== teardown of both filesystems
+  cleanup rc=0
+=== on the stopped lfst MDT image (quiescent file)
+  [hlnamef0] new rc=0 out=7 err: 
+  [hlnamef0] old rc=0 out=7 err: 
+    new: /hl/hardlink /hl/solo 
+    old: /hl/f0 /hl/solo 
+  [hlnamehardlink] new rc=0 out=1 err: 
+  [hlnamehardlink] old rc=0 out=1 err: 
+    new: /hl/hardlink 
+    old: /hl/f0 
+  [hlnamef0] new rc=0 out=1 err: 
+  [hlnamef0] old rc=0 out=1 err: 
+    new: /hl/f0 
+    old: /hl/f0 
+  [hlnamesolo] new rc=0 out=1 err: 
+  [hlnamesolo] old rc=0 out=1 err: 
+    new: /hl/solo 
+    old: /hl/solo 
+  [hl] new rc=0 out=7 err: 
+  [hl] old rc=0 out=7 err: 
+    new: /hl/f0 /hl/solo 
+    old: /hl/f0 /hl/solo 
+  FAIL  68288 ! --name f0
+        /hl/f0
+  PASS  68288 '--name hardlink' prints /hl/hardlink
+  PASS  68288 old arm printed /hl/f0 for --name hardlink (the defect)
+  PASS  68288 no --name, --name solo: new = old
+  [stopdev] new rc=0 out=7 err: 
+  [stopdev] old rc=0 out=7 err: 
+  PASS  68160 --device find on the stopped MDT: 7 files, new = old
+=== 68159: the skipped-objects warning names the target
+  [skip] new rc=0 out=6 err: lfs find: /tmp/lab0926-skip.img: 1 of 280 objects were skipped: unreadable or inconsistent on the target|
+  [skip] old rc=0 out=6 err: lfs find: 1 of 280 objects were skipped: unreadable or inconsistent on the target|
+  PASS  68159 warning: lfs find: /tmp/lab0926-skip.img: 1 of 280 objects were skipped: unreadable or inconsistent on the target
+    old: lfs find: 1 of 280 objects were skipped: unreadable or inconsistent on the target
+=== tally: PASS 27 FAIL 2
+8b177267c86ca6636f3ec0172ad697aa  /tmp/lustre-mdt1
+b793bffb22af0cd858c1134f8153062f  /tmp/lustre-mdt2
+c89cbd53d343b6873ed65d05eeb68a07  /tmp/lustre-ost1
+== end 2026-09-26 10:36:27
+ARMS RUN DONE

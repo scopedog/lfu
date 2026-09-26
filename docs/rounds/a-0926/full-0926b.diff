@@ -1,0 +1,362 @@
+diff --git a/Documentation/man1/lfs-find.1 b/Documentation/man1/lfs-find.1
+index 5f87f03fa3..733ee9d83c 100644
+--- a/Documentation/man1/lfs-find.1
++++ b/Documentation/man1/lfs-find.1
+@@ -1132,6 +1132,11 @@ A
+ of another filesystem is refused,
+ its name being compared with the target's label,
+ since FIDs are not unique between filesystems.
++With
++.BR --local ,
++only the targets of
++.IR MOUNT 's
++filesystem are read.
+ A subdirectory (fileset)
+ .I MOUNT
+ is refused too, because its root is not the filesystem root.
+@@ -1165,7 +1170,14 @@ nor, on a DNE filesystem, an object whose ancestors are on another MDT --
+ unless
+ .B --fid2path
+ can look it up, which needs the MDT to be in service.
+-A hardlinked file is printed once, under its first name.
++A hardlinked file is printed once: under the first of its names that
++.B --name
++matches, or else under its first name.
++On an OST, a file is printed once for each of its objects there,
++so a composite or overstriped file may be printed more than once;
++use
++.B sort -u
++to list each file once.
+ .PP
+ A scan does not always carry the layout and the directory stripe.  A target
+ that is mounted is read through its own server rather than off the device,
+@@ -1271,6 +1283,9 @@ applies to an MDT.
+ These are refused.
+ A target has no mount to read an extended attribute through,
+ no directory tree to limit, and no pathnames to print.
++.B --ls
++is refused too, because its format ends in
++.BR %p .
+ .PP
+ .BR llapi_find_device (3)
+ describes each difference in full.
+diff --git a/Documentation/man3/llapi_scan_rec_path.3 b/Documentation/man3/llapi_scan_rec_path.3
+index def6c797af..446f395913 100644
+--- a/Documentation/man3/llapi_scan_rec_path.3
++++ b/Documentation/man3/llapi_scan_rec_path.3
+@@ -61,6 +61,11 @@ whose FID has no FLD range, or a FID the MDT no longer resolves. An OST data
+ object is in this set only when no file owns it: a precreated object that has
+ never been written carries no owner FID. Otherwise its FID resolves to the
+ file that owns it.
++Any other record whose
++.I lfsr_class
++is not
++.B LLAPI_SCAN_CLS_VISIBLE
++also returns this, with no lookup.
+ .TP 15
+ .B -EPERM
+ the caller may not resolve FIDs.
+@@ -106,6 +111,13 @@ consumer's to call rather than something the scanner does for every object.
+ Call it on the objects a search kept, not on the objects it saw: the cost then
+ falls on the answer rather than on the scan.
+ .LP
++The FID of an MDT object is resolved by that MDT, so this works only while
++the MDT is in service: on a stopped MDT the lookup waits for it to come back.
++.BR llapi_find_device (3)
++with
++.I fp_paths
++names a stopped MDT's objects from the target itself.
++.LP
+ .B The mount must be one of the filesystem the target belongs to, and only
+ .B the caller can ensure it.
+ A FID is unique within a filesystem and not between them, so a mount of
+diff --git a/lustre/tests/llapi_scan_changelog_test.c b/lustre/tests/llapi_scan_changelog_test.c
+index 6952074eee..e26febc762 100644
+--- a/lustre/tests/llapi_scan_changelog_test.c
++++ b/lustre/tests/llapi_scan_changelog_test.c
+@@ -17,8 +17,9 @@
+  *			[-e TESTS] [-o TESTS]
+  *
+  * The changelog user is the caller's to register, as it is for any consumer:
+- *	lctl --device MDTNAME changelog_register
+- * Without -u the test reads without one, which works but cannot clear.
++ *	lctl --device MDTNAME changelog_register -m ALL
++ * -m ALL, because the filter test9 sets cannot find a user registered
++ * without a mask (LU-20647).  Without -u, test6 and test9 skip.
+  *
+  * The cases are registered and run through run_tests(), as this suite's
+  * siblings are: each one is forked, so a case that crashes ends itself
+@@ -775,7 +776,7 @@ static void usage(char *prog)
+ 	printf("Usage: %s -m MDTNAME -d MOUNT [-u CHANGELOG_USER] [-e TESTS] [-o TESTS]\n"
+ 	       "       -m  the MDT whose Changelog to read\n"
+ 	       "       -d  a client mount of the same filesystem\n"
+-	       "       -u  a registered Changelog user, for the cases that clear\n"
++	       "       -u  a registered Changelog user, to clear and to filter\n"
+ 	       "       -e  tests to skip, \"1,3,4\"\n"
+ 	       "       -o  tests to run\n", prog);
+ 	exit(EXIT_FAILURE);
+diff --git a/lustre/tests/sanity.sh b/lustre/tests/sanity.sh
+index c7325e1aa1..f0854f3af5 100755
+--- a/lustre/tests/sanity.sh
++++ b/lustre/tests/sanity.sh
+@@ -21281,7 +21281,7 @@ test_157d()
+ 	(( CLIENT_VERSION >= $(version_code 2.17.58) )) ||
+ 		skip "Need client >= 2.17.58 for llapi_scan_changelog()"
+ 	remote_mds_nodsh && skip "remote MDS with nodsh"
+-	[[ $PARALLEL == "yes" ]] && skip "skip parallel run"
++	[[ $PARALLEL != "yes" ]] || skip "skip parallel run"
+ 
+ 	local dir=$MOUNT/llapi_scan_changelog_test.d
+ 	local cl_user
+@@ -22729,7 +22729,7 @@ test_160x() {
+ run_test 160x "changelog users do not disappear"
+ 
+ test_160aa() {
+-	[[ $PARALLEL == "yes" ]] && skip "skip parallel run"
++	[[ $PARALLEL != "yes" ]] || skip "skip parallel run"
+ 	remote_mds_nodsh && skip "remote MDS with nodsh"
+ 
+ 	local all since nall nsince
+@@ -22835,7 +22835,7 @@ test_160aa() {
+ run_test 160aa "lfs find --since is a subset of the same find"
+ 
+ test_160ab() {
+-	[[ $PARALLEL == "yes" ]] && skip "skip parallel run"
++	[[ $PARALLEL != "yes" ]] || skip "skip parallel run"
+ 	remote_mds_nodsh && skip "remote MDS with nodsh"
+ 
+ 	local m=$MOUNT
+@@ -22996,7 +22996,7 @@ test_160ab() {
+ run_test 160ab "lfs find --changelog refuses what a record cannot answer"
+ 
+ test_160ac() {
+-	[[ $PARALLEL == "yes" ]] && skip "skip parallel run"
++	[[ $PARALLEL != "yes" ]] || skip "skip parallel run"
+ 	remote_mds_nodsh && skip "remote MDS with nodsh"
+ 
+ 	local ck=$TMP/lfs-find-cookie.$$
+@@ -23133,7 +23133,7 @@ test_160ac() {
+ run_test 160ac "lfs find --since-cookie resumes where it stopped"
+ 
+ test_160ad() {
+-	[[ $PARALLEL == "yes" ]] && skip "skip parallel run"
++	[[ $PARALLEL != "yes" ]] || skip "skip parallel run"
+ 	remote_mds_nodsh && skip "remote MDS with nodsh"
+ 
+ 	local found
+@@ -23185,7 +23185,7 @@ test_160ad() {
+ run_test 160ad "lfs find --since finds a hardlink under either name"
+ 
+ test_160ae() {
+-	[[ $PARALLEL == "yes" ]] && skip "skip parallel run"
++	[[ $PARALLEL != "yes" ]] || skip "skip parallel run"
+ 	remote_mds_nodsh && skip "remote MDS with nodsh"
+ 
+ 	local m=$MOUNT
+diff --git a/lustre/utils/lfs.c b/lustre/utils/lfs.c
+index 570de71b4f..66c785f085 100644
+--- a/lustre/utils/lfs.c
++++ b/lustre/utils/lfs.c
+@@ -6404,6 +6404,7 @@ static int lfs_find_device(char **argv, struct find_param *param,
+ 	struct llapi_scan_param sp = { .lfsp_size = sizeof(sp) };
+ 	struct lfs_find_target *tgts = NULL;
+ 	struct lfs_find_target one = { 0 };
++	char mnt_fs[MAX_OBD_NAME + 1] = "";
+ 	const char *device = param->fp_device;
+ 	int scanned = 0;
+ 	int ret = 0;
+@@ -6443,6 +6444,13 @@ static int lfs_find_device(char **argv, struct find_param *param,
+ 			argv[0]);
+ 		return -EINVAL;
+ 	}
++	if (device == NULL && param->fp_target == NULL &&
++	    param->fp_obd_uuid != NULL && param->fp_paths) {
++		fprintf(stderr,
++			"%s: --paths names MDT objects only, so --ost matches no target of a sweep\n",
++			argv[0]);
++		return -EINVAL;
++	}
+ 
+ 	/*
+ 	 * Refused once here, not once per target of a sweep.  lfs seeds
+@@ -6461,6 +6469,14 @@ static int lfs_find_device(char **argv, struct find_param *param,
+ 			argv[0]);
+ 		return -ENOTSUP;
+ 	}
++	/* the MGS is a target too, but holds no objects to search */
++	if (param->fp_target != NULL &&
++	    !lfs_find_label_is(param->fp_target, "MDT") &&
++	    !lfs_find_label_is(param->fp_target, "OST")) {
++		fprintf(stderr, "%s: '%s' is not an MDT or an OST\n",
++			argv[0], param->fp_target);
++		return -EINVAL;
++	}
+ 
+ 	sp.lfsp_flags = param->fp_scan_internal ? LLAPI_SCAN_F_INTERNAL : 0;
+ 	sp.lfsp_search = param->fp_search;
+@@ -6470,8 +6486,21 @@ static int lfs_find_device(char **argv, struct find_param *param,
+ 		tgts = &one;
+ 		nr = 1;
+ 	} else {
+-		ret = lfs_find_local_targets(param->fp_target,
+-					     param->fp_fsname, &tgts, &nr);
++		const char *fsname = param->fp_fsname;
++
++		/* --local --fid2path: only the mount's filesystem can match */
++		if (fsname == NULL && param->fp_local_targets &&
++		    param->fp_fid2path_mnt != NULL) {
++			/* no '/': an fsname, as in llapi_find_device() */
++			if (param->fp_fid2path_mnt[0] != '/')
++				fsname = param->fp_fid2path_mnt;
++			else if (llapi_search_fsname(param->fp_fid2path_mnt,
++						     mnt_fs) == 0)
++				fsname = mnt_fs;
++		}
++
++		ret = lfs_find_local_targets(param->fp_target, fsname,
++					     &tgts, &nr);
+ 		if (ret < 0 && nr == 0) {
+ 			fprintf(stderr,
+ 				"%s: cannot read the local targets: %s\n",
+@@ -6483,10 +6512,10 @@ static int lfs_find_device(char **argv, struct find_param *param,
+ 				fprintf(stderr,
+ 					"%s: no target '%s' mounted here\n",
+ 					progname, param->fp_target);
+-			else if (param->fp_fsname != NULL)
++			else if (fsname != NULL)
+ 				fprintf(stderr,
+ 					"%s: no local targets of '%s'\n",
+-					progname, param->fp_fsname);
++					progname, fsname);
+ 			else
+ 				fprintf(stderr,
+ 					"%s: no local Lustre targets -- this is a client, or none are mounted\n",
+diff --git a/lustre/utils/liblustreapi_pfind.c b/lustre/utils/liblustreapi_pfind.c
+index 60b0d2a0f8..8643a7260d 100644
+--- a/lustre/utils/liblustreapi_pfind.c
++++ b/lustre/utils/liblustreapi_pfind.c
+@@ -4440,10 +4440,12 @@ static int find_mount_is_fileset(const char *mnt)
+  * senses agree where they overlap, 1 being a rejection in both.
+  *
+  * Return: 1 to reject the object, 0 to go on and gather, or 2 for an object
+- * --name cannot be answered against at all.
++ * --name cannot be answered against at all.  On 0, *entry is the linkea
++ * entry that matched.
+  */
+ static int find_device_prefilter(const struct llapi_scan_rec *rec,
+-				 struct find_param *param, int *checked_type)
++				 struct find_param *param, int *checked_type,
++				 unsigned int *entry)
+ {
+ 	struct llapi_scan_rec named = *rec;
+ 	char name[NAME_MAX + 1] = "";
+@@ -4498,8 +4500,10 @@ static int find_device_prefilter(const struct llapi_scan_rec *rec,
+ 			return find_prefilter(&named, param,
+ 					      checked_type) ? 1 : 2;
+ 		}
+-		if (!find_prefilter(&named, param, checked_type))
++		if (!find_prefilter(&named, param, checked_type)) {
++			*entry = i;
+ 			return 0;
++		}
+ 	}
+ 
+ 	return 1;
+@@ -4562,6 +4566,9 @@ static int find_device_cb(const struct llapi_scan_rec *rec, void *data)
+ 	struct find_device_state *st = data;
+ 	struct find_param *param = st->fds_param;
+ 	struct find_ctx fc = { 0 };
++	struct llapi_scan_rec one;
++	char name[NAME_MAX + 1];
++	unsigned int entry = 0;
+ 	int checked_type = 0;
+ 	int rc;
+ 
+@@ -4569,12 +4576,23 @@ static int find_device_cb(const struct llapi_scan_rec *rec, void *data)
+ 	rc = find_device_nobytes_say(st);
+ 	if (rc != 0)
+ 		return rc;
+-	rc = find_device_prefilter(rec, param, &checked_type);
++	rc = find_device_prefilter(rec, param, &checked_type, &entry);
+ 	if (rc == 2)
+ 		st->fds_undecided++;
+ 	if (rc != 0)
+ 		return 0;
+ 
++	/* a hardlink is named by the entry --name matched, not entry 0 */
++	if (entry != 0) {
++		one = *rec;
++		if (scan_linkea_entry(rec->lfsr_linkea, rec->lfsr_linkeasize,
++				      entry, name, sizeof(name),
++				      &one.lfsr_parent_fid) != 0) {
++			one.lfsr_name = name;
++			rec = &one;
++		}
++	}
++
+ 	/*
+ 	 * -links on a directory counts its stripes, from the LMV.  After the
+ 	 * prefilter, not before: a directory the search had already excluded
+@@ -4662,10 +4680,12 @@ static int find_device_cb(const struct llapi_scan_rec *rec, void *data)
+  * second form is reachable only under LLAPI_SCAN_F_INTERNAL.  fp_zero_end
+  * chooses the separator, as for a walk.
+  *
+- * fp_fid2path_mnt is the exception to needing no client: set to a client
+- * mount of the target's own filesystem, each FID is resolved through it and
+- * a pathname is printed instead.  The scan refuses a target of another
+- * filesystem when lfsp_fsname is set, which is how lfs find pairs the two.
++ * fp_fid2path_mnt is the exception to needing no client: a client mount of
++ * the target's own filesystem, so pathnames are printed instead.  An OST
++ * object is looked up through it.  An MDT object is named from a map of the
++ * target's directories, with the mount as the prefix; only what the map
++ * cannot place is looked up, and only while that MDT is in service.  A
++ * target of another filesystem than the mount's is refused with -EXDEV.
+  *
+  * A predicate whose answer is only in the mounted filesystem is refused
+  * before the scan starts rather than silently matching nothing.
+@@ -6752,14 +6772,14 @@ int llapi_find_device(const char *target, struct find_param *param,
+ 	 */
+ 	if (rc == 0 && stats.ss_skipped != 0)
+ 		llapi_error(LLAPI_MSG_WARN | LLAPI_MSG_NO_ERRNO, 0,
+-			    "%llu of %llu objects were skipped: unreadable or inconsistent on the target",
+-			    (unsigned long long)stats.ss_skipped,
++			    "%s: %llu of %llu objects were skipped: unreadable or inconsistent on the target",
++			    target, (unsigned long long)stats.ss_skipped,
+ 			    (unsigned long long)stats.ss_seen);
+ 	/* a directory the map lacks leaves everything below it nameless */
+ 	if (rc == 0 && pre_skipped != 0)
+ 		llapi_error(LLAPI_MSG_WARN | LLAPI_MSG_NO_ERRNO, 0,
+-			    "%llu objects were skipped while mapping directories: pathnames below them may be missing",
+-			    (unsigned long long)pre_skipped);
++			    "%s: %llu objects were skipped while mapping directories: pathnames below them may be missing",
++			    target, (unsigned long long)pre_skipped);
+ 
+ 	if (rc == 0 && st.fds_path_rc != 0)
+ 		rc = st.fds_path_rc;
+diff --git a/lustre/utils/liblustreapi_scan.c b/lustre/utils/liblustreapi_scan.c
+index ac5306c9d2..e2fdf540fa 100644
+--- a/lustre/utils/liblustreapi_scan.c
++++ b/lustre/utils/liblustreapi_scan.c
+@@ -1067,6 +1067,9 @@ out:
+  * scan reads a target that is out of service: the object's own FID would
+  * have to go through the OSC to that OST, and would wait for it.
+  *
++ * An MDT object is resolved by that MDT, so only while it is in service: on
++ * a stopped MDT the lookup waits for it.
++ *
+  * What has no pathname is the objects a target keeps for itself, whose FIDs
+  * are below FID_SEQ_NORMAL and have no FLD range.
+  *
+@@ -1129,9 +1132,11 @@ int llapi_scan_rec_path(int mnt_fd, const char *mnt_path,
+ 	 * a scan meets.  Falling back to the object's own FID would send
+ 	 * every one of them through the OSC to the target being scanned,
+ 	 * which is out of service, so the scan would stop on the first.
++	 * The same for every class but CLS_VISIBLE: an O/<seq>/LAST_ID is
++	 * CLS_INTERNAL and would go to the OST too.
+ 	 */
+ 	else if ((rec->lfsr_valid & LLAPI_SCAN_CLASS) &&
+-		 rec->lfsr_class == LLAPI_SCAN_CLS_OST_OBJ)
++		 rec->lfsr_class != LLAPI_SCAN_CLS_VISIBLE)
+ 		return -ENOENT;
+ 	else if (rec->lfsr_valid & LLAPI_SCAN_FID)
+ 		fid = &rec->lfsr_fid;

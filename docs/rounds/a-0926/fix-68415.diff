@@ -1,0 +1,111 @@
+diff --git a/Documentation/man3/llapi_scan_changelog.3 b/Documentation/man3/llapi_scan_changelog.3
+index 8a50642790..5f22d68cf9 100644
+--- a/Documentation/man3/llapi_scan_changelog.3
++++ b/Documentation/man3/llapi_scan_changelog.3
+@@ -114,8 +114,8 @@ named, which the rename replaced: it is delivered twice, once with
+ = the one that moved, in event mode as in object mode.
+ .LP
+ .I sc_stats
+-is filled as the scan runs, but not every field means here what it means for
+-a scan of a namespace or a target.
++is filled in when the scan ends, and not every field means here what it
++means for a scan of a namespace or a target.
+ .I ss_seen
+ counts Changelog records examined and
+ .I ss_emitted
+@@ -232,7 +232,10 @@ mask, which needs an MDS of Lustre 2.17.0 or later, and drops the other
+ records as it reads them; they are still read from the MDT. A mask is
+ refused without
+ .IR sc_user ,
+-because there is no user's mask to intersect it with.
++because there is no user's mask to intersect it with, and refused with
++.BR LLAPI_SCAN_CL_F_CLEAR ,
++because a clear purges the user's records of every type, including the ones
++the mask kept from the consumer.
+ .I sc_filter
+ filters without one.
+ .TP
+@@ -445,6 +448,10 @@ non-zero without
+ .I sc_user
+ \(em the mask is a property of a registered user, so there is nothing to
+ apply it to;
++.I sc_type_mask
++non-zero with
++.B LLAPI_SCAN_CL_F_CLEAR
++\(em the clear would purge records the mask never delivered;
+ .I sc_padding
+ non-zero, which is what keeps a field carved out of it later from being
+ ignored without a word; or
+diff --git a/include/lustre/lustreapi.h b/include/lustre/lustreapi.h
+index 4ef684d8ae..736dff5daa 100644
+--- a/include/lustre/lustreapi.h
++++ b/include/lustre/lustreapi.h
+@@ -1240,15 +1240,6 @@ struct llapi_scan_changelog_param {
+ 	__u64			*sc_got;
+ };
+ 
+-/*
+- * Through sc_mdtname, not sc_want: sc_mdtname names the log to read and is
+- * not optional, so a minimum that stops short of it accepts a caller whose
+- * struct never carried one and then reads a NULL out of the copy.
+- */
+-#define LLAPI_SCAN_CL_PARAM_MIN_SIZE \
+-	((__u32)(offsetof(struct llapi_scan_changelog_param, sc_mdtname) + \
+-		 sizeof(const char *)))
+-
+ int llapi_scan_changelog(const struct llapi_scan_changelog_param *sc,
+ 			 llapi_scan_cb_t cb, void *data);
+ 
+diff --git a/lustre/tests/llapi_scan_changelog_test.c b/lustre/tests/llapi_scan_changelog_test.c
+index c36ac93fed..6952074eee 100644
+--- a/lustre/tests/llapi_scan_changelog_test.c
++++ b/lustre/tests/llapi_scan_changelog_test.c
+@@ -324,9 +324,16 @@ static void test4(void)
+ 	rc = llapi_scan_changelog(&sc, cl_cb, &res);
+ 	ASSERTF(rc == -EINVAL, "a type mask without a user returned %d", rc);
+ 
++	param_init(&sc);
++	sc.sc_type_mask = 1ULL << CL_UNLINK;
++	sc.sc_user = "cl1";
++	sc.sc_flags = LLAPI_SCAN_CL_F_CLEAR;
++	rc = llapi_scan_changelog(&sc, cl_cb, &res);
++	ASSERTF(rc == -EINVAL, "a type mask with _CLEAR returned %d", rc);
++
+ 	llapi_msg_set_level(LLAPI_MSG_ERROR);
+ 
+-	printf("  nine bad calls refused with -EINVAL\n");
++	printf("  ten bad calls refused with -EINVAL\n");
+ }
+ 
+ /*
+diff --git a/lustre/utils/liblustreapi_scan_changelog.c b/lustre/utils/liblustreapi_scan_changelog.c
+index ec9ee9faa9..34d12b37a3 100644
+--- a/lustre/utils/liblustreapi_scan_changelog.c
++++ b/lustre/utils/liblustreapi_scan_changelog.c
+@@ -1077,6 +1077,9 @@ int llapi_scan_changelog(const struct llapi_scan_changelog_param *sc,
+ 	 */
+ 	if (scl.sc_type_mask != 0 && scl.sc_user == NULL)
+ 		return -EINVAL;
++	/* a clear purges every type, so it would drop what the mask hid */
++	if (scl.sc_type_mask != 0 && (scl.sc_flags & LLAPI_SCAN_CL_F_CLEAR))
++		return -EINVAL;
+ 	if (scl.sc_stats != NULL &&
+ 	    scl.sc_stats->ss_size < LLAPI_SCAN_STATS_MIN_SIZE)
+ 		return -EINVAL;
+diff --git a/lustre/utils/lustreapi_internal.h b/lustre/utils/lustreapi_internal.h
+index e684bc95ba..861f9cd4e4 100644
+--- a/lustre/utils/lustreapi_internal.h
++++ b/lustre/utils/lustreapi_internal.h
+@@ -306,6 +306,12 @@ struct llapi_scan_rec;
+ 				 LLAPI_SCAN_CL_F_RESOLVE |		\
+ 				 LLAPI_SCAN_CL_F_CLEAR |		\
+ 				 LLAPI_SCAN_CL_F_ONCE)
++/* the shortest struct llapi_scan_changelog_param: through sc_mdtname, which
++ * names the log and is not optional
++ */
++#define LLAPI_SCAN_CL_PARAM_MIN_SIZE					\
++	((__u32)(offsetof(struct llapi_scan_changelog_param, sc_mdtname) + \
++		 sizeof(const char *)))
+ /* and the shortest struct llapi_scan_stats a scan will write back */
+ #define LLAPI_SCAN_STATS_MIN_SIZE					\
+ 	((__u32)(offsetof(struct llapi_scan_stats, ss_seen) +		\

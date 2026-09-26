@@ -1,0 +1,20 @@
+SWEEP 1dc2b3879e..2f2d33c602, 18 commits
+10fe4e1b20 build=0 hdr=0 tests=0 ldiskfs=0 zfs=0  LU-20637 llapi: name a device scan's objects
+46f5cae3e5 build=0 hdr=0 tests=0 ldiskfs=0 zfs=0  LU-20649 llapi: add llapi_scan_changelog()
+d2f3990f7d build=0 hdr=0 tests=0 ldiskfs=0 zfs=0  LU-20650 llapi: fill a scan record for one FI
+a941351ecc build=0 hdr=0 tests=0 ldiskfs=0 zfs=0  LU-20650 lfs: find --since, from the changelo
+f0c64ea28b build=0 hdr=0 tests=0 ldiskfs=0 zfs=0  LU-20650 lfs: find --changelog, the log as so
+06a17c7500 build=0 hdr=0 tests=0 ldiskfs=0 zfs=0  LU-20650 lfs: find --since-cookie, per-MDT an
+d9eaffc8e3 build=0 hdr=0 tests=0 ldiskfs=0 zfs=0  LU-20650 tests: sanity cases for find's chang
+79042bfcbc build=0 hdr=0 tests=0 ldiskfs=0 zfs=0  LU-20603 llapi: pull a scan's records in batc
+e01046f0ae build=0 hdr=0 tests=0 ldiskfs=0 zfs=0  LU-20605 llapi: trim a start point's trailing
+7f1bd3991e build=0 hdr=0 tests=0 ldiskfs=0 zfs=0  LU-20720 osd: attributes and a private otable
+979a3716f6 build=0 hdr=0 tests=0 ldiskfs=0 zfs=0  LU-20720 osd-ldiskfs: read the inode table ah
+a6bc6ecc79 build=0 hdr=0 tests=0 ldiskfs=0 zfs=0  LU-20720 osd-ldiskfs: read the inode table, n
+083dba0723 build=0 hdr=0 tests=0 ldiskfs=0 zfs=0  LU-20720 osd: xattrs from the otable iterator
+19de583704 build=0 hdr=0 tests=0 ldiskfs=0 zfs=0  LU-20720 lfu: an object stream from the OSD o
+ccbdeba845 build=0 hdr=0 tests=0 ldiskfs=0 zfs=0  LU-20722 llapi: a scan backend for a target i
+588ee1a703 build=0 hdr=0 tests=0 ldiskfs=0 zfs=0  LU-20730 lfu: the Object Stream over OBD_IDX_
+8f8aee8011 build=0 hdr=0 tests=0 ldiskfs=0 zfs=0  LU-20730 osd-zfs: the LFU record and an index
+2f2d33c602 build=0 hdr=0 tests=0 ldiskfs=0 zfs=0  LU-20730 llapi: llapi_scan_mount(), a scan fr
+SWEEP-DONE 18/18 clean, tip 2f2d33c602

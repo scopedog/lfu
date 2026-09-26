@@ -1,0 +1,28 @@
+diff --git a/lustre/utils/lfs.c b/lustre/utils/lfs.c
+index a7a86c5855..570de71b4f 100644
+--- a/lustre/utils/lfs.c
++++ b/lustre/utils/lfs.c
+@@ -6445,12 +6445,19 @@ static int lfs_find_device(char **argv, struct find_param *param,
+ 	}
+ 
+ 	/*
+-	 * lfs seeds fp_max_depth with -1, so any other value, 0 included, is
+-	 * the user's.  The library lets 0 through for a zeroed find_param.
++	 * Refused once here, not once per target of a sweep.  lfs seeds
++	 * fp_max_depth with -1, so any other value, 0 included, is the
++	 * user's.  -printf %p is left to the library, which parses formats.
+ 	 */
+-	if (param->fp_max_depth != (unsigned int)-1) {
++	if (param->fp_max_depth != (unsigned int)-1 ||
++	    param->fp_min_depth != 0 || param->fp_thread_count != 0) {
+ 		fprintf(stderr,
+-			"%s: --maxdepth describes a walk, which a target scan is not\n",
++			"%s: --maxdepth, --mindepth and --threads describe a walk, which a target scan is not\n",
++			argv[0]);
++		return -ENOTSUP;
++	}
++	if (param->fp_xattr_match_info != NULL) {
++		fprintf(stderr, "%s: --xattr needs a mounted filesystem\n",
+ 			argv[0]);
+ 		return -ENOTSUP;
+ 	}

@@ -1,0 +1,24 @@
+  21a9fe3a6d_21a9fe3  LU-20637 llapi: name a device scan's objects (worktree)
+
+Reviewing 1 change(s), 1 in parallel, timeout 7200s each
+  prompts:   /home/nishida/projects/llm_code_and_review_tools/review-prompts/kernel
+             (via bundled submodule (/home/nishida/projects/llm_code_and_review_tools/review-prompts))
+  results:   /home/nishida/projects/llm_code_and_review_tools/lreview-results
+  worktrees: /home/nishida/projects/llm_code_and_review_tools/lreview-results/worktrees
+
+running: 21a9fe3a6d_21a9fe3 0m00s | done 0/1
+[21a9fe3a6d_21a9fe3] review started: LU-20637 llapi: name a device scan's objects
+running: 21a9fe3a6d_21a9fe3 1m00s 695k tok | done 0/1
+running: 21a9fe3a6d_21a9fe3 2m00s 1.2M tok | done 0/1
+running: 21a9fe3a6d_21a9fe3 3m00s 2.0M tok | done 0/1
+running: 21a9fe3a6d_21a9fe3 4m00s 3.1M tok | done 0/1
+running: 21a9fe3a6d_21a9fe3 5m00s 3.5M tok | done 0/1
+running: 21a9fe3a6d_21a9fe3 6m00s 4.6M tok | done 0/1
+[21a9fe3a6d_21a9fe3] 3 finding(s), severity low (6m15s, 5.0M tok, $3.02) -> gerrit-review-21a9fe3a6d_21a9fe3.json
+
+=== Batch summary ===
+  21a9fe3a6d_21a9fe3 findings (3 finding(s), severity low)  [5.0M tok, $3.02]
+  total: 5.0M tokens, $3.02
+
+Human-readable reports:
+  /home/nishida/projects/llm_code_and_review_tools/lreview-results/markdown/21a9fe3a6d_21a9fe3_LU-20637_llapi_name_a_device_scan_s_objects.md

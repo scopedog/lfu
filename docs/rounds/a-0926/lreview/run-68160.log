@@ -1,0 +1,26 @@
+  8f9491da33_8f9491d  LU-20611 lfs: find over a target, with --device (worktree)
+
+Reviewing 1 change(s), 1 in parallel, timeout 7200s each
+  prompts:   /home/nishida/projects/llm_code_and_review_tools/review-prompts/kernel
+             (via bundled submodule (/home/nishida/projects/llm_code_and_review_tools/review-prompts))
+  results:   /home/nishida/projects/llm_code_and_review_tools/lreview-results
+  worktrees: /home/nishida/projects/llm_code_and_review_tools/lreview-results/worktrees
+
+running: 8f9491da33_8f9491d 0m00s | done 0/1
+[8f9491da33_8f9491d] review started: LU-20611 lfs: find over a target, with --device
+running: 8f9491da33_8f9491d 0m59s 507k tok | done 0/1
+running: 8f9491da33_8f9491d 2m00s 1.5M tok | done 0/1
+running: 8f9491da33_8f9491d 3m00s 2.3M tok | done 0/1
+running: 8f9491da33_8f9491d 4m00s 3.0M tok | done 0/1
+running: 8f9491da33_8f9491d 5m00s 4.2M tok | done 0/1
+running: 8f9491da33_8f9491d 6m00s 5.0M tok | done 0/1
+running: 8f9491da33_8f9491d 7m00s 5.7M tok | done 0/1
+running: 8f9491da33_8f9491d 8m00s 6.7M tok | done 0/1
+[8f9491da33_8f9491d] 2 finding(s), severity low (8m10s, 7.0M tok, $3.64) -> gerrit-review-8f9491da33_8f9491d.json
+
+=== Batch summary ===
+  8f9491da33_8f9491d findings (2 finding(s), severity low)  [7.0M tok, $3.64]
+  total: 7.0M tokens, $3.64
+
+Human-readable reports:
+  /home/nishida/projects/llm_code_and_review_tools/lreview-results/markdown/8f9491da33_8f9491d_LU-20611_lfs_find_over_a_target_with_--device.md

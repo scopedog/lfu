@@ -1,0 +1,80 @@
+== start 2026-09-26 10:37:06
+  ! --name f0 new: /hl/hardlink /hl/solo  rc=0
+  ! --name f0 old: /hl/f0 /hl/solo  rc=0
+mounted: 5; version [2.17.58_65_g8618869]
+f0
+hardlink
+solo
+1  0  
+  OST0000 stopped (/dev/mapper/ost1_flakey on /mnt/lfst-ost1)
+  new exit 0 after 0s
+  ask class=1 fid=[0x200000001:0x13:0x0] ... rc=-2 (0.000s)
+  ask class=1 fid=[0x200000001:0x1017:0x0] ... rc=-2 (0.000s)
+  ask class=1 fid=[0xf:0x3541c216:0x0] ... rc=-2 (0.000s)
+  ask class=1 fid=[0x10:0x945e7ea4:0x0] ... rc=-2 (0.000s)
+  ask class=1 fid=[0x11:0xe9143639:0x0] ... rc=-2 (0.000s)
+  ask class=1 fid=[0x12:0x97415ad9:0x0] ... rc=-2 (0.000s)
+  ask class=1 fid=[0x13:0x33c4d481:0x0] ... rc=-2 (0.000s)
+  ask class=1 fid=[0x14:0x5a7986bb:0x0] ... rc=-2 (0.000s)
+  ask class=1 fid=[0x15:0x368277b0:0x0] ... rc=-2 (0.000s)
+  ask class=1 fid=[0x16:0xccaa32b:0x0] ... rc=-2 (0.000s)
+  ask class=1 fid=[0x17:0x1e2d5f18:0x0] ... rc=-2 (0.000s)
+  ask class=1 fid=[0x18:0x93aaa060:0x0] ... rc=-2 (0.000s)
+  ask class=1 fid=[0x19:0xbb4e5e70:0x0] ... rc=-2 (0.000s)
+  ask class=1 fid=[0x1a:0xefa2cab9:0x0] ... rc=-2 (0.000s)
+  ask class=1 fid=[0x1b:0xd8fb8db6:0x0] ... rc=-2 (0.000s)
+  ask class=1 fid=[0x1c:0x4ae615fb:0x0] ... rc=-2 (0.000s)
+  ask class=1 fid=[0x1d:0xb7bbf854:0x0] ... rc=-2 (0.000s)
+  ask class=1 fid=[0x1e:0x98e49797:0x0] ... rc=-2 (0.000s)
+  ask class=1 fid=[0x1f:0x5135997:0x0] ... rc=-2 (0.000s)
+  ask class=1 fid=[0x20:0x3a5205f4:0x0] ... rc=-2 (0.000s)
+  ask class=1 fid=[0x21:0x589cb8a:0x0] ... rc=-2 (0.000s)
+  ask class=1 fid=[0x22:0x71a9838e:0x0] ... rc=-2 (0.000s)
+  ask class=1 fid=[0x23:0x8108f4fe:0x0] ... rc=-2 (0.000s)
+  ask class=1 fid=[0x24:0xdffd2319:0x0] ... rc=-2 (0.000s)
+  ask class=1 fid=[0x25:0x73290cab:0x0] ... rc=-2 (0.000s)
+  ask class=1 fid=[0x26:0x833b8615:0x0] ... rc=-2 (0.000s)
+  ask class=1 fid=[0x27:0xe2b804d7:0x0] ... rc=-2 (0.000s)
+  ask class=1 fid=[0x28:0xcf4fafbc:0x0] ... rc=-2 (0.000s)
+  ask class=1 fid=[0x29:0x153ab0b1:0x0] ... rc=-2 (0.000s)
+  ask class=1 fid=[0x2a:0xa49203f1:0x0] ... rc=-2 (0.000s)
+/home/nishida/lab0926/lab0926-rpath.sh: line 22: 75982 Killed                  timeout -s KILL 45 $LB/rpath.old $OSTDEV $M > $L/rpath.old.txt 2>&1
+  old exit 137 after 45s
+  ask class=1 fid=[0x200000001:0x13:0x0] ... rc=-2 (0.000s)
+  ask class=1 fid=[0x200000001:0x1017:0x0] ... rc=-2 (0.000s)
+  ask class=1 fid=[0xf:0x3541c216:0x0] ... rc=-2 (0.000s)
+  ask class=1 fid=[0x10:0x945e7ea4:0x0] ... rc=-2 (0.000s)
+  ask class=1 fid=[0x11:0xe9143639:0x0] ... rc=-2 (0.000s)
+  ask class=1 fid=[0x12:0x97415ad9:0x0] ... rc=-2 (0.000s)
+  ask class=1 fid=[0x13:0x33c4d481:0x0] ... rc=-2 (0.000s)
+  ask class=1 fid=[0x14:0x5a7986bb:0x0] ... rc=-2 (0.000s)
+  ask class=1 fid=[0x15:0x368277b0:0x0] ... rc=-2 (0.000s)
+  ask class=1 fid=[0x16:0xccaa32b:0x0] ... rc=-2 (0.000s)
+  ask class=1 fid=[0x17:0x1e2d5f18:0x0] ... rc=-2 (0.000s)
+  ask class=1 fid=[0x18:0x93aaa060:0x0] ... rc=-2 (0.000s)
+  ask class=1 fid=[0x19:0xbb4e5e70:0x0] ... rc=-2 (0.000s)
+  ask class=1 fid=[0x1a:0xefa2cab9:0x0] ... rc=-2 (0.000s)
+  ask class=1 fid=[0x1b:0xd8fb8db6:0x0] ... rc=-2 (0.000s)
+  ask class=1 fid=[0x1c:0x4ae615fb:0x0] ... rc=-2 (0.000s)
+  ask class=1 fid=[0x1d:0xb7bbf854:0x0] ... rc=-2 (0.000s)
+  ask class=1 fid=[0x1e:0x98e49797:0x0] ... rc=-2 (0.000s)
+  ask class=1 fid=[0x1f:0x5135997:0x0] ... rc=-2 (0.000s)
+  ask class=1 fid=[0x20:0x3a5205f4:0x0] ... rc=-2 (0.000s)
+  ask class=1 fid=[0x21:0x589cb8a:0x0] ... rc=-2 (0.000s)
+  ask class=1 fid=[0x22:0x71a9838e:0x0] ... rc=-2 (0.000s)
+  ask class=1 fid=[0x23:0x8108f4fe:0x0] ... rc=-2 (0.000s)
+  ask class=1 fid=[0x24:0xdffd2319:0x0] ... rc=-2 (0.000s)
+  ask class=1 fid=[0x25:0x73290cab:0x0] ... rc=-2 (0.000s)
+  ask class=1 fid=[0x26:0x833b8615:0x0] ... rc=-2 (0.000s)
+  ask class=1 fid=[0x27:0xe2b804d7:0x0] ... rc=-2 (0.000s)
+  ask class=1 fid=[0x28:0xcf4fafbc:0x0] ... rc=-2 (0.000s)
+  ask class=1 fid=[0x29:0x153ab0b1:0x0] ... rc=-2 (0.000s)
+  ask class=1 fid=[0x2a:0xa49203f1:0x0] ... rc=-2 (0.000s)
+  73793 S    sudo nohup bash /home/nishida/lab0926/lab0926-rpath.sh
+  73795 S    bash /home/nishida/lab0926/lab0926-rpath.sh
+  RPATH PROCESS LEFT
+  OST0000 back
+  client answers
+  cleanup rc=0
+== end 2026-09-26 10:38:56
+RPATH RUN DONE

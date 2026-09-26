@@ -1,0 +1,23 @@
+  560854e59d_560854e  LU-20637 llapi: name a device scan's objects (worktree)
+
+Reviewing 1 change(s), 1 in parallel, timeout 7200s each
+  prompts:   /home/nishida/projects/llm_code_and_review_tools/review-prompts/kernel
+             (via bundled submodule (/home/nishida/projects/llm_code_and_review_tools/review-prompts))
+  results:   /home/nishida/projects/llm_code_and_review_tools/lreview-results
+  worktrees: /home/nishida/projects/llm_code_and_review_tools/lreview-results/worktrees
+
+running: 560854e59d_560854e 0m00s | done 0/1
+[560854e59d_560854e] review started: LU-20637 llapi: name a device scan's objects
+running: 560854e59d_560854e 0m59s 505k tok | done 0/1
+running: 560854e59d_560854e 2m00s 1.1M tok | done 0/1
+running: 560854e59d_560854e 3m00s 2.0M tok | done 0/1
+running: 560854e59d_560854e 4m00s 3.3M tok | done 0/1
+running: 560854e59d_560854e 5m00s 5.0M tok | done 0/1
+[560854e59d_560854e] 2 finding(s), severity low (5m28s, 5.7M tok, $3.21) -> gerrit-review-560854e59d_560854e.json
+
+=== Batch summary ===
+  560854e59d_560854e findings (2 finding(s), severity low)  [5.7M tok, $3.21]
+  total: 5.7M tokens, $3.21
+
+Human-readable reports:
+  /home/nishida/projects/llm_code_and_review_tools/lreview-results/markdown/560854e59d_560854e_LU-20637_llapi_name_a_device_scan_s_objects.md
