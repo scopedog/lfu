@@ -19,6 +19,12 @@ the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
   push; enforced failure -> ticket + retest, none -> ask; system build
   failure -> BUILD. Restart polling with gpoll.py under Monitor.
 - Deferred by the user: the 68094 follow-up; STATX_PROJID (LU-12480) on hold.
+- **09-26 update:** retests out (all linked): 68159 zfs-part-1 el10.1
+  (LU-20834) and el9.8 (LU-20523, sanity 805 grant LBUG), 68159 zfs-part-4
+  (LU-17077), 68288 part-6 (LU-19372 cross-talk, replay-single 102c/d),
+  68415 zfs-part-4 (LU-16932, sanity-hsm 251/254b). Maloo V+1: 68156, 68157,
+  68158, 68163, 68416. AI still pending: 68158, 68159, 68160, 68288, 68415,
+  and 69206. Nothing to fix locally since r0925c-tip.
 
 ## 2026-09-24 evening: PUSHED 68156-68416 (9 patchsets), 68094/68095 kept
 
