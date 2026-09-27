@@ -1,0 +1,23 @@
+  da6d50bc87_da6d50b  LU-20606 llapi: scan an ldiskfs target directly (worktree)
+
+Reviewing 1 change(s), 5 in parallel, timeout 7200s each
+  prompts:   /home/nishida/projects/llm_code_and_review_tools/review-prompts/kernel
+             (via bundled submodule (/home/nishida/projects/llm_code_and_review_tools/review-prompts))
+  results:   /home/nishida/projects/llm_code_and_review_tools/lreview-results
+  worktrees: /home/nishida/projects/llm_code_and_review_tools/lreview-results/worktrees
+
+running: da6d50bc87_da6d50b 0m00s | done 0/1
+[da6d50bc87_da6d50b] review started: LU-20606 llapi: scan an ldiskfs target directly
+running: da6d50bc87_da6d50b 0m59s 605k tok | done 0/1
+running: da6d50bc87_da6d50b 2m00s 1.1M tok | done 0/1
+running: da6d50bc87_da6d50b 3m00s 2.9M tok | done 0/1
+running: da6d50bc87_da6d50b 4m00s 3.9M tok | done 0/1
+running: da6d50bc87_da6d50b 5m00s 4.9M tok | done 0/1
+[da6d50bc87_da6d50b] 2 finding(s), severity low (5m06s, 5.1M tok, $2.92) -> gerrit-review-da6d50bc87_da6d50b.json
+
+=== Batch summary ===
+  da6d50bc87_da6d50b findings (2 finding(s), severity low)  [5.1M tok, $2.92]
+  total: 5.1M tokens, $2.92
+
+Human-readable reports:
+  /home/nishida/projects/llm_code_and_review_tools/lreview-results/markdown/da6d50bc87_da6d50b_LU-20606_llapi_scan_an_ldiskfs_target_directly.md

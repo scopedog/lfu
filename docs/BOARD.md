@@ -12,8 +12,8 @@ the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
   68160 stat() glimpse, 68288 orphan path) and df006952 (other linkea
   entries, user said fix). Per-comment table + reply drafts basis:
   rounds/a-0927/notes.md, comments in ai-comments.md.
-- **lreview:** 7 commits + reruns on 68163 (clean) and 68415 (pending at
-  handoff); 20 findings, all real, all fixed, incl. 68415 lazy-size-0 and
+- **lreview:** 7 commits + reruns on 68163 (clean) and 68415 (x3, capped
+  by the user after the 4th; last one 1 low, doc'd); tip 04e1cf5ad0; 20 findings, all real, all fixed, incl. 68415 lazy-size-0 and
   CL_MIGRATE old FID. User added lreview's two ZFS conf-sanity 300 checks
   (and the loader now names both dlopen() failures). 68416 skipped (docs).
 - **Verified:** sweeps clean (24/24, 18/18, 19/19, 17/17), checkpatch

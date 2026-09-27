@@ -173,3 +173,8 @@ VM A/B: vm-test.md "follow-up 2". lreview rerun: `lreview/run-68415b.log`.
      user's call.
   68415 = 144a102640, tip f0c81d8530, checkpatch 0/2, sweep-f 17/17.
   lreview on 68415 is not converging (3, 2, 4 findings on three runs).
+- User 09-27: ONE more lreview on 68415 (144a102640), then stop -- no further reruns this round whatever it finds.
+- Fourth (last) lreview on 68415 (144a102640): 1 low. A resolve that asks
+  ctime/atime alone does not glimpse, so a regular file gets the MDT's copy;
+  llite's own statx(STATX_CTIME) does the same. Documented in the page, not
+  changed. Docs only, tip r0927-tip = 04e1cf5ad0. lreview stops here (user).

@@ -1,0 +1,27 @@
+  HEAD_144a102  LU-20649 llapi: add llapi_scan_changelog() (worktree)
+
+Reviewing 1 change(s), 5 in parallel, timeout 7200s each
+  prompts:   /home/nishida/projects/llm_code_and_review_tools/review-prompts/kernel
+             (via bundled submodule (/home/nishida/projects/llm_code_and_review_tools/review-prompts))
+  results:   /home/nishida/projects/llm_code_and_review_tools/lreview-results
+  worktrees: /home/nishida/projects/llm_code_and_review_tools/lreview-results/worktrees
+
+running: HEAD_144a102 0m00s | done 0/1
+[HEAD_144a102] review started: LU-20649 llapi: add llapi_scan_changelog()
+running: HEAD_144a102 1m00s 538k tok | done 0/1
+running: HEAD_144a102 2m00s 1.9M tok | done 0/1
+running: HEAD_144a102 3m00s 2.5M tok | done 0/1
+running: HEAD_144a102 4m00s 3.5M tok | done 0/1
+running: HEAD_144a102 5m00s 4.2M tok | done 0/1
+running: HEAD_144a102 6m00s 5.2M tok | done 0/1
+running: HEAD_144a102 7m00s 7.4M tok | done 0/1
+[HEAD_144a102] 1 finding(s), severity low (7m32s, 8.4M tok, $4.19) -> gerrit-review-HEAD_144a102.json
+
+=== Batch summary ===
+  HEAD_144a102     findings (1 finding(s), severity low)  [8.4M tok, $4.19]
+  total: 8.4M tokens, $4.19
+
+Human-readable reports:
+  /home/nishida/projects/llm_code_and_review_tools/lreview-results/markdown/HEAD_144a102_LU-20649_llapi_add_llapi_scan_changelog.md
+
+Full text dump: /home/nishida/projects/llm_code_and_review_tools/lreview-results/review-last1.txt

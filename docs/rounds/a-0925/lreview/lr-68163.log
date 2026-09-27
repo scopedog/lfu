@@ -1,0 +1,22 @@
+  14bf9863d8_14bf986  LU-20613 llapi: ZFS backend for llapi_scan_device (worktree)
+
+Reviewing 1 change(s), 5 in parallel, timeout 7200s each
+  prompts:   /home/nishida/projects/llm_code_and_review_tools/review-prompts/kernel
+             (via bundled submodule (/home/nishida/projects/llm_code_and_review_tools/review-prompts))
+  results:   /home/nishida/projects/llm_code_and_review_tools/lreview-results
+  worktrees: /home/nishida/projects/llm_code_and_review_tools/lreview-results/worktrees
+
+running: 14bf9863d8_14bf986 0m00s | done 0/1
+[14bf9863d8_14bf986] review started: LU-20613 llapi: ZFS backend for llapi_scan_device
+running: 14bf9863d8_14bf986 0m59s 371k tok | done 0/1
+running: 14bf9863d8_14bf986 2m00s 799k tok | done 0/1
+running: 14bf9863d8_14bf986 3m00s 1.4M tok | done 0/1
+running: 14bf9863d8_14bf986 4m00s 1.5M tok | done 0/1
+[14bf9863d8_14bf986] 2 finding(s), severity low (4m59s, 2.7M tok, $2.19) -> gerrit-review-14bf9863d8_14bf986.json
+
+=== Batch summary ===
+  14bf9863d8_14bf986 findings (2 finding(s), severity low)  [2.7M tok, $2.19]
+  total: 2.7M tokens, $2.19
+
+Human-readable reports:
+  /home/nishida/projects/llm_code_and_review_tools/lreview-results/markdown/14bf9863d8_14bf986_LU-20613_llapi_ZFS_backend_for_llapi_scan_device.md

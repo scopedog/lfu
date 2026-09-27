@@ -1,0 +1,21 @@
+  HEAD_9ce5e40  LU-20650 llapi: fill a scan record for one FID (worktree)
+
+Reviewing 1 change(s), 5 in parallel, timeout 7200s each
+  prompts:   /home/nishida/projects/llm_code_and_review_tools/review-prompts/kernel
+             (via bundled submodule (/home/nishida/projects/llm_code_and_review_tools/review-prompts))
+  results:   /home/nishida/projects/llm_code_and_review_tools/lreview-results
+  worktrees: /home/nishida/projects/llm_code_and_review_tools/lreview-results/worktrees
+
+running: HEAD_9ce5e40 0m00s | done 0/1
+[HEAD_9ce5e40] review started: LU-20650 llapi: fill a scan record for one FID
+running: HEAD_9ce5e40 1m00s 478k tok | done 0/1
+[HEAD_9ce5e40] 2 finding(s) (1m46s, 1.1M tok, $1.08) -> gerrit-review-HEAD_9ce5e40.json
+
+=== Batch summary ===
+  HEAD_9ce5e40     findings (2 finding(s))  [1.1M tok, $1.08]
+  total: 1.1M tokens, $1.08
+
+Human-readable reports:
+  /home/nishida/projects/llm_code_and_review_tools/lreview-results/markdown/HEAD_9ce5e40_LU-20650_llapi_fill_a_scan_record_for_one_FID.md
+
+Full text dump: /home/nishida/projects/llm_code_and_review_tools/lreview-results/review-last1.txt

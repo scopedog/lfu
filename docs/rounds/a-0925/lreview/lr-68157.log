@@ -1,0 +1,19 @@
+  61bf69abba_61bf69a  LU-20611 llapi: split cb_find_init's decider out (worktree)
+
+Reviewing 1 change(s), 5 in parallel, timeout 7200s each
+  prompts:   /home/nishida/projects/llm_code_and_review_tools/review-prompts/kernel
+             (via bundled submodule (/home/nishida/projects/llm_code_and_review_tools/review-prompts))
+  results:   /home/nishida/projects/llm_code_and_review_tools/lreview-results
+  worktrees: /home/nishida/projects/llm_code_and_review_tools/lreview-results/worktrees
+
+running: 61bf69abba_61bf69a 0m00s | done 0/1
+[61bf69abba_61bf69a] review started: LU-20611 llapi: split cb_find_init's decider out
+running: 61bf69abba_61bf69a 0m59s 921k tok | done 0/1
+[61bf69abba_61bf69a] clean — no findings (1m38s, 1.3M tok, $0.98)
+
+=== Batch summary ===
+  61bf69abba_61bf69a clean  [1.3M tok, $0.98]
+  total: 1.3M tokens, $0.98
+
+Human-readable reports:
+  /home/nishida/projects/llm_code_and_review_tools/lreview-results/markdown/61bf69abba_61bf69a_LU-20611_llapi_split_cb_find_init_s_decider_out.md

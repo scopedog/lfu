@@ -1,0 +1,24 @@
+  HEAD_7e33df8  LU-20613 llapi: ZFS backend for llapi_scan_device (worktree)
+
+Reviewing 1 change(s), 5 in parallel, timeout 7200s each
+  prompts:   /home/nishida/projects/llm_code_and_review_tools/review-prompts/kernel
+             (via bundled submodule (/home/nishida/projects/llm_code_and_review_tools/review-prompts))
+  results:   /home/nishida/projects/llm_code_and_review_tools/lreview-results
+  worktrees: /home/nishida/projects/llm_code_and_review_tools/lreview-results/worktrees
+
+running: HEAD_7e33df8 0m00s | done 0/1
+[HEAD_7e33df8] review started: LU-20613 llapi: ZFS backend for llapi_scan_device
+running: HEAD_7e33df8 1m00s 880k tok | done 0/1
+running: HEAD_7e33df8 2m00s 1.4M tok | done 0/1
+running: HEAD_7e33df8 3m00s 1.7M tok | done 0/1
+running: HEAD_7e33df8 4m00s 2.9M tok | done 0/1
+[HEAD_7e33df8] 1 finding(s), severity low (4m53s, 3.7M tok, $2.44) -> gerrit-review-HEAD_7e33df8.json
+
+=== Batch summary ===
+  HEAD_7e33df8     findings (1 finding(s), severity low)  [3.7M tok, $2.44]
+  total: 3.7M tokens, $2.44
+
+Human-readable reports:
+  /home/nishida/projects/llm_code_and_review_tools/lreview-results/markdown/HEAD_7e33df8_LU-20613_llapi_ZFS_backend_for_llapi_scan_device.md
+
+Full text dump: /home/nishida/projects/llm_code_and_review_tools/lreview-results/review-last1.txt
