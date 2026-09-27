@@ -19,7 +19,8 @@ the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
 - **Verified:** sweeps clean (24/24, 18/18, 19/19, 17/17), checkpatch
   unchanged, VM A/B all green incl. ZFS conf-sanity 300: rounds/a-0927/vm-test.md.
 - **Maloo 09-27:** 4 enforced failures linked + retested (LU-19605 68160,
-  LU-9827 + LU-15879 68415, LU-20276 68163). 68159 retests all passed.
+  LU-9827 + LU-15879 68415, LU-20276 68163); **all retests passed, and all
+  nine current PS are Jenkins V+1 and Maloo V+1** (checked 09-27 evening).
 - **Push decision (user, 09-27): later**, likely 09-28 morning, after the
   68415 lreview rerun and the pending retests. Push-ask needs: lreview per
   commit, 20 AI replies, a reply on Andreas's 68159 PS17 thread c6692d26
