@@ -13,6 +13,10 @@ the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
   560f1a7cfa; 68095 still sits on PS25 f42d20f639, as locally).
 - **Replies:** 21 posted and read back RESOLVED (20 AI + Andreas's 68159
   thread, correcting our 09-24 "this is in the current patch set").
+- **CI by end of 09-27:** checkpatch counts unchanged, smatch clean, Janitor
+  builds ok (initial testing green on 68158, 68159, 68416 so far), Jenkins
+  V+1 on all nine. Maloo and AI not in yet. Polling stopped; restart gpoll
+  under Monitor 09-28 (gpoll's seen.json holds everything up to now).
 - **Next:** watch the Janitor, Maloo and AI on the new PS; 68158 PS26 may
   finally get an AI review. Owed: llapi_uuid_match() const cleanup,
   68288 `sd_` rename; candidate ticket: mdc changelog mask (empty
