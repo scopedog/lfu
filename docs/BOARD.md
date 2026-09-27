@@ -23,6 +23,12 @@ the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
   decline, 68160 `-f`/`--foreign`). 68158 PS24 never got an AI review.
 - **CI so far:** Janitor builds + smatch clean on all nine; checkpatch
   counts unchanged; Jenkins V+1 on 68156-68160, 68163. Maloo and AI pending.
+- **Maloo 09-26 evening, enforced failures (all retested):** 68160, 68288
+  zfs-part-5 sanityn (LU-20276 ZFS OOM); 68159, 68163 zfs-part-5 sanityn
+  cleanup (LU-9827 migrate_dir); 68159 zfs-part-6 el10.1 ost-pools 21
+  (LU-19372); 68159 zfs-part-1 sanity 64f grants mismatch: no open ticket
+  (LU-20699 closed dup), retested unlinked, citing LU-20699, per the user.
+  Janitor-only: 68156 replay-single2 not checked.
 - **Owed / deferred:** `llapi_uuid_match()` const cleanup (promised on
   68159); 68160 "skip OSTs when a sweep asks layout options" (declined for
   now); 68288 `sd_` rename; 69206 PS1 AI said LGTM, Maloo V+1.
