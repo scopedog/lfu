@@ -1,0 +1,43 @@
+== start 2026-09-27 07:21:53
+loaded version: [2.17.58_65_g8618869]
+osd-zfs.zfst-MDT0000.mntdev=zfst-mdt1/mdt1
+osd-zfs.zfst-OST0000.mntdev=zfst-ost1/ost1
+client (fid, stat %b, dir):
+  [0x200000401:0x1:0x0] 14 zsmall
+  [0x200000401:0x2:0x0] 66 zmid
+  [0x200000401:0x3:0x0] 814 zbig
+MDT dataset: zfst-mdt1/mdt1
+cleanup rc=0
+pools imported after cleanup: []
+total 14544
+drwxr-xr-x.  2 root root       119 Sep 27 07:22 .
+drwxrwxrwt. 81 root root     28672 Sep 27 07:21 ..
+-rw-r--r--.  1 root root        40 Sep 27 07:22 kptr-170591-env
+-rw-r--r--.  1 root root      1213 Sep 27 07:21 ogdb-rhel9.7-server
+-rw-r--r--.  1 root root         0 Sep 27 07:22 projid-llmountcleanup
+-rw-------.  1 root root 256000000 Sep 27 07:22 zfst-mdt1
+-rw-------.  1 root root 409600000 Sep 27 07:22 zfst-ost1
+  new lfs loads:  /home/nishida/arm0927znew/lib/liblustreapi.so.1 (0x00007f7671b07000)
+  new rc=0 lines=7 err: 
+  new plugin: 174793 openat(AT_FDCWD, "/home/nishida/arm0927znew/lib/lustre/scan_osd_zfs.so", O_RDONLY|O_CLOEXEC) = 3
+  old lfs loads:  /home/nishida/arm0927zold/lib/liblustreapi.so.1 (0x00007f4a049ce000)
+  old rc=0 lines=7 err: 
+  old plugin: 175196 openat(AT_FDCWD, "/home/nishida/arm0927zold/lib/lustre/scan_osd_zfs.so", O_RDONLY|O_CLOEXEC) = 3
+  zsmall: client=14 new=14 old=12  new-old=2
+  zmid: client=66 new=66 old=64  new-old=2
+  zbig: client=814 new=814 old=812  new-old=2
+  new equals the client on 3 of 3 directories (mismatch 0)
+  all directories, new vs old:
+    0x200000002:0x1:0x0 13|0x200000002:0x1:0x0 12
+    0x200000002:0x2:0x0 13|0x200000002:0x2:0x0 12
+    0x200000002:0x3:0x0 13|0x200000002:0x3:0x0 12
+    0x200000007:0x1:0x0 13|0x200000007:0x1:0x0 12
+    0x200000401:0x1:0x0 14|0x200000401:0x1:0x0 12
+    0x200000401:0x2:0x0 66|0x200000401:0x2:0x0 64
+    0x200000401:0x3:0x0 814|0x200000401:0x3:0x0 812
+/tmp/lfst-mdt1: OK
+/tmp/lfst-ost2: OK
+/tmp/lustre-mdt1: OK
+ldiskfs fixtures untouched
+== end 2026-09-27 07:23:01
+ZFS RUN DONE

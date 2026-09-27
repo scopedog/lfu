@@ -1,0 +1,27 @@
+  HEAD_65bac87  LU-20611 llapi: run find over a device scan (worktree)
+
+Reviewing 1 change(s), 5 in parallel, timeout 7200s each
+  prompts:   /home/nishida/projects/llm_code_and_review_tools/review-prompts/kernel
+             (via bundled submodule (/home/nishida/projects/llm_code_and_review_tools/review-prompts))
+  results:   /home/nishida/projects/llm_code_and_review_tools/lreview-results
+  worktrees: /home/nishida/projects/llm_code_and_review_tools/lreview-results/worktrees
+
+running: HEAD_65bac87 0m00s | done 0/1
+[HEAD_65bac87] review started: LU-20611 llapi: run find over a device scan
+running: HEAD_65bac87 1m00s 474k tok | done 0/1
+running: HEAD_65bac87 2m00s 973k tok | done 0/1
+running: HEAD_65bac87 3m00s 2.0M tok | done 0/1
+running: HEAD_65bac87 4m00s 3.3M tok | done 0/1
+running: HEAD_65bac87 5m00s 3.8M tok | done 0/1
+running: HEAD_65bac87 6m00s 5.1M tok | done 0/1
+running: HEAD_65bac87 7m00s 5.6M tok | done 0/1
+[HEAD_65bac87] 2 finding(s), severity low (7m58s, 7.2M tok, $3.72) -> gerrit-review-HEAD_65bac87.json
+
+=== Batch summary ===
+  HEAD_65bac87     findings (2 finding(s), severity low)  [7.2M tok, $3.72]
+  total: 7.2M tokens, $3.72
+
+Human-readable reports:
+  /home/nishida/projects/llm_code_and_review_tools/lreview-results/markdown/HEAD_65bac87_LU-20611_llapi_run_find_over_a_device_scan.md
+
+Full text dump: /home/nishida/projects/llm_code_and_review_tools/lreview-results/review-last1.txt

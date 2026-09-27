@@ -1,0 +1,36 @@
+== start 2026-09-27 07:20:42
+loaded version: [2.17.58_65_g8618869]
+osd-zfs.zfst-MDT0000.mntdev=zfst-mdt1/mdt1
+osd-zfs.zfst-OST0000.mntdev=zfst-ost1/ost1
+client (fid, stat %b, dir):
+  [0x200000401:0x1:0x0] 14 zsmall
+  [0x200000401:0x2:0x0] 68 zmid
+  [0x200000401:0x3:0x0] 824 zbig
+MDT dataset: zfst-mdt1/mdt1
+cleanup rc=0
+pools imported after cleanup: []
+total 14660
+drwxr-xr-x.  2 root root       119 Sep 27 07:20 .
+drwxrwxrwt. 80 root root     28672 Sep 27 07:20 ..
+-rw-r--r--.  1 root root        40 Sep 27 07:20 kptr-166258-env
+-rw-r--r--.  1 root root      1266 Sep 27 07:20 ogdb-rhel9.7-server
+-rw-r--r--.  1 root root         0 Sep 27 07:20 projid-llmountcleanup
+-rw-------.  1 root root 256000000 Sep 27 07:21 zfst-mdt1
+-rw-------.  1 root root 409600000 Sep 27 07:21 zfst-ost1
+  new lfs loads:  /home/nishida/arm0927znew/lib/liblustreapi.so.1 (0x00007fe746464000)
+  new rc=95 lines=0 err: lfs find: -printf cannot be used with --paths or --fid2path|lfs: failed for 'zfst-mdt1/mdt1': Operation not supported|
+  new plugin: 
+  old lfs loads:  /home/nishida/arm0927zold/lib/liblustreapi.so.1 (0x00007ff8667e0000)
+  old rc=95 lines=0 err: lfs find: -printf cannot be used with --paths or --fid2path|lfs: failed for 'zfst-mdt1/mdt1': Operation not supported|
+  old plugin: 
+  zsmall: client=14 new= old=  new-old=0
+  zmid: client=68 new= old=  new-old=0
+  zbig: client=824 new= old=  new-old=0
+  new equals the client on 0 of 3 directories (mismatch 3)
+  all directories, new vs old:
+/tmp/lfst-mdt1: OK
+/tmp/lfst-ost2: OK
+/tmp/lustre-mdt1: OK
+ldiskfs fixtures untouched
+== end 2026-09-27 07:21:32
+ZFS RUN DONE

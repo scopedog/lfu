@@ -1,0 +1,50 @@
+== start 2026-09-27 07:44:31
+loaded version: [2.17.58_65_g8618869]
+  new harness loads:  liblustreapi.so.1 => /home/nishida/arm0927new/lib/liblustreapi.so.1 (0x00007f1b244e8000)
+  old harness loads:  liblustreapi.so.1 => /home/nishida/arm0927old/lib/liblustreapi.so.1 (0x00007fb378ef8000)
+  new source has the CL_MIGRATE fix: 1, old: 0
+  changelog user cl7 on lfst-MDT0000
+=== b. CL_MIGRATE delivers the migrated object once
+  mdir [0x200000402:0x9e:0x0] on MDT0; changelog at 180
+  lfs migrate -m 1 rc=0; mdir now [0x240000402:0x2:0x0] on MDT1
+  lfs changelog lfst-MDT0000 from 181:
+    181 10OPEN  14:44:31.626560556 2026.09.27 0x1 t=[0x200000402:0x9e:0x0] j=lfs.0 ef=0x17 u=0:0 nid=0@lo m=r-- p=[0x200000007:0x1:0x0]
+    182 11CLOSE 14:44:31.626829057 2026.09.27 0x1 t=[0x200000402:0x9e:0x0] j=lfs.0 ef=0x13 u=0:0 nid=0@lo
+    183 10OPEN  14:44:31.628222861 2026.09.27 0x1 t=[0x200000402:0x9e:0x0] j=lfs.0 ef=0x17 u=0:0 nid=0@lo m=r-- p=[0x200000402:0x9d:0x0]
+    184 10OPEN  14:44:31.628466195 2026.09.27 0x1 t=[0x200000402:0x9d:0x0] j=lfs.0 ef=0x17 u=0:0 nid=0@lo m=r-- p=[0x200000402:0x88:0x0]
+    185 11CLOSE 14:44:31.628707786 2026.09.27 0x1 t=[0x200000402:0x9e:0x0] j=lfs.0 ef=0x13 u=0:0 nid=0@lo
+    186 10OPEN  14:44:31.652895762 2026.09.27 0x2 t=[0x200000402:0x9f:0x0] j=lfs.0 ef=0x17 u=0:0 nid=0@lo m=-w- p=[0x200000402:0x9e:0x0]
+    187 11CLOSE 14:44:31.657076279 2026.09.27 0x2 t=[0x200000402:0x9f:0x0] j=lfs.0 ef=0x13 u=0:0 nid=0@lo p=[0x200000402:0x99:0x0]
+    188 20MIGRT 14:44:31.657581793 2026.09.27 0x0 t=[0x240000402:0x3:0x0] j=lfs.0 ef=0x13 u=0:0 nid=0@lo p=[0x200000402:0x9e:0x0] mf s=[0x200000402:0x9f:0x0] sp=[0x240000402:0x2:0x0] mf
+  CL_MIGRATE record index: [188]
+    mig new: 1 records, rc=0
+    mig old: 2 records, rc=0
+    new: idx=188 type=MIGRT fid=[0x240000402:0x3:0x0] valid=0x1e080100000000 lazy_size=0 lazy_blocks=0 stx_mask=0xeff size=2 blocks=8 mtime=1790520271.000000000 btime=1790520271.000000000
+    old: idx=188 type=MIGRT fid=[0x240000402:0x3:0x0] valid=0x1e080100000000 lazy_size=0 lazy_blocks=0 stx_mask=0x6ff size=2 blocks=8 mtime=1790520271.000000000 btime=(absent)0.000000000
+    old: idx=188 type=MIGRT fid=[0x200000402:0x9f:0x0] valid=0x1e080100000000 lazy_size=0 lazy_blocks=0 stx_mask=0 size=0 blocks=0 mtime=0.000000000 btime=(absent)0.000000000
+  FAIL  68415 new migrate
+        idx=188 type=MIGRT fid=[0x240000402:0x3:0x0] valid=0x1e080100000000 lazy_size=0 lazy_blocks=0 stx_mask=0xeff size=2 blocks=8 mtime=1790520271.000000000 btime=1790520271.000000000
+  NOTE old migrate: 2 records
+=== c. a lazy size of 0 is not an answer
+  writer pid 101643 holds /mnt/lfst2/cm/lz
+  lz [0x200000403:0x2:0x0] (open), lzc [0x200000403:0x1:0x0] (closed)
+  trusted.som: lz [/mnt/lfst2/cm/lz: trusted.som: No such attribute] lzc []
+    lazy new: 5 records, rc=0
+    lazy old: 5 records, rc=0
+  FAIL  68415 new lazy
+        
+  NOTE old lazy: 
+  control lzc: new [] old []
+  writer closed
+=== d. resolved times keep nanoseconds; btime is filled
+  ns [0x200000402:0xa0:0x0] client mtime 2026-09-27 07:00:00.000000000 -0700 birth 2026-09-27 07:44:33.000000000 -0700
+    ns new: 5 records, rc=0
+    ns old: 5 records, rc=0
+  FAIL  68415 new ns
+        
+  NOTE old ns: 
+  cl7 deregistered
+  second mount gone
+=== tally: PASS 0 FAIL 3
+== end 2026-09-27 07:44:33
+CL RUN DONE

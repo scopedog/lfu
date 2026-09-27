@@ -4,6 +4,28 @@ Every ticket and Gerrit id in play, and the ones that are *not* ours. Regenerate
 the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
 **2026-09-06**.
 
+## 2026-09-27: AI round on the 09-26 PS fixed locally, NOT pushed — start here
+
+- **Local tip:** `r0927-tip` (133643bd9e) in ~/lfs-artem-0924; backups
+  `backup/artem-0924-pre-0927{,b,c,d,e,f}`. 68094/68095 untouched at PS26.
+- **AI comments (20):** all fixed, incl. 3 defects (68159 label separator,
+  68160 stat() glimpse, 68288 orphan path) and df006952 (other linkea
+  entries, user said fix). Per-comment table + reply drafts basis:
+  rounds/a-0927/notes.md, comments in ai-comments.md.
+- **lreview:** 7 commits + reruns on 68163 (clean) and 68415 (pending at
+  handoff); 20 findings, all real, all fixed, incl. 68415 lazy-size-0 and
+  CL_MIGRATE old FID. User added lreview's two ZFS conf-sanity 300 checks
+  (and the loader now names both dlopen() failures). 68416 skipped (docs).
+- **Verified:** sweeps clean (24/24, 18/18, 19/19, 17/17), checkpatch
+  unchanged, VM A/B all green incl. ZFS conf-sanity 300: rounds/a-0927/vm-test.md.
+- **Maloo 09-27:** 4 enforced failures linked + retested (LU-19605 68160,
+  LU-9827 + LU-15879 68415, LU-20276 68163). 68159 retests all passed.
+- **Push decision (user, 09-27): later**, likely 09-28 morning, after the
+  68415 lreview rerun and the pending retests. Push-ask needs: lreview per
+  commit, 20 AI replies, a reply on Andreas's 68159 PS17 thread c6692d26
+  (bullets finally trimmed). 68158 gets a new PS with no AI review on
+  PS21-25.
+
 ## 2026-09-26: PUSHED 68156-68416 (9 patchsets), 68094/68095 kept — start here
 
 - **Pushed:** tag `a0926-pushed` (aabe986c25) in ~/lfs-artem-0924:

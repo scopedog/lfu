@@ -1,0 +1,57 @@
+  make errors: 0
+#define HAVE_STATX 1
+== new: PLUGIN_DIR strings: /home/nishida/lab0927-new/lnet/utils/lnetconfig/.libs:/home/nishida/arm0927new/lib
+/home/nishida/arm0927new/lib/lustre/scan_osd_%s.so
+06:44:34 /home/nishida/arm0927new/lib/lustre/scan_osd_kernel.so
+06:44:34 /home/nishida/arm0927new/lib/lustre/scan_osd_ldiskfs.so
+06:44:34 /home/nishida/lab0927-new/lustre/tests/.libs/llapi_scan_changelog_test
+06:44:34 /home/nishida/lab0927-new/lustre/tests/.libs/llapi_scan_device_test
+06:44:34 /home/nishida/lab0927-new/lustre/tests/.libs/llapi_scan_test
+06:44:29 /home/nishida/lab0927-new/lustre/utils/.libs/lfs
+06:44:29 /home/nishida/lab0927-new/lustre/utils/.libs/liblustreapi.so.1.0.0
+ 0x000000000000000f (RPATH)              Library rpath: [/home/nishida/arm0927new/lib]
+	libext2fs.so.2 => /lib64/libext2fs.so.2 (0x00007f830786e000)
+  make errors: 0
+#define HAVE_STATX 1
+== old: PLUGIN_DIR strings: /home/nishida/lab0927-old/lnet/utils/lnetconfig/.libs:/home/nishida/arm0927old/lib
+/home/nishida/arm0927old/lib/lustre/scan_osd_%s.so
+06:44:58 /home/nishida/arm0927old/lib/lustre/scan_osd_kernel.so
+06:44:58 /home/nishida/arm0927old/lib/lustre/scan_osd_ldiskfs.so
+06:44:58 /home/nishida/lab0927-old/lustre/tests/.libs/llapi_scan_changelog_test
+06:44:58 /home/nishida/lab0927-old/lustre/tests/.libs/llapi_scan_device_test
+06:44:58 /home/nishida/lab0927-old/lustre/tests/.libs/llapi_scan_test
+06:44:53 /home/nishida/lab0927-old/lustre/utils/.libs/lfs
+06:44:53 /home/nishida/lab0927-old/lustre/utils/.libs/liblustreapi.so.1.0.0
+ 0x000000000000000f (RPATH)              Library rpath: [/home/nishida/arm0927old/lib]
+	libext2fs.so.2 => /lib64/libext2fs.so.2 (0x00007f60da2d4000)
+BUILD-OK
+=== rebuild of new at 73d04cd04d
+  make errors: 0
+#define HAVE_STATX 1
+== new: PLUGIN_DIR strings: /home/nishida/lab0927-new/lnet/utils/lnetconfig/.libs:/home/nishida/arm0927new/lib
+/home/nishida/arm0927new/lib/lustre/scan_osd_%s.so
+06:54:25 /home/nishida/arm0927new/lib/lustre/scan_osd_kernel.so
+06:54:25 /home/nishida/arm0927new/lib/lustre/scan_osd_ldiskfs.so
+06:54:24 /home/nishida/lab0927-new/lustre/tests/.libs/llapi_scan_changelog_test
+06:54:24 /home/nishida/lab0927-new/lustre/tests/.libs/llapi_scan_device_test
+06:54:24 /home/nishida/lab0927-new/lustre/tests/.libs/llapi_scan_test
+06:54:20 /home/nishida/lab0927-new/lustre/utils/.libs/lfs
+06:54:20 /home/nishida/lab0927-new/lustre/utils/.libs/liblustreapi.so.1.0.0
+ 0x000000000000000f (RPATH)              Library rpath: [/home/nishida/arm0927new/lib]
+	libext2fs.so.2 => /lib64/libext2fs.so.2 (0x00007f4e128eb000)
+BUILD-OK
+=== zfs arms
+S["ZFS_SCAN_ENABLED_TRUE"]=""
+  new make -k errors: 115 (libmount_utils_zfs.c mount_utils.h )
+07:20:09 /home/nishida/arm0927znew/lib/liblustreapi.so.1.0.0
+07:20:11 /home/nishida/arm0927znew/lib/lustre/scan_osd_zfs.so
+07:20:09 /home/nishida/lab0927z-new/lustre/utils/.libs/lfs
+  PLUGIN_DIR: /home/nishida/arm0927znew/lib/lustre/scan_osd_%s.so
+S["ZFS_SCAN_ENABLED_TRUE"]=""
+  old make -k errors: 115 (libmount_utils_zfs.c mount_utils.h )
+07:20:30 /home/nishida/arm0927zold/lib/liblustreapi.so.1.0.0
+07:20:31 /home/nishida/arm0927zold/lib/lustre/scan_osd_zfs.so
+07:20:30 /home/nishida/lab0927z-old/lustre/utils/.libs/lfs
+  PLUGIN_DIR: /home/nishida/arm0927zold/lib/lustre/scan_osd_%s.so
+  the two zfs plugins' .text differ
+ZBUILD-OK

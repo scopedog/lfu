@@ -1,0 +1,24 @@
+lfs mkdir -i 0 -c 1 /mnt/lfsc/d300.conf-sanity -> rc 0
+lfs find /mnt/lfsc/d300.conf-sanity -printf %LF\n -> rc 0
+lfs find /mnt/lfsc/d300.conf-sanity -type f -printf %LF\n -> rc 0
+lfs find /mnt/lfsc/d300.conf-sanity/subdir -maxdepth 0 -printf %LF -> rc 0
+lfs find --target lfsc-MDT0000 --type f -> rc 16
+    lfs find: lfsc-mdt1/mdt1: in use: pool imported, or dataset held
+    lfs: failed for 'lfsc-mdt1/mdt1': Device or resource busy
+lfs find --device lfsc-mdt1/mdt1 --search /tmp/zfslab27c --type f -printf %LF\n -> rc 0
+lfs find --device=lfsc-mdt1/mdt1 --search=/tmp/zfslab27c --type f -printf %LF\n -> rc 0
+lfs find --device lfsc-mdt1/mdt1 lfsc-mdt1/mdt1 --type f -> rc 4
+    error: find: name one target, not 2
+lfs find --device lfsc-mdt1/mdt1 --device lfsc-mdt1/mdt1 --type f -> rc 4
+    error: find: --device given twice
+lfs find --device lfsc-mdt1/mdt1 --search /tmp/zfslab27c -> rc 0
+lfs find --device lfsc-mdt1/mdt1 --search /tmp/zfslab27c --internal -> rc 0
+lfs find --local --type f -> rc 19
+    lfs: no local Lustre targets -- this is a client, or none are mounted
+lfs find --target lfsc-MDT0000 --type f -> rc 19
+    lfs: no target 'lfsc-MDT0000' mounted here
+lfs find --fsname lfsc --type f -> rc 19
+    lfs: no local targets of 'lfsc'
+lfs find --fsname fsname_too_long --type f -> rc 4
+    lfs find: filesystem name 'fsname_too_long' longer than maximum 8 chars: File name too long (36)
+lfs df /mnt/lfsc -> rc 0

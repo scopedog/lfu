@@ -1,0 +1,2 @@
+new: sizeof(struct llapi_scan_stats)=168 ss_class=16 entries, offsetof(ss_class)=40, LLAPI_SCAN_CLS_MAX=7
+old: sizeof(struct llapi_scan_stats)=96 ss_class=7 entries, offsetof(ss_class)=40, LLAPI_SCAN_CLS_MAX=7

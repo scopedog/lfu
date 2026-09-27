@@ -1,0 +1,12 @@
+== start 2026-09-27 07:05:39
+mounted: 1 client, 5 total
+loaded version: [2.17.58_65_g8618869]
+lfs loads:  liblustreapi.so.1 => /home/nishida/arm0927new/lib/liblustreapi.so.1 (0x00007f0e1705f000)
+changelog_test loads:  liblustreapi.so.1 => /home/nishida/arm0927new/lib/liblustreapi.so.1 (0x00007f9db938b000)
+bound lfs is the tip's
+SANITY_RC=0
+PASS 93  FAIL 0  SKIP 2
+ SKIP: sanity test_56xc Need at least 2GB free space
+SKIP 56xc (0s)
+== end 2026-09-27 07:13:18
+SANITY RUN DONE

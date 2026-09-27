@@ -1,0 +1,3 @@
+idx=188 type=MIGRT fid=[0x240000402:0x3:0x0] valid=0x1e080100000000 lazy_size=0 lazy_blocks=0 stx_mask=0x6ff size=2 blocks=8 mtime=1790520271.000000000 btime=(absent)0.000000000
+idx=188 type=MIGRT fid=[0x200000402:0x9f:0x0] valid=0x1e080100000000 lazy_size=0 lazy_blocks=0 stx_mask=0 size=0 blocks=0 mtime=0.000000000 btime=(absent)0.000000000
+rc=0

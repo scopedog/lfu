@@ -1,0 +1,26 @@
+134054 newfstatat(AT_FDCWD, "/home/nishida/arm0927old/lib/glibc-hwcaps/x86-64-v3", 0x7ffe36e2dad0, 0) = -1 ENOENT (No such file or directory)
+134054 newfstatat(AT_FDCWD, "/home/nishida/arm0927old/lib/glibc-hwcaps/x86-64-v2", 0x7ffe36e2dad0, 0) = -1 ENOENT (No such file or directory)
+134054 newfstatat(AT_FDCWD, "/home/nishida/arm0927old/lib/tls/x86_64/x86_64", 0x7ffe36e2dad0, 0) = -1 ENOENT (No such file or directory)
+134054 newfstatat(AT_FDCWD, "/home/nishida/arm0927old/lib/tls/x86_64", 0x7ffe36e2dad0, 0) = -1 ENOENT (No such file or directory)
+134054 newfstatat(AT_FDCWD, "/home/nishida/arm0927old/lib/tls/x86_64", 0x7ffe36e2dad0, 0) = -1 ENOENT (No such file or directory)
+134054 newfstatat(AT_FDCWD, "/home/nishida/arm0927old/lib/tls", 0x7ffe36e2dad0, 0) = -1 ENOENT (No such file or directory)
+134054 newfstatat(AT_FDCWD, "/home/nishida/arm0927old/lib/x86_64/x86_64", 0x7ffe36e2dad0, 0) = -1 ENOENT (No such file or directory)
+134054 newfstatat(AT_FDCWD, "/home/nishida/arm0927old/lib/x86_64", 0x7ffe36e2dad0, 0) = -1 ENOENT (No such file or directory)
+134054 newfstatat(AT_FDCWD, "/home/nishida/arm0927old/lib/x86_64", 0x7ffe36e2dad0, 0) = -1 ENOENT (No such file or directory)
+134054 newfstatat(AT_FDCWD, "/home/nishida/arm0927old/lib", {st_mode=S_IFDIR|0755, st_size=97, ...}, 0) = 0
+134054 newfstatat(AT_FDCWD, "/mnt/lfst/lab27/g1", {st_mode=S_IFREG|0644, st_size=2097152, ...}, 0) = 0
+134054 newfstatat(AT_FDCWD, "/mnt/lfst/lab27/g2", {st_mode=S_IFREG|0644, st_size=2097152, ...}, 0) = 0
+134054 statx(AT_FDCWD, "/mnt/lfst", AT_STATX_SYNC_AS_STAT, 0, {stx_mask=STATX_MNT_ID, stx_attributes=STATX_ATTR_MOUNT_ROOT, ...}) = 0
+134054 newfstatat(AT_FDCWD, "/proc/fs/lustre/cpu_partition_table", 0x7ffe36e27e10, AT_SYMLINK_NOFOLLOW) = -1 ENOENT (No such file or directory)
+134054 newfstatat(AT_FDCWD, "/sys/fs/lustre/cpu_partition_table", 0x7ffe36e27e10, AT_SYMLINK_NOFOLLOW) = -1 ENOENT (No such file or directory)
+134054 newfstatat(AT_FDCWD, "/sys/kernel/debug/lnet/cpu_partition_table", {st_mode=S_IFREG|0444, st_size=0, ...}, AT_SYMLINK_NOFOLLOW) = 0
+134054 newfstatat(AT_FDCWD, "/sys/kernel/debug/lustre/cpu_partition_table", 0x7ffe36e27e00, AT_SYMLINK_NOFOLLOW) = -1 ENOENT (No such file or directory)
+134056 +++ exited with 0 +++
+134058 +++ exited with 0 +++
+134057 +++ exited with 0 +++
+134055 +++ exited with 0 +++
+134062 +++ exited with 0 +++
+134061 +++ exited with 0 +++
+134060 +++ exited with 0 +++
+134059 +++ exited with 0 +++
+134054 +++ exited with 0 +++

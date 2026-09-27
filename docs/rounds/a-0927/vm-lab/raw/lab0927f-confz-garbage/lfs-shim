@@ -1,0 +1,4 @@
+#!/bin/bash
+e=$(mktemp); /home/nishida/lab0927z-new/lustre/utils/.libs/lfs "$@" 2> $e; rc=$?
+echo "lfs $* -> rc $rc" >> /tmp/lab0927f-confz-garbage/lfs-calls.txt; sed 's/^/    /' $e >> /tmp/lab0927f-confz-garbage/lfs-calls.txt
+cat $e >&2; rm -f $e; exit $rc

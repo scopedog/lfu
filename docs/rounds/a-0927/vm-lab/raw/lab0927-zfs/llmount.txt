@@ -1,0 +1,51 @@
+MGS_OS_VERSION_ID=9.7
+MGS_OS_ID=rhel
+MGS_OS_VERSION_CODE=151453696
+MGS_OS_ID_LIKE=fedora rhel
+MDS1_OS_ID=rhel
+MDS1_OS_VERSION_CODE=151453696
+MDS1_OS_ID_LIKE=fedora rhel
+MDS1_OS_VERSION_ID=9.7
+OST1_OS_VERSION_ID=9.7
+OST1_OS_VERSION_CODE=151453696
+OST1_OS_ID=rhel
+OST1_OS_ID_LIKE=fedora rhel
+CLIENT_OS_VERSION_ID=9.7
+CLIENT_OS_ID_LIKE=fedora rhel
+CLIENT_OS_ID=rhel
+CLIENT_OS_VERSION_CODE=151453696
+Stopping clients: rhel9.7-server /mnt/zfst (opts:-f)
+Stopping clients: rhel9.7-server /mnt/zfst2 (opts:-f)
+rhel9.7-server: executing set_hostid
+Loading modules from /usr/lib64/lustre
+detected 4 online CPUs by sysfs
+MODOPTS_LIBCFS=
+Force libcfs to create 2 CPU partitions
+ptlrpc/ptlrpc options: 'lbug_on_grant_miscount=1'
+quota/lquota options: 'hash_lqs_cur_bits=3'
+mdt/mdt options: 'mdt_enable_flr_ec=1'
+Formatting mgs, mds, osts
+Format mds1: zfst-mdt1/mdt1
+Format ost1: zfst-ost1/ost1
+Checking servers environments
+Checking clients rhel9.7-server environments
+Loading modules from /usr/lib64/lustre
+detected 4 online CPUs by sysfs
+MODOPTS_LIBCFS=
+Force libcfs to create 2 CPU partitions
+Setup mgs, mdt, osts
+Start mds1: mount -t lustre -o localrecov  zfst-mdt1/mdt1 /mnt/zfst-mds1
+Commit the device label on zfst-mdt1/mdt1
+Started zfst-MDT0000
+Start ost1: mount -t lustre -o localrecov  zfst-ost1/ost1 /mnt/zfst-ost1
+seq.cli-zfst-OST0000-super.width=131072
+Commit the device label on zfst-ost1/ost1
+Started zfst-OST0000
+Starting client: rhel9.7-server:  -o user_xattr,flock 192.168.122.10@tcp:/zfst /mnt/zfst
+Using TIMEOUT=20
+osc.zfst-OST0000-osc-ffff94938c40d000.idle_timeout=debug
+setting jobstats to procname_uid
+Setting zfst.sys.jobid_var from disable to procname_uid
+Waiting 90s for 'procname_uid'
+Updated after 3s: want 'procname_uid' got 'procname_uid'
+disable quota as required

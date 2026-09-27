@@ -1,0 +1,5 @@
+lfs mkdir -i 0 -c 1 /mnt/lfsc/d300.conf-sanity -> rc 0
+lfs find /mnt/lfsc/d300.conf-sanity -printf %LF\n -> rc 0
+lfs find /mnt/lfsc/d300.conf-sanity -type f -printf %LF\n -> rc 0
+lfs find /mnt/lfsc/d300.conf-sanity/subdir -maxdepth 0 -printf %LF -> rc 0
+lfs find --target lfsc-MDT0000 --type f -> rc 135

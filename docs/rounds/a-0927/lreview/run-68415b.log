@@ -1,0 +1,13 @@
+  HEAD_62507e5  LU-20649 llapi: add llapi_scan_changelog() (worktree)
+
+Reviewing 1 change(s), 5 in parallel, timeout 7200s each
+  prompts:   /home/nishida/projects/llm_code_and_review_tools/review-prompts/kernel
+             (via bundled submodule (/home/nishida/projects/llm_code_and_review_tools/review-prompts))
+  results:   /home/nishida/projects/llm_code_and_review_tools/lreview-results
+  worktrees: /home/nishida/projects/llm_code_and_review_tools/lreview-results/worktrees
+
+running: HEAD_62507e5 0m00s | done 0/1
+[HEAD_62507e5] review started: LU-20649 llapi: add llapi_scan_changelog()
+running: HEAD_62507e5 0m59s 483k tok | done 0/1
+running: HEAD_62507e5 2m00s 833k tok | done 0/1
+running: HEAD_62507e5 3m00s 2.0M tok | done 0/1

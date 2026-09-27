@@ -1,0 +1,21 @@
+== start 2026-09-27 07:34:37 MODE=ok
+PLUGIN_DIR now: 29 . 97 .. 93952 scan_osd_zfs.so 
+lfs loads:  liblustreapi.so.1 => /home/nishida/arm0927znew/lib/liblustreapi.so.1 (0x00007f8029ed5000)
+scanner loads:  liblustreapi.so.1 => /home/nishida/arm0927znew/lib/liblustreapi.so.1 (0x00007f6d95582000)
+lfs is the tip's: 1
+CS_RC=0
+PLUGIN_DIR restored: scan_osd_zfs.so  md5 55d96cd9492e
+PASS 300 (85s)
+--- lfs --target calls:
+lfs find --target lfsc-MDT0000 --type f -> rc 16
+    lfs find: lfsc-mdt1/mdt1: in use: pool imported, or dataset held
+    lfs: failed for 'lfsc-mdt1/mdt1': Device or resource busy
+lfs find --device lfsc-mdt1/mdt1 --search /tmp/zfslab27c --type f -printf %LF\n -> rc 0
+--
+lfs find --target lfsc-MDT0000 --type f -> rc 19
+    lfs: no target 'lfsc-MDT0000' mounted here
+lfs find --fsname lfsc --type f -> rc 19
+    lfs: no local targets of 'lfsc'
+pools: []
+== end 2026-09-27 07:36:58
+CONFZ RUN DONE

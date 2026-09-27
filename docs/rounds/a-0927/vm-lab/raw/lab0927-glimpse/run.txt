@@ -1,0 +1,17 @@
+== start 2026-09-27 07:15:42
+loaded version: [2.17.58_65_g8618869]
+0  0  /mnt/lfst/lab27/g1 2097152 /mnt/lfst/lab27/g2 2097152 
+  round 1 new: rc=0 out=0 err=0; OST ldlm stats [ldlm_glimpse_enqueue=2 ] -> [ldlm_glimpse_enqueue=2 ]; client OST0000 locks 0 -> 0
+    statx(AT_FDCWD, "/mnt/lfst/lab27/g1", AT_STATX_DONT_SYNC, STATX_TYPE, {stx_mask=STATX_TYPE|STATX_MNT_ID, stx_attributes=0, stx_mode=S_IFREG|0644, ...}) = 0
+    statx(AT_FDCWD, "/mnt/lfst/lab27/g2", AT_STATX_DONT_SYNC, STATX_TYPE, {stx_mask=STATX_TYPE|STATX_MNT_ID, stx_attributes=0, stx_mode=S_IFREG|0644, ...}) = 0
+  round 1 old: rc=0 out=0 err=0; OST ldlm stats [ldlm_glimpse_enqueue=2 ] -> [ldlm_glimpse_enqueue=4 ]; client OST0000 locks 0 -> 2
+    newfstatat(AT_FDCWD, "/mnt/lfst/lab27/g1", {st_mode=S_IFREG|0644, st_size=2097152, ...}, 0) = 0
+    newfstatat(AT_FDCWD, "/mnt/lfst/lab27/g2", {st_mode=S_IFREG|0644, st_size=2097152, ...}, 0) = 0
+  round 2 new: rc=0 out=0 err=0; OST ldlm stats [ldlm_glimpse_enqueue=4 ] -> [ldlm_glimpse_enqueue=4 ]; client OST0000 locks 0 -> 0
+    statx(AT_FDCWD, "/mnt/lfst/lab27/g1", AT_STATX_DONT_SYNC, STATX_TYPE, {stx_mask=STATX_TYPE|STATX_MNT_ID, stx_attributes=0, stx_mode=S_IFREG|0644, ...}) = 0
+    statx(AT_FDCWD, "/mnt/lfst/lab27/g2", AT_STATX_DONT_SYNC, STATX_TYPE, {stx_mask=STATX_TYPE|STATX_MNT_ID, stx_attributes=0, stx_mode=S_IFREG|0644, ...}) = 0
+  round 2 old: rc=0 out=0 err=0; OST ldlm stats [ldlm_glimpse_enqueue=4 ] -> [ldlm_glimpse_enqueue=6 ]; client OST0000 locks 0 -> 2
+    newfstatat(AT_FDCWD, "/mnt/lfst/lab27/g1", {st_mode=S_IFREG|0644, st_size=2097152, ...}, 0) = 0
+    newfstatat(AT_FDCWD, "/mnt/lfst/lab27/g2", {st_mode=S_IFREG|0644, st_size=2097152, ...}, 0) = 0
+== end 2026-09-27 07:15:42
+GLIMPSE RUN DONE

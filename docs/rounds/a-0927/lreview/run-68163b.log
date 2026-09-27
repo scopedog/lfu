@@ -1,0 +1,31 @@
+  HEAD_0439ba0  LU-20613 llapi: ZFS backend for llapi_scan_device (worktree)
+
+Reviewing 1 change(s), 5 in parallel, timeout 7200s each
+  prompts:   /home/nishida/projects/llm_code_and_review_tools/review-prompts/kernel
+             (via bundled submodule (/home/nishida/projects/llm_code_and_review_tools/review-prompts))
+  results:   /home/nishida/projects/llm_code_and_review_tools/lreview-results
+  worktrees: /home/nishida/projects/llm_code_and_review_tools/lreview-results/worktrees
+
+running: HEAD_0439ba0 0m00s | done 0/1
+[HEAD_0439ba0] review started: LU-20613 llapi: ZFS backend for llapi_scan_device
+running: HEAD_0439ba0 0m59s 1.1M tok | done 0/1
+running: HEAD_0439ba0 2m00s 2.2M tok | done 0/1
+running: HEAD_0439ba0 3m00s 3.5M tok | done 0/1
+running: HEAD_0439ba0 4m00s 4.2M tok | done 0/1
+running: HEAD_0439ba0 5m00s 5.6M tok | done 0/1
+running: HEAD_0439ba0 6m00s 6.6M tok | done 0/1
+running: HEAD_0439ba0 7m00s 8.3M tok | done 0/1
+running: HEAD_0439ba0 8m00s 9.4M tok | done 0/1
+running: HEAD_0439ba0 9m00s 10.4M tok | done 0/1
+running: HEAD_0439ba0 10m00s 10.7M tok | done 0/1
+running: HEAD_0439ba0 11m00s 11.3M tok | done 0/1
+[HEAD_0439ba0] clean — no findings (11m18s, 11.6M tok, $5.30)
+
+=== Batch summary ===
+  HEAD_0439ba0     clean  [11.6M tok, $5.30]
+  total: 11.6M tokens, $5.30
+
+Human-readable reports:
+  /home/nishida/projects/llm_code_and_review_tools/lreview-results/markdown/HEAD_0439ba0_LU-20613_llapi_ZFS_backend_for_llapi_scan_device.md
+
+Full text dump: /home/nishida/projects/llm_code_and_review_tools/lreview-results/review-last1.txt

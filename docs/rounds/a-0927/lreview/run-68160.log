@@ -1,0 +1,26 @@
+  HEAD_c44ad1f  LU-20611 lfs: find over a target, with --device (worktree)
+
+Reviewing 1 change(s), 5 in parallel, timeout 7200s each
+  prompts:   /home/nishida/projects/llm_code_and_review_tools/review-prompts/kernel
+             (via bundled submodule (/home/nishida/projects/llm_code_and_review_tools/review-prompts))
+  results:   /home/nishida/projects/llm_code_and_review_tools/lreview-results
+  worktrees: /home/nishida/projects/llm_code_and_review_tools/lreview-results/worktrees
+
+running: HEAD_c44ad1f 0m00s | done 0/1
+[HEAD_c44ad1f] review started: LU-20611 lfs: find over a target, with --device
+running: HEAD_c44ad1f 0m59s 273k tok | done 0/1
+running: HEAD_c44ad1f 2m00s 1.2M tok | done 0/1
+running: HEAD_c44ad1f 3m00s 2.1M tok | done 0/1
+running: HEAD_c44ad1f 4m00s 2.6M tok | done 0/1
+running: HEAD_c44ad1f 5m00s 3.7M tok | done 0/1
+running: HEAD_c44ad1f 6m00s 5.0M tok | done 0/1
+[HEAD_c44ad1f] 3 finding(s), severity low (6m29s, 5.5M tok, $3.03) -> gerrit-review-HEAD_c44ad1f.json
+
+=== Batch summary ===
+  HEAD_c44ad1f     findings (3 finding(s), severity low)  [5.5M tok, $3.03]
+  total: 5.5M tokens, $3.03
+
+Human-readable reports:
+  /home/nishida/projects/llm_code_and_review_tools/lreview-results/markdown/HEAD_c44ad1f_LU-20611_lfs_find_over_a_target_with_--device.md
+
+Full text dump: /home/nishida/projects/llm_code_and_review_tools/lreview-results/review-last1.txt

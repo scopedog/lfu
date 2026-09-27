@@ -1,0 +1,6 @@
+idx=195 type=CREAT fid=[0x200000402:0xa0:0x0] valid=0x1a080100000000 lazy_size=0 lazy_blocks=0 stx_mask=0x6ff size=2 blocks=1 mtime=1790517600.000000000 btime=(absent)0.000000000
+idx=196 type=OPEN fid=[0x200000402:0xa0:0x0] valid=0x1a000100000000 lazy_size=0 lazy_blocks=0 stx_mask=0x6ff size=2 blocks=1 mtime=1790517600.000000000 btime=(absent)0.000000000
+idx=197 type=CLOSE fid=[0x200000402:0xa0:0x0] valid=0x1a000100000000 lazy_size=0 lazy_blocks=0 stx_mask=0x6ff size=2 blocks=1 mtime=1790517600.000000000 btime=(absent)0.000000000
+idx=198 type=OPEN fid=[0x200000402:0xa0:0x0] valid=0x1a000100000000 lazy_size=0 lazy_blocks=0 stx_mask=0x6ff size=2 blocks=1 mtime=1790517600.000000000 btime=(absent)0.000000000
+idx=199 type=CLOSE fid=[0x200000402:0xa0:0x0] valid=0x1a000100000000 lazy_size=0 lazy_blocks=0 stx_mask=0x6ff size=2 blocks=1 mtime=1790517600.000000000 btime=(absent)0.000000000
+rc=0

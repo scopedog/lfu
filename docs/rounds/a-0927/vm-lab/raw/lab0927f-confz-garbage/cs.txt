@@ -1,0 +1,94 @@
+MGS_OS_VERSION_ID=9.7
+MGS_OS_ID=rhel
+MGS_OS_VERSION_CODE=151453696
+MGS_OS_ID_LIKE=fedora rhel
+MDS1_OS_ID=rhel
+MDS1_OS_VERSION_CODE=151453696
+MDS1_OS_ID_LIKE=fedora rhel
+MDS1_OS_VERSION_ID=9.7
+OST1_OS_VERSION_ID=9.7
+OST1_OS_VERSION_CODE=151453696
+OST1_OS_ID=rhel
+OST1_OS_ID_LIKE=fedora rhel
+CLIENT_OS_VERSION_ID=9.7
+CLIENT_OS_ID_LIKE=fedora rhel
+CLIENT_OS_ID=rhel
+CLIENT_OS_VERSION_CODE=151453696
+rhel9.7-server: executing check_logdir /tmp/zfslab27c/test_logs/1790519986
+Logging to shared log directory: /tmp/zfslab27c/test_logs/1790519986
+rhel9.7-server: executing yml_node
+Writer error: failed to resolve Netlink family id
+opening /dev/lnet failed: No such file or directory
+hint: the kernel modules may not be loaded
+IOC_LIBCFS_GET_NI error 2: No such file or directory
+Writer error: failed to resolve Netlink family id
+opening /dev/lnet failed: No such file or directory
+hint: the kernel modules may not be loaded
+IOC_LIBCFS_GET_NI error 2: No such file or directory
+Client: 2.17.58.65
+MDS: 2.17.58.65
+OSS: 2.17.58.65
+rhel9.7-server: /usr/lib64/lustre/tests/except/conf-sanity.ex
+- see CLIENT_VERSION > v2_15_63-53-g1a6ef725c2 (34683457 > 34553653) for LU-16938, go 81
+- see CLIENT_VERSION >= v2_15_65-31-g74a5b9efaa (34683457 >= 34554143) for LU-18348, go 32b 32c
+excepting tests: 32newtarball 112a 112b 113 117 119 121 122a 123aa 123ab 123ac 123ad 123ae 123af 123ag 123ah 123ahi 123F 123G 123H 126 129 132 133 135 136 137 150 152 153a 153b 153c 155 802a
+skipping tests SLOW=no: 45 69 106 111 114
+Stopping clients: rhel9.7-server /mnt/lfsc (opts:-f)
+Stopping clients: rhel9.7-server /mnt/lfsc2 (opts:-f)
+rhel9.7-server: executing set_hostid
+Loading modules from /usr/lib64/lustre
+detected 4 online CPUs by sysfs
+MODOPTS_LIBCFS=
+Force libcfs to create 2 CPU partitions
+ptlrpc/ptlrpc options: 'lbug_on_grant_miscount=1'
+quota/lquota options: 'hash_lqs_cur_bits=3'
+mdt/mdt options: 'mdt_enable_flr_ec=1'
+Formatting mgs, mds, osts
+Format mds1: lfsc-mdt1/mdt1
+Format ost1: lfsc-ost1/ost1
+Format ost2: lfsc-ost2/ost2
+start mds service on rhel9.7-server
+Start mds1: mount -t lustre -o localrecov  lfsc-mdt1/mdt1 /mnt/lfsc-mds1
+Commit the device label on lfsc-mdt1/mdt1
+Started lfsc-MDT0000
+rhel9.7-server: executing wait_import_state_mount FULL mdc.lfsc-MDT0000-mdc-*.mds_server_uuid 1475 0
+start ost1 service on rhel9.7-server
+Start ost1: mount -t lustre -o localrecov  lfsc-ost1/ost1 /mnt/lfsc-ost1
+seq.cli-lfsc-OST0000-super.width=65536
+Commit the device label on lfsc-ost1/ost1
+Started lfsc-OST0000
+rhel9.7-server: executing wait_import_state_mount (FULL|IDLE) osc.lfsc-OST0000-osc-[-0-9a-f]*.ost_server_uuid 1475 0
+rhel9.7-server: executing wait_import_state FULL os[cp].lfsc-OST0000-osc-MDT0000.ost_server_uuid 50
+os[cp].lfsc-OST0000-osc-MDT0000.ost_server_uuid in FULL state after 4 sec
+stop ost1 service on rhel9.7-server
+Stopping /mnt/lfsc-ost1 (opts:-f) on rhel9.7-server
+stop mds service on rhel9.7-server
+Stopping /mnt/lfsc-mds1 (opts:-f) on rhel9.7-server
+
+== conf-sanity test 300: a target scan finds every object, lfs find answers over it ========================================================== 07:40:06 (1790520006)
+start mds service on rhel9.7-server
+Start mds1: mount -t lustre -o localrecov  lfsc-mdt1/mdt1 /mnt/lfsc-mds1
+Started lfsc-MDT0000
+rhel9.7-server: executing wait_import_state_mount FULL mdc.lfsc-MDT0000-mdc-*.mds_server_uuid 1475 0
+start ost1 service on rhel9.7-server
+Start ost1: mount -t lustre -o localrecov  lfsc-ost1/ost1 /mnt/lfsc-ost1
+seq.cli-lfsc-OST0000-super.width=65536
+Started lfsc-OST0000
+rhel9.7-server: executing wait_import_state_mount (FULL|IDLE) osc.lfsc-OST0000-osc-[-0-9a-f]*.ost_server_uuid 1475 0
+mount lfsc  on /mnt/lfsc.....
+Starting client: rhel9.7-server:  -o user_xattr,flock 192.168.122.10@tcp:/lfsc /mnt/lfsc
+total: 100 open/close in 0.21 seconds: 484.94 ops/second
+not sweeping: mds1 and ost1 are not one ldiskfs node
+lfs find: no zfs device scan backend: /home/nishida/arm0927znew/lib/lustre/scan_osd_zfs.so: file too short; /usr/lib64/lustre/utils/scan_osd_zfs.so: cannot open shared object file: No such file or directory
+lfs: failed for 'lfsc-mdt1/mdt1': Operation not supported
+ conf-sanity test_300: @@@@@@ FAIL: --target lfsc-MDT0000 was not refused as in use 
+  Trace dump:
+  = /usr/lib64/lustre/tests/test-framework.sh:7496:error()
+  = /home/nishida/lab0927-new/lustre/tests/conf-sanity.sh:13439:test_300()
+  = /usr/lib64/lustre/tests/test-framework.sh:7873:run_one()
+  = /usr/lib64/lustre/tests/test-framework.sh:7936:run_one_logged()
+  = /usr/lib64/lustre/tests/test-framework.sh:7735:run_test()
+  = /home/nishida/lab0927-new/lustre/tests/conf-sanity.sh:13632:main()
+Dumping lctl log to /tmp/zfslab27c/test_logs/1790519986/conf-sanity.test_300.*.1790520023.log
+Dumping logs only on local client.
+FAIL 300 (18s)

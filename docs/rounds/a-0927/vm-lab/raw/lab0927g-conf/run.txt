@@ -1,0 +1,14 @@
+== start 2026-09-27 07:45:11
+lfs loads:  liblustreapi.so.1 => /home/nishida/arm0927new/lib/liblustreapi.so.1 (0x00007f6e11576000)
+scanner loads:  liblustreapi.so.1 => /home/nishida/arm0927new/lib/liblustreapi.so.1 (0x00007fcc1c954000)
+CS_RC=0
+framework saw: 
+lfu.ko loaded by 305: 
+PASS 300 (40s)
+PASS 301 (1s)
+PASS 302 (1s)
+PASS 303 (0s)
+PASS 304 (1s)
+PASS 305 (0s)
+== end 2026-09-27 07:46:53
+CONF RUN DONE

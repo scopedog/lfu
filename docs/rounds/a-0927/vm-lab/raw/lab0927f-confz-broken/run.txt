@@ -1,0 +1,14 @@
+== start 2026-09-27 07:37:03 MODE=broken
+PLUGIN_DIR now: 29 . 97 .. 4096 scan_osd_zfs.so 
+lfs loads:  liblustreapi.so.1 => /home/nishida/arm0927znew/lib/liblustreapi.so.1 (0x00007f8ca4446000)
+scanner loads:  liblustreapi.so.1 => /home/nishida/arm0927znew/lib/liblustreapi.so.1 (0x00007fc0d8b3c000)
+lfs is the tip's: 1
+CS_RC=1
+PLUGIN_DIR restored: scan_osd_zfs.so  md5 55d96cd9492e
+ conf-sanity test_300: @@@@@@ FAIL: --target lfsc-MDT0000 was not refused as in use 
+FAIL 300 (16s)
+--- lfs --target calls:
+lfs find --target lfsc-MDT0000 --type f -> rc 135
+pools: []
+== end 2026-09-27 07:38:05
+CONFZ RUN DONE

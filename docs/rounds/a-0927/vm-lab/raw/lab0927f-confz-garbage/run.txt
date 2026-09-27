@@ -1,0 +1,17 @@
+== start 2026-09-27 07:39:46 MODE=garbage
+PLUGIN_DIR now: 29 . 97 .. 18 scan_osd_zfs.so 
+lfs loads:  liblustreapi.so.1 => /home/nishida/arm0927znew/lib/liblustreapi.so.1 (0x00007fa8f512a000)
+scanner loads:  liblustreapi.so.1 => /home/nishida/arm0927znew/lib/liblustreapi.so.1 (0x00007f6660cf1000)
+lfs is the tip's: 1
+CS_RC=1
+PLUGIN_DIR restored: scan_osd_zfs.so  md5 55d96cd9492e
+lfs find: no zfs device scan backend: /home/nishida/arm0927znew/lib/lustre/scan_osd_zfs.so: file too short; /usr/lib64/lustre/utils/scan_osd_zfs.so: cannot open shared object file: No such file or directory
+ conf-sanity test_300: @@@@@@ FAIL: --target lfsc-MDT0000 was not refused as in use 
+FAIL 300 (18s)
+--- lfs --target calls:
+lfs find --target lfsc-MDT0000 --type f -> rc 95
+    lfs find: no zfs device scan backend: /home/nishida/arm0927znew/lib/lustre/scan_osd_zfs.so: file too short; /usr/lib64/lustre/utils/scan_osd_zfs.so: cannot open shared object file: No such file or directory
+    lfs: failed for 'lfsc-mdt1/mdt1': Operation not supported
+pools: []
+== end 2026-09-27 07:40:45
+CONFZ RUN DONE

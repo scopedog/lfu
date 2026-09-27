@@ -1,0 +1,199 @@
+== start 2026-09-27 07:13:18
+loaded version: [2.17.58_65_g8618869]
+no /dev/lfu_scan: mounted targets are read by the device backend
+osd-ldiskfs.lfst-MDT0000.mntdev=/dev/mapper/mds1_flakey
+osd-ldiskfs.lfst-MDT0001.mntdev=/dev/mapper/mds2_flakey
+osd-ldiskfs.lfst-OST0000.mntdev=/dev/mapper/ost1_flakey
+osd-ldiskfs.lfst-OST0001.mntdev=/dev/mapper/ost2_flakey
+MDTDEV=/dev/mapper/mds1_flakey OSTDEV=/dev/mapper/ost1_flakey
+  new lfs loads:  /home/nishida/arm0927new/lib/liblustreapi.so.1 (0x00007fdf406a7000)
+  new plugin: openat(AT_FDCWD, "/home/nishida/arm0927new/lib/lustre/scan_osd_ldiskfs.so", O_RDONLY|O_CLOEXEC) = 3 
+  new lfs has "join its directories with ':'": 1
+  old lfs loads:  /home/nishida/arm0927old/lib/liblustreapi.so.1 (0x00007fbb9a374000)
+  old plugin: openat(AT_FDCWD, "/home/nishida/arm0927old/lib/lustre/scan_osd_ldiskfs.so", O_RDONLY|O_CLOEXEC) = 3 
+  old lfs has "join its directories with ':'": 0
+=== fixture on lfst
+1  0  
+=== 68160: the glimpse probe on a start path
+  new rc=0 out=0; OST ldlm_enqueue 0 -> 0
+    new first call on g1: 
+    new first call on g2: 
+  old rc=0 out=0; OST ldlm_enqueue 0 -> 0
+    old first call on g1: 
+    old first call on g2: 
+  FAIL  68160 new probe
+        
+  NOTE old first call: 
+  [bare] new rc=0 out=7 err: lfs find: /dev/mapper/mds1_flakey: 69 of 348 objects were skipped: unreadable or inconsistent on the target|
+  [bare] old rc=0 out=7 err: lfs find: /dev/mapper/mds1_flakey: 69 of 348 objects were skipped: unreadable or inconsistent on the target|
+  [bared] new rc=0 out=7 err: lfs find: /dev/mapper/mds1_flakey: 69 of 348 objects were skipped: unreadable or inconsistent on the target|
+  [bared] old rc=0 out=7 err: lfs find: /dev/mapper/mds1_flakey: 69 of 348 objects were skipped: unreadable or inconsistent on the target|
+  PASS  68160 new: a bare block device path is still a device scan (7 files, = --device)
+=== 68159: a failed probe says it once
+  [dup1] new rc=2 out=0 err: lfs find: cannot scan '/nonexistent/dev': No such file or directory (2)|lfs: failed for '/nonexistent/dev': No such file or directory|
+  [dup1] old rc=2 out=0 err: lfs find: cannot scan '/nonexistent/dev': No such file or directory (2)|lfs find: cannot scan '/nonexistent/dev': No such file or directory (2)|lfs: failed for '/nonexistent/dev': No such file or directory|
+  [dup2] new rc=2 out=0 err: lfs find: cannot scan '/nonexistent/dev': No such file or directory (2)|lfs: failed for '/nonexistent/dev': No such file or directory|
+  [dup2] old rc=2 out=0 err: lfs find: cannot scan '/nonexistent/dev': No such file or directory (2)|lfs find: cannot scan '/nonexistent/dev': No such file or directory (2)|lfs: failed for '/nonexistent/dev': No such file or directory|
+  [dup3] new rc=2 out=0 err: lfs find: cannot scan '/nonexistent/dev': No such file or directory (2)|lfs: failed for '/nonexistent/dev': No such file or directory|
+  [dup3] old rc=2 out=0 err: lfs find: cannot scan '/nonexistent/dev': No such file or directory (2)|lfs: failed for '/nonexistent/dev': No such file or directory|
+  --- dup1 new stderr:
+      lfs find: cannot scan '/nonexistent/dev': No such file or directory (2)
+      lfs: failed for '/nonexistent/dev': No such file or directory
+  --- dup1 old stderr:
+      lfs find: cannot scan '/nonexistent/dev': No such file or directory (2)
+      lfs find: cannot scan '/nonexistent/dev': No such file or directory (2)
+      lfs: failed for '/nonexistent/dev': No such file or directory
+  --- dup2 new stderr:
+      lfs find: cannot scan '/nonexistent/dev': No such file or directory (2)
+      lfs: failed for '/nonexistent/dev': No such file or directory
+  --- dup2 old stderr:
+      lfs find: cannot scan '/nonexistent/dev': No such file or directory (2)
+      lfs find: cannot scan '/nonexistent/dev': No such file or directory (2)
+      lfs: failed for '/nonexistent/dev': No such file or directory
+  --- dup3 new stderr:
+      lfs find: cannot scan '/nonexistent/dev': No such file or directory (2)
+      lfs: failed for '/nonexistent/dev': No such file or directory
+  --- dup3 old stderr:
+      lfs find: cannot scan '/nonexistent/dev': No such file or directory (2)
+      lfs: failed for '/nonexistent/dev': No such file or directory
+  FAIL  68159 new dup error
+        lfs find: cannot scan '/nonexistent/dev': No such file or directory (2)
+lfs: failed for '/nonexistent/dev': No such file or directory
+  PASS  68159 old arm: 3 lines for --pool (the defect)
+  PASS  68159 control (-type f, no layout option): new = old stderr
+=== 68288: an orphan in PENDING is not given its old path
+  dorph/f is [0x200000402:0x934:0x0]
+lr-x------. 1 root root 64 Sep 27 07:13 /proc/129140/fd/7 -> /mnt/lfst/dorph/f
+  PENDING on /dev/mapper/mds1_flakey:
+      75022   40755 (2)      0      0    4096 31-Dec-1969 16:00 .
+          2   40755 (2)      0      0    4096 27-Sep-2026 07:05 ..
+        167  100644 (17)      0      0       0 27-Sep-2026 07:13 0x200000402:0x934:0x0
+    
+  [orphall] new rc=0 out=13 err: lfs find: /dev/mapper/mds1_flakey: 269 matching objects have no pathname and were not printed|
+  [orphall] old rc=0 out=14 err: lfs find: /dev/mapper/mds1_flakey: 268 matching objects have no pathname and were not printed|
+  [orphname] new rc=0 out=0 err: lfs find: /dev/mapper/mds1_flakey: 269 objects could not be decided: the target has no answer for a field the search asked for|lfs find: /dev/mapper/mds1_flakey: 1 matching objects have no pathname and were not printed|
+  [orphname] old rc=0 out=1 err: lfs find: /dev/mapper/mds1_flakey: 269 objects could not be decided: the target has no answer for a field the search asked for|
+  [orphfid] new rc=0 out=1 err: lfs find: /dev/mapper/mds1_flakey: 269 objects could not be decided: the target has no answer for a field the search asked for|
+  [orphfid] old rc=0 out=1 err: lfs find: /dev/mapper/mds1_flakey: 269 objects could not be decided: the target has no answer for a field the search asked for|
+  [orphvis] new rc=0 out=0 err: lfs find: /dev/mapper/mds1_flakey: 2 objects could not be decided: the target has no answer for a field the search asked for|
+  [orphvis] old rc=0 out=0 err: lfs find: /dev/mapper/mds1_flakey: 2 objects could not be decided: the target has no answer for a field the search asked for|
+    orphall new: /dorph /dorph/keep   stderr: lfs find: /dev/mapper/mds1_flakey: 269 matching objects have no pathname and were not printed|
+    orphall old: /dorph /dorph/f /dorph/keep   stderr: lfs find: /dev/mapper/mds1_flakey: 268 matching objects have no pathname and were not printed|
+    orphname new:   stderr: lfs find: /dev/mapper/mds1_flakey: 269 objects could not be decided: the target has no answer for a field the search asked for|lfs find: /dev/mapper/mds1_flakey: 1 matching objects have no pathname an
+    orphname old: /dorph/f   stderr: lfs find: /dev/mapper/mds1_flakey: 269 objects could not be decided: the target has no answer for a field the search asked for|
+    orphfid new: [0x200000402:0x934:0x0]   stderr: lfs find: /dev/mapper/mds1_flakey: 269 objects could not be decided: the target has no answer for a field the search asked for|
+    orphfid old: [0x200000402:0x934:0x0]   stderr: lfs find: /dev/mapper/mds1_flakey: 269 objects could not be decided: the target has no answer for a field the search asked for|
+    orphvis new:   stderr: lfs find: /dev/mapper/mds1_flakey: 2 objects could not be decided: the target has no answer for a field the search asked for|
+    orphvis old:   stderr: lfs find: /dev/mapper/mds1_flakey: 2 objects could not be decided: the target has no answer for a field the search asked for|
+  PASS  68288 new: no /dorph/f for the orphan; /dorph/keep still named
+  PASS  68288 old arm: printed /dorph/f for the PENDING orphan (the defect)
+  PASS  68288 new: the orphan's record is still delivered ([0x200000402:0x934:0x0] without --paths)
+  sleeper closed
+=== 68288 df006952: a remote hardlink as linkea entry 0 (DNE)
+  dh0 on MDT0, dh1 on MDT1
+  dh0/f2 is [0x200000402:0x937:0x0], links 2, on MDT0
+  lfs fid2path, in linkea order: /mnt/lfst/dh1/g /mnt/lfst/dh0/f2 
+  trusted.link of /ROOT/dh0/f2 on /dev/mapper/mds1_flakey (debugfs -c):
+    trusted.link (63) = df f1 ea 11 02 00 00 00 3f 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 13 00 00 00 02 40 00 04 02 00 00 06 18 00 00 00 00 67 00 14 00 00 00 02 00 00 04 02 00 00 09 36 00 00 00 00 66 32 
+    
+  [dh] new rc=0 out=9 err: 
+  [dh] old rc=0 out=8 err: lfs find: /dev/mapper/mds1_flakey: 1 matching objects have no pathname and were not printed|
+  [dhf2] new rc=0 out=1 err: 
+  [dhf2] old rc=0 out=1 err: 
+  [dhg] new rc=0 out=0 err: lfs find: /dev/mapper/mds1_flakey: 1 matching objects have no pathname and were not printed|
+  [dhg] old rc=0 out=0 err: lfs find: /dev/mapper/mds1_flakey: 1 matching objects have no pathname and were not printed|
+    dh new: /dh0/f2   stderr: 
+    dh old:   stderr: lfs find: /dev/mapper/mds1_flakey: 1 matching objects have no pathname and were not printed|
+    dhf2 new: /dh0/f2   stderr: 
+    dhf2 old: /dh0/f2   stderr: 
+    dhg new:   stderr: lfs find: /dev/mapper/mds1_flakey: 1 matching objects have no pathname and were not printed|
+    dhg old:   stderr: lfs find: /dev/mapper/mds1_flakey: 1 matching objects have no pathname and were not printed|
+  PASS  68288 new: the file is named /dh0/f2 through linkea entry 1
+  PASS  68288 old arm: no path for the file whose entry 0 is remote (the defect)
+=== teardown
+  cleanup rc=0
+=== 68159: --ost/--mdt against a relabelled COPY
+  copy of lfst-ost2, label [lfst-OST0001]
+  label now [lfst-OST0001]
+  [oplfstdOST0001] new rc=0 out=63 err: 
+  [oplfstdOST0001] old rc=0 out=63 err: 
+  [onlfstdOST0001] new rc=0 out=0 err: 
+  [onlfstdOST0001] old rc=0 out=0 err: 
+  [oilfstdOST0001] new rc=0 out=63 err: 
+  [oilfstdOST0001] old rc=0 out=63 err: 
+  label now [lfst=OST0001]
+  [oplfsteOST0001] new rc=0 out=63 err: 
+  [oplfsteOST0001] old rc=0 out=0 err: 
+  [onlfsteOST0001] new rc=0 out=0 err: 
+  [onlfsteOST0001] old rc=0 out=63 err: 
+  [oilfsteOST0001] new rc=0 out=63 err: 
+  [oilfsteOST0001] old rc=0 out=63 err: 
+  label now [lfst:OST0001]
+  [oplfstcOST0001] new rc=0 out=63 err: 
+  [oplfstcOST0001] old rc=0 out=0 err: 
+  [onlfstcOST0001] new rc=0 out=0 err: 
+  [onlfstcOST0001] old rc=0 out=63 err: 
+  [oilfstcOST0001] new rc=0 out=63 err: 
+  [oilfstcOST0001] old rc=0 out=63 err: 
+  label now [lfst+OST0001]
+  [oplfstpOST0001] new rc=0 out=63 err: 
+  [oplfstpOST0001] old rc=0 out=0 err: 
+  [onlfstpOST0001] new rc=0 out=0 err: 
+  [onlfstpOST0001] old rc=0 out=63 err: 
+  [oilfstpOST0001] new rc=0 out=63 err: 
+  [oilfstpOST0001] old rc=0 out=63 err: 
+  lfstdOST0001: +uuid new=63 old=63 | !uuid new=0 old=0 | index new=63 old=63
+  lfsteOST0001: +uuid new=63 old=0 | !uuid new=0 old=63 | index new=63 old=63
+  lfstcOST0001: +uuid new=63 old=0 | !uuid new=0 old=63 | index new=63 old=63
+  lfstpOST0001: +uuid new=63 old=0 | !uuid new=0 old=63 | index new=63 old=63
+  objects on the OST copy (control, --ost 1): 63
+  PASS  68159 new, label lfsteOST0001: --ost UUID 63, ! --ost 0, --ost 1 63
+  PASS  68159 old arm, label lfsteOST0001: --ost UUID 0, ! --ost 63 (the defect)
+  PASS  68159 new, label lfstcOST0001: --ost UUID 63, ! --ost 0, --ost 1 63
+  PASS  68159 old arm, label lfstcOST0001: --ost UUID 0, ! --ost 63 (the defect)
+  PASS  68159 new, label lfstpOST0001: --ost UUID 63, ! --ost 0, --ost 1 63
+  PASS  68159 old arm, label lfstpOST0001: --ost UUID 0, ! --ost 63 (the defect)
+  PASS  68159 control: label lfst-OST0001 matches in both arms
+  copy of lfst-mdt1, label [lfst-MDT0000]
+  label now [lfst-MDT0000]
+  [mplfstdMDT0000] new rc=0 out=9 err: 
+  [mplfstdMDT0000] old rc=0 out=9 err: 
+  [mnlfstdMDT0000] new rc=0 out=9 err: 
+  [mnlfstdMDT0000] old rc=0 out=9 err: 
+  [milfstdMDT0000] new rc=0 out=9 err: 
+  [milfstdMDT0000] old rc=0 out=9 err: 
+  label now [lfst=MDT0000]
+  [mplfsteMDT0000] new rc=0 out=9 err: 
+  [mplfsteMDT0000] old rc=0 out=0 err: 
+  [mnlfsteMDT0000] new rc=0 out=9 err: 
+  [mnlfsteMDT0000] old rc=0 out=0 err: 
+  [milfsteMDT0000] new rc=0 out=9 err: 
+  [milfsteMDT0000] old rc=0 out=9 err: 
+  label now [lfst:MDT0000]
+  [mplfstcMDT0000] new rc=0 out=9 err: 
+  [mplfstcMDT0000] old rc=0 out=0 err: 
+  [mnlfstcMDT0000] new rc=0 out=9 err: 
+  [mnlfstcMDT0000] old rc=0 out=0 err: 
+  [milfstcMDT0000] new rc=0 out=9 err: 
+  [milfstcMDT0000] old rc=0 out=9 err: 
+  files on the MDT copy (control, --mdt 0): 9
+  lfsteMDT0000: +uuid new=9 old=0 | !uuid new=9 old=0 | index new=9 old=9
+  FAIL  68159 new MDT label lfsteMDT0000
+        +9 !9
+  PASS  68159 old arm, MDT label lfsteMDT0000: --mdt UUID 0 (the defect)
+  lfstcMDT0000: +uuid new=9 old=0 | !uuid new=9 old=0 | index new=9 old=9
+  FAIL  68159 new MDT label lfstcMDT0000
+        +9 !9
+  PASS  68159 old arm, MDT label lfstcMDT0000: --mdt UUID 0 (the defect)
+=== 68160: a bare loop device of the MDT copy
+  [loopbare] new rc=0 out=9 err: 
+  [loopbare] old rc=0 out=9 err: 
+  [loopdev] new rc=0 out=9 err: 
+  [loopdev] old rc=0 out=9 err: 
+  PASS  68160 new: bare loop device /dev/loop0 scanned, 9 files = --device on the image
+/tmp/lfst-mdt1: OK
+/tmp/lfst-ost2: OK
+  fixture images untouched
+=== tally: PASS 18 FAIL 4
+== end 2026-09-27 07:14:21
+ARMS RUN DONE

@@ -1,0 +1,34 @@
+  HEAD_ed98d04  LU-20613 llapi: ZFS backend for llapi_scan_device (worktree)
+
+Reviewing 1 change(s), 5 in parallel, timeout 7200s each
+  prompts:   /home/nishida/projects/llm_code_and_review_tools/review-prompts/kernel
+             (via bundled submodule (/home/nishida/projects/llm_code_and_review_tools/review-prompts))
+  results:   /home/nishida/projects/llm_code_and_review_tools/lreview-results
+  worktrees: /home/nishida/projects/llm_code_and_review_tools/lreview-results/worktrees
+
+running: HEAD_ed98d04 0m00s | done 0/1
+[HEAD_ed98d04] review started: LU-20613 llapi: ZFS backend for llapi_scan_device
+running: HEAD_ed98d04 1m00s 404k tok | done 0/1
+running: HEAD_ed98d04 2m00s 504k tok | done 0/1
+running: HEAD_ed98d04 3m00s 1.3M tok | done 0/1
+running: HEAD_ed98d04 4m00s 2.3M tok | done 0/1
+running: HEAD_ed98d04 5m00s 2.6M tok | done 0/1
+running: HEAD_ed98d04 6m00s 3.1M tok | done 0/1
+running: HEAD_ed98d04 7m00s 4.0M tok | done 0/1
+running: HEAD_ed98d04 8m00s 4.6M tok | done 0/1
+running: HEAD_ed98d04 9m00s 5.6M tok | done 0/1
+running: HEAD_ed98d04 10m00s 5.8M tok | done 0/1
+running: HEAD_ed98d04 11m00s 6.4M tok | done 0/1
+running: HEAD_ed98d04 12m00s 7.7M tok | done 0/1
+running: HEAD_ed98d04 13m00s 8.9M tok | done 0/1
+running: HEAD_ed98d04 14m00s 9.9M tok | done 0/1
+[HEAD_ed98d04] 3 finding(s), severity low (14m07s, 10.2M tok, $5.54) -> gerrit-review-HEAD_ed98d04.json
+
+=== Batch summary ===
+  HEAD_ed98d04     findings (3 finding(s), severity low)  [10.2M tok, $5.54]
+  total: 10.2M tokens, $5.54
+
+Human-readable reports:
+  /home/nishida/projects/llm_code_and_review_tools/lreview-results/markdown/HEAD_ed98d04_LU-20613_llapi_ZFS_backend_for_llapi_scan_device.md
+
+Full text dump: /home/nishida/projects/llm_code_and_review_tools/lreview-results/review-last1.txt
