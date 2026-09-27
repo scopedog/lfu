@@ -11,3 +11,18 @@ running: HEAD_62507e5 0m00s | done 0/1
 running: HEAD_62507e5 0m59s 483k tok | done 0/1
 running: HEAD_62507e5 2m00s 833k tok | done 0/1
 running: HEAD_62507e5 3m00s 2.0M tok | done 0/1
+running: HEAD_62507e5 4m00s 3.0M tok | done 0/1
+running: HEAD_62507e5 5m00s 4.2M tok | done 0/1
+running: HEAD_62507e5 6m00s 6.2M tok | done 0/1
+running: HEAD_62507e5 7m00s 7.7M tok | done 0/1
+running: HEAD_62507e5 8m00s 9.2M tok | done 0/1
+[HEAD_62507e5] 2 finding(s), severity low (8m21s, 9.8M tok, $4.61) -> gerrit-review-HEAD_62507e5.json
+
+=== Batch summary ===
+  HEAD_62507e5     findings (2 finding(s), severity low)  [9.8M tok, $4.61]
+  total: 9.8M tokens, $4.61
+
+Human-readable reports:
+  /home/nishida/projects/llm_code_and_review_tools/lreview-results/markdown/HEAD_62507e5_LU-20649_llapi_add_llapi_scan_changelog.md
+
+Full text dump: /home/nishida/projects/llm_code_and_review_tools/lreview-results/review-last1.txt

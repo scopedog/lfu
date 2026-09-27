@@ -149,3 +149,13 @@ VM A/B: vm-test.md "follow-up 2". lreview rerun: `lreview/run-68415b.log`.
   file keeps it in both. btime filled on new. Nanoseconds not demonstrable:
   the client itself reads .000000000 on this setup.
 - lreview rerun on the new 68163 (0439ba0ba2): **clean**.
+- lreview rerun on the new 68415 (62507e5a43): 2 low, both real.
+  1. BTIME, filled since today, was missing from SCAN_CL_RESOLVE_MASK: a
+     want of BTIME alone skipped the resolve and sc_got never said it.
+     Added. (T7 checks sc_got as a subset, unaffected.)
+  2. mdc_changelog.c:814 stores in.cf_mask & out.cf_mask and :222 takes 0
+     as no filter, so a sc_type_mask disjoint from the user's mask delivers
+     everything. Upstream mdc; the page now warns. **Candidate LU ticket,
+     not filed (ask the user).**
+  Fixed in 68415 = 9d886a6269, tip r0927-tip = 3636a0b9d1. checkpatch 0/2,
+  sweep-e 17/17. Third lreview on 68415: `lreview/run-68415c.log`.
