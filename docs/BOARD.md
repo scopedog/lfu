@@ -4,7 +4,21 @@ Every ticket and Gerrit id in play, and the ones that are *not* ours. Regenerate
 the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
 **2026-09-06**.
 
-## 2026-09-27: AI round on the 09-26 PS fixed locally, NOT pushed — start here
+## 2026-09-27 evening: PUSHED 68156-68416 (9 patchsets), 68094/68095 kept — start here
+
+- **Pushed** (user said push, after the retests went green): tag
+  `a0927-pushed` = 56b7d250d8 in ~/lfs-artem-0924. 68156/68157 PS29,
+  68158/68159/68163 PS26, 68160 PS27, 68288 PS20, 68415/68416 PS18.
+  68094/68095 stay at PS26 (Gerrit's 68094 PS26 is a message-only
+  560f1a7cfa; 68095 still sits on PS25 f42d20f639, as locally).
+- **Replies:** 21 posted and read back RESOLVED (20 AI + Andreas's 68159
+  thread, correcting our 09-24 "this is in the current patch set").
+- **Next:** watch the Janitor, Maloo and AI on the new PS; 68158 PS26 may
+  finally get an AI review. Owed: llapi_uuid_match() const cleanup,
+  68288 `sd_` rename; candidate ticket: mdc changelog mask (empty
+  intersection = no filter), not filed.
+
+## 2026-09-27: AI round on the 09-26 PS fixed locally (pushed later that day)
 
 - **Local tip:** `r0927-tip` (133643bd9e) in ~/lfs-artem-0924; backups
   `backup/artem-0924-pre-0927{,b,c,d,e,f}`. 68094/68095 untouched at PS26.
