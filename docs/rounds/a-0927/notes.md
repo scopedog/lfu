@@ -159,3 +159,17 @@ VM A/B: vm-test.md "follow-up 2". lreview rerun: `lreview/run-68415b.log`.
      not filed (ask the user).**
   Fixed in 68415 = 9d886a6269, tip r0927-tip = 3636a0b9d1. checkpatch 0/2,
   sweep-e 17/17. Third lreview on 68415: `lreview/run-68415c.log`.
+- Third lreview on 68415 (9d886a6269): 4 findings, medium.
+  1. (defect) scan_cl_clear(): a held object pinning the clear point made
+     every record walk the whole cache once upto - last_cleared >= batch.
+     Now the batch counts from the last walk (sl_clear_walked). Lifted the
+     real functions from both commits (`lift/h.c`): pinned, 100k records ->
+     old 98,993 walks, new 100; unpinned -> 100 walks / 100 clears in both.
+  2. _FOLLOW + sc_type_mask: the range ends only when a record at/past
+     sc_endrec passes the mask. Page says so.
+  3. "quiet is counted in records" reworded: event times, clock stands still.
+  4. Commit message described earlier patchsets (6 places): rewritten as
+     facts. The wider "cut the 200-line message down" is NOT done -- the
+     user's call.
+  68415 = 144a102640, tip f0c81d8530, checkpatch 0/2, sweep-f 17/17.
+  lreview on 68415 is not converging (3, 2, 4 findings on three runs).
