@@ -4,7 +4,23 @@ Every ticket and Gerrit id in play, and the ones that are *not* ours. Regenerate
 the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
 **2026-09-06**.
 
-## 2026-09-27 evening: PUSHED 68156-68416 (9 patchsets), 68094/68095 kept — start here
+## 2026-09-28: PUSHED 68156-68416 again (9 patchsets) — start here
+
+- **Overnight on the 09-27 PS:** five enforced failures, all known tickets,
+  linked + retested: 68157 sanity-lnet 236 (LU-19605), 68288 sanityn
+  42e/42f/43a (LU-19372 cross-talk), 68415 sanity-lfsck 18e (LU-17891),
+  68416 sanity-lfsck 18c (LU-20776) and sanityn 102 (LU-20501). The push
+  superseded those retests.
+- **AI:** 68156 dlopen RTLD_LAZY -> RTLD_NOW; 68157 trailing/unknown `%L`
+  off Lustre read past the format (the file arm's copy is upstream, so
+  `Fixes: 6b8e97b76c47`). Both proven A/B locally, replies Done + resolved.
+- **lreview** on both (docs/rounds/a-0928/lreview/): man3 xattr list,
+  68157 message, one comment fixed. **Held:** 68156 plugin ABI check (the
+  series adds one only at LU-20722 37c7de806a).
+- **Pushed** from `a0928-pushed` = 11958b50d1; 68094/68095 untouched.
+  Local tip `r0928b-tip`. Polling on (gpoll under Monitor).
+
+## 2026-09-27 evening: PUSHED 68156-68416 (9 patchsets), 68094/68095 kept
 
 - **Pushed** (user said push, after the retests went green): tag
   `a0927-pushed` = 56b7d250d8 in ~/lfs-artem-0924. 68156/68157 PS29,

@@ -1,0 +1,28 @@
+  HEAD_b3ef73f  LU-20606 llapi: scan an ldiskfs target directly (worktree)
+
+Reviewing 1 change(s), 5 in parallel, timeout 7200s each
+  prompts:   /home/nishida/projects/llm_code_and_review_tools/review-prompts/kernel
+             (via bundled submodule (/home/nishida/projects/llm_code_and_review_tools/review-prompts))
+  results:   /home/nishida/projects/llm_code_and_review_tools/lreview-results
+  worktrees: /home/nishida/projects/llm_code_and_review_tools/lreview-results/worktrees
+
+running: HEAD_b3ef73f 0m00s | done 0/1
+[HEAD_b3ef73f] review started: LU-20606 llapi: scan an ldiskfs target directly
+running: HEAD_b3ef73f 0m59s 464k tok | done 0/1
+running: HEAD_b3ef73f 2m00s 560k tok | done 0/1
+running: HEAD_b3ef73f 3m00s 985k tok | done 0/1
+running: HEAD_b3ef73f 4m00s 3.0M tok | done 0/1
+running: HEAD_b3ef73f 5m00s 4.3M tok | done 0/1
+running: HEAD_b3ef73f 6m00s 5.7M tok | done 0/1
+running: HEAD_b3ef73f 7m00s 6.3M tok | done 0/1
+running: HEAD_b3ef73f 8m00s 7.4M tok | done 0/1
+[HEAD_b3ef73f] 2 finding(s), severity low (8m51s, 8.4M tok, $4.39) -> gerrit-review-HEAD_b3ef73f.json
+
+=== Batch summary ===
+  HEAD_b3ef73f     findings (2 finding(s), severity low)  [8.4M tok, $4.39]
+  total: 8.4M tokens, $4.39
+
+Human-readable reports:
+  /home/nishida/projects/llm_code_and_review_tools/lreview-results/markdown/HEAD_b3ef73f_LU-20606_llapi_scan_an_ldiskfs_target_directly.md
+
+Full text dump: /home/nishida/projects/llm_code_and_review_tools/lreview-results/review-last1.txt

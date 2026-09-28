@@ -1,0 +1,25 @@
+  HEAD_3209065  LU-20611 llapi: split cb_find_init's decider out (worktree)
+
+Reviewing 1 change(s), 5 in parallel, timeout 7200s each
+  prompts:   /home/nishida/projects/llm_code_and_review_tools/review-prompts/kernel
+             (via bundled submodule (/home/nishida/projects/llm_code_and_review_tools/review-prompts))
+  results:   /home/nishida/projects/llm_code_and_review_tools/lreview-results
+  worktrees: /home/nishida/projects/llm_code_and_review_tools/lreview-results/worktrees
+
+running: HEAD_3209065 0m00s | done 0/1
+[HEAD_3209065] review started: LU-20611 llapi: split cb_find_init's decider out
+running: HEAD_3209065 0m59s 513k tok | done 0/1
+running: HEAD_3209065 2m00s 1.5M tok | done 0/1
+running: HEAD_3209065 3m00s 2.3M tok | done 0/1
+running: HEAD_3209065 4m00s 3.1M tok | done 0/1
+running: HEAD_3209065 5m00s 4.3M tok | done 0/1
+[HEAD_3209065] 3 finding(s), severity low (5m25s, 4.5M tok, $2.69) -> gerrit-review-HEAD_3209065.json
+
+=== Batch summary ===
+  HEAD_3209065     findings (3 finding(s), severity low)  [4.5M tok, $2.69]
+  total: 4.5M tokens, $2.69
+
+Human-readable reports:
+  /home/nishida/projects/llm_code_and_review_tools/lreview-results/markdown/HEAD_3209065_LU-20611_llapi_split_cb_find_init_s_decider_out.md
+
+Full text dump: /home/nishida/projects/llm_code_and_review_tools/lreview-results/review-last1.txt
