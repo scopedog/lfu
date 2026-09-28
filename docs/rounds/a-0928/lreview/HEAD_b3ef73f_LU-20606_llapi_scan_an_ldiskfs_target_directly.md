@@ -25,3 +25,7 @@ Perhaps say that a size reads trusted.lov, trusted.som and trusted.lmv, and drop
 This check only proves that the five symbols exist. struct llapi_scan_obj, llapi_scan_sink and llapi_scan_tgt are passed across the dlopen boundary by layout, and nothing checks the layout. If a later patch in the series changes one of them, an old plugin would read and write the wrong offsets without any error.
 
 Could the plugin export a small ABI version, or sizeof(struct llapi_scan_obj), and have scan_backend_load() refuse a mismatch with -ENOTSUP, the same way it refuses a missing symbol? mount_osd_*.so has the same gap already, so this is optional.
+
+## Decision
+
+68156 #2 (plugin ABI check): declined by the user 09-28. The check is in LU-20722 (37c7de806a). Local lreview finding, no Gerrit thread.

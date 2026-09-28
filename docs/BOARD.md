@@ -15,8 +15,8 @@ the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
   off Lustre read past the format (the file arm's copy is upstream, so
   `Fixes: 6b8e97b76c47`). Both proven A/B locally, replies Done + resolved.
 - **lreview** on both (docs/rounds/a-0928/lreview/): man3 xattr list,
-  68157 message, one comment fixed. **Held:** 68156 plugin ABI check (the
-  series adds one only at LU-20722 37c7de806a).
+  68157 message, one comment fixed. **Declined** (user): 68156 plugin ABI check (the
+  series adds it at LU-20722 37c7de806a).
 - **Pushed** from `a0928-pushed` = 11958b50d1; 68094/68095 untouched.
   Local tip `r0928b-tip`. Polling on (gpoll under Monitor).
 
