@@ -4,7 +4,29 @@ Every ticket and Gerrit id in play, and the ones that are *not* ours. Regenerate
 the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
 **2026-09-06**.
 
-## 2026-09-28: PUSHED 68156-68416 again (9 patchsets) — start here
+## 2026-09-28 end of day: CI on the new PS, polling stopped — start here
+
+- **Landed (Oleg):** 68231 PS9 (e663f903b2), 68616 PS5 (7c6f575611),
+  68617 PS4 (db233af35f).
+- **Maloo V+1:** 68156, 68157, 68159. 68158 and 68160 V-1 pending retests.
+- **Enforced failures, linked + retested:** 68288 sanityn 71c/70a ZFS OOM
+  (LU-20276, retested twice); 68415 sanityn 71c (LU-20276) and sanity-lfsck
+  18e (LU-17891); 68156 + 68416 sanityn cleanup d80b migrate_dir (LU-9827);
+  68416 sanity-lfsck 18c (LU-20776; Maloo had wrongly auto-linked
+  LU-17891); 68158 + 68416 sanity-quota 90a (LU-20774); 68160 sanity-lnet 236
+  (LU-19605).
+- **68160 conf-sanity 53b** "MDT start failed", mount ENODEV right after 53a
+  reloads modules; no ticket found, retested citing LU-852 (user chose),
+  not linked. If it fails again: raise a new ticket.
+- **68288 ZFS OOM:** crash is OSS ofd_destroy -> dmu_free_long_range (ZFS
+  2.4.0), no server code in our series, 68415 hit it too -> no GCP lab.
+  Open question: comment on LU-20276 that el9.7 test_70a is hit too.
+- **Janitor 68416:** sanity3@zfs 907 flagged "new", but seen in 65 other
+  reviews; noise.
+- **Next:** restart gpoll; check the pending retests (68158, 68160 x2,
+  68288, 68415 x2, 68416 x3). AI review not in yet on this PS.
+
+## 2026-09-28: PUSHED 68156-68416 again (9 patchsets)
 
 - **Overnight on the 09-27 PS:** five enforced failures, all known tickets,
   linked + retested: 68157 sanity-lnet 236 (LU-19605), 68288 sanityn
