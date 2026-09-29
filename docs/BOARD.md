@@ -4,7 +4,21 @@ Every ticket and Gerrit id in play, and the ones that are *not* ours. Regenerate
 the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
 **2026-09-06**.
 
-## 2026-09-28 end of day: CI on the new PS, polling stopped — start here
+## 2026-09-29: CI green on the whole series, polling on — start here
+
+- **Maloo + Jenkins V+1 on all nine:** 68156/68157 PS30, 68158/68159/68163
+  PS27, 68160 PS28, 68288 PS21, 68415/68416 PS19. Every enforced failure
+  from 09-28 passed its retest (incl. 68160 conf-sanity 53b); no new
+  enforced failures, no new tickets needed.
+- **master-next (Marc Vef, 09-29):** 68094, 68095 PS26 and 68413 PS9
+  tagged; tag removed from landed 68231/68616/68617. 68094/68095 stay frozen.
+- **Janitor** (advisory): sanity-pcc 1c, racer timeouts, recovery-small@zfs
+  155 on 68163, "new" failures flagged on 68288 and 68157 -- not triaged.
+- **No AI review or human comment** on the new PS yet.
+- Maloo was dropping connections on 09-29 morning; retry if a query fails.
+- **Next:** gpoll running (Monitor, 30 min).
+
+## 2026-09-28 end of day: CI on the new PS, polling stopped
 
 - **Landed (Oleg):** 68231 PS9 (e663f903b2), 68616 PS5 (7c6f575611),
   68617 PS4 (db233af35f).
