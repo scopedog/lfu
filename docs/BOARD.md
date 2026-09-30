@@ -4,7 +4,23 @@ Every ticket and Gerrit id in play, and the ones that are *not* ours. Regenerate
 the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
 **2026-09-06**.
 
-## 2026-09-29: CI green on the whole series, polling on — start here
+## 2026-09-30: quiet on Gerrit, owed items closed — start here
+
+- **Gerrit:** no AI review, human comment or -1 on any current PS of
+  68156-68416 (~2 days since the 09-28 push). Only -1s: Maloo on parked
+  68726 PS3 and 68417-68420 PS12 (09-11), left alone -- no retest (user).
+  Nothing to push: local tip == pushed. gpoll running.
+- **`llapi_uuid_match()` const cleanup (promised on 68159): DONE, unpushed.**
+  Standalone on master 4a7bddaf15: worktree `~/lfs-uuid-const`, branch
+  `uuid-match-const`, d17d163f5f, "LU-6142 llapi: make llapi_uuid_match()
+  arguments const". Syntax-checked -Werror (3 files), checkpatch clean.
+  Owed before push: lreview, and ask whether LU-6142 or its own ticket.
+- **68288 `sd_` rename: DROPPED (user 09-30).** Style only: scan_dirent and
+  scan_dev share the prefix, no behaviour. Our own lreview, not a reviewer's
+  request. Not worth a stack rewrite; may ride along only if 68288 is
+  changed for a real finding (rename scan_dirent's three fields to `de_`).
+
+## 2026-09-29: CI green on the whole series, polling on
 
 - **Maloo + Jenkins V+1 on all nine:** 68156/68157 PS30, 68158/68159/68163
   PS27, 68160 PS28, 68288 PS21, 68415/68416 PS19. Every enforced failure
