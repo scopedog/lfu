@@ -20,6 +20,15 @@ the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
   request. Not worth a stack rewrite; may ride along only if 68288 is
   changed for a real finding (rename scan_dirent's three fields to `de_`).
 
+- **HELD for the next AI round (user 09-30): fast-path example in
+  llapi_scan_namespace.3.** The EXAMPLES counter passes sp=NULL (want =
+  everything), so it costs a GETINFO_V2 per object; it needs only the type.
+  Fix: an llapi_scan_param with lfsp_want = LLAPI_SCAN_TYPE, plus one line:
+  that makes the walk readdir-only (scan_rec_gather() returns early without
+  MDT_MASK bits, liblustreapi_scan.c:473; the walker never getattrs a
+  known d_type, liblustreapi_pfind.c:7083). Page is 68095's (frozen) -> fold
+  into 68156 (f36c5d0492, touches the page), in the same rebase as the round.
+
 ## 2026-09-29: CI green on the whole series, polling on
 
 - **Maloo + Jenkins V+1 on all nine:** 68156/68157 PS30, 68158/68159/68163
