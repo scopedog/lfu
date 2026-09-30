@@ -10,11 +10,11 @@ the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
   68156-68416 (~2 days since the 09-28 push). Only -1s: Maloo on parked
   68726 PS3 and 68417-68420 PS12 (09-11), left alone -- no retest (user).
   Nothing to push: local tip == pushed. gpoll running.
-- **`llapi_uuid_match()` const cleanup (promised on 68159): DONE, unpushed.**
+- **`llapi_uuid_match()` const cleanup (promised on 68159): PUSHED 09-30 as 69339** (b1a24489bb, `Test-Parameters: trivial`, LU-6142; in gpoll).
   Standalone on master 4a7bddaf15: worktree `~/lfs-uuid-const`, branch
   `uuid-match-const`, d17d163f5f, "LU-6142 llapi: make llapi_uuid_match()
   arguments const". Syntax-checked -Werror (3 files), checkpatch clean.
-  lreview 09-30: clean, no findings (docs/rounds/a-0930/lreview/). Owed before push: ticket choice (LU-6142 or its own) and the user's OK.
+  lreview 09-30: clean, no findings (docs/rounds/a-0930/lreview/).
 - **68288 `sd_` rename: DROPPED (user 09-30).** Style only: scan_dirent and
   scan_dev share the prefix, no behaviour. Our own lreview, not a reviewer's
   request. Not worth a stack rewrite; may ride along only if 68288 is

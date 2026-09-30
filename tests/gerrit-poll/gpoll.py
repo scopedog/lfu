@@ -7,7 +7,8 @@ STATE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'seen.json')
 CHANGES = [68094,68095,68156,68157,68158,68159,68160,68163,68231,68288,68340,
            68413,69206,68414,68415,68416,68417,68418,68419,68420,68616,68617,
            # round 22 created these two: the batch API and the slash trim
-           68726,68727]
+           68726,68727,
+           69339]  # uuid_match const cleanup, 09-30
 Q = " OR ".join("change:%d" % c for c in CHANGES)
 
 def fetch():
