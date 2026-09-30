@@ -14,7 +14,7 @@ the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
   Standalone on master 4a7bddaf15: worktree `~/lfs-uuid-const`, branch
   `uuid-match-const`, d17d163f5f, "LU-6142 llapi: make llapi_uuid_match()
   arguments const". Syntax-checked -Werror (3 files), checkpatch clean.
-  Owed before push: lreview, and ask whether LU-6142 or its own ticket.
+  lreview 09-30: clean, no findings (docs/rounds/a-0930/lreview/). Owed before push: ticket choice (LU-6142 or its own) and the user's OK.
 - **68288 `sd_` rename: DROPPED (user 09-30).** Style only: scan_dirent and
   scan_dev share the prefix, no behaviour. Our own lreview, not a reviewer's
   request. Not worth a stack rewrite; may ride along only if 68288 is

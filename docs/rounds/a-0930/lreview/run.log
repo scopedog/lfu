@@ -1,0 +1,21 @@
+  HEAD_d17d163  LU-6142 llapi: make llapi_uuid_match() arguments const (worktree)
+
+Reviewing 1 change(s), 5 in parallel, timeout 7200s each
+  prompts:   /home/nishida/projects/llm_code_and_review_tools/review-prompts/kernel
+             (via bundled submodule (/home/nishida/projects/llm_code_and_review_tools/review-prompts))
+  results:   /home/nishida/projects/llm_code_and_review_tools/lreview-results
+  worktrees: /home/nishida/projects/llm_code_and_review_tools/lreview-results/worktrees
+
+running: HEAD_d17d163 0m00s | done 0/1
+[HEAD_d17d163] review started: LU-6142 llapi: make llapi_uuid_match() arguments const
+running: HEAD_d17d163 0m59s 574k tok | done 0/1
+[HEAD_d17d163] clean — no findings (1m07s, 638k tok, $0.62)
+
+=== Batch summary ===
+  HEAD_d17d163     clean  [638k tok, $0.62]
+  total: 638k tokens, $0.62
+
+Human-readable reports:
+  /home/nishida/projects/llm_code_and_review_tools/lreview-results/markdown/HEAD_d17d163_LU-6142_llapi_make_llapi_uuid_match_arguments_const.md
+
+Full text dump: /home/nishida/projects/llm_code_and_review_tools/lreview-results/review-last1.txt
