@@ -4,7 +4,21 @@ Every ticket and Gerrit id in play, and the ones that are *not* ours. Regenerate
 the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
 **2026-09-06**.
 
-## 2026-09-30: quiet on Gerrit, owed items closed — start here
+## 2026-09-30 end of day: polling stopped — start here
+
+- **AI reviewer silent Gerrit-wide since 09-28 03:23** (last: 68157 PS29);
+  so 68156-68416 PS from 09-28 still have no AI review. Not ours; ask
+  Patrick if it stays down.
+- **69339** (uuid_match const): Jenkins V+1, checkpatch/smatch OK; Maloo
+  not in yet. Janitor (advisory) ran anyway despite `trivial`: racer DNE
+  timeout, sanity-pcc 1c/1d both backends, sanity-quota 86@zfs -- same
+  master-wide noise as on the series 09-29; const-only patch cannot cause
+  them. Janitor also flagged the `trivial` line; left as is.
+  68159 thread 63f1ecc8 (the promise) not answered yet -- user's call.
+- **Next:** restart gpoll (Monitor); check 69339 Maloo; wait for the AI
+  round, then do it together with the HELD man-page item below.
+
+## 2026-09-30: quiet on Gerrit, owed items closed
 
 - **Gerrit:** no AI review, human comment or -1 on any current PS of
   68156-68416 (~2 days since the 09-28 push). Only -1s: Maloo on parked
