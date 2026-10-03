@@ -4,7 +4,20 @@ Every ticket and Gerrit id in play, and the ones that are *not* ours. Regenerate
 the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
 **2026-09-06**.
 
-## 2026-09-30 end of day: polling stopped — start here
+## 2026-10-03: polling stopped — start here
+
+- **69339** (uuid_match const): Maloo V+1 on PS1 (review-ldiskfs-dne,
+  RHEL 8.10).
+- **68094 PS26, npapakonstantinou** (/COMMIT_MSG:33): why sanity test_157c,
+  when test_157* is lustre.pin? Reply posted (user's words): "I thought 157c
+  was the next free number. Will move it to a free number in the next
+  change." Thread left **unresolved**. **OWED:** renumber the llapi_scan_test
+  run off 157* in the next change above 68094 (68094 itself stays frozen).
+- No AI review, -1 or other human comment otherwise.
+- **Next:** restart gpoll; do the 157c renumber with the next AI round,
+  together with the HELD man-page item below.
+
+## 2026-09-30 end of day: polling stopped
 
 - **AI reviewer silent Gerrit-wide since 09-28 03:23** (last: 68157 PS29);
   so 68156-68416 PS from 09-28 still have no AI review. Not ours; ask
