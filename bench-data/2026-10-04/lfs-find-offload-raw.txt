@@ -1,0 +1,84 @@
+lfs find offloaded (LU-20721) vs the walk, one binary, two arms
+==============================================================
+2026-10-04.  GCP us-central1-a, two c3-standard-8 Rocky 9.8 instances:
+lfu-off-srv (MGS + MDT0 + OST0 on loop files, pd-balanced) and lfu-off-cli.
+Both built from branch lfs-find-offload (worktree ~/lfs-find-offload,
+osd-fix-0917 + 42eed1e556 subtree + the lfs find change), 2.17.58_67;
+userspace rebuilt at 8c663511a2 and installed by hand (md5 checked).
+Fixture: tests/lab-offload/04-populate.sh, the 09-10 shape, 87,944 files.
+Arms: lfs find SCOPE --no-offload -mtime -30 -type f  (walk)
+      lfs find SCOPE --offload    -mtime -30 -type f  (llapi_scan_mount)
+      auto: lfs find / -uid 0 -type f, no flag (offloaded by the rule)
+Caches dropped on both nodes before every timed run, arms alternated, N=5.
+Oracle: sorted PATHNAMES, walk vs offload, every scope: diff 0.
+
+Medians (tests/lab-offload/summarise.py):
+/          walk 4.969  offload 0.582   8.5x
+/bench     walk 4.902  offload 0.580   8.5x
+/bench/d3  walk 1.618  offload 0.521   3.1x
+/d0        walk 0.061  offload 0.510   8.4x slower
+/ auto     walk 4.957  auto    0.578   8.6x
+
+Not comparable with 2026-09-10 (30x): local VMs there, walk 8.9 s; and
+that offload arm printed FIDs from a harness, this one is lfs find
+building the directory map and printing pathnames.
+
+== version: 2.17.58_67_gec890bd srv: 2.17.58_67_gec890bd
+== oracle: sorted pathnames, walk vs offload
+/          walk  87944  offload  87944  diff 0  stderr: 
+/bench     walk  87894  offload  87894  diff 0  stderr: 
+/bench/d3  walk  10000  offload  10000  diff 0  stderr: 
+/d0        walk     50  offload     50  diff 0  stderr: 
+auto /     walk  87944  auto    87944  diff 0  ioctls 38 (a walk makes one per file)
+== timed: scope arm count wall
+/ walk 87944 5.130
+/ offload 87944 0.585
+/bench walk 87894 4.964
+/bench offload 87894 0.580
+/bench/d3 walk 10000 1.674
+/bench/d3 offload 10000 0.522
+/d0 walk 50 0.060
+/d0 offload 50 0.510
+/ auto-walk 87944 5.093
+/ auto 87944 0.583
+/ walk 87944 4.980
+/ offload 87944 0.581
+/bench walk 87894 4.987
+/bench offload 87894 0.583
+/bench/d3 walk 10000 1.642
+/bench/d3 offload 10000 0.521
+/d0 walk 50 0.061
+/d0 offload 50 0.513
+/ auto-walk 87944 4.980
+/ auto 87944 0.579
+/ walk 87944 4.969
+/ offload 87944 0.583
+/bench walk 87894 4.875
+/bench offload 87894 0.577
+/bench/d3 walk 10000 1.618
+/bench/d3 offload 10000 0.520
+/d0 walk 50 0.061
+/d0 offload 50 0.507
+/ auto-walk 87944 4.870
+/ auto 87944 0.576
+/ walk 87944 4.816
+/ offload 87944 0.578
+/bench walk 87894 4.872
+/bench offload 87894 0.576
+/bench/d3 walk 10000 1.558
+/bench/d3 offload 10000 0.517
+/d0 walk 50 0.061
+/d0 offload 50 0.506
+/ auto-walk 87944 4.870
+/ auto 87944 0.575
+/ walk 87944 4.891
+/ offload 87944 0.582
+/bench walk 87894 4.902
+/bench offload 87894 0.583
+/bench/d3 walk 10000 1.511
+/bench/d3 offload 10000 0.522
+/d0 walk 50 0.073
+/d0 offload 50 0.514
+/ auto-walk 87944 4.957
+/ auto 87944 0.578
+STAGE5 OK
