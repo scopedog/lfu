@@ -4,6 +4,15 @@ Every ticket and Gerrit id in play, and the ones that are *not* ours. Regenerate
 the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
 **2026-09-06**.
 
+## 2026-10-04: polling stopped — start here
+
+- Gerrit quiet since 10-03 16:32 (npapakonstantinou's 157c question to
+  adilger on 68094 PS26, still unanswered). Nothing to push.
+- JLUG26 slides: sections now follow the slide-3 topic list; API slides
+  moved after the OSD slide. Wording unchanged.
+- **Next:** restart gpoll; 157c renumber waits on Andreas; man-page item
+  still HELD for the next AI round.
+
 ## 2026-10-03 evening: polling on, nothing to push
 
 - **68094 PS26:** npapakonstantinou 16:32: "We don't use to change test
