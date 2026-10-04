@@ -4,6 +4,16 @@ Every ticket and Gerrit id in play, and the ones that are *not* ours. Regenerate
 the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
 **2026-09-06**.
 
+## 2026-10-03 evening: polling on, nothing to push
+
+- **68094 PS26:** npapakonstantinou 16:32: "We don't use to change test
+  numbers", asked adilger. Waiting on Andreas; the 157c renumber depends on it.
+- **User marked the open comment threads resolved** (10-03).
+- **68159 thread 63f1ecc8** (uuid_match const) was already answered and
+  resolved 09-26; 69339 keeps the promise. A "Done in 69339" note is
+  optional. Once 69339 lands, drop the cast and its comment in 68159.
+- Local == Gerrit for 68156-68416, 69339, 69206. gpoll running (Monitor).
+
 ## 2026-10-03: polling stopped — start here
 
 - **69339** (uuid_match const): Maloo V+1 on PS1 (review-ldiskfs-dne,
