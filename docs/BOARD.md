@@ -4,6 +4,28 @@ Every ticket and Gerrit id in play, and the ones that are *not* ours. Regenerate
 the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
 **2026-09-06**.
 
+## 2026-10-04 afternoon: lfs find offload BUILT and measured (LU-20721)
+
+- **Branch `lfs-find-offload`**, worktree `~/lfs-find-offload` (in
+  lustre-scanfid): `osd-fix-0917` + `42eed1e556` (subtree, cherry-picked,
+  conflicts resolved: filter before `ss_emitted++`) + `8c663511a2` "LU-20721
+  lfs: find offloads a whole-filesystem search". **Unpushed**; 2.19 work.
+- `llapi_find_offload()` runs find's predicates over `llapi_scan_mount()`;
+  pathnames from the dirmap, respelled like the walk (`fc_top` names the
+  start dir). Auto only at the fs root, CAP_SYS_ADMIN, and no predicate the
+  MDT answers differently (times, size/blocks, -links, layout, depth,
+  xattr, printf, --ost/--mdt) and not dirent-only. `--offload` forces (subtree
+  too), `--no-offload` never. Any failure before the first record walks.
+- **Measured on GCP** (`tests/lab-offload/`, `bench-data/2026-10-04/`):
+  8.5x at the root (4.969 -> 0.582 s), 3.1x at 11.4%, 8.4x slower at 50
+  files; pathname oracle diff 0 on every scope. Not comparable with 09-10's
+  30x (different hosts; harness printed FIDs). Instances `lfu-off-srv`,
+  `lfu-off-cli` STOPPED, not deleted (boot disks bill).
+- JLUG26 slides 15-16 updated to these numbers; slide 15 no longer claims
+  the filter runs on the MDT (pushdown into lfu.ko is still open).
+- **Not done:** multi-MDT parallelism (thread count pinned to 1), DNE,
+  sanity coverage, lreview.
+
 ## 2026-10-04: polling stopped — start here
 
 - Gerrit quiet since 10-03 16:32 (npapakonstantinou's 157c question to
