@@ -1,0 +1,66 @@
+=== lustre-release: 178b368d01 LU-20650 tests: sanity cases for find's changelog flags
+16
+lustre-release: build took 102s
+=== lustre-old: de4bd92802 LU-20650 tests: sanity cases for find's changelog flags
+16
+lustre-old: build took 100s
+2
+STAGE2 OK
+---
+=== version: 2.17.58_54_g178b368
+sanity rc=0
+  PASS 157a (1s)
+  PASS 157b (0s)
+  PASS 157c (0s)
+conf-sanity rc=0
+  PASS 300 (97s)
+  SKIP 301 (0s)
+  PASS 302 (4s)
+  SKIP 303 (0s)
+  PASS 304 (79s)
+STAGE3 DONE
+---
+sanity rc=0
+  PASS 56Ea (7s)
+  PASS 56Eaa (0s)
+  PASS 56Eab (0s)
+  PASS 56Eb (1s)
+  PASS 56Ebb (0s)
+  PASS 56Ec (0s)
+  PASS 56Ed (2s)
+  PASS 56Eda (0s)
+  PASS 56Edb (0s)
+  PASS 56Ef (1s)
+  PASS 56Eg (0s)
+  PASS 56Eh (10s)
+  PASS 56Ei (0s)
+  PASS 56Ej (0s)
+  PASS 56Ek (1s)
+  PASS 56El (0s)
+  PASS 56Eea (9s)
+  PASS 160Aa (17s)
+  PASS 160Ab (9s)
+  PASS 160Ac (11s)
+  PASS 160Ad (3s)
+  PASS 160Ae (3s)
+STAGE3C DONE
+---
+both arms load their own liblustreapi
+MDTS:
+0: lustre-MDT0000_UUID ACTIVE
+1: lustre-MDT0001_UUID ACTIVE
+changelog users: cl1 cl1
+MDT0000 records: 7
+MDT0001 records: 7
+old rc=0 lines=9 dups=3
+  old dup: /mnt/lustre/d0/f3
+  old dup: /mnt/lustre/d0/g1
+  old dup: /mnt/lustre/d1/f1
+new rc=0 lines=6 dups=0
+PASS A1 control: old prints 3 objects twice
+PASS A1: new prints each object once
+PASS A1: same set of paths
+PASS A1: answer not empty
+lustre-MDT0000: Deregistered changelog user #1
+lustre-MDT0001: Deregistered changelog user #1
+STAGE4 ALL PASS

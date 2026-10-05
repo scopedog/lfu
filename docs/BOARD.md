@@ -30,9 +30,17 @@ the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
   == fixup tip; per-commit sweep in ~/lrv2-sweep (utils-only configure)
   clean at all 10 after one fix (fss_as_recorded split 68417/68418);
   checkpatch counts unchanged.
-- **NOT yet run on Lustre.** The owed GCP lab now also needs: DNE
-  (mdscount>=2) --since with a remote mkdir / cross-MDT rename printing
-  once; 160Ac no-root arm; --device sweep refusal consistency.
+- **GCP lab GREEN, both backends** (tests/lab-1005, results/; instances
+  deleted): MDSCOUNT=2 OSTCOUNT=2, sanity 56E* 160A* 22/22 and 157a-c,
+  conf-sanity 300-304 (301/303 skip on ZFS by design). A/B old vs new
+  liblustreapi: A1 --since on DNE, old printed 3 objects twice, new once,
+  same path set (ldiskfs + ZFS); A2 impossible --device search, old rc=0
+  on 2 of 4 devices, new refuses on all 4. Not lab-proven: 68415
+  sl_accepted (needs a _CLEAR + hold-limit harness), 68418 depth-0.
+- Lab traps: ONLY="56E" matches nothing (basetest gives "56"), name every
+  subtest; sanity.sh needs llmount.sh first; conf-sanity tests are 300-304.
+- **Next:** draft Gerrit replies (~40 AI threads), human threads, then
+  the push-ask.
 
 ## 2026-10-05 end of day: polling stopped
 

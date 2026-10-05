@@ -1,0 +1,1161 @@
+From ed7024395f3b32de81c2e856e334f053a2b50f52 Mon Sep 17 00:00:00 2001
+From: Hiroshi Nishida <hnishida@thelustrecollective.com>
+Date: Wed, 26 Aug 2026 07:45:11 -0700
+Subject: [PATCH 12/16] LU-20650 llapi: fill a scan record for one FID
+
+llapi_scan_namespace() walks what exists, llapi_scan_device() reads
+what exists on a target, and llapi_scan_changelog() reads what
+happened.  A consumer holding a FID had no way in, so the changelog
+module resolved privately and with fstat() alone: mode, nlink, uid,
+gid, three times, size and blocks, and nothing else.  A record filled
+that way answers -size and -mtime but not -stripe-count, --hsm-state
+or -projid, so "lfs find --since -stripe-count 4" would answer
+differently from a plain find on the same filesystem.  That is a
+defect rather than a difference of provenance: --since promises what
+is true now, verified through the mount.  This patch adds the call;
+the search moves onto it in "lfs: find --changelog, the log as
+source", which is where that example starts answering.
+
+The default demand mask is the walk's, so --hsm-state and -projid
+still want naming in lfsp_want; what the call fixes without being
+asked is the layout, which is what the example above turns on.
+
+llapi_scan_fid() is the fourth way into the record and fills it the
+way the walk does, because it is the walk's own gather.  It resolves
+the FID to a pathname and gathers there rather than gathering from a
+descriptor opened by FID: scan_rec_gather() is path-oriented
+throughout -- get_lmd_info_fd() wants a parent descriptor and a name,
+get_projid() opens by path, and the HSM and MDT-index branches open
+the path themselves -- so the alternative is an fd-shaped twin of
+every one of those, which is the second copy of the knowledge
+LU-20611 existed to remove.  Resolution is not an added cost on the
+caller that wants this: --since prints pathnames and prefix-matches
+them for its subtree restriction, so it needs the pathname anyway.
+
+What that costs is stated rather than buried: per object one fid2path,
+one type-only statx and one open of the object or its parent, and
+CAP_DAC_READ_SEARCH unless llite.*.user_fid2path is set.  The statx
+asks for STATX_TYPE alone deliberately: anything touching size, blocks
+or mtime keeps need_glimpse set in ll_getattr_dentry() and buys an OST
+glimpse per regular file that the gather then discards.
+An object unlinked since the caller learned of it no longer resolves
+and comes back -ENOENT, which for a consumer asking what is true now
+is the answer and not an error.
+
+The call fills a fresh record and never reads one in.  A consumer
+merging it into a record it already holds decides which fields it
+lets this one supply, which is what will keep --changelog --resolve
+filling only what the stream lacks.
+
+A filter that returns a positive value skips the object, as it does
+for the other three scanners, and the call returns 0 rather than
+handing that value back to a caller testing `if (rc)`.  The gather
+runs against a pathname, so the FID it found is checked against the
+one asked for and a name unlinked and recreated underneath it answers
+-ESTALE rather than a record for a different object.
+
+Only lfsp_want, lfsp_filter and lfsp_got are used from the parameter
+block.
+lfsp_max_depth, lfsp_stats, lfsp_search and lfsp_fsname describe a
+traversal there is none of and are ignored; lfsp_thread_count above 1
+is refused rather than ignored, because a caller setting it has
+misunderstood the call.
+
+It widens a lfsp_want of 0 through LLAPI_SCAN_WANT_DEFAULT, the
+definition llapi_scan_namespace() already uses, so the two mount-side
+entry points mean the same thing by 0.
+
+A trailing slash on mnt_path is trimmed before the pathname is
+composed, and the leading slashes of fid2path's answer are stripped.
+Without the trim, "/mnt/lustre/" with the root FID would leave
+lfsr_name on the terminating NUL -- which lustreapi.h says means NULL,
+not empty -- and every other FID would get a doubled separator in
+lfsr_path.
+
+The flags the other scanners define are ignored here, but a bit
+outside them is refused with -EINVAL, as llapi_scan_fid.3 says.
+
+llapi_find_device() clears lfsp_got.  scan_param_copyin() copies the
+caller's block whole, so the caller's pointer came through and was
+answered with find's own demand mask -- a mask for a question the
+caller never asked.  The field's kernel-doc is rewritten with it, to
+say that it is per scan rather than per library and why it is reached
+through a pointer.
+
+The call's own syscalls go through mnt_fd, not through the composed
+pathname.  The FID was already resolved through that descriptor; the
+statx and the open of the parent, or of a directory itself, use it
+too, at the name fid2path answered.  An fd pins its mount where a path
+string is resolved afresh every time.  The opens scan_rec_gather()
+makes for LLAPI_SCAN_PROJID, LLAPI_SCAN_HSM and a regular file's
+LLAPI_SCAN_MDT_INDEX are still by pathname, so for those three
+mnt_path does decide what is read.  It also takes the mount prefix
+off the call's own lookups, which over a changelog's worth of FIDs is
+what this entry point is for.
+
+mnt_fd has to be the mount root, as llapi_root_path_open() returns:
+the ioctl sends the FID of mnt_fd's inode as the root, and MDT0
+refuses any other root with -EXDEV; under DNE another MDT may answer
+-ENOENT or a relative path instead.  mnt_path is required and is what
+lfsr_path is built from, so a wrong one mislabels the answer.
+
+llapi_scan_test gains a case for it, so sanity 157c runs it: one
+record for a known FID, checked against the pathname and the basename
+the client sees; a filter that skips, which is a success with nothing
+delivered; the argument refusals, including the -EBADF that a
+negative mnt_fd has to answer rather than the -EINVAL that also means
+"this FID has no name"; and a FID that resolves to nothing, which
+must fail and deliver no record whichever way it fails.
+
+Signed-off-by: Hiroshi Nishida <hnishida@thelustrecollective.com>
+Assisted-by: ClaudeCode:Opus-5 llm_code_and_review_tools
+Change-Id: I796db84d3fe596b1cfa93658dcfeb240db8e33a5
+---
+ Documentation/man3/Makefile.am         |   1 +
+ Documentation/man3/llapi_find_device.3 |  13 +-
+ Documentation/man3/llapi_scan_fid.3    | 304 ++++++++++++++++++++
+ Documentation/man7/lustreapi.7         |   1 +
+ include/lustre/lustreapi.h             |  31 ++-
+ lustre/tests/llapi_scan_test.c         | 181 ++++++++++++
+ lustre/utils/liblustreapi_pfind.c      |  13 +-
+ lustre/utils/liblustreapi_scan.c       | 367 ++++++++++++++++++++++++-
+ 8 files changed, 895 insertions(+), 16 deletions(-)
+ create mode 100644 Documentation/man3/llapi_scan_fid.3
+
+diff --git a/Documentation/man3/Makefile.am b/Documentation/man3/Makefile.am
+index 7de61fa608..aa4412326a 100644
+--- a/Documentation/man3/Makefile.am
++++ b/Documentation/man3/Makefile.am
+@@ -136,6 +136,7 @@ LIBMAN = 					\
+ 	llapi_rmfid_at.3			\
+ 	llapi_scan_changelog.3			\
+ 	llapi_scan_device.3			\
++	llapi_scan_fid.3			\
+ 	llapi_scan_namespace.3			\
+ 	llapi_scan_rec_path.3			\
+ 	llapi_search_mdt.3			\
+diff --git a/Documentation/man3/llapi_find_device.3 b/Documentation/man3/llapi_find_device.3
+index 5111be603a..937849cff3 100644
+--- a/Documentation/man3/llapi_find_device.3
++++ b/Documentation/man3/llapi_find_device.3
+@@ -63,14 +63,19 @@ takes, or NULL for its defaults, so a knob added there needs no change here.
+ .I lfsp_flags
+ carries
+ .B LLAPI_SCAN_F_INTERNAL
+-as it does for a scan.  Four of its fields are the search's to decide and
++as it does for a scan.  Five of its fields are the search's to decide and
+ are overwritten whatever the caller set:
+ .IR lfsp_want ,
+ .IR lfsp_thread_count ,
+-.I lfsp_stats
++.IR lfsp_stats ,
++.I lfsp_filter
+ and
+-.IR lfsp_filter .
+-The last goes because there is no caller data to pair a filter with: the
++.IR lfsp_got .
++.I lfsp_got
++is left untouched rather than filled for the caller: it would report the
++demand mask the search settled on and not the one the caller asked for.
++.I lfsp_filter
++goes because there is no caller data to pair a filter with: the
+ scan carries this function's own state, and a caller's callback would be
+ handed that.
+ .LP
+diff --git a/Documentation/man3/llapi_scan_fid.3 b/Documentation/man3/llapi_scan_fid.3
+new file mode 100644
+index 0000000000..8ed51f62d4
+--- /dev/null
++++ b/Documentation/man3/llapi_scan_fid.3
+@@ -0,0 +1,304 @@
++.TH LLAPI_SCAN_FID 3 2026-08-26 "Lustre User API" "Lustre Library Functions"
++.SH NAME
++llapi_scan_fid \- fill a scan record for one FID
++.SH SYNOPSIS
++.nf
++.B #include <lustre/lustreapi.h>
++.PP
++.BI "int llapi_scan_fid(int " mnt_fd ", const char *" mnt_path ,
++.BI "                   const struct lu_fid *" fid ,
++.BI "                   const struct llapi_scan_param *" sp ,
++.BI "                   llapi_scan_cb_t " cb ", void *" data ");"
++.PP
++.fi
++.SH DESCRIPTION
++.B llapi_scan_fid()
++fills a
++.B struct llapi_scan_rec
++for the object named by
++.I fid
++and calls
++.I cb
++once with it.
++.LP
++It is the fourth way into that record, beside
++.BR llapi_scan_namespace (3),
++which walks what exists below a path,
++.BR llapi_scan_device (3),
++which reads what exists on a target, and
++.BR llapi_scan_changelog (3),
++which reads what happened on an MDT. It exists so that a consumer holding a
++FID fills a record the way a walk fills one \(em layout, HSM state, project id
++and MDT index included \(em rather than from a
++.BR stat (2)
++of its own, which can answer only the predicates
++.BR stat (2)
++covers.
++.LP
++.I mnt_fd
++is an open descriptor on the root of a client mount of the filesystem the FID
++belongs to, as
++.BR llapi_root_path_open (3)
++returns. It is the filesystem: the FID is resolved through it, and a directory,
++or the parent of anything else, is opened through it too, at the name
++.BR llapi_fid2path (3)
++answered. The root, rather than any descriptor in the filesystem, because that
++name is relative to it. The opens that gather a project id, HSM state and a
++regular file's MDT index are still made by pathname, through
++.IR mnt_path .
++.LP
++.I mnt_path
++is that mount's path and is required, but it is only the spelling: it is what
++the record's
++.I lfsr_path
++is built from, since
++.BR llapi_fid2path (3)
++answers relative to the filesystem root and a caller needs the whole name. A
++.I mnt_path
++that does not name the mount
++.I mnt_fd
++is open on mislabels the answer. That is
++where this differs from
++.BR llapi_scan_rec_path (3),
++which formats a name for the caller to read rather than opening it. A caller
++filling records for many FIDs opens the mount once and passes the same
++descriptor and path to each call.
++.LP
++The FID is resolved to a pathname with
++.BR llapi_fid2path (3)
++and the record is gathered there, so the caller needs what that needs:
++.B CAP_DAC_READ_SEARCH
++unless
++.B llite.*.user_fid2path
++is set.
++.LP
++.I sp
++is the same parameter block the other scanners take, but only
++.IR lfsp_want ,
++.I lfsp_got
++and
++.I lfsp_filter
++mean anything here:
++.IR lfsp_max_depth ,
++.IR lfsp_stats ,
++.I lfsp_search
++and
++.I lfsp_fsname
++describe a traversal there is none of and are ignored, so that one block can
++be shared with a walk.
++.I lfsp_flags
++is accepted for the same reason \(em a block shared with
++.BR llapi_scan_device (3)
++may carry
++.B LLAPI_SCAN_F_INTERNAL
++\(em and every flag it defines is ignored here, there being no traversal to
++stop and no target of its own to read; a bit outside them is still refused
++with
++.BR \-EINVAL .
++.LP
++.I lfsp_filter
++sees what a directory entry would carry:
++.IR lfsr_path ,
++.I lfsr_name
++and the file type in
++.IR lfsr_stx.stx_mode ,
++with
++.I lfsr_parent_fd
++and
++.I lfsr_fd
++set to \-1. It runs after the FID is resolved to a name and the type is read,
++and before the object is opened or anything else is gathered.
++A
++.I lfsp_thread_count
++above 1 is refused rather than ignored, because a caller setting it has
++misunderstood the call. Pass NULL for the defaults.
++.LP
++The record is filled from the live object, and nothing in it is carried in
++from the caller. A consumer merging the result into a record it already holds
++decides for itself which fields it lets this call supply, and so keeps
++the rule that resolution fills what a stream lacks and never restates what it
++has.
++.LP
++The record is valid only for the duration of the call, as it is for the other
++three: a consumer that needs a field afterwards must copy it, including
++anything
++.IR lfsr_path ,
++.IR lfsr_name ,
++.I lfsr_lmm
++or
++.I lfsr_lmv
++points at.
++.I lfsr_parent_fd
++is \-1 for a directory, which is what a walk reports for one above a single
++thread, and both descriptors are closed when the call returns.
++.LP
++A hardlinked object has one pathname per link and the record is gathered at
++the first the MDT lists, as
++.BR llapi_scan_rec_path (3)
++returns it. The caller does not choose which link that is, so a consumer
++restricting by pathname \(em a subtree filter over
++.I lfsr_path
++\(em takes or leaves a file linked both inside and outside its subtree
++according to that order.
++.LP
++When
++.I lfsp_want
++needs the MDT, the call allocates per object: it runs the same parameter
++setup a search does, roughly 70K of buffers for the layout and the directory
++stripe, freed before it returns.
++That is a per-scan cost for the other entry points and a per-object one here.
++A demand mask of
++.B LLAPI_SCAN_TYPE
++alone skips that setup.
++The FID lookup is paid either way: a small buffer and one request to the
++MDT per call.
++.SH RETURN VALUES
++.TP
++0
++The record was filled and
++.I cb
++was called \(em or a
++.I lfsp_filter
++skipped the object, in which case no record was delivered. A single call
++cannot tell the two apart, since
++.I lfsp_stats
++is ignored here.
++.TP
++\-ENOENT
++.I fid
++has no pathname: unlinked since the caller learned of it, or an object a
++target keeps for itself. For a consumer asking what is true now, this is the
++answer rather than an error.
++.TP
++\-ESTALE
++The name
++.I fid
++resolved to no longer holds it: it was unlinked and recreated while the
++record was being gathered, so the record would have described a different
++object. Only a
++.I lfsp_want
++naming a field other than
++.B LLAPI_SCAN_TYPE
++can detect this \(em the FID to compare against comes from the gather, and a
++name-only demand mask does none, so such a call describes whatever held the
++name when it was read.
++.TP
++\-EPERM
++The caller may not resolve FIDs.
++.TP
++\-EBADF
++.I mnt_fd
++is negative. Its own errno, not
++.BR EINVAL ,
++because that one also means \(lqthis FID has no name\(rq \(em see
++.BR llapi_scan_rec_path (3),
++which answers the same way.
++.TP
++\-EINVAL
++.IR mnt_path ,
++.I fid
++or
++.I cb
++is NULL, or
++.I sp
++is malformed \(em a bad
++.IR lfsp_size ,
++an unknown flag, or a
++.I lfsp_thread_count
++above 1. It is also what the server answers for a FID with no name at all;
++see
++.BR ERRORS .
++.PP
++A negative errno otherwise. If
++.I cb
++returns non-zero, that value is returned unchanged. A
++.I lfsp_filter
++returning a positive value skips the object; a negative one is returned
++unchanged, and neither reaches
++.IR cb .
++.SH ERRORS
++.TP 15
++.B -ENOENT
++.I fid
++has no pathname.
++.TP 15
++.B -ESTALE
++the name it resolved to holds a different object now. Not detected when
++.I lfsp_want
++names nothing but
++.BR LLAPI_SCAN_TYPE ;
++see above. A directory shard's FID answers this too, where it is detected:
++fid2path names the striped directory the shard belongs to, whose FID is the
++master's. Resolve the master instead. So does an OST object's FID: fid2path
++names the file that owns it, whose FID is on an MDT. The lookup also goes
++through that OST, so it waits while the OST is down. Name the owner instead
++.RB ( lfsr_owner_fid
++from a scan).
++.TP 15
++.B -EPERM
++the caller may not resolve FIDs; see
++.BR llapi_fid2path_at (3).
++.TP 15
++.B -EBADF
++.I mnt_fd
++is negative.
++.TP 15
++.B -EXDEV
++.I mnt_fd
++is not the mount root: the MDT answers only for the root the mount has.
++Under DNE, an MDT other than MDT0000 does not check this and may answer
++.B -ENOENT
++or a path relative to
++.I mnt_fd
++instead, so pass the mount root.
++.TP 15
++.B -EINVAL
++an argument is NULL or out of range, or
++.I sp
++is malformed \(em but also what the server answers for a FID that
++.BR fid_is_namespace_visible ()
++excludes, such as an
++.I O/<seq>/LAST_ID
++of the kind a target scan reports in quantity.
++.BR llapi_fid2path_at (3)
++returns that unchanged, so treat it as
++.I this object has no name
++as well as a bad argument, as
++.BR llapi_scan_rec_path (3)
++documents.
++.TP 15
++.B -ENAMETOOLONG
++the resolved pathname does not fit under
++.IR mnt_path .
++.SH EXAMPLES
++Fill a record for one FID and read its layout:
++.EX
++        static int cb(const struct llapi_scan_rec *rec, void *data)
++        {
++                if (rec->lfsr_valid & LLAPI_SCAN_LAYOUT)
++                        printf("%s: %u bytes of layout\en",
++                               rec->lfsr_path, rec->lfsr_lmmsize);
++                return 0;
++        }
++\&
++        int mnt_fd;
++        int rc;
++\&
++        rc = llapi_root_path_open("/mnt/lustre", &mnt_fd);
++        if (rc == 0)
++                rc = llapi_scan_fid(mnt_fd, "/mnt/lustre", &fid, NULL, cb,
++                                    NULL);
++.EE
++.SH AVAILABILITY
++.B llapi_scan_fid()
++is part of the
++.BR lustre (7)
++user application interface library since release 2.18.0.
++.\" Added in commit v2_17_57-xxx-gxxxxxxxxx
++.SH SEE ALSO
++.BR llapi_fid2path (3),
++.BR llapi_scan_changelog (3),
++.BR llapi_scan_device (3),
++.BR llapi_scan_namespace (3),
++.BR llapi_scan_rec_path (3),
++.BR lustreapi (7)
+diff --git a/Documentation/man7/lustreapi.7 b/Documentation/man7/lustreapi.7
+index a7feb5a8ec..a7743cdddd 100644
+--- a/Documentation/man7/lustreapi.7
++++ b/Documentation/man7/lustreapi.7
+@@ -135,6 +135,7 @@ Functions for walking a filesystem and reporting a record per object.
+ .BR llapi_find_device (3),
+ .BR llapi_scan_changelog (3),
+ .BR llapi_scan_device (3),
++.BR llapi_scan_fid (3),
+ .BR llapi_scan_namespace (3),
+ .BR llapi_scan_rec_path (3)
+ .SS Persistent Client Cache (PCC)
+diff --git a/include/lustre/lustreapi.h b/include/lustre/lustreapi.h
+index 5af5e22cea..46b6c5dad0 100644
+--- a/include/lustre/lustreapi.h
++++ b/include/lustre/lustreapi.h
+@@ -997,13 +997,20 @@ struct llapi_scan_param {
+ 	__u8			 lfsp_thread_count;
+ 	__u8			 lfsp_padding[7];	/* must be zero */
+ 	/*
+-	 * Where the scan reports what lfsp_want actually came to, or NULL
+-	 * when the caller does not want to know.  A bit this library does
+-	 * not define, or defines but this scan cannot answer for, is
+-	 * dropped rather than refused, so a caller built against a newer
+-	 * header may ask for more than it gets.  Where lfsp_want is 0,
+-	 * meaning the scanner's own default, this reports what that
+-	 * default came to.
++	 * Filled before the first record with the subset of lfsp_want this
++	 * scan will answer for, or NULL if the caller does not want to know.
++	 * An out-parameter reached through a pointer, as lfsp_stats is,
++	 * because the parameter block itself is const to the scan.
++	 *
++	 * Per scan and not a property of the library: what a scan can answer
++	 * depends on which entry point it is and on the target it opened --
++	 * an OST answers LLAPI_SCAN_OWNER where an MDT answers
++	 * LLAPI_SCAN_LMV -- so this is the answer for the scan actually
++	 * being run.  A bit the library does not define, or this scan cannot
++	 * answer for, is dropped rather than refused, so a caller built
++	 * against a newer header may ask for more than it gets.  Where
++	 * lfsp_want is 0, meaning the scanner's own default, lfsp_got reports
++	 * what that default came to.
+ 	 */
+ 	__u64			*lfsp_got;
+ 	/* filled in when the scan ends.  NULL: not wanted */
+@@ -1032,6 +1039,16 @@ int llapi_scan_namespace(const char *path, const struct llapi_scan_param *sp,
+ 			 llapi_scan_cb_t cb, void *data);
+ int llapi_scan_device(const char *device, const struct llapi_scan_param *sp,
+ 		      llapi_scan_cb_t cb, void *data);
++/* one object, named by FID and filled through a mount.  lfsp_want,
++ * lfsp_filter and lfsp_got are what act here; there is no traversal to
++ * bound or to thread, so lfsp_max_depth, lfsp_stats, lfsp_search and
++ * lfsp_fsname are ignored and lfsp_thread_count above 1 is refused, a
++ * caller setting it having misunderstood the call.  lfsp_size, lfsp_flags
++ * and lfsp_padding are validated as llapi_scan_device() validates them.
++ */
++int llapi_scan_fid(int mnt_fd, const char *mnt_path, const struct lu_fid *fid,
++		   const struct llapi_scan_param *sp, llapi_scan_cb_t cb,
++		   void *data);
+ 
+ int llapi_file_fget_mdtidx(int fd, int *mdtidx);
+ int llapi_dir_set_default_lmv(const char *name,
+diff --git a/lustre/tests/llapi_scan_test.c b/lustre/tests/llapi_scan_test.c
+index 1904f58154..e4aa9cc267 100644
+--- a/lustre/tests/llapi_scan_test.c
++++ b/lustre/tests/llapi_scan_test.c
+@@ -17,6 +17,7 @@
+ #include <ftw.h>
+ #include <fnmatch.h>
+ #include <getopt.h>
++#include <libgen.h>
+ #include <assert.h>
+ #include <limits.h>
+ #include <pthread.h>
+@@ -755,6 +756,185 @@ static void test10(void)
+ 	ASSERTF(rc == 0, "cannot clean %s: %s", root, strerror(errno));
+ }
+ 
++/* what test17 keeps of the one record it asks for */
++struct fid_seen {
++	unsigned int	fs_count;
++	char		fs_path[PATH_MAX];
++	char		fs_name[NAME_MAX + 1];
++	__u64		fs_valid;
++	int		fs_fd;
++	int		fs_parent_fd;
++	__u32		fs_stx_mask;
++	__u32		fs_lmmsize;
++};
++
++static int fid_cb(const struct llapi_scan_rec *rec, void *data)
++{
++	struct fid_seen *fs = data;
++
++	fs->fs_count++;
++	fs->fs_valid = rec->lfsr_valid;
++	fs->fs_fd = rec->lfsr_fd;
++	fs->fs_stx_mask = rec->lfsr_stx.stx_mask;
++	fs->fs_lmmsize = rec->lfsr_lmmsize;
++	fs->fs_parent_fd = rec->lfsr_parent_fd;
++	if (rec->lfsr_path != NULL)
++		snprintf(fs->fs_path, sizeof(fs->fs_path), "%s",
++			 rec->lfsr_path);
++	if (rec->lfsr_name != NULL)
++		snprintf(fs->fs_name, sizeof(fs->fs_name), "%s",
++			 rec->lfsr_name);
++
++	return 0;
++}
++
++/* skip: a success with no record delivered */
++static int fid_skip_cb(const struct llapi_scan_rec *rec, void *data)
++{
++	(void)rec;
++	(void)data;
++
++	return 1;
++}
++
++#define T17_DESC "llapi_scan_fid fills one record for one FID"
++static void test17(void)
++{
++	struct llapi_scan_param sp = { .lfsp_size = sizeof(sp) };
++	char mnt[PATH_MAX], want[PATH_MAX], copy[PATH_MAX];
++	char slashed[PATH_MAX + 1];
++	struct fid_seen fs;
++	struct lu_fid fid;
++	struct lu_fid dfid;
++	int mnt_fd = -1;
++	int rc;
++
++	make_tree();
++
++	rc = snprintf(want, sizeof(want), "%s/one.txt", testdir);
++	ASSERTF(rc > 0 && (size_t)rc < sizeof(want), "path too long");
++
++	rc = llapi_path2fid(want, &fid);
++	ASSERTF(rc == 0, "path2fid(%s) failed: %s", want, strerror(-rc));
++
++	/*
++	 * The mount the FID belongs to, twice over: the descriptor every
++	 * syscall goes through, and the spelling lfsr_path is built from.
++	 */
++	rc = llapi_search_mounts(want, 0, mnt, NULL);
++	ASSERTF(rc == 0, "no Lustre mount for %s: %s", want, strerror(-rc));
++	rc = llapi_root_path_open(mnt, &mnt_fd);
++	ASSERTF(rc == 0, "cannot open %s: %s", mnt, strerror(-rc));
++
++	memset(&fs, 0, sizeof(fs));
++	rc = llapi_scan_fid(mnt_fd, mnt, &fid, &sp, fid_cb, &fs);
++	ASSERTF(rc == 0, "llapi_scan_fid failed: %s", strerror(-rc));
++	ASSERTF(fs.fs_count == 1, "%u records for one FID", fs.fs_count);
++	ASSERTF(strcmp(fs.fs_path, want) == 0,
++		"lfsr_path is '%s', expected '%s'", fs.fs_path, want);
++	snprintf(copy, sizeof(copy), "%s", want);
++	ASSERTF(strcmp(fs.fs_name, basename(copy)) == 0,
++		"lfsr_name is '%s', expected '%s'", fs.fs_name,
++		basename(copy));
++	/* the default demand mask gathers, so the MDT answered for it */
++	ASSERTF((fs.fs_valid & LLAPI_SCAN_FID) != 0,
++		"the record carries no FID: lfsr_valid %#llx",
++		(unsigned long long)fs.fs_valid);
++	/* and the layout, which is what this call is for */
++	ASSERTF((fs.fs_valid & LLAPI_SCAN_LAYOUT) != 0 && fs.fs_lmmsize > 0,
++		"one.txt has no layout: lfsr_valid %#llx lfsr_lmmsize %u",
++		(unsigned long long)fs.fs_valid, fs.fs_lmmsize);
++
++	/* a trailing slash on mnt_path is trimmed, not doubled into the path */
++	rc = snprintf(slashed, sizeof(slashed), "%s/", mnt);
++	ASSERTF(rc > 0 && (size_t)rc < sizeof(slashed), "path too long");
++	memset(&fs, 0, sizeof(fs));
++	rc = llapi_scan_fid(mnt_fd, slashed, &fid, &sp, fid_cb, &fs);
++	ASSERTF(rc == 0, "llapi_scan_fid under '%s' failed: %s", slashed,
++		strerror(-rc));
++	ASSERTF(strcmp(fs.fs_path, want) == 0,
++		"lfsr_path under '%s' is '%s', expected '%s'", slashed,
++		fs.fs_path, want);
++	ASSERTF(strcmp(fs.fs_name, basename(copy)) == 0,
++		"lfsr_name under '%s' is '%s', expected '%s'", slashed,
++		fs.fs_name, basename(copy));
++
++	/* LLAPI_SCAN_TYPE alone: named from the path, no MDT and no FID */
++	sp.lfsp_want = LLAPI_SCAN_TYPE;
++	memset(&fs, 0, sizeof(fs));
++	rc = llapi_scan_fid(mnt_fd, mnt, &fid, &sp, fid_cb, &fs);
++	ASSERTF(rc == 0, "a name-only llapi_scan_fid failed: %s",
++		strerror(-rc));
++	ASSERTF(fs.fs_count == 1, "%u name-only records", fs.fs_count);
++	ASSERTF(strcmp(fs.fs_path, want) == 0,
++		"name-only lfsr_path is '%s', expected '%s'", fs.fs_path, want);
++	/* the type is a statx field, so it is in stx_mask */
++	ASSERTF((fs.fs_stx_mask & STATX_TYPE) != 0 &&
++		(fs.fs_valid & LLAPI_SCAN_FID) == 0,
++		"name-only stx_mask %#x lfsr_valid %#llx", fs.fs_stx_mask,
++		(unsigned long long)fs.fs_valid);
++	sp.lfsp_want = 0;
++
++	/* a directory: its own fd is open, and it has no parent fd */
++	rc = llapi_path2fid(testdir, &dfid);
++	ASSERTF(rc == 0, "path2fid(%s) failed: %s", testdir, strerror(-rc));
++	memset(&fs, 0, sizeof(fs));
++	rc = llapi_scan_fid(mnt_fd, mnt, &dfid, &sp, fid_cb, &fs);
++	ASSERTF(rc == 0, "llapi_scan_fid on a directory failed: %s",
++		strerror(-rc));
++	ASSERTF(fs.fs_count == 1, "%u records for a directory", fs.fs_count);
++	ASSERTF(fs.fs_fd >= 0 && fs.fs_parent_fd == -1,
++		"a directory has lfsr_fd %d and lfsr_parent_fd %d",
++		fs.fs_fd, fs.fs_parent_fd);
++
++	/* a filter that skips is a success with nothing delivered */
++	sp.lfsp_filter = fid_skip_cb;
++	memset(&fs, 0, sizeof(fs));
++	rc = llapi_scan_fid(mnt_fd, mnt, &fid, &sp, fid_cb, &fs);
++	ASSERTF(rc == 0, "a filtered-out FID returned %d", rc);
++	ASSERTF(fs.fs_count == 0, "a skipped object delivered %u records",
++		fs.fs_count);
++	sp.lfsp_filter = NULL;
++
++	/*
++	 * The arguments, and the two errnos kept apart: a negative descriptor
++	 * is -EBADF, because -EINVAL here also means "this FID has no name"
++	 * and a consumer folding the two would count every object nameless
++	 * and exit 0.
++	 */
++	rc = llapi_scan_fid(-1, mnt, &fid, &sp, fid_cb, &fs);
++	ASSERTF(rc == -EBADF, "a negative mnt_fd returned %d, expected -EBADF",
++		rc);
++	rc = llapi_scan_fid(mnt_fd, NULL, &fid, &sp, fid_cb, &fs);
++	ASSERTF(rc == -EINVAL, "a NULL mnt_path returned %d", rc);
++	rc = llapi_scan_fid(mnt_fd, mnt, &fid, &sp, NULL, &fs);
++	ASSERTF(rc == -EINVAL, "a NULL callback returned %d", rc);
++	rc = llapi_scan_fid(mnt_fd, mnt, NULL, &sp, fid_cb, &fs);
++	ASSERTF(rc == -EINVAL, "a NULL fid returned %d", rc);
++
++	/* there is no traversal here to thread, and a caller asking for one
++	 * has misunderstood the call
++	 */
++	sp.lfsp_thread_count = 2;
++	rc = llapi_scan_fid(mnt_fd, mnt, &fid, &sp, fid_cb, &fs);
++	ASSERTF(rc == -EINVAL, "lfsp_thread_count 2 returned %d", rc);
++	sp.lfsp_thread_count = 0;
++
++	/*
++	 * A FID that resolves to nothing.  Which errno depends on what the
++	 * server makes of it -- -ENOENT for a FID with no name, -EINVAL for
++	 * one fid_is_namespace_visible() excludes -- so the assertion is
++	 * that it fails and delivers nothing, not which way it fails.
++	 */
++	memset(&fs, 0, sizeof(fs));
++	fid.f_oid = 0xfffffffe;
++	rc = llapi_scan_fid(mnt_fd, mnt, &fid, &sp, fid_cb, &fs);
++	ASSERTF(rc < 0, "a FID that resolves to nothing returned %d", rc);
++	ASSERTF(fs.fs_count == 0, "a FID with no name delivered a record");
++
++	close(mnt_fd);
++}
++
+ static struct test_tbl_entry test_tbl[] = {
+ 	TEST_REGISTER(0),
+ 	TEST_REGISTER(1),
+@@ -767,6 +947,7 @@ static struct test_tbl_entry test_tbl[] = {
+ 	TEST_REGISTER(8),
+ 	TEST_REGISTER(9),
+ 	TEST_REGISTER(10),
++	TEST_REGISTER(17),
+ 	TEST_REGISTER_END
+ };
+ 
+diff --git a/lustre/utils/liblustreapi_pfind.c b/lustre/utils/liblustreapi_pfind.c
+index 9a54274e6b..d6f0013b1a 100644
+--- a/lustre/utils/liblustreapi_pfind.c
++++ b/lustre/utils/liblustreapi_pfind.c
+@@ -4600,11 +4600,12 @@ static int find_device_cb(const struct llapi_scan_rec *rec, void *data)
+  * given the objects the target keeps for itself as well as the ones a
+  * namespace can reach.
+  *
+- * Four fields are the search's to decide and are overwritten whatever the
++ * Five fields are the search's to decide and are overwritten whatever the
+  * caller set: lfsp_want (the predicates decide it), lfsp_thread_count,
+- * lfsp_stats and lfsp_filter.  lfsp_filter goes because this function has
+- * no void *data of its own to give it: the scan carries find's state, and a
+- * caller's callback would be handed that and read it as its own context.
++ * lfsp_stats, lfsp_filter and lfsp_got.  lfsp_filter goes because this
++ * function has no void *data of its own to give it: the scan carries find's
++ * state, and a caller's callback would be handed that and read it as its own
++ * context.
+  *
+  * Return: 0 on success, or a negative errno.
+  */
+@@ -4806,6 +4807,10 @@ int llapi_find_device(const char *target, struct find_param *param,
+ 	spl.lfsp_want = find_device_want(param);
+ 	st.fds_printf_lmm = param->fp_format_printf_str != NULL &&
+ 			    (spl.lfsp_want & LLAPI_SCAN_LAYOUT) != 0;
++	/* find's own demand mask, not the caller's, so the caller's lfsp_got
++	 * would answer for a question it did not ask
++	 */
++	spl.lfsp_got = NULL;
+ 	spl.lfsp_stats = &stats;
+ 	/* see the note above: there is no caller data to pair it with */
+ 	spl.lfsp_filter = NULL;
+diff --git a/lustre/utils/liblustreapi_scan.c b/lustre/utils/liblustreapi_scan.c
+index ad3b6e7a31..e555452d96 100644
+--- a/lustre/utils/liblustreapi_scan.c
++++ b/lustre/utils/liblustreapi_scan.c
+@@ -645,7 +645,6 @@ int llapi_scan_namespace(const char *path, const struct llapi_scan_param *sp,
+ 	st.ss_cb = cb;
+ 	st.ss_filter = sp ? sp->lfsp_filter : NULL;
+ 	st.ss_data = data;
+-	/* everything, except what costs an ioctl or an open per object */
+ 	st.ss_want = scan_want_widen(sp && sp->lfsp_want ? sp->lfsp_want :
+ 					 LLAPI_SCAN_WANT_DEFAULT);
+ 	scan_param_report_got(sp, st.ss_want, LLAPI_SCAN_WANT_KNOWN_NS);
+@@ -679,6 +678,372 @@ int llapi_scan_namespace(const char *path, const struct llapi_scan_param *sp,
+ 	return st.ss_stop_rc != 0 ? st.ss_stop_rc : rc;
+ }
+ 
++/**
++ * llapi_scan_fid() - fill a record for one FID, as a walk would fill it
++ * @mnt_fd:	the root of a client mount of the filesystem the FID
++ *		belongs to, as llapi_root_path_open() returns
++ * @mnt_path:	that mount's path, which the resolved name is relative to.
++ *		Required: the record is gathered at the pathname this builds,
++ *		so a filesystem-root-relative one would name the wrong object
++ * @fid:	the object to fill a record for
++ * @sp:		scan parameters, or NULL for the defaults.  Only
++ *		lfsp_want, lfsp_filter and lfsp_got mean anything here:
++ *		lfsp_max_depth, lfsp_stats, lfsp_search and lfsp_fsname
++ *		describe a traversal or a target there is none of and are
++ *		ignored, so that one block can be shared with a walk.
++ *		lfsp_flags is accepted for the same reason and every flag it
++ *		defines is ignored, but a bit outside them is still refused
++ *		with -EINVAL.  lfsp_thread_count above 1 is refused rather
++ *		than ignored, because a caller setting it has misunderstood
++ *		the call
++ * @cb:		called once, with the record
++ * @data:	passed to @cb and to sp->lfsp_filter untouched
++ *
++ * The fourth way into struct llapi_scan_rec, beside a namespace walk, a
++ * target scan and a changelog.  It exists so that a consumer holding a FID --
++ * a changelog reader, above all -- fills a record the same way the walk does,
++ * the layout included, rather than from an fstat() of its own that answers six
++ * predicates out of eighty.  The default demand mask is the walk's, so the
++ * three fields that cost an ioctl or an open per object -- LLAPI_SCAN_HSM,
++ * LLAPI_SCAN_PROJID and LLAPI_SCAN_MDT_INDEX -- arrive only when lfsp_want
++ * names them.
++ *
++ * The FID is resolved to a pathname and the record gathered there, which is
++ * why the caller needs whatever llapi_fid2path_at() needs:
++ * CAP_DAC_READ_SEARCH, unless llite.*.user_fid2path is set.  An object that
++ * has been unlinked since the caller learned of it no longer resolves and is
++ * reported as -ENOENT; for a consumer asking what is true now, that is the
++ * answer rather than an error to work around.
++ *
++ * The record is filled from the live object and nothing in it is carried in
++ * from the caller.  A consumer merging this into a record it already holds
++ * decides for itself which fields it lets this one supply -- which is how
++ * lfs find --changelog --resolve uses it, filling only what the stream
++ * lacks.
++ *
++ * A hardlinked object has one pathname per link and the record is gathered
++ * at the first, as llapi_scan_rec_path() returns it.  The MDT's order picks
++ * that link, not the caller, so a consumer restricting by
++ * pathname -- a subtree filter over lfsr_path -- takes or leaves a file
++ * linked both inside and outside its subtree according to that order.
++ *
++ * When the demand mask needs the MDT, the call allocates: it runs
++ * common_param_init(), roughly 70K of buffers for the layout and the
++ * directory stripe, freed before returning.  That is a per-scan cost for the
++ * other entry points and a per-object one here.  A mask inside
++ * LLAPI_SCAN_DIRENT_MASK skips that.  The FID lookup is paid either way: a
++ * small buffer and one request to the MDT per call.
++ *
++ * The record is valid only for the duration of the call, as it is for the
++ * other three: lfsr_path, lfsr_name, lfsr_lmm and lfsr_lmv point at
++ * buffers that go when it returns, and lfsr_parent_fd and lfsr_fd are
++ * closed.  lfsr_parent_fd is -1 for a directory, which is what the walk
++ * reports for one above a single thread.
++ *
++ * @mnt_fd is the filesystem and @mnt_path mostly the spelling.  The syscalls
++ * this function makes -- the statx, and the open of a directory or of the
++ * parent -- go through @mnt_fd and the name fid2path answered: an fd pins its
++ * mount, where a path string is resolved afresh each time and can be a mount
++ * that has since been replaced.  That name is relative to the mount root,
++ * so @mnt_fd has to be the mount root, which is what llapi_root_path_open()
++ * returns.  The ioctl sends the FID of @mnt_fd's inode as the root, and
++ * MDT0 refuses any other root with -EXDEV.  Under DNE another MDT may
++ * answer -ENOENT or a path relative to that root instead.
++ * scan_rec_gather() still opens by pathname for LLAPI_SCAN_PROJID,
++ * LLAPI_SCAN_HSM and a regular file's LLAPI_SCAN_MDT_INDEX, so for those
++ * @mnt_path does decide what is read.
++ * @mnt_path is what the record's lfsr_path is built from, so a wrong one
++ * mislabels the answer.
++ *
++ * @mnt_fd has to be a mount of the filesystem @fid belongs to, and nothing
++ * here can check it: FID sequences are not unique across filesystems, so a
++ * mount of the wrong one resolves the FID and gathers a complete record for
++ * an unrelated object, with rc 0 and nothing said.  The -ESTALE guard does
++ * not catch it either -- the FID the gather reads back is numerically the
++ * one that was asked for.  llapi_scan_rec_path() carries the same warning
++ * and only formats a name; this one goes on to open and gather, so the
++ * caller has more to lose by getting it wrong.  lfsp_fsname is
++ * llapi_scan_device()'s answer to this and is ignored here.
++ *
++ * Return: 0 on success; -EBADF for a negative @mnt_fd, which is not folded
++ * into -EINVAL because that errno carries a meaning of its own here; -ENOENT
++ * if the FID has no pathname; -EINVAL for a
++ * FID fid_is_namespace_visible() excludes -- an O/<seq>/LAST_ID and its kind,
++ * which a target scan hands out plenty of -- so it means "this object has no
++ * name" as well as a bad argument, as it does for llapi_scan_rec_path();
++ * -EPERM if the caller may not resolve FIDs; -ESTALE if the name resolved to
++ * a different object by the time the record was gathered, which only a
++ * lfsp_want naming a field in LLAPI_SCAN_MDT_MASK can detect -- a name-only
++ * demand mask does no gather and so fetches no FID to compare; a negative
++ * errno otherwise.  A callback returning non-zero has its value returned
++ * unchanged.
++ */
++int llapi_scan_fid(int mnt_fd, const char *mnt_path, const struct lu_fid *fid,
++		   const struct llapi_scan_param *sp, llapi_scan_cb_t cb,
++		   void *data)
++{
++	struct llapi_scan_param spl = { 0 };
++	struct find_param param = { 0 };
++	struct llapi_scan_rec rec;
++	char path[PATH_MAX + 1];
++	char mnt[PATH_MAX];
++	char rel[PATH_MAX];
++	/* the object, named from the mount root: what the statx and opens
++	 * below resolve through @mnt_fd, and the tail of the @mnt_path
++	 * spelling the record carries
++	 */
++	char *rp;
++	const char *at;
++	long long recno = -1;
++	int linkno = 0;
++	mode_t mode;
++	__u64 want;
++	int p = -1;
++	int d = -1;
++	int fd = -1;
++	int rc;
++
++	/*
++	 * -EBADF and not -EINVAL, as llapi_scan_rec_path() answers for the
++	 * same mistake: -EINVAL here also means "this FID has no name", so a
++	 * consumer looping over a changelog with a mount it failed to open
++	 * would count every object nameless and exit 0.
++	 */
++	if (mnt_fd < 0)
++		return -EBADF;
++	/*
++	 * mnt_path is not optional, as it is for llapi_scan_rec_path(): that
++	 * call formats a name for the caller to read, this one opens it.  A
++	 * filesystem-root-relative path would name whatever sits at the same
++	 * place under / -- nothing, usually, but not always the nothing the
++	 * caller would notice.
++	 */
++	if (mnt_path == NULL || *mnt_path == '\0' ||
++	    fid == NULL || cb == NULL)
++		return -EINVAL;
++
++	/* the copy-in rule the other entry points use, for the same reason.
++	 * A caller sharing one parameter block with llapi_scan_device() may
++	 * be carrying LLAPI_SCAN_F_INTERNAL, which means nothing here;
++	 * accepting and ignoring it is what makes the block shareable, which
++	 * is the whole point of taking sp at all.
++	 */
++	if (sp != NULL) {
++		rc = scan_param_copyin(&spl, sp, LLAPI_SCAN_F_KNOWN_DEV);
++		if (rc != 0)
++			return rc;
++		sp = &spl;
++		if (sp->lfsp_thread_count > 1)
++			return -EINVAL;
++	}
++
++	want = scan_want_widen(sp && sp->lfsp_want ? sp->lfsp_want :
++			       LLAPI_SCAN_WANT_DEFAULT);
++	scan_param_report_got(sp, want, LLAPI_SCAN_WANT_KNOWN_NS);
++
++	rc = llapi_fid2path_at(mnt_fd, fid, rel, sizeof(rel), &recno, &linkno);
++	if (rc < 0)
++		return rc;
++
++	/*
++	 * fid2path answers relative to the filesystem root, and "/" for the
++	 * root itself, which would compose "<mnt>//" and leave the record's
++	 * lfsr_name on the terminating NUL.  A trailing slash on the caller's
++	 * mnt_path does the same, and doubles the separator for every other
++	 * object, so it goes the way llapi_scan_namespace() trims its own
++	 * path argument.
++	 */
++	rc = snprintf(mnt, sizeof(mnt), "%s", mnt_path);
++	if (rc < 0 || rc >= (int)sizeof(mnt))
++		return -ENAMETOOLONG;
++	while (rc > 1 && mnt[rc - 1] == '/')
++		mnt[--rc] = '\0';
++
++	rp = rel;
++	while (*rp == '/')
++		rp++;
++	/* the root itself, whose name from the mount root is no name at all */
++	at = *rp != '\0' ? rp : ".";
++	if (*rp == '\0')
++		rc = snprintf(path, sizeof(path), "%s", mnt);
++	else if (mnt[0] == '/' && mnt[1] == '\0')
++		rc = snprintf(path, sizeof(path), "/%s", rp);
++	else
++		rc = snprintf(path, sizeof(path), "%s/%s", mnt, rp);
++	if (rc < 0 || rc >= (int)sizeof(path))
++		return -ENAMETOOLONG;
++
++	/*
++	 * Only the type is wanted, and asking for only the type matters:
++	 * ll_getattr_dentry() keeps need_glimpse set whenever
++	 * STATX_SIZE, STATX_BLOCKS or STATX_MTIME is requested, so a plain
++	 * lstat() -- which glibc turns into STATX_BASIC_STATS -- costs an OST
++	 * glimpse per regular file, and the answer is then thrown away by the
++	 * gather below.  AT_SYMLINK_NOFOLLOW so a symlink is itself.
++	 */
++#ifdef HAVE_STATX
++	{
++		struct statx stx;
++
++		if (statx(mnt_fd, at, AT_SYMLINK_NOFOLLOW, STATX_TYPE,
++			  &stx) < 0) {
++			rc = -errno;
++			goto out;
++		}
++		mode = stx.stx_mode;
++	}
++#else
++	{
++		struct stat st;
++
++		if (fstatat(mnt_fd, at, &st, AT_SYMLINK_NOFOLLOW) < 0) {
++			rc = -errno;
++			goto out;
++		}
++		mode = st.st_mode;
++	}
++#endif
++
++	/*
++	 * Before the open, which is what lustreapi.h promises: lfsp_filter is
++	 * "called before any I/O on the object".  On a walk the descriptor
++	 * is the traversal's and costs nothing, but here it is an open RPC
++	 * per FID, and the intended consumer -- a subtree restriction that
++	 * prefix-matches lfsr_path over a changelog's worth of FIDs -- would
++	 * pay one for every object it is about to discard.  The filter needs
++	 * only lfsr_path, lfsr_name and the type, all of which are in hand.
++	 * lfsr_parent_fd and lfsr_fd are -1 here, as llapi_scan_changelog()
++	 * hands its own filter.
++	 */
++	scan_rec_dirent(&rec, path, -1, -1, NULL);
++	/*
++	 * There is no dirent here, so supply what one would have: lfsp_filter
++	 * is documented to see LLAPI_SCAN_TYPE, and a caller wanting nothing
++	 * outside LLAPI_SCAN_DIRENT_MASK would otherwise get an empty record,
++	 * scan_rec_gather() having nothing in LLAPI_SCAN_MDT_MASK to do.
++	 */
++	rec.lfsr_stx.stx_mode = mode;
++	rec.lfsr_stx.stx_mask |= STATX_TYPE;
++
++	if (sp != NULL && sp->lfsp_filter != NULL) {
++		rc = sp->lfsp_filter(&rec, data);
++		/*
++		 * A positive value is "skip this object", which the other
++		 * three scanners absorb: the walk still returns 0.  Answering
++		 * it here would read as a failure to a caller testing `if
++		 * (rc)`.  A negative value is the caller's own stop, and is
++		 * returned unchanged.
++		 */
++		if (rc > 0) {
++			rc = 0;
++			goto out;
++		}
++		if (rc < 0)
++			goto out;
++	}
++
++	/*
++	 * Only when the gather has something to do.  scan_rec_gather()
++	 * returns at its first line unless lfsp_want names a field in
++	 * LLAPI_SCAN_MDT_MASK, and LLAPI_SCAN_TYPE is not in that mask -- so
++	 * the name-only mode this function advertises would otherwise pay a
++	 * descriptor nothing reads, and inherit the ways it can fail: a FID
++	 * under a 0711 directory the caller does not own answers -EACCES,
++	 * with lfsr_path, lfsr_name and the type already complete.
++	 *
++	 * Which descriptor the gather wants depends on what the object is: a
++	 * directory is ioctl'd on itself, anything else through its parent
++	 * and its name.
++	 */
++	if (want & LLAPI_SCAN_MDT_MASK) {
++		/*
++		 * And the buffers only here, for the reason the open below
++		 * is here: common_param_init() callocs the lmd and lmv
++		 * scratch, some 70KB of it, and a filter that rejected the
++		 * object or a name-only demand mask never reaches the gather
++		 * that reads them, so neither pays for them.  The FID lookup
++		 * above is paid either way.
++		 * find_param_fini() at out: is safe on the zeroed struct a
++		 * path that never gets here leaves behind.
++		 */
++		rc = common_param_init(&param, path);
++		if (rc != 0)
++			goto out;
++
++		if (S_ISDIR(mode)) {
++			d = openat(mnt_fd, at,
++				   O_RDONLY | O_NDELAY | O_DIRECTORY);
++			if (d < 0) {
++				/* replaced by a non-directory */
++				rc = errno == ENOTDIR ? -ESTALE : -errno;
++				goto out;
++			}
++		} else {
++			char *slash = strrchr(rp, '/');
++
++			/*
++			 * open_parent() is open() plus dirname(); this is the
++			 * same thing from the mount.  An object directly
++			 * under it has the mount for a parent -- opened again
++			 * rather than dup()ed, so the close at out: owns it
++			 * whichever arm ran.  Only a directory reaches the
++			 * arm above with no name at all, so rp is not empty
++			 * here.
++			 */
++			if (slash == NULL) {
++				p = openat(mnt_fd, ".",
++					   O_RDONLY | O_NDELAY | O_DIRECTORY);
++			} else {
++				*slash = '\0';
++				p = openat(mnt_fd, rp,
++					   O_RDONLY | O_NDELAY | O_DIRECTORY);
++				*slash = '/';
++			}
++			if (p < 0) {
++				rc = -errno;
++				goto out;
++			}
++		}
++		rec.lfsr_parent_fd = p;
++		rec.lfsr_fd = d;
++
++		rc = scan_rec_gather(&param, path, p, d, &fd, want, &rec);
++		if (rc < 0)
++			goto out;
++	}
++
++	/*
++	 * The gather ran against the pathname, and a name can be unlinked and
++	 * recreated between the resolve above and here -- a build tree does
++	 * it -- so the record would describe whatever holds the name now.
++	 * The FID it carries is the object actually found.
++	 *
++	 * Only the gather fetches that FID, so this catches nothing in the
++	 * name-only mode above: there the record describes whatever holds the
++	 * name at the moment it was read.  The kernel-doc says so.  A gather
++	 * that ran and found no FID found something off Lustre -- a symlink
++	 * swapped in on the path, or a mount over a directory -- and that is
++	 * not the object asked for either.
++	 */
++	if ((want & LLAPI_SCAN_MDT_MASK) &&
++	    (!(rec.lfsr_valid & LLAPI_SCAN_FID) ||
++	     !lu_fid_eq(&rec.lfsr_fid, fid))) {
++		rc = -ESTALE;
++		goto out;
++	}
++
++	rc = cb(&rec, data);
++out:
++	if (fd >= 0)
++		close(fd);
++	if (d >= 0)
++		close(d);
++	if (p >= 0)
++		close(p);
++	find_param_fini(&param);
++	return rc;
++}
++
+ /**
+  * llapi_scan_rec_path() - the pathname of a scanned object
+  * @mnt_fd: an open descriptor on a client mount of the same filesystem, as
+-- 
+2.43.0
+

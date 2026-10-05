@@ -1,0 +1,792 @@
+From ae9b2ca3a3ec971fd4dffb0df6c7520f3d444368 Mon Sep 17 00:00:00 2001
+From: Hiroshi Nishida <hnishida@thelustrecollective.com>
+Date: Wed, 26 Aug 2026 08:48:12 -0700
+Subject: [PATCH 16/16] LU-20650 tests: sanity cases for find's changelog flags
+
+Five sanity cases.  160Aa asserts the promise --since is worth having
+-- that its answer is a subset of the same find without it, and a
+smaller one -- rather than asserting a particular file, so it does not
+depend on what else the filesystem is doing.  It names the files it
+expects rather than only counting them, since a count that merely
+shrank is also satisfied by returning nothing, and it widens the gap
+around its window so a node that spends seconds in sync does not
+change what the test means.  Its locals stay separate from the
+assignments that fill them, and it sorts off the pipeline rather than
+in it: "local x=$(...)" takes local's own exit status, which is always
+0, and a command piped into sort reports sort's, so either shape would
+let a failing lfs find read as the empty answer the index case
+asserts.
+
+160Ab walks the refusals: -size, an object time, --maxdepth, a path
+below the mount, an unknown MDT, -perm, -links, --mdt-count,
+--mdt-hash and --xattr are each refused, --resolve on its own is
+refused rather than dropped, and a named MDT is accepted as the other
+half of --changelog's argument.  It asserts the --resolve answer
+rather than the exit status alone: -size needs a strict size, the MDT
+holds only the lazy one, and a resolution that did not glimpse left
+every object "could not be decided" while still exiting 0.  It also
+asserts -printf's %s, which reads the same size through a widened
+gather, that --projid is answered rather than failing on the first
+record, and that a subtree search under --resolve answers for that
+subtree and not the whole filesystem.
+
+160Ab also covers the two things that make --changelog worth having
+over --since, which the man page leads with: an object unlinked since
+its event is still in the answer, and its FID names it once no
+pathname does.  It ends on -name, which is answered from the record:
+the log is cleared, one file that predates the clear is written to --
+data stores, which carry no name -- and another is created.  The
+named one has to come back and the nameless one must not, so a -name
+that matched everything fails the second assertion and one that
+matched nothing fails the first.
+
+160Ac runs the cookie three times: the first writes it, the second
+returns the new object and not the old one, the third returns
+nothing, and then a stale anchor and both anchors together are
+refused, as is the cookie under a root other than its own.  A run
+whose output cannot be written must fail and leave the cookie as it
+was, so that the run after it still returns the object.  It asks for
+creations only.  A wide mask records the test's own reads, and then
+"nothing changed since" is never true -- which is what hid an
+off-by-one in the cookie until a narrow mask made every run repeat
+the last object of the one before it.
+
+A test that asserts a precondition instead of creating one only holds
+where that precondition happens to be true.  160Ac's stale anchor is
+made rather than assumed -- records the cookie has not consumed, then
+a purge, then one more past the hole -- because writing index 1 is
+only older than the oldest surviving record on a filesystem that
+already has changelog history.  On a fresh one index 1 IS the oldest
+record, nothing was purged, and refusing would be wrong.  A cookie
+whose index is past the end of the log stands in for a restarted log
+and is refused as well.
+
+160Ac also feeds the cookie two files it is never written with: one
+whose MDT index is negative, and one whose header names another
+filesystem.  Neither is a bad anchor to ignore -- the first indexes
+the anchor array far past its end, and the second is a whole-log
+rescan of this filesystem plus the loss of the other one's anchors --
+so one has to be ignored and the other refused, and the file it
+refuses has to still be there afterwards.
+
+160Ad hardlinks one file into two directories and searches under each.
+A changelog names an object by FID, and fid2path answers with one of
+its names -- the first linkea entry, the one the file was created
+under -- so a search rooted at the other directory is answered about a
+name that is not under it, and -name about a basename the object does
+not go by there.  Without the links being walked it finds the file
+under a and loses it under b, which is a silent miss and the worst
+shape a wrong answer can take.
+
+160Ae renames one file to a new name and another over an existing
+one, and checks that --since finds both under their new names and
+--changelog -name finds the first: a rename to a new name has a zero
+target FID, and the moved object is only the rename source.
+
+The tag is tests: rather than doc: because that is where the bulk of
+the change is; the man page rides along because the options it
+describes are the ones these cases exercise.
+
+There is no version gate.  Nothing in this series touches server code
+-- it is lustreapi.h, lustre/utils/ and Documentation/ -- so the
+options work against any server old enough to have changelogs, and a
+gate on the MDS would skip interop runs that pass.  A client gate
+would say nothing either: this script ships with the client whose lfs
+has the options.  The third Test-Parameters line below is that claim
+under test rather than only asserted: an old server, a new client, and
+these five cases.
+
+Four changes to lfs-find.1 come with the tests.  --since-cookie
+moves up beside --since in SYNOPSIS and OPTIONS: it is the other way
+to say where a --since search starts, where --changelog is a different
+source.  TIME's spellings are given in full -- set_since() takes
+eight of them, and its error text offers one the page would otherwise
+not list -- and seconds are optional wherever a time appears.  And the
+-name paragraph says which name a match is tested against under
+--changelog: the one carried by the object's latest event that
+carried a name in the same burst, so a file created as f and then
+written and closed still matches -name f, its CL_CLOSE naming
+nothing.  And the --since-cookie paragraph documents the refusal of a
+restarted log, which the patch before this one implements, and says
+the stale check is made before the search starts, so a purge on a
+later MDT during it is not caught.
+
+Test-Parameters: testlist=sanity env=ONLY=160Aa,160Ab,160Ac,160Ad,160Ae
+Test-Parameters: testlist=sanity env=ONLY=160Aa,160Ab,160Ac,160Ad,160Ae mdscount=2 mdtcount=4
+Test-Parameters: testlist=sanity env=ONLY=160Aa,160Ab,160Ac,160Ad,160Ae serverversion=2.15.6
+Signed-off-by: Hiroshi Nishida <hnishida@thelustrecollective.com>
+Assisted-by: ClaudeCode:Opus-5 llm_code_and_review_tools
+Change-Id: Id4001c6821e72f15b83a9733bbb28cef4248b822
+---
+ Documentation/man1/lfs-find.1 | 108 +++++---
+ lustre/tests/sanity.sh        | 497 ++++++++++++++++++++++++++++++++++
+ 2 files changed, 562 insertions(+), 43 deletions(-)
+
+diff --git a/Documentation/man1/lfs-find.1 b/Documentation/man1/lfs-find.1
+index 34b270e478..9d93bee656 100644
+--- a/Documentation/man1/lfs-find.1
++++ b/Documentation/man1/lfs-find.1
+@@ -135,14 +135,14 @@ lfs-find \- Lustre utility to list files with specific attributes
+ .RB [ --since
+ .IR TIME | INDEX ]
+ .br
++.RB [ --since-cookie
++.IR FILE ]
++.br
+ .RB [ --changelog
+ .I MDTNAME\c
+ .RB | all
+ .RB [ --resolve ]]
+ .br
+-.RB [ --since-cookie
+-.IR FILE ]
+-.br
+ .RB [[ ! ]
+ .BR --size | -s
+ .RB [ -+ ]\c
+@@ -731,10 +731,17 @@ its mtime and ctime.
+ is a duration back from now, written
+ .IR N [ smhdwy ]
+ .RB ( 30s ", " 30m ", " 2h ", " 7d ", " 2w ", " 1y ),
+-a timestamp
+-.RB ( 2026-08-25 ", " 2026-08-25T18:00 ),
+-or an epoch second written explicitly as
++a timestamp \(em a date
++.RB ( 2026-08-25 ),
++a date and time with the two joined by a
++.B T
++or by a space
++.RB ( 2026-08-25T18:00 ", " "2026-08-25 18:00:00" ),
++or a time alone, which is today's
++.RB ( 18:00 ", " 18:00:00 )
++\(em or an epoch second written explicitly as
+ .BR @1787674596 .
++Seconds are optional wherever a time appears.
+ A bare integer is an
+ .I INDEX
+ into one MDT's changelog, which is what
+@@ -760,6 +767,43 @@ and
+ alike. See
+ .BR lfs-changelog (1).
+ .TP
++.BI --since-cookie " FILE"
++Like
++.BR --since ,
++anchored at the per-MDT indexes
++.I FILE
++records, which the run rewrites with the indexes it reached. This is the exact
++form of "where I got to" on a filesystem with more than one MDT, and what a
++repeated job should use.
++.IP
++If an MDT has purged past its recorded index the records in between are gone,
++and the search would return a short answer with nothing to say so; that is
++refused instead. So is an index past the end of a log that holds records,
++which is what a changelog restarted after its last user was deregistered and
++the MDT remounted looks like; once the new log grows past the recorded index
++that can no longer be seen. Every MDT is checked before the search starts,
++so a purge that reaches a later MDT while an earlier one is being read is
++not caught. To accept the gap and go on, remove
++.IR FILE :
++the next run starts at the oldest surviving record. A
++.I FILE
++that does not exist is a first run and starts at the oldest surviving record;
++one that cannot be written is refused before the search prints anything.
++Exactly one path may be given: the search runs once per path and each run
++advances the anchors, so a second path would start past the end of the log.
++For the same reason
++.I FILE
++is bound to the search it was written for: it records the filesystem and the
++root it ran under, and a later run naming a different one is refused rather
++than answered from anchors that describe somewhere else. One cookie per
++repeated job, then, not one per user. A
++.I FILE
++that is not a regular file is refused too.
++.B --since
++and
++.B --since-cookie
++are two ways to say the same thing and may not be given together.
++.TP
+ .BI --changelog " MDTNAME" "\fR|\fBall\fR"
+ Search the changelog and nothing else, rather than using it to narrow an
+ ordinary search.
+@@ -819,15 +863,25 @@ a second burst is a second event.
+ .B --since
+ asks what is true now and prints such an object once.
+ .IP
+-The name a match is tested against is the one the object's
+-.B latest
+-event carried, the log having been coalesced to one record per object before
+-the search sees it. An object the log named more than once \(em a file
++The name a match is tested against is the one carried by the object's latest
++event in the same burst
++.BR "that carried a name" .
++A file created as
++.I f
++and then written and closed in that burst still matches
++.BR "-name f" ,
++its latest event being a
++.B CL_CLOSE
++that named nothing. A name carried only by an earlier burst is not carried
++into a later one, so when
++.B --since
++leaves the earlier burst out the object has no name and is counted as
++undecided. An object the log named more than once in one burst \(em a file
+ created as
+ .I f
+ and then hardlinked as
+ .I g
+-\(em is therefore matched by
++in that burst \(em is matched by
+ .B -name g
+ alone, and the pathname printed for it is the one
+ .BR llapi_fid2path (3)
+@@ -859,38 +913,6 @@ it does not \(em the search asks something only the lookup could supply, or
+ names a subtree the object can no longer be placed in \(em the object is
+ counted as undecided rather than answered from the record's zeroes.
+ .TP
+-.BI --since-cookie " FILE"
+-Like
+-.BR --since ,
+-anchored at the per-MDT indexes
+-.I FILE
+-records, which the run rewrites with the indexes it reached. This is the exact
+-form of "where I got to" on a filesystem with more than one MDT, and what a
+-repeated job should use.
+-.IP
+-If an MDT has purged past its recorded index the records in between are gone,
+-and the search would return a short answer with nothing to say so; that is
+-refused instead. To accept the gap and go on, remove
+-.IR FILE :
+-the next run starts at the oldest surviving record. A
+-.I FILE
+-that does not exist is a first run and starts at the oldest surviving record;
+-one that cannot be written is refused before the search prints anything.
+-Exactly one path may be given: the search runs once per path and each run
+-advances the anchors, so a second path would start past the end of the log.
+-For the same reason
+-.I FILE
+-is bound to the search it was written for: it records the filesystem and the
+-root it ran under, and a later run naming a different one is refused rather
+-than answered from anchors that describe somewhere else. One cookie per
+-repeated job, then, not one per user. A
+-.I FILE
+-that is not a regular file is refused too.
+-.B --since
+-and
+-.B --since-cookie
+-are two ways to say the same thing and may not be given together.
+-.TP
+ .BR -s ", " --size
+ File size is
+ .I N
+diff --git a/lustre/tests/sanity.sh b/lustre/tests/sanity.sh
+index 3e708d9863..ffc33c84be 100755
+--- a/lustre/tests/sanity.sh
++++ b/lustre/tests/sanity.sh
+@@ -22733,6 +22733,503 @@ test_160x() {
+ }
+ run_test 160x "changelog users do not disappear"
+ 
++test_160Aa() {
++	[[ $PARALLEL != "yes" ]] || skip "skip parallel run"
++	remote_mds_nodsh && skip "remote MDS with nodsh"
++
++	local all since nall nsince
++
++	mkdir_on_mdt0 $DIR/$tdir || error "mkdir $tdir failed"
++
++	changelog_register || error "changelog_register failed"
++	# after the registration, so its trap restores the mask this found.
++	# Creations only, deliberately: under a wide mask this test's own
++	# "lfs find" records events against the older files, which moves them
++	# back inside the --since window and the narrowing below stops being
++	# true.  160Ac asks for "creat" for the same reason.
++	changelog_chmask "creat"
++	changelog_clear 0 || error "changelog_clear failed"
++
++	# five before the window.  The gap is wide relative to the window on
++	# purpose -- a loaded node can spend seconds in sync, and the test has
++	# to keep meaning what it says when it does.
++	createmany -o $DIR/$tdir/old 5 || error "createmany failed"
++	sync; sleep 15
++	# two inside it
++	touch $DIR/$tdir/new1 $DIR/$tdir/new2 || error "touch failed"
++	sync; sleep 2
++
++	local raw
++
++	raw=$($LFS find $DIR/$tdir -type f) || error "lfs find failed"
++	all=$(sort <<< "$raw")
++	raw=$($LFS find $DIR/$tdir --since 8s -type f) ||
++		error "lfs find --since failed"
++	since=$(sort <<< "$raw")
++
++	# the promise: narrowed, never different
++	[[ -z "$(comm -13 <(echo "$all") <(echo "$since"))" ]] ||
++		error "--since returned objects a plain find did not"
++
++	nall=$(echo "$all" | grep -c .)
++	nsince=$(echo "$since" | grep -c .)
++	(( nsince < nall )) ||
++		error "--since returned $nsince of $nall: it narrowed nothing"
++
++	# and it kept the recent ones rather than just some ones: a count that
++	# merely shrank would also be satisfied by returning nothing at all
++	grep -q "/new1$" <<< "$since" || error "--since lost $tdir/new1"
++	grep -q "/new2$" <<< "$since" || error "--since lost $tdir/new2"
++	grep -q "/old" <<< "$since" &&
++		error "--since kept a file created before the window"
++
++	# a bare index is one MDT's, and is refused where that is ambiguous
++	if (( MDSCOUNT > 1 )); then
++		$LFS find $DIR/$tdir --since 1 -type f &> /dev/null &&
++			error "a bare --since index should be refused under DNE"
++	fi
++
++	# The spellings, and above all that a number is never guessed at: a
++	# bare one is an index and "@N" is an epoch second, which is the whole
++	# reason the epoch form has to be qualified.  An anchor an hour ago is
++	# a time on any filesystem, so it has to keep new1 and new2 the way
++	# "8s" did; the same number written bare is an index, which on a
++	# single-MDT filesystem is accepted and answers something else.
++	local hourago=$(($(date +%s) - 3600))
++
++	raw=$($LFS find $DIR/$tdir --since @$hourago -type f) ||
++		error "--since @$hourago failed"
++	since=$(sort <<< "$raw")
++	grep -q "/new1$" <<< "$since" || error "--since @N lost $tdir/new1"
++	grep -q "/new2$" <<< "$since" || error "--since @N lost $tdir/new2"
++
++	# the same instant as a timestamp, which has to give the same answer
++	local stamp=$(date -d @$hourago +%Y-%m-%dT%H:%M:%S)
++	local bystamp
++
++	raw=$($LFS find $DIR/$tdir --since "$stamp" -type f) ||
++		error "--since $stamp failed"
++	bystamp=$(sort <<< "$raw")
++	[[ "$bystamp" == "$since" ]] ||
++		error "--since $stamp and --since @$hourago disagree"
++
++	# a bare number is read as an index and not as that epoch second: on
++	# one MDT it is accepted, and an epoch second read as an index is far
++	# past the end of the log, so the answer is empty rather than the two
++	# above
++	if (( MDSCOUNT == 1 )); then
++		local byindex
++
++		byindex=$($LFS find $DIR/$tdir --since $hourago -type f) ||
++			error "--since $hourago failed"
++		[[ -z "$byindex" ]] ||
++			error "--since $hourago was read as an epoch second"
++	fi
++
++	# and the spellings that are not accepted
++	$LFS find $DIR/$tdir --since -5 -type f &> /dev/null &&
++		error "--since -5 should be refused"
++	$LFS find $DIR/$tdir --since 2h30m -type f &> /dev/null &&
++		error "--since 2h30m should be refused"
++	$LFS find $DIR/$tdir --since "" -type f &> /dev/null &&
++		error "an empty --since should be refused"
++
++	rm -rf $DIR/$tdir
++	changelog_deregister || error "changelog_deregister failed"
++}
++run_test 160Aa "lfs find --since is a subset of the same find"
++
++test_160Ab() {
++	[[ $PARALLEL != "yes" ]] || skip "skip parallel run"
++	remote_mds_nodsh && skip "remote MDS with nodsh"
++
++	local m=$MOUNT
++	local out
++
++	mkdir_on_mdt0 $DIR/$tdir || error "mkdir $tdir failed"
++
++	changelog_register || error "changelog_register failed"
++	changelog_chmask "ALL"
++	changelog_clear 0 || error "changelog_clear failed"
++
++	# with content, so the --resolve case below has something -size can
++	# match; a zero-length file makes "-size +0" succeed by finding nothing
++	echo data > $DIR/$tdir/f1 || error "create f1 failed"
++	sync; sleep 2
++
++	# it answers what the record carries -- and has to answer with
++	# something, or the case passes while the command found nothing
++	out=$($LFS find $m --changelog all --since 2m -type f) ||
++		error "--changelog -type f failed"
++	[[ -n "$out" ]] || error "--changelog -type f reported nothing"
++
++	# and refuses, rather than approximates, what it does not carry
++	$LFS find $m --changelog all -size +1 &> /dev/null &&
++		error "--changelog -size should be refused without --resolve"
++	$LFS find $m --changelog all -mtime -1 &> /dev/null &&
++		error "--changelog -mtime should be refused"
++	$LFS find $m --changelog all --maxdepth 1 &> /dev/null &&
++		error "--changelog --maxdepth should be refused"
++	$LFS find $DIR/$tdir --changelog all -type f &> /dev/null &&
++		error "--changelog below the mount should be refused"
++	$LFS find $m --changelog no-such-MDT9999 &> /dev/null &&
++		error "--changelog with an unknown MDT should be refused"
++	# a record carries none of these, and answering them from its zeroes
++	# is worse than saying so: --perm 644 would match nothing and its
++	# negation everything
++	$LFS find $m --changelog all --perm 644 &> /dev/null &&
++		error "--changelog --perm should be refused"
++	$LFS find $m --changelog all -links 1 &> /dev/null &&
++		error "--changelog -links should be refused"
++	# the directory-stripe options live behind fp_get_lmv, which needs a
++	# mode the record does not carry: accepted, they were never evaluated
++	$LFS find $m --changelog all --mdt-count 2 &> /dev/null &&
++		error "--changelog --mdt-count should be refused"
++	# -H/--mdt-hash is the spelling that sets fp_hash_type and
++	# fp_check_hash_flag; "--hash-type" is not an lfs find option at all,
++	# so it would exit non-zero from getopt whatever the refusal did
++	$LFS find $m --changelog all --mdt-hash fnv_1a_64 &> /dev/null &&
++		error "--changelog --mdt-hash should be refused"
++	# and a changelog cannot answer whose object it is, only who acted
++	$LFS find $m --changelog all -uid 0 &> /dev/null &&
++		error "--changelog -uid should be refused"
++	$LFS find $m --changelog all --xattr user.foo &> /dev/null &&
++		error "--changelog --xattr should be refused"
++
++	# a named MDT is the other half of --changelog's argument, and the
++	# only one that makes a bare --since index legal under DNE
++	$LFS find $m --changelog $FSNAME-MDT0000 -type f > /dev/null ||
++		error "--changelog with a named MDT failed"
++
++	# -name is answered from the record, and a record whose events are all
++	# data stores carries no name at all -- that reached fnmatch(NULL)
++	$LFS find $m --changelog all -name '*' > /dev/null ||
++		error "--changelog -name failed"
++
++	# --resolve on its own means nothing and is refused rather than dropped
++	$LFS find $m --resolve -type f &> /dev/null &&
++		error "--resolve without --changelog should be refused"
++
++	# --resolve is what lets the refused ones through, and the answer is
++	# asserted rather than just the exit status: -size needs a strict size,
++	# the MDT only has the lazy one, and a resolution that did not glimpse
++	# left every object "could not be decided" while still exiting 0.
++	out=$($LFS find $m --changelog all --since 2m --resolve -size +0) ||
++		error "--changelog --resolve -size failed"
++	grep -q "/f1$" <<< "$out" ||
++		error "--changelog --resolve -size did not report $tdir/f1"
++	# and it is the size that decided it, not everything matching
++	out=$($LFS find $m --changelog all --since 2m --resolve -size +1G) ||
++		error "--changelog --resolve -size +1G failed"
++	grep -q "/f1$" <<< "$out" &&
++		error "--changelog --resolve -size +1G matched a small file"
++
++	# --resolve answers -projid and -printf as well, which need a
++	# descriptor and a widened gather rather than the record alone: both
++	# used to fail on the first object, or report the MDT's lazy size
++	$LFS find $m --changelog all --since 2m --resolve --projid 0 \
++		> /dev/null || error "--changelog --resolve --projid failed"
++	out=$($LFS find $m --changelog all --since 2m --resolve -type f \
++		-printf '%p %s\n') ||
++		error "--changelog --resolve -printf failed"
++	# f1 holds "data": five bytes, and not the zero a lazy size reports
++	grep -q "/f1 5$" <<< "$out" ||
++		error "--resolve -printf did not report f1's real size"
++
++	# and --resolve is the escape hatch the below-the-mount refusal names,
++	# so it has to actually restrict to that subtree rather than answer
++	# for the whole filesystem
++	mkdir_on_mdt0 $DIR/${tdir}-other || error "mkdir other failed"
++	# it lives outside $tdir, so the rm at the end of the test does not
++	# cover an error between here and there, as 160Ac's cookies are
++	stack_trap "rm -rf $DIR/${tdir}-other"
++	echo data > $DIR/${tdir}-other/outside || error "create outside failed"
++	sync; sleep 2
++	out=$($LFS find $DIR/$tdir --changelog all --since 2m --resolve \
++		-type f) || error "--changelog --resolve below the mount failed"
++	grep -q "/f1$" <<< "$out" ||
++		error "--resolve subtree lost $tdir/f1"
++	grep -q "/outside$" <<< "$out" &&
++		error "--resolve answered outside the subtree it was given"
++
++	# and the two things that make --changelog worth having over --since:
++	# it answers as the event was recorded, so an object unlinked since
++	# then is still in the answer, and its FID names it once no pathname
++	# does.  --since verifies through the mount and so cannot report one.
++	local gonefid
++
++	echo data > $DIR/$tdir/gone || error "create gone failed"
++	gonefid=$($LFS path2fid $DIR/$tdir/gone) || error "path2fid failed"
++	sync
++	rm -f $DIR/$tdir/gone || error "rm gone failed"
++	sync; sleep 2
++
++	out=$($LFS find $m --changelog all --since 2m) ||
++		error "--changelog after an unlink failed"
++	grep -qF "$gonefid" <<< "$out" ||
++		error "--changelog did not name the unlinked $gonefid"
++
++	out=$($LFS find $m --since 2m) || error "lfs find --since failed"
++	grep -qF "$gonefid" <<< "$out" &&
++		error "--since reported $gonefid, which no longer exists"
++
++	# And -name selects rather than only surviving a NULL.  The name comes
++	# from the record, and coalescing carries it forward from whichever
++	# record in the same burst had one, so a window a few seconds wide does
++	# not remove it.
++	# So the creation has to be gone from the log entirely: clear it, then
++	# only write to f1, and the object has no name at all.  Last in the
++	# test, because clearing is what everything above still needs intact.
++	changelog_clear 0 || error "changelog_clear failed"
++	echo more >> $DIR/$tdir/f1 || error "write f1 failed"
++	echo new > $DIR/$tdir/f_new.log || error "create f_new.log failed"
++	sync; sleep 2
++
++	out=$($LFS find $m --changelog all -name 'f_new.log') ||
++		error "--changelog -name 'f_new.log' failed"
++	grep -q "/f_new.log$" <<< "$out" ||
++		error "--changelog -name missed f_new.log"
++
++	out=$($LFS find $m --changelog all -name 'f1') ||
++		error "--changelog -name 'f1' failed"
++	grep -q "/f1$" <<< "$out" &&
++		error "--changelog -name matched f1, whose records have no name"
++
++	rm -rf $DIR/$tdir $DIR/${tdir}-other
++	changelog_deregister || error "changelog_deregister failed"
++}
++run_test 160Ab "lfs find --changelog refuses what a record cannot answer"
++
++test_160Ac() {
++	[[ $PARALLEL != "yes" ]] || skip "skip parallel run"
++	remote_mds_nodsh && skip "remote MDS with nodsh"
++
++	local ck=$TMP/lfs-find-cookie.$$
++	local out
++	local sum
++
++	mkdir_on_mdt0 $DIR/$tdir || error "mkdir $tdir failed"
++	rm -f $ck
++	stack_trap "rm -f $ck"
++
++	changelog_register || error "changelog_register failed"
++	# creations only: a wide mask records this test's own reads, and then
++	# "nothing changed" is never true
++	changelog_chmask "creat"
++	changelog_clear 0 || error "changelog_clear failed"
++
++	touch $DIR/$tdir/a || error "touch a failed"
++	sync; sleep 2
++
++	$LFS find $DIR/$tdir --since-cookie $ck -type f > /dev/null ||
++		error "the first run failed"
++	[[ -s $ck ]] || error "no cookie was written to $ck"
++
++	touch $DIR/$tdir/b || error "touch b failed"
++	sync; sleep 2
++
++	out=$($LFS find $DIR/$tdir --since-cookie $ck -type f) ||
++		error "the second run failed"
++	grep -q "/b$" <<< "$out" || error "the second run missed $DIR/$tdir/b"
++	grep -q "/a$" <<< "$out" &&
++		error "the second run repeated $DIR/$tdir/a"
++
++	# nothing created since: the cookie has to have advanced past it
++	out=$($LFS find $DIR/$tdir --since-cookie $ck -type f) ||
++		error "the third run failed"
++	[[ -z "$out" ]] || error "the third run returned '$out'"
++
++	# bound to the root it was written under, not only the filesystem
++	sum=$(cksum < $ck)
++	out=$($LFS find $DIR --since-cookie $ck -type f 2>&1) &&
++		error "a cookie written under $DIR/$tdir was used under $DIR"
++	grep -q "is a cookie for a search under" <<< "$out" ||
++		error "refused for another reason: $out"
++	[[ "$(cksum < $ck)" == "$sum" ]] ||
++		error "the cookie refused for its root was rewritten"
++
++	# matches that could not be written leave the anchors where they were
++	touch $DIR/$tdir/c || error "touch c failed"
++	sync; sleep 2
++	$LFS find $DIR/$tdir --since-cookie $ck -type f > /dev/full \
++		2> /dev/null &&
++		error "a run whose output was lost reported success"
++	[[ "$(cksum < $ck)" == "$sum" ]] ||
++		error "a run whose output was lost advanced the cookie"
++	out=$($LFS find $DIR/$tdir --since-cookie $ck -type f) ||
++		error "the run after a lost one failed"
++	grep -q "/c$" <<< "$out" || error "the run after a lost one missed c"
++
++	# Both of these run while the cookie is still fresh, which is the
++	# right order but not for the reason it once said: neither refusal
++	# can be preempted by the staleness check.  llapi_find_since() tests
++	# --since against --since-cookie in its first block, and lfs_find()
++	# rejects a second path before it calls llapi_find_since() at all.
++
++	# the two anchors are alternatives
++	$LFS find $DIR/$tdir --since 2h --since-cookie $ck &> /dev/null &&
++		error "--since with --since-cookie should be refused"
++
++	# one path: the search runs once per path and each run advances the
++	# anchors, so a second path would start past the end of the log and
++	# report nothing at all
++	$LFS find $DIR/$tdir $DIR --since-cookie $ck &> /dev/null &&
++		error "--since-cookie with two paths should be refused"
++
++	# An anchor older than the oldest surviving record is refused.  The gap
++	# has to be made, not assumed: writing index 1 is only older than the
++	# oldest record on a filesystem that already has changelog history, and
++	# on a fresh one index 1 IS the oldest record, so nothing was purged and
++	# refusing would be wrong.  So write records this cookie has not
++	# consumed, purge them, and write one more past the hole.
++	createmany -o $DIR/$tdir/gap 5 || error "createmany failed"
++	sync; sleep 2
++	changelog_clear 0 || error "changelog_clear failed"
++	touch $DIR/$tdir/after || error "touch after failed"
++	sync; sleep 2
++	$LFS find $DIR/$tdir --since-cookie $ck -type f &> /dev/null &&
++		error "a stale cookie should be refused"
++
++	# An anchor past the newest record is what a restarted log looks like:
++	# indexes start again at 1 after the last user is deregistered and the
++	# MDT remounts.  A run from there would skip every record.
++	stack_trap "rm -f $ck.future"
++	sed "s/^\($FSNAME-MDT0000\) [0-9]*$/\1 999999999/" $ck > $ck.future
++	grep -q "^$FSNAME-MDT0000 999999999$" $ck.future ||
++		error "cannot make a cookie past the end of the log"
++	out=$($LFS find $DIR/$tdir --since-cookie $ck.future -type f 2>&1) &&
++		error "a cookie past the end of the log should be refused"
++	grep -q "changelog was restarted" <<< "$out" ||
++		error "refused for another reason: $out"
++
++	# a cookie that cannot be written is refused before anything is
++	# printed, not after the whole log has been read
++	$LFS find $DIR/$tdir --since-cookie $TMP/no-such-dir.$$/ck \
++		&> /dev/null &&
++		error "an unwritable cookie should be refused"
++
++	# A line the cookie is never written with.  "%x" takes a sign, so a
++	# negative MDT index read back as an unsigned one is a write past the
++	# end of the anchor array rather than an anchor to ignore: this run
++	# either ignores the line or dies.
++	stack_trap "rm -f $ck.bad $ck.other"
++	cat > $ck.bad <<-EOF
++		# lfs find --since-cookie for $FSNAME
++		$FSNAME-MDT-1 42
++		$FSNAME-MDT-800 42
++	EOF
++	$LFS find $DIR/$tdir --since-cookie $ck.bad -type f > /dev/null ||
++		error "a negative MDT index should be ignored"
++
++	# A cookie written for another filesystem anchors nothing here, and
++	# rewriting it would drop that filesystem's anchors as well.
++	cat > $ck.other <<-EOF
++		# lfs find --since-cookie for ${FSNAME}x
++		${FSNAME}x-MDT0000 7
++	EOF
++	$LFS find $DIR/$tdir --since-cookie $ck.other -type f &> /dev/null &&
++		error "a cookie for another filesystem should be refused"
++	grep -q "^${FSNAME}x-MDT0000 7" $ck.other ||
++		error "the refused cookie was rewritten"
++
++	rm -rf $DIR/$tdir
++	changelog_deregister || error "changelog_deregister failed"
++}
++run_test 160Ac "lfs find --since-cookie resumes where it stopped"
++
++test_160Ad() {
++	[[ $PARALLEL != "yes" ]] || skip "skip parallel run"
++	remote_mds_nodsh && skip "remote MDS with nodsh"
++
++	local found
++
++	mkdir_on_mdt0 $DIR/$tdir || error "mkdir $tdir failed"
++	mkdir $DIR/$tdir/a $DIR/$tdir/b || error "mkdir a b failed"
++
++	changelog_register || error "changelog_register failed"
++	# ALL, unlike 160Aa: nothing here is asserted absent, so this test's
++	# own events cost it nothing
++	changelog_chmask "ALL"
++	changelog_clear 0 || error "changelog_clear failed"
++
++	touch $DIR/$tdir/a/f || error "touch failed"
++	ln $DIR/$tdir/a/f $DIR/$tdir/b/g || error "ln failed"
++	sync; sleep 2
++
++	# A changelog names an object by FID, and fid2path answers with one of
++	# its names -- the first linkea entry, which is the one it was created
++	# under.  So a search rooted at b is answered about a/f, and a search
++	# for -name g is answered about "f".  Both have to look at the other
++	# names before dropping the object, the way a walk of b would have
++	# met it as b/g.
++	found=$($LFS find $DIR/$tdir/a --since 1h -type f) ||
++		error "lfs find --since under a failed"
++	[[ -n "$found" ]] ||
++		error "--since under $tdir/a lost the hardlinked file"
++
++	found=$($LFS find $DIR/$tdir/b --since 1h -type f) ||
++		error "lfs find --since under b failed"
++	[[ -n "$found" ]] ||
++		error "--since under $tdir/b lost the hardlinked file"
++
++	found=$($LFS find $DIR/$tdir --since 1h -name g) ||
++		error "lfs find --since -name failed"
++	[[ -n "$found" ]] ||
++		error "--since -name g did not match the second link"
++
++	# and the subtree still means something: a sibling holds no link
++	mkdir $DIR/$tdir/c || error "mkdir c failed"
++	found=$($LFS find $DIR/$tdir/c --since 1h -type f) ||
++		error "lfs find --since under c failed"
++	[[ -z "$found" ]] ||
++		error "--since under $tdir/c returned $found"
++
++	rm -rf $DIR/$tdir
++	changelog_deregister || error "changelog_deregister failed"
++}
++run_test 160Ad "lfs find --since finds a hardlink under either name"
++
++test_160Ae() {
++	[[ $PARALLEL != "yes" ]] || skip "skip parallel run"
++	remote_mds_nodsh && skip "remote MDS with nodsh"
++
++	local m=$MOUNT
++	local found
++
++	mkdir_on_mdt0 $DIR/$tdir || error "mkdir $tdir failed"
++	mkdir $DIR/$tdir/x $DIR/$tdir/a || error "mkdir x a failed"
++	touch $DIR/$tdir/x/f $DIR/$tdir/x/over $DIR/$tdir/a/old ||
++		error "touch failed"
++
++	changelog_register || error "changelog_register failed"
++	changelog_chmask "ALL"
++	changelog_clear 0 || error "changelog_clear failed"
++
++	# A rename to a new name leaves the record's target FID zero; the
++	# moved object is only the rename source.  A rename over a name has
++	# the replaced object as its target.  Both searches have to find the
++	# moved object under its new name.
++	mv $DIR/$tdir/x/f $DIR/$tdir/a/g || error "mv to a new name failed"
++	mv $DIR/$tdir/x/over $DIR/$tdir/a/old || error "mv over a name failed"
++	sync; sleep 2
++
++	found=$($LFS find $DIR/$tdir/a --since 1h -type f) ||
++		error "lfs find --since failed"
++	grep -qx "$DIR/$tdir/a/g" <<< "$found" ||
++		error "--since lost the file renamed to a new name: '$found'"
++	grep -qx "$DIR/$tdir/a/old" <<< "$found" ||
++		error "--since lost the file renamed over a name: '$found'"
++
++	found=$($LFS find $m --changelog all -name g) ||
++		error "lfs find --changelog -name g failed"
++	[[ -n "$found" ]] ||
++		error "--changelog -name g did not report the renamed file"
++
++	rm -rf $DIR/$tdir
++	changelog_deregister || error "changelog_deregister failed"
++}
++run_test 160Ae "lfs find --since and --changelog see a renamed file"
++
+ test_161a() {
+ 	[ $PARALLEL == "yes" ] && skip "skip parallel run"
+ 
+-- 
+2.43.0
+

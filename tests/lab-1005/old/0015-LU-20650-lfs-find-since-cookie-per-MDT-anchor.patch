@@ -1,0 +1,1280 @@
+From 1a82be36df624f6e4b934e21e061fb410dcb5359 Mon Sep 17 00:00:00 2001
+From: Hiroshi Nishida <hnishida@thelustrecollective.com>
+Date: Wed, 26 Aug 2026 08:41:37 -0700
+Subject: [PATCH 15/16] LU-20650 lfs: find --since-cookie, per-MDT anchor
+
+cr_index belongs to one MDT, so "where I got to" on a DNE filesystem
+is one number per MDT and not one number.  --since <time> is the human
+spelling and means the same thing everywhere, but only as far as the
+clocks agree; a cookie is exact on every MDT, and is what a repeated
+job should use.
+
+The file is a line per MDT, "<mdtname> <index>", read as the anchors
+and rewritten with the indexes this run reached.  It is written whole
+and renamed over, so an interrupted run leaves the previous anchors
+rather than half of the new ones -- a half-written cookie is worse
+than a stale one, because the stale one is caught.
+
+Which is the reason a cookie is worth having.  If an MDT has purged
+past its anchor the records in between are gone, and reading from the
+oldest one left would return a short answer with nothing to say so.
+So the oldest surviving index is read first, by a one-record scan that
+stops at the first callback, and an anchor older than it is refused
+naming both numbers.  Every MDT is checked before any of them is
+scanned: refusing from inside the scan would leave the earlier MDTs'
+matches on stdout with no cookie written, and the next run would
+repeat them.  An MDT with no anchor is not probed at all -- 0 has
+nothing to be stale against, and that is every MDT of a first run.
+
+An anchor past the end of a log that holds records is refused too.
+Indexes restart at 1 when an MDT's last changelog user is deregistered
+and the MDT is remounted, and a run from the old anchor would skip
+every record in the new log.  A second one-record scan from the
+anchor finds nothing in that case.  Once the new log grows past the
+anchor, indexes alone cannot show the restart.
+
+Zero is reserved for "the log is empty", which is why a record that
+arrives without an index is reported rather than recorded as index 0.
+Changelog indexes start at 1, so storing 0 for a record that has one
+would make a log holding records look like a log holding none, and 0
+compares false against every anchor -- the check would go on being
+skipped and say nothing about it.  An empty log does proceed: from a
+client, "nothing happened since the anchor" and "everything since it
+was purged" look the same, and refusing on that would fail on every
+idle filesystem.
+
+A cookie from another filesystem would anchor this one at indexes that
+mean nothing here, so a line whose name does not match the filesystem
+is ignored, and a file whose header names another filesystem is
+refused.  Ignoring every one of its lines instead would leave no
+anchors at all, rescan this filesystem's whole log, and then drop the
+other one's anchors in the rewrite -- three wrong answers, none of
+them said out loud.
+
+The rest of the file is input the caller does not control either.  The
+scanf width is not optional: %s into a fixed buffer is how such a file
+overruns it.  Nor is the type of the bound test, since %x accepts a
+sign: "<fsname>-MDT-1" reads back as 0xffffffff, which passes a test
+made against an int and then indexes the array far past its end.  So
+the sign is refused at the parse and the bound is compared against the
+value that does the indexing.
+
+--since and --since-cookie are two ways to say where to start, so
+giving both is refused rather than one of them silently winning.  More
+than one path is refused for a related reason: lfs find runs the
+search once per path and every run advances the anchors, so a second
+path would start past the end of the log, print nothing, and leave the
+records it should match behind the anchor for good.
+
+The cookie is proved writable in the same pre-pass that proves the
+anchors are not stale, and for the same reason -- a cookie that cannot
+be written leaves the matches on stdout and the next run repeating
+them.  A missing directory component reads as ENOENT, which
+find_cookie_read() takes for a first run, so a typo would not be
+noticed until every log had been scanned.
+
+The temporary file is fsync()ed before the rename, and the directory
+after it.  The rename makes the replacement atomic against another
+process, which is not the same as durable: after a host crash the
+rename can be on disk while the contents are not, and an empty cookie
+parses as no anchors at all.
+
+The pre-pass probes by creating a temporary beside the cookie rather
+than opening the cookie itself, because the write creates one and
+renames over: what it needs is permission on the directory, which
+opening an existing cookie for append does not test.  A cookie owned
+by the job user in a root-owned directory would pass that and then
+fail EACCES with every match already printed.
+
+The temporary is private to the run, "<cookie>.<pid>.<n>.new" created
+O_EXCL.  One fixed name would let an overlapping run -- a cron job
+that outlasts its interval -- truncate or unlink the other's copy
+between its write and its rename, and an empty cookie reads as no
+anchors at all.  O_EXCL rather than mkstemp() keeps the umask's mode
+for a first run's cookie.
+
+Matches that could not be written hold the anchors too.  They go to
+stdout through llapi_printf(), which reports nothing, so stdout is
+flushed and its error flag read before the rewrite; otherwise
+"lfs find --since-cookie ck > out" on a full filesystem would lose
+the matches, advance past their records and exit 0.
+
+The anchors are left where they were when a run did not finish.  A
+resolve failure that is not "this object has no name" drops matches,
+and writing the cookie anyway would advance past the very records a
+rerun needs, so the exit status is settled before the rewrite rather
+than after it.
+
+An index is read with strtoull() and a leading sign refused, the MDT
+number having been refused for the same reason: "%llu" negates, so
+"-2" would anchor a run at 0xfffffffffffffffe, match nothing, and
+write that value back.
+
+find_device_supported() refuses --since-cookie along with --since: lfs
+find parses it for a target scan too, and llapi_find_device() never
+reads it -- a target scan would have printed every object the other
+predicates kept and exited 0, without even reading or writing the
+cookie it was given.
+
+ONLY=56 is the regression check that the shared paths still answer as
+they did; --since-cookie's own subtests are in the tests patch at the
+end of this series.
+
+The cookie names the search as well as the filesystem, and a
+mismatch is refused the way a wrong fsname is.  The anchors say how
+far each log was read, not how far a subtree was: a record is counted
+before the FID and the subtree are tested, so a run over one subtree
+carries every anchor to the end of the log, and a second subtree
+sharing the cookie would start past its own changes and print nothing.
+That is the collision lfs_find() refuses when two paths are given to
+one command, reached by running the command twice.  A header with no
+root is accepted.
+
+A cookie that exists and is not a regular file is refused when it is
+read, and again before the search for one swapped in since: the write
+ends in rename(), which answers EISDIR over a directory, so it would
+otherwise be found only after every log had been scanned and every
+match printed.  An empty name is refused with it.
+
+The root is the rest of the header line rather than a field, because
+a pathname can hold a space and %s cuts at the first one.  It is
+whatever realpath() returned for the caller's path.  And it is escaped
+rather than written raw, because a name can hold a newline, which the
+rest of a line cannot: only '/' and NUL are excluded from a name.  Both
+sides escape and the reader compares the escaped forms, so nothing
+decodes: the mapping only has to be injective for a comparison, which
+is also why backslash is escaped.  The refusal names both sides in
+that spelling, or a newline would break the line meant to name it.
+
+Every refusal in find_cookie_check() names the argument at fault, so a
+run does not end at the caller's "failed for '<path>': Invalid
+argument".  The refusal of --resolve without --changelog names both
+anchored spellings, since --since-cookie reaches it too.  A cookie
+refused for its filesystem or its root is reported once:
+find_cookie_read() names the refusal, and the wrapper adds nothing.
+
+The MDT number is exactly the four hex digits find_cookie_write()
+emits.  %4x converts the leading digits and ignores what follows, so
+without the span "<fsname>-MDT00001" and "<fsname>-MDT0000_UUID"
+would both anchor MDT0000 at an index never written for it -- the
+short answer with nothing said that the stale check exists to catch.
+The span refuses a sign as well.
+
+ERRORS lists -ESTALE, the error the whole option is built around.
+
+Test-Parameters: testlist=sanity env=ONLY=56
+Signed-off-by: Hiroshi Nishida <hnishida@thelustrecollective.com>
+Assisted-by: ClaudeCode:Opus-5 llm_code_and_review_tools
+Change-Id: Ia8ce93368a2c2c8c2ea2ee88c8e7f7e099b1bfa5
+---
+ Documentation/man1/lfs-find.1         |  45 ++
+ Documentation/man3/llapi_find_since.3 |  41 +-
+ include/lustre/lustreapi.h            |   4 +
+ lustre/utils/lfs.c                    |  19 +-
+ lustre/utils/lfs_find_parse.c         |   7 +-
+ lustre/utils/lfs_find_parse.h         |   1 +
+ lustre/utils/liblustreapi_pfind.c     | 732 +++++++++++++++++++++++++-
+ 7 files changed, 813 insertions(+), 36 deletions(-)
+
+diff --git a/Documentation/man1/lfs-find.1 b/Documentation/man1/lfs-find.1
+index 7df839fe2a..34b270e478 100644
+--- a/Documentation/man1/lfs-find.1
++++ b/Documentation/man1/lfs-find.1
+@@ -140,6 +140,9 @@ lfs-find \- Lustre utility to list files with specific attributes
+ .RB | all
+ .RB [ --resolve ]]
+ .br
++.RB [ --since-cookie
++.IR FILE ]
++.br
+ .RB [[ ! ]
+ .BR --size | -s
+ .RB [ -+ ]\c
+@@ -856,6 +859,38 @@ it does not \(em the search asks something only the lookup could supply, or
+ names a subtree the object can no longer be placed in \(em the object is
+ counted as undecided rather than answered from the record's zeroes.
+ .TP
++.BI --since-cookie " FILE"
++Like
++.BR --since ,
++anchored at the per-MDT indexes
++.I FILE
++records, which the run rewrites with the indexes it reached. This is the exact
++form of "where I got to" on a filesystem with more than one MDT, and what a
++repeated job should use.
++.IP
++If an MDT has purged past its recorded index the records in between are gone,
++and the search would return a short answer with nothing to say so; that is
++refused instead. To accept the gap and go on, remove
++.IR FILE :
++the next run starts at the oldest surviving record. A
++.I FILE
++that does not exist is a first run and starts at the oldest surviving record;
++one that cannot be written is refused before the search prints anything.
++Exactly one path may be given: the search runs once per path and each run
++advances the anchors, so a second path would start past the end of the log.
++For the same reason
++.I FILE
++is bound to the search it was written for: it records the filesystem and the
++root it ran under, and a later run naming a different one is refused rather
++than answered from anchors that describe somewhere else. One cookie per
++repeated job, then, not one per user. A
++.I FILE
++that is not a regular file is refused too.
++.B --since
++and
++.B --since-cookie
++are two ways to say the same thing and may not be given together.
++.TP
+ .BR -s ", " --size
+ File size is
+ .I N
+@@ -1395,6 +1430,16 @@ subtree:
+ .B "    --since 1h --resolve -size +1G"
+ .RE
+ .EE
++.PP
++For a job that runs repeatedly and should see each change once, anchor it in
++a cookie rather than a time \(em the file is rewritten with where this run
++reached, and a run whose records have been purged is refused rather than
++answered short:
++.EX
++.RS
++.B # lfs find /mnt/lustre --since-cookie /var/lib/myjob/cookie
++.RE
++.EE
+ .SH AVAILABILITY
+ .B lfs find
+ is part of the
+diff --git a/Documentation/man3/llapi_find_since.3 b/Documentation/man3/llapi_find_since.3
+index b3b26eefec..2e2619b34c 100644
+--- a/Documentation/man3/llapi_find_since.3
++++ b/Documentation/man3/llapi_find_since.3
+@@ -76,7 +76,17 @@ names the one MDT it belongs to.
+ no anchor. Refused for the anchored form \(em there is nothing to search
+ since \(em but it is the ordinary setting when
+ .I fp_changelog_mdt
+-selects the search instead.
++or
++.I fp_since_cookie
++selects the search instead. Giving both an anchor and a cookie is
++.BR -EINVAL .
++.LP
++.I fp_since_cookie
++is the pathname of a file holding one anchor per MDT. A missing file is a
++first run, which reads every log from its beginning. The call reads the
++file before the search and rewrites it after, through a temporary file
++renamed over it, so its directory has to be writable. The anchors describe
++the whole run, so one cookie serves one search root.
+ .SS What it needs
+ Every MDT of the filesystem is read in turn, or only the one
+ .I fp_changelog_mdt
+@@ -129,11 +139,15 @@ is NULL,
+ .I fp_since_kind
+ is
+ .B LLAPI_SINCE_NONE
+-with
++with neither
+ .I fp_changelog_mdt
+-unset, or it is
++nor
++.I fp_since_cookie
++set, both an anchor and a cookie are given, or it is
+ .B LLAPI_SINCE_INDEX
+-on a filesystem with more than one MDT.
++on a filesystem with more than one MDT. Also for a cookie that is not a
++regular file, or that was written for another filesystem or another search
++root.
+ .IP
+ Two more belong to
+ .I fp_changelog_mdt
+@@ -193,6 +207,16 @@ and
+ Refused before the search runs rather than answered from a record that
+ cannot settle it.
+ .TP 15
++.B -ESTALE
++.I fp_since_cookie
++anchors an MDT at a record it has purged past, so the records between the
++anchor and the oldest one left are gone and a run from there would return a
++short answer with nothing to say so. Both indexes are named. Also an anchor
++past the end of a log that holds records: the log was restarted, and a run
++from the anchor would skip it. Every MDT is checked before any of them is
++scanned; a clear that lands on a later MDT while an earlier one is being
++read is not seen.
++.TP 15
+ .B -ENOENT
+ .I path
+ does not resolve: this is
+@@ -201,7 +225,14 @@ answer, and not the one for a path outside Lustre.
+ .TP 15
+ .B -ENAMETOOLONG
+ .I path
+-as the caller spelled it does not fit.
++as the caller spelled it does not fit. Also a
++.I fp_since_cookie
++too long to build the temporary name beside it
++.RI ( cookie . pid . n .new).
++.TP 15
++.B -EIO
++the cookie could not be read to its end, or the answer could not be written
++to standard output; the cookie is then left as it was.
+ .TP 15
+ .B -ENOMEM
+ the MDT list or the search's own buffers could not be allocated.
+diff --git a/include/lustre/lustreapi.h b/include/lustre/lustreapi.h
+index 4ff0a17aab..62db8da3e7 100644
+--- a/include/lustre/lustreapi.h
++++ b/include/lustre/lustreapi.h
+@@ -532,6 +532,10 @@ struct find_param {
+ 	 * the changelog is at most an accelerator rather than the source.
+ 	 */
+ 	const char		*fp_changelog_mdt;
++	/* --since-cookie: per-MDT indexes from a previous run, rewritten at
++	 * the end.  The only anchor that is exact on every MDT.
++	 */
++	const char		*fp_since_cookie;
+ };
+ 
+ /* fp_since_kind */
+diff --git a/lustre/utils/lfs.c b/lustre/utils/lfs.c
+index 064089980d..536dbd2ed1 100644
+--- a/lustre/utils/lfs.c
++++ b/lustre/utils/lfs.c
+@@ -503,6 +503,7 @@ command_t cmdlist[] = {
+ 	 "     [[!] --ost|-O <uuid|index,...>] [[!] --perm [/-]mode]\n"
+ 	 "     [[!] --pool <pool>] [--print|-P] [--print0|-0] [--printf <format>]\n"
+ 	 "     [[!] --projid <projid>] [--resolve] [--since TIME|INDEX]\n"
++	 "     [--since-cookie FILE]\n"
+ 	 "     [[!] --size|-s [+-]N[bkMGTPE]]\n"
+ 	 "     [--skip|-k PERCENT] [[!] --stripe-count|-c [+-]<stripes>]\n"
+ 	 "     [[!] --stripe-index|-i <index,...>]\n"
+@@ -6637,9 +6638,25 @@ static int lfs_find(int argc, char **argv)
+ 		goto err;
+ 	}
+ 
++	/*
++	 * One path with a cookie.  The search runs once per path and each
++	 * run advances the anchors, so a second path would start past the
++	 * end of the log, report nothing, and leave the records it should
++	 * have matched behind the anchor for good.  --since and --changelog
++	 * are idempotent across the paths; only the cookie is not.
++	 */
++	if (param->fp_since_cookie != NULL && pathend - pathstart > 1) {
++		fprintf(stderr,
++			"error: %s: --since-cookie takes one path: the anchors it writes describe the whole run\n",
++			argv[0]);
++		ret = CMD_HELP;
++		goto err;
++	}
++
+ 	do {
+ 		if (param->fp_since_kind != LLAPI_SINCE_NONE ||
+-		    param->fp_changelog_mdt != NULL) {
++		    param->fp_changelog_mdt != NULL ||
++		    param->fp_since_cookie != NULL) {
+ 			rc = llapi_find_since(argv[pathstart], param);
+ 		} else {
+ 			/*
+diff --git a/lustre/utils/lfs_find_parse.c b/lustre/utils/lfs_find_parse.c
+index b06c1e0529..2210254609 100644
+--- a/lustre/utils/lfs_find_parse.c
++++ b/lustre/utils/lfs_find_parse.c
+@@ -1162,6 +1162,8 @@ int lfs_find_parse(int argc, char **argv, struct find_param *param,
+ 			.name = "resolve",	.has_arg = no_argument },
+ 	{ .val = LFS_SINCE_OPT,
+ 			.name = "since",	.has_arg = required_argument },
++	{ .val = LFS_SINCE_COOKIE_OPT,
++			.name = "since-cookie",	.has_arg = required_argument },
+ 	{ .val = 's',	.name = "size",		.has_arg = required_argument },
+ 	{ .val = 'S',	.name = "stripe-size",	.has_arg = required_argument },
+ 	{ .val = 'S',	.name = "stripe_size",	.has_arg = required_argument },
+@@ -1309,6 +1311,9 @@ int lfs_find_parse(int argc, char **argv, struct find_param *param,
+ 		case LFS_RESOLVE_OPT:
+ 			param->fp_resolve = 1;
+ 			break;
++		case LFS_SINCE_COOKIE_OPT:
++			param->fp_since_cookie = optarg;
++			break;
+ 		case LFS_ATTRS_OPT:
+ 			ret = name2attrs(optarg, &param->fp_attrs,
+ 					 &param->fp_neg_attrs);
+@@ -2130,7 +2135,7 @@ int lfs_find_parse(int argc, char **argv, struct find_param *param,
+ 
+ 	/*
+ 	 * --resolve only means something to a changelog: lfs find sends the
+-	 * search to llapi_find_since() only when --since or --changelog is
++	 * search to llapi_find_since() only when --since, --since-cookie or --changelog is
+ 	 * given, so on its own the flag was parsed and never looked at.  A flag
+ 	 * accepted and quietly ignored is the thing find_changelog_supported()
+ 	 * was written to avoid.
+diff --git a/lustre/utils/lfs_find_parse.h b/lustre/utils/lfs_find_parse.h
+index 465523efcb..9eb0c3b06a 100644
+--- a/lustre/utils/lfs_find_parse.h
++++ b/lustre/utils/lfs_find_parse.h
+@@ -94,6 +94,7 @@ enum {
+ 	LFS_SINCE_OPT,
+ 	LFS_CHANGELOG_OPT,
+ 	LFS_RESOLVE_OPT,
++	LFS_SINCE_COOKIE_OPT,
+ };
+ 
+ /*
+diff --git a/lustre/utils/liblustreapi_pfind.c b/lustre/utils/liblustreapi_pfind.c
+index 6a99f29cd7..9a27c9ab94 100644
+--- a/lustre/utils/liblustreapi_pfind.c
++++ b/lustre/utils/liblustreapi_pfind.c
+@@ -3856,12 +3856,16 @@ static int find_device_supported(const struct find_param *param)
+ 	}
+ 
+ 	/*
+-	 * lfs find parses --since and --changelog for a target scan as well,
+-	 * and llapi_find_device() reads neither: the scan would have printed
+-	 * every object the other predicates kept and exited 0.
++	 * lfs find parses --since, --since-cookie and --changelog for a target
++	 * scan as well, and llapi_find_device() reads none of them: the scan
++	 * would have printed every object the other predicates kept and
++	 * exited 0 -- with --since-cookie, without even reading or writing
++	 * the cookie it was given.
+ 	 */
+ 	if (param->fp_since_kind != LLAPI_SINCE_NONE)
+ 		what = "--since";
++	else if (param->fp_since_cookie != NULL)
++		what = "--since-cookie";
+ 	else if (param->fp_changelog_mdt != NULL)
+ 		what = "--changelog";
+ 	if (what != NULL) {
+@@ -4752,8 +4756,561 @@ struct find_since_state {
+ 	 * case.
+ 	 */
+ 	__u64			 fss_dropped;
++	__u64			*fss_reached;	/* this MDT's highest index */
+ };
+ 
++/*
++ * --since-cookie: where a previous run got to, per MDT.
++ *
++ * cr_index belongs to one MDT, so "where I got to" on a DNE filesystem is one
++ * number per MDT and not one number.  The file is the honest form of that,
++ * and it is read as a set of anchors and rewritten with the indexes this run
++ * reached.  A line is "<mdtname> <index>"; anything else is ignored, so a
++ * comment or a blank line costs the read nothing -- but the rewrite emits
++ * the header and the anchors and nothing else, so it does not survive the
++ * next run.  The file is this call's to own, not a place to annotate.
++ */
++/* a scanf field width spelled from the buffer's own size */
++#define FIND_CK_W_(x)	#x
++#define FIND_CK_W(x)	FIND_CK_W_(x)
++
++/*
++ * The root is the rest of the header line, and a pathname may hold a
++ * newline: only '/' and NUL are excluded from a name.  Written raw it ended
++ * the line, so the root read back short and every run after the first was
++ * refused naming a path the caller never gave -- the space case one
++ * character further out -- while the remainder became its own line and was
++ * dropped as unparsable.
++ *
++ * Escaped, the header carries any root.  Both sides escape and the reader
++ * compares the escaped forms, so nothing has to decode: the mapping is
++ * injective, which is all a comparison needs.  Backslash is escaped too, or
++ * it would not be.
++ */
++static int find_ck_escape(char *dst, size_t dstsize, const char *src)
++{
++	size_t n = 0;
++
++	for (; *src != '\0'; src++) {
++		const char *rep = NULL;
++
++		if (*src == '\\')
++			rep = "\\\\";
++		else if (*src == '\n')
++			rep = "\\n";
++
++		if (rep != NULL) {
++			if (n + 2 >= dstsize)
++				return -ENAMETOOLONG;
++			dst[n++] = rep[0];
++			dst[n++] = rep[1];
++		} else {
++			if (n + 1 >= dstsize)
++				return -ENAMETOOLONG;
++			dst[n++] = *src;
++		}
++	}
++	dst[n] = '\0';
++	return 0;
++}
++
++static int find_cookie_read(const char *file, const char *fsname,
++			    const char *root, __u64 *starts, int nstarts)
++{
++	/* both sized for a fully escaped root, which is twice its length */
++	char line[2 * PATH_MAX + NAME_MAX + 64];
++	char rootesc[2 * PATH_MAX + 1];
++	size_t fslen = strlen(fsname);
++	struct stat st;
++	FILE *fp;
++	int fd;
++	int rc;
++
++	rc = find_ck_escape(rootesc, sizeof(rootesc), root);
++	if (rc != 0)
++		return rc;
++
++	/* O_NONBLOCK so a FIFO cannot hang the open */
++	fd = open(file, O_RDONLY | O_NONBLOCK | O_CLOEXEC);
++	if (fd < 0) {
++		/* the first run has no cookie: start at the oldest record */
++		if (errno == ENOENT)
++			return 0;
++		return -errno;
++	}
++	if (fstat(fd, &st) != 0) {
++		rc = -errno;
++		close(fd);
++		return rc;
++	}
++	/* before any read: /dev/zero never reaches EOF */
++	if (!S_ISREG(st.st_mode)) {
++		close(fd);
++		llapi_error(LLAPI_MSG_ERROR | LLAPI_MSG_NO_ERRNO, -EINVAL,
++			    "the cookie '%s' is not a regular file", file);
++		return -EINVAL;
++	}
++	fp = fdopen(fd, "r");
++	if (fp == NULL) {
++		rc = -errno;
++		close(fd);
++		return rc;
++	}
++
++	while (fgets(line, sizeof(line), fp) != NULL) {
++		char name[NAME_MAX + 1];
++		char idxbuf[32];
++		unsigned long long idx;
++		unsigned int mdt;
++		const char *num;
++		char *end;
++		int pos;
++
++		/*
++		 * The header names the filesystem the file was written for.
++		 * Its lines would all be skipped below and then dropped by
++		 * the rewrite, so a cookie for another filesystem is refused
++		 * rather than read as no anchors at all.
++		 *
++		 * The fsname is a field; the root is the rest of the line.
++		 * A pathname can hold a space and %s cuts it at the first
++		 * one, so a search under "/mnt/lustre/my data" was recorded
++		 * whole and read back as "/mnt/lustre/my" -- the comparison
++		 * below then failed for every run after the first, naming a
++		 * path the caller never gave.  %n gives where the fsname
++		 * ended, which is where the separator has to be; it is not
++		 * counted in the return value.
++		 */
++		pos = 0;
++		if (sscanf(line, "# lfs find --since-cookie for %255s%n",
++			   name, &pos) == 1) {
++			const char *oldroot = NULL;
++			size_t oldlen = 0;
++
++			if (strncmp(line + pos, " under ", 7) == 0) {
++				oldroot = line + pos + 7;
++				oldlen = strcspn(oldroot, "\n");
++			}
++			if (strcmp(name, fsname) != 0) {
++				llapi_error(LLAPI_MSG_ERROR |
++					    LLAPI_MSG_NO_ERRNO, -EINVAL,
++					    "'%s' is a cookie for '%s', not for '%s'",
++					    file, name, fsname);
++				fclose(fp);
++				return -EINVAL;
++			}
++			/*
++			 * And for one search.  The anchors say how far the
++			 * log was read, not how far this subtree was: a run
++			 * over one subtree advances every anchor to the end,
++			 * because a record is counted before the FID and the
++			 * subtree are tested.  A second subtree sharing the
++			 * cookie would start past its own changes and print
++			 * nothing -- the same collision lfs_find() refuses
++			 * when two paths are given to one command, reached
++			 * by running the command twice.  A cookie written
++			 * before this carried no root and is accepted.
++			 *
++			 * Both sides of the message are the escaped
++			 * spelling, so they are comparable: a newline in
++			 * the message would otherwise break the line it is
++			 * meant to name.
++			 */
++			if (oldroot != NULL &&
++			    (oldlen != strlen(rootesc) ||
++			     strncmp(oldroot, rootesc, oldlen) != 0)) {
++				llapi_error(LLAPI_MSG_ERROR |
++					    LLAPI_MSG_NO_ERRNO, -EINVAL,
++					    "'%s' is a cookie for a search under '%.*s', not under '%s'",
++					    file, (int)oldlen, oldroot,
++					    rootesc);
++				fclose(fp);
++				return -EINVAL;
++			}
++			continue;
++		}
++
++		/* the width is not optional: %s into a fixed buffer is how a
++		 * file the caller does not control overruns it -- and it is
++		 * built from the buffers here so the two cannot drift apart
++		 * if either is ever resized
++		 */
++		if (sscanf(line, "%" FIND_CK_W(NAME_MAX) "s %"
++			   FIND_CK_W(31) "s", name, idxbuf) != 2)
++			continue;
++		/*
++		 * The index through strtoull() rather than %llu, which is
++		 * the same conversion and takes a sign: "-2" would anchor
++		 * the run at 0xfffffffffffffffe, an index nothing can match,
++		 * so the run reports nothing and then rewrites that value
++		 * back.  The MDT number below is refused for the same reason.
++		 */
++		if (idxbuf[0] < '0' || idxbuf[0] > '9')
++			continue;
++		errno = 0;
++		idx = strtoull(idxbuf, &end, 10);
++		if (errno != 0 || *end != '\0')
++			continue;
++
++		/*
++		 * A cookie from another filesystem would anchor this one at
++		 * indexes that mean nothing here, so the name has to match.
++		 */
++		if (strncmp(name, fsname, fslen) != 0 ||
++		    strncmp(name + fslen, "-MDT", 4) != 0)
++			continue;
++		/*
++		 * Exactly the four hex digits find_cookie_write() emits, and
++		 * nothing after them.  %4x converts the leading digits and
++		 * ignores the rest, so "<fsname>-MDT00001" and
++		 * "<fsname>-MDT0000_UUID" both anchored MDT0000 at an index
++		 * never written for it -- a short answer with nothing said,
++		 * which is the failure the stale check exists to catch.  The
++		 * span also refuses the sign %x would otherwise take:
++		 * "-MDT-1" read back as 0xffffffff, an out-of-bounds write
++		 * rather than an anchor to ignore.
++		 */
++		num = name + fslen + strlen("-MDT");
++		if (strspn(num, "0123456789abcdefABCDEF") != 4 ||
++		    num[4] != '\0')
++			continue;
++		if (sscanf(num, "%4x", &mdt) != 1)
++			continue;
++		if (mdt >= (unsigned int)nstarts)
++			continue;
++		starts[mdt] = idx;
++	}
++
++	/* a read error must not read as a short cookie, i.e. a first run */
++	rc = ferror(fp) ? -EIO : 0;
++	fclose(fp);
++	return rc;
++}
++
++/*
++ * The temporary a cookie is written through, beside it and private to this
++ * run: two runs over one cookie -- a cron job that outlasts its interval --
++ * must not truncate or unlink each other's copy between write and rename.
++ * O_EXCL rather than mkstemp(), which would give a first run's cookie 0600
++ * instead of the umask's answer.
++ *
++ * Return: an open descriptor, or a negative errno.
++ */
++static int find_cookie_tmp(const char *file, char *tmp, size_t len)
++{
++	int i;
++
++	for (i = 0; i < 100; i++) {
++		int fd;
++
++		if (snprintf(tmp, len, "%s.%d.%d.new", file, (int)getpid(),
++			     i) >= (int)len)
++			return -ENAMETOOLONG;
++		fd = open(tmp, O_WRONLY | O_CREAT | O_EXCL | O_CLOEXEC, 0666);
++		if (fd >= 0)
++			return fd;
++		if (errno != EEXIST)
++			return -errno;
++	}
++
++	return -EEXIST;
++}
++
++/*
++ * Written whole and renamed over, so an interrupted run leaves the previous
++ * anchors rather than half of the new ones.  A cookie that is half written
++ * is worse than one that is stale, and find_cookie_check() catches the
++ * stale one.
++ *
++ * Every MDT the file knows of, not only the ones this run covered: a
++ * "--changelog MDT0001" run narrows mdt_count to one, and an MDT that is
++ * offline is not found at all, so writing only what was covered would drop
++ * the rest and make the next run repeat their whole logs.  @seen is indexed
++ * by MDT number and already carries the values read from the file, updated
++ * in place for the MDTs this run reached.
++ */
++static int find_cookie_write(const char *file, const char *fsname,
++			     const char *root, const __u64 *seen, int nseen)
++{
++	char rootesc[2 * PATH_MAX + 1];
++	char tmp[PATH_MAX];
++	struct stat st;
++	FILE *fp;
++	int rc = 0;
++	int fd;
++	int i;
++
++	rc = find_ck_escape(rootesc, sizeof(rootesc), root);
++	if (rc != 0)
++		return rc;
++
++	fd = find_cookie_tmp(file, tmp, sizeof(tmp));
++	if (fd < 0)
++		return fd;
++	fp = fdopen(fd, "w");
++	if (fp == NULL) {
++		rc = -errno;
++		close(fd);
++		unlink(tmp);
++		return rc;
++	}
++
++	/*
++	 * The rename below replaces the cookie, so its mode would be the
++	 * temporary's -- 0666 & ~umask -- and a `chmod 600` on a cookie that
++	 * names a job's search would be undone by the run that uses it.
++	 * Carried over where there is a cookie to carry it from; a first run
++	 * gets the umask's answer, as any created file does.
++	 */
++	if (stat(file, &st) == 0)
++		(void)fchmod(fileno(fp), st.st_mode & 07777);
++
++	fprintf(fp, "# lfs find --since-cookie for %s under %s\n", fsname,
++		rootesc);
++	for (i = 0; i < nseen; i++) {
++		if (seen[i] == 0)
++			continue;	/* never anchored: same as absent */
++		fprintf(fp, "%s-MDT%04x %llu\n", fsname, i,
++			(unsigned long long)seen[i]);
++	}
++
++	if (fflush(fp) != 0)
++		rc = -errno;
++	/* an earlier write failed and the buffer has since drained: errno says
++	 * nothing by now, but the file is short
++	 */
++	else if (ferror(fp) != 0)
++		rc = -EIO;
++	/*
++	 * The rename below is atomic against another process, which is not
++	 * the same as durable: after a host crash the rename can be on disk
++	 * while these bytes are not, and an empty cookie parses as no
++	 * anchors at all -- a whole rescan, reprinting everything, with
++	 * nothing said.
++	 */
++	else if (fsync(fileno(fp)) != 0)
++		rc = -errno;
++	if (fclose(fp) != 0 && rc == 0)
++		rc = -errno;
++
++	if (rc == 0 && rename(tmp, file) != 0)
++		rc = -errno;
++	if (rc != 0) {
++		unlink(tmp);
++	} else {
++		/* and the directory entry the rename made, for the same
++		 * reason; a filesystem that will not sync a directory is
++		 * not a reason to fail a run that wrote its cookie
++		 */
++		char *sep = strrchr(tmp, '/');
++		const char *dir = ".";
++		int dfd;
++
++		if (sep == tmp)
++			dir = "/";	/* the cookie sits in the root */
++		else if (sep != NULL) {
++			*sep = '\0';
++			dir = tmp;
++		}
++		dfd = open(dir, O_RDONLY | O_DIRECTORY);
++		if (dfd >= 0) {
++			fsync(dfd);
++			close(dfd);
++		}
++	}
++
++	return rc;
++}
++
++/*
++ * Stop at the first record: its index is the oldest one still in the log.
++ *
++ * A record without an index is not index 0.  Storing 0 for it made a log that
++ * has records indistinguishable from one that has none, and 0 compares false
++ * against every anchor, so the stale check below was skipped in both cases --
++ * silently, on the one guard that exists to stop a short answer.  The scan was
++ * asked for LLAPI_SCAN_EVENT, so its absence is a protocol error to report
++ * rather than a value to record.
++ */
++static int find_cl_first_cb(const struct llapi_scan_rec *rec, void *data)
++{
++	__u64 *idx = data;
++
++	if (!(rec->lfsr_valid & LLAPI_SCAN_EVENT))
++		return -EPROTO;
++
++	*idx = rec->lfsr_event_index;
++	return 1;		/* one is enough */
++}
++
++/*
++ * The first record an MDT holds at or after @startrec (0: the oldest), in
++ * *@first.  A cookie older than the oldest means the records between them
++ * were purged, so the run would return a short answer with nothing to say
++ * so -- which is the failure a cookie exists to prevent.
++ *
++ * *@first is 0 only when there is no such record; changelog indexes start
++ * at 1, so the caller can tell that from a real index.  See the caller for
++ * why an empty log proceeds rather than refuses.
++ */
++static int find_cl_first(const char *mdtname, __u64 startrec, __u64 *first)
++{
++	struct llapi_scan_changelog_param sc = { 0 };
++	int rc;
++
++	sc.sc_size = sizeof(sc);
++	sc.sc_mdtname = mdtname;
++	sc.sc_want = LLAPI_SCAN_FID | LLAPI_SCAN_EVENT;
++	sc.sc_startrec = startrec;
++
++	*first = 0;
++	rc = llapi_scan_changelog(&sc, find_cl_first_cb, first);
++
++	/* the callback's own 1 comes back; an empty log is not an error */
++	return rc < 0 ? rc : 0;
++}
++
++/*
++ * The stale-anchor check, which is the reason a cookie is worth having:
++ * records between the anchor and the oldest one still in the log were purged,
++ * so the run would return a short answer with nothing to say so.
++ *
++ * Every MDT is checked before any of them is scanned.  Done inside the scan,
++ * the refusal would arrive with the earlier MDTs' matches already on stdout
++ * and no cookie written, so the next run would repeat them.  It costs one
++ * record per MDT, and none at all for an MDT with no anchor yet: 0 has
++ * nothing to be stale against, and that is also every MDT of a first run.
++ *
++ * An empty log leaves oldest at 0 and proceeds.  From a client "nothing
++ * happened since the anchor" and "everything since it was purged" look
++ * identical, and refusing on that would break --since-cookie on every idle
++ * filesystem.  An empty log also returns an empty answer, which is right
++ * whenever the anchor is not in fact stale.
++ */
++static int find_cookie_check(const char *fsname, const char *cookie,
++			     const int *mdts, int mdt_count,
++			     const __u64 *starts, __u64 *reached)
++{
++	char mdtname[MAX_OBD_NAME + 32];
++	char probe[PATH_MAX];
++	struct stat st;
++	int fd;
++	int i;
++
++	/*
++	 * The target has to be writable before the first match is printed,
++	 * for the reason the stale check is here: a cookie that cannot be
++	 * written leaves the matches on stdout and the anchors where they
++	 * were, so the next run repeats them.
++	 *
++	 * The probe is a temporary beside the cookie, as find_cookie_write()
++	 * makes one, not the cookie: the write renames over, so what it
++	 * needs is permission on the containing directory, which opening
++	 * an existing cookie for append does not test.  A cookie owned by
++	 * the job user in a root-owned 0755 directory passed that test and
++	 * then failed EACCES after every match had been printed.
++	 *
++	 * @cookie is never NULL: the one caller tests it before calling, and
++	 * the -ESTALE message below hands it to %s unguarded.
++	 *
++	 * Every refusal here names the argument at fault, or the run would
++	 * end at the caller's "failed for '<path>': Invalid argument".
++	 */
++	if (*cookie == '\0') {
++		llapi_error(LLAPI_MSG_ERROR | LLAPI_MSG_NO_ERRNO, -EINVAL,
++			    "--since-cookie needs the name of a file");
++		return -EINVAL;
++	}
++
++	/*
++	 * The probe settles the directory, not the name.  find_cookie_read()
++	 * has already refused a cookie that is not a regular file; this
++	 * covers one swapped in since, which rename() would refuse only
++	 * after every log had been scanned and every match printed -- the
++	 * outcome this pre-pass exists to prevent.
++	 */
++	if (stat(cookie, &st) == 0 && !S_ISREG(st.st_mode)) {
++		llapi_error(LLAPI_MSG_ERROR | LLAPI_MSG_NO_ERRNO, -EINVAL,
++			    "the cookie '%s' is not a regular file", cookie);
++		return -EINVAL;
++	}
++
++	fd = find_cookie_tmp(cookie, probe, sizeof(probe));
++	if (fd == -ENAMETOOLONG) {
++		llapi_error(LLAPI_MSG_ERROR | LLAPI_MSG_NO_ERRNO, fd,
++			    "the cookie '%s' is too long to write beside",
++			    cookie);
++		return fd;
++	}
++	if (fd < 0) {
++		llapi_error(LLAPI_MSG_ERROR, fd,
++			    "cannot write the cookie '%s'", cookie);
++		return fd;
++	}
++	close(fd);
++	unlink(probe);
++
++	for (i = 0; i < mdt_count; i++) {
++		__u64 oldest = 0;
++		__u64 from = 0;
++		__u64 anchor = starts[mdts[i]];
++		int rc;
++
++		/* what this run inherits, until the scan moves it on */
++		reached[i] = anchor;
++		if (anchor == 0)
++			continue;
++
++		snprintf(mdtname, sizeof(mdtname), "%s-MDT%04x", fsname,
++			 mdts[i]);
++		rc = find_cl_first(mdtname, 0, &oldest);
++		if (rc < 0) {
++			llapi_error(LLAPI_MSG_ERROR, rc,
++				    "cannot read the changelog of '%s'",
++				    mdtname);
++			return rc;
++		}
++		/* the scan starts one past the anchor: see the caller */
++		if (oldest > anchor + 1) {
++			llapi_error(LLAPI_MSG_ERROR | LLAPI_MSG_NO_ERRNO,
++				    -ESTALE,
++				    "'%s' has purged past the cookie: it starts at %llu and '%s' records %llu, so the run would resume at %llu and the records in between are gone",
++				    mdtname, (unsigned long long)oldest, cookie,
++				    (unsigned long long)anchor,
++				    (unsigned long long)(anchor + 1));
++			return -ESTALE;
++		}
++		if (oldest == 0)
++			continue;
++
++		/*
++		 * Indexes restart at 1 when an MDT's last changelog user is
++		 * deregistered and the MDT is remounted.  A log that is not
++		 * empty but holds nothing at or after the anchor is such a
++		 * log, and a scan from the anchor would skip every record in
++		 * it.  Once the new log grows past the anchor this cannot be
++		 * seen from indexes alone.
++		 */
++		rc = find_cl_first(mdtname, anchor, &from);
++		if (rc < 0) {
++			llapi_error(LLAPI_MSG_ERROR, rc,
++				    "cannot read the changelog of '%s'",
++				    mdtname);
++			return rc;
++		}
++		if (from == 0) {
++			llapi_error(LLAPI_MSG_ERROR | LLAPI_MSG_NO_ERRNO,
++				    -ESTALE,
++				    "'%s' holds records but none at or after %llu, which '%s' records: its changelog was restarted, and a run from there would skip them",
++				    mdtname, (unsigned long long)anchor,
++				    cookie);
++			return -ESTALE;
++		}
++	}
++
++	return 0;
++}
++
+ /*
+  * What a changelog cannot answer, refused rather than approximated.  Same
+  * shape as find_device_supported(), and for the same reason: a flag accepted
+@@ -5370,18 +5927,30 @@ static bool find_changelog_needs_lookup(struct find_param *param)
+ }
+ 
+ /*
+- * What the stream is asked before a record becomes a candidate: whether the
+- * record is inside the window at all.
++ * What the stream is asked before a record becomes a candidate: where the
++ * run has got to, and whether the record is inside the window at all.
+  *
+- * It is asked here rather than in the callback because sc_filter sees every
++ * Both are here rather than in the callback because sc_filter sees every
+  * record the stream produced, in order and before any lookup, and the
+- * callback does not: under LLAPI_SCAN_CL_F_ONCE an object already delivered
+- * is dropped before the callback.
++ * callback does not.  A record about no object, such as a CL_MARK, is
++ * delivered as it arrives -- scan_cl_object() routes it to scan_cl_event()
++ * -- and under LLAPI_SCAN_CL_F_ONCE an object already delivered is dropped
++ * before the callback too.
+  */
+ static int find_since_filter_cb(const struct llapi_scan_rec *rec, void *data)
+ {
+ 	struct find_since_state *st = data;
+ 
++	/*
++	 * The anchor takes every record, marks included: taken in the
++	 * callback it lagged the end of the log by whatever trailing run of
++	 * records the callback does not see the scan finished on, and the
++	 * next run re-read them to report them again.
++	 */
++	if (st->fss_reached != NULL && (rec->lfsr_valid & LLAPI_SCAN_EVENT) &&
++	    rec->lfsr_event_index > *st->fss_reached)
++		*st->fss_reached = rec->lfsr_event_index;
++
+ 	/*
+ 	 * A time anchor is cut here rather than at the start record: an index
+ 	 * is per-MDT, so a time cannot be turned into one without reading the
+@@ -5421,6 +5990,11 @@ static int find_since_cand_cb(const struct llapi_scan_rec *rec, void *data)
+ 	 * mark rather than passing that value off as a FID, so the gate below
+ 	 * drops it too; testing the type here keeps that from resting on the
+ 	 * library alone.
++	 *
++	 * The anchor is not taken here but in find_since_filter_cb(), which
++	 * runs before this on every record the log delivered, marks included:
++	 * it has to see them, or it lags the end of the log by whatever
++	 * trailing run of them the scan finished on.
+ 	 */
+ 	if ((rec->lfsr_valid & LLAPI_SCAN_EVENT) &&
+ 	    rec->lfsr_event_type == CL_MARK)
+@@ -5516,7 +6090,8 @@ static int find_since_cand_cb(const struct llapi_scan_rec *rec, void *data)
+ /**
+  * llapi_find_since() - lfs find over the objects a changelog says changed
+  * @path:	a path in the filesystem to search
+- * @param:	the search, selected by fp_since_kind or fp_changelog_mdt
++ * @param:	the search, selected by fp_since_kind, fp_since_cookie or
++ *		fp_changelog_mdt
+  *
+  * Candidates come from every MDT's changelog, or the one fp_changelog_mdt
+  * names.  What happens next depends on
+@@ -5536,13 +6111,16 @@ static int find_since_cand_cb(const struct llapi_scan_rec *rec, void *data)
+  * refused rather than widened.  A predicate the record cannot answer
+  * is counted undecided and reported at the end rather than guessed at.
+  *
+- * Return: 0 on success, or a negative errno.  -EINVAL if neither selector is
+- * set, if the anchor is an index on a filesystem with more than one MDT, an
+- * index belonging to one of them, if --resolve is given without --changelog,
+- * or if @path is below the mount under --changelog without --resolve.
+- * -ENODEV for a --changelog MDT name
+- * that names no MDT of this filesystem.  -ENOTSUP for a predicate the source
+- * cannot answer, which find_changelog_supported() lists.
++ * Return: 0 on success, or a negative errno.  -EINVAL if none of the three
++ * selectors is set, if both an anchor and a cookie are given, if the anchor
++ * is an index on a filesystem with more than one MDT, an index belonging to
++ * one of them, if the cookie is not a regular file or was written for
++ * another filesystem or another search root, if --resolve is given without
++ * --changelog, or if @path is below the mount under --changelog without
++ * --resolve.  -ENODEV for a --changelog MDT name that names no MDT of this
++ * filesystem.  -ENOTSUP for a predicate the source cannot answer, which
++ * find_changelog_supported() lists.  -ESTALE for a cookie whose anchor the
++ * log has already passed.
+  */
+ int llapi_find_since(const char *path, struct find_param *param)
+ {
+@@ -5557,6 +6135,8 @@ int llapi_find_since(const char *path, struct find_param *param)
+ 	int mdt_count = 0;
+ 	int mdt_bound = 0;
+ 	int *mdts = NULL;
++	__u64 *starts = NULL;
++	__u64 *reached = NULL;
+ 	int i;
+ 	int rc;
+ 
+@@ -5564,7 +6144,8 @@ int llapi_find_since(const char *path, struct find_param *param)
+ 		return -EINVAL;
+ 	/* one of the two has to have selected this path */
+ 	if (param->fp_since_kind == LLAPI_SINCE_NONE &&
+-	    param->fp_changelog_mdt == NULL)
++	    param->fp_changelog_mdt == NULL &&
++	    param->fp_since_cookie == NULL)
+ 		return -EINVAL;
+ 
+ 	/*
+@@ -5575,13 +6156,25 @@ int llapi_find_since(const char *path, struct find_param *param)
+ 	 */
+ 	if (param->fp_thread_count > 1) {
+ 		llapi_error(LLAPI_MSG_ERROR | LLAPI_MSG_NO_ERRNO, -ENOTSUP,
+-			    "--threads describes a walk; --since and --changelog read one changelog per MDT in turn");
++			    "--threads describes a walk; --since, --since-cookie and --changelog read one changelog per MDT in turn");
+ 		return -ENOTSUP;
+ 	}
+ 
++	if (param->fp_since_cookie != NULL &&
++	    param->fp_since_kind != LLAPI_SINCE_NONE) {
++		llapi_error(LLAPI_MSG_ERROR | LLAPI_MSG_NO_ERRNO, -EINVAL,
++			    "--since and --since-cookie are two ways to say where to start; give one");
++		return -EINVAL;
++	}
++
++	/*
++	 * Both anchored spellings are named: --since-cookie reaches this too,
++	 * and being told that "--since already reads the object" names an
++	 * option the caller did not give.
++	 */
+ 	if (param->fp_resolve && param->fp_changelog_mdt == NULL) {
+ 		llapi_error(LLAPI_MSG_ERROR | LLAPI_MSG_NO_ERRNO, -EINVAL,
+-			    "--resolve fills what a changelog lacks; --since already reads the object");
++			    "--resolve fills what a changelog lacks; --since and --since-cookie already read the object");
+ 		return -EINVAL;
+ 	}
+ 
+@@ -5681,8 +6274,31 @@ int llapi_find_since(const char *path, struct find_param *param)
+ 		mdt_bound = 1;
+ 
+ 	mdts = calloc(mdt_bound, sizeof(*mdts));
+-	if (mdts == NULL)
+-		return -ENOMEM;
++	starts = calloc(mdt_bound, sizeof(*starts));
++	reached = calloc(mdt_bound, sizeof(*reached));
++	if (mdts == NULL || starts == NULL || reached == NULL) {
++		rc = -ENOMEM;
++		goto out;
++	}
++
++	if (param->fp_since_cookie != NULL) {
++		rc = find_cookie_read(param->fp_since_cookie, fsname,
++				      st.fss_root, starts, mdt_bound);
++		/*
++		 * -EINVAL is a cookie whose contents were refused -- another
++		 * filesystem, another search root -- and find_cookie_read()
++		 * has already named which.  Saying "cannot read" over that is
++		 * the less accurate of the two lines: the file read fine.
++		 * What is left for this one is what fopen() passed up.
++		 */
++		if (rc < 0) {
++			if (rc != -EINVAL)
++				llapi_error(LLAPI_MSG_ERROR, rc,
++					    "cannot read '%s'",
++					    param->fp_since_cookie);
++			goto out;
++		}
++	}
+ 
+ 	for (i = 0; i < mdt_bound; i++) {
+ 		snprintf(mdtname, sizeof(mdtname), "%s-MDT%04x_UUID",
+@@ -5778,6 +6394,14 @@ int llapi_find_since(const char *path, struct find_param *param)
+ 		st.fss_want = LLAPI_SCAN_FID | LLAPI_SCAN_MODE |
+ 			      LLAPI_SCAN_TYPE;
+ 
++	/* every anchor, before anything is printed: see find_cookie_check() */
++	if (param->fp_since_cookie != NULL) {
++		rc = find_cookie_check(fsname, param->fp_since_cookie, mdts,
++				       mdt_count, starts, reached);
++		if (rc < 0)
++			goto out;
++	}
++
+ 	for (i = 0; i < mdt_count; i++) {
+ 		struct llapi_scan_changelog_param sc = { 0 };
+ 
+@@ -5798,6 +6422,18 @@ int llapi_find_since(const char *path, struct find_param *param)
+ 			sc.sc_flags |= LLAPI_SCAN_CL_F_ONCE;
+ 		sc.sc_filter = find_since_filter_cb;
+ 		sc.sc_mdtname = mdtname;
++
++		/*
++		 * The cookie holds the last index this run consumed and
++		 * sc_startrec is inclusive, as "lfs changelog MDT <startrec>"
++		 * is, so the next run starts one past it.  Starting at it
++		 * instead reported the last object of every run again in the
++		 * next one.
++		 */
++		if (param->fp_since_cookie != NULL)
++			sc.sc_startrec = starts[mdts[i]] != 0 ?
++					 starts[mdts[i]] + 1 : 0;
++		st.fss_reached = &reached[i];
+ 		/*
+ 		 * --since needs only the FID to verify and the time to cut a
+ 		 * window at; --changelog reports the record itself, so it
+@@ -5821,9 +6457,53 @@ int llapi_find_since(const char *path, struct find_param *param)
+ 		}
+ 	}
+ 
++	/*
++	 * Before the cookie is rewritten, not after: a resolve failure that
++	 * is not "this object has no name" means matches were dropped, and
++	 * advancing the anchor past their records would make the rerun that
++	 * ought to find them skip them for good.  A run in that state leaves
++	 * the anchors where they were, as a scan error does.
++	 */
++	if (rc == 0 && st.fss_path_rc != 0)
++		rc = st.fss_path_rc;
++	/*
++	 * And a per-object failure, for the same reason and before the same
++	 * rewrite: find_since_cand_cb() carries on past one so the rest of
++	 * the answer is still produced, but the objects it lost are matches
++	 * this run did not report, so the anchor must not advance past their
++	 * records either.
++	 */
+ 	if (rc == 0 && st.fss_scan_rc != 0)
+ 		rc = st.fss_scan_rc;
+ 
++	/*
++	 * Matches printed into a stdout that failed are as lost as the ones
++	 * above, and llapi_printf() reports nothing, so ask stdout itself.
++	 */
++	if (rc == 0 && param->fp_since_cookie != NULL &&
++	    (fflush(stdout) != 0 || ferror(stdout))) {
++		rc = -EIO;
++		llapi_error(LLAPI_MSG_ERROR | LLAPI_MSG_NO_ERRNO, rc,
++			    "the matches could not be written; '%s' is left where it was",
++			    param->fp_since_cookie);
++	}
++
++	if (rc == 0 && param->fp_since_cookie != NULL) {
++		/*
++		 * starts[] holds what the file said, indexed by MDT; fold in
++		 * what this run reached so the entries it did not cover are
++		 * carried forward rather than lost.
++		 */
++		for (i = 0; i < mdt_count; i++)
++			starts[mdts[i]] = reached[i];
++		rc = find_cookie_write(param->fp_since_cookie, fsname,
++				       st.fss_root, starts, mdt_bound);
++		if (rc < 0)
++			llapi_error(LLAPI_MSG_ERROR, rc,
++				    "cannot rewrite '%s'; the next run would repeat this one",
++				    param->fp_since_cookie);
++	}
++
+ 	if (st.fss_gone != 0 && !st.fss_as_recorded)
+ 		llapi_error(LLAPI_MSG_WARN | LLAPI_MSG_NO_ERRNO, 0,
+ 			    "%llu of %llu changed objects no longer exist%s and are not in the answer",
+@@ -5844,16 +6524,10 @@ int llapi_find_since(const char *path, struct find_param *param)
+ 			    "%llu of %llu changed objects could not be read and are not in the answer",
+ 			    (unsigned long long)st.fss_dropped,
+ 			    (unsigned long long)st.fss_cand);
+-	/*
+-	 * A resolve that failed for a reason other than "this object has no
+-	 * name" is a search that did not finish, as it is for a target scan:
+-	 * without this a run that could not resolve anything printed one
+-	 * error, silently dropped every match after the first, and exited 0.
+-	 */
+-	if (rc == 0 && st.fss_path_rc != 0)
+-		rc = st.fss_path_rc;
+ out:
+ 	free(mdts);
++	free(starts);
++	free(reached);
+ 	if (st.fss_mnt_fd >= 0)
+ 		close(st.fss_mnt_fd);
+ 	find_param_fini(param);
+-- 
+2.43.0
+

@@ -1,0 +1,3426 @@
+From 8123faecccf50024b31e79d82e3a826bdfd3f913 Mon Sep 17 00:00:00 2001
+From: Hiroshi Nishida <hnishida@thelustrecollective.com>
+Date: Wed, 26 Aug 2026 07:05:34 -0700
+Subject: [PATCH 11/16] LU-20649 llapi: add llapi_scan_changelog()
+
+The two scanners we have enumerate what exists.  A changelog
+enumerates what happened, and llapi_scan_changelog() delivers it in
+the same record, so a consumer written against llapi_scan_namespace()
+or llapi_scan_device() can be fed by a delta without being rewritten.
+
+A changelog record carries the FID, the parent FID, the name, the
+event and its time, and -- where the server recorded them -- the uid
+and gid of whoever caused it.  That pair is lfsr_event_uid and
+lfsr_event_gid, not lfsr_uid: mdd_changelog_ns_store() fills the
+uidgid extension from lu_ucred(env), the acting client's credentials,
+so it says who acted and not who owns the object, which is what
+lfsr_uid means in every scanner that fills it and what lfs find -uid
+matches. Delivering it as lfsr_uid would have answered "-uid alice"
+from the identity of whoever last touched her file.  The record
+carries no size, mode, owner, times, layout or HSM state at any
+setting, so those arrive absent with their lfsr_valid bit clear.  With
+LLAPI_SCAN_CL_F_RESOLVE they are filled through a client mount: an
+O_PATH open by FID and a stat for each object, and a glimpse for a
+regular file whose size, blocks or mtime was asked for; the demand
+mask decides whether that happens at all, so a consumer reading only
+what an event carries pays nothing.  Resolution fills what the stream
+lacks and never restates what it has, which is what lets a caller ask
+what an event recorded rather than what is true now.
+
+Two modes.  Event mode delivers one record per event, in order.
+Object mode holds events in a FID-keyed cache and delivers one record
+per object once it has been quiet, so a file written a hundred times
+is one record and one lookup rather than a hundred of each.
+
+LLAPI_SCAN_CL_F_FOLLOW keeps reading as the log grows, as lfs changelog
+--follow does. LLAPI_SCAN_CL_F_ONCE, which needs _COALESCE, delivers an
+object at most once per run: a set of the FIDs already delivered drops
+the repeats. test5 covers it.
+
+Clearing is off by default and never runs ahead of the consumer: it is
+irreversible and it purges the registered user's whole backlog, not
+this reader's alone.  Registering that user stays the caller's, since
+registering without consuming is how an MDT fills up.
+
+The record gains lfsr_event_type, _flags, _time, _index and _prev, the
+rename source, and a job id, behind three new validity bits.  An event
+time is not an object time, so it does not land in lfsr_mtime: a
+search asking for one must not be handed the other.
+
+Only an event that implies a type answers for it -- the three
+creations, and CL_RMDIR, whose target is a directory by definition --
+so the mode and its validity bit are set together, and a later event
+leaves both alone.  Setting them as a pair is what keeps "cannot
+answer" apart from "the answer is zero": a mode written on every
+event, with the bit only ever OR'd in, would leave a coalesced object
+claiming a type while carrying zero for it.  An object's type does not
+change, so the first answer stands for every event after it.
+
+lfsr_parent_fd and lfsr_fd are set to -1 rather than left as the
+memset found them.  Zero is stdin, and a consumer written against
+llapi_scan_namespace() is told to test lfsr_parent_fd and then
+fstatat() on it.
+
+The Changelog reader is finished on every path out, the error one
+included.  llapi_changelog_start_user() opens the device and sets
+*priv before it issues OBD_IOC_CHANGELOG_FILTER, so a failure there --
+an unregistered user, an unreachable MDT -- hands back an error with
+the reader live, and the fd, its buffer and the kernel-side reader
+state would stay pinned for the life of the process if nothing closed
+them.
+
+sc_user, sc_mnt and sc_stats are read from the bounded copy rather
+than the caller's structure, and the advertised minimum sc_size
+reaches through sc_mdtname.  A minimum stopping short of it would let
+a caller declare a structure without the field the call cannot work
+without, and reading that field off the caller's own memory would go
+past its end before the size check had a chance to refuse it.
+
+Clearing stops at the oldest record any cached object still needs, not
+at the last index delivered.  Coalescing puts those apart: create B at
+10, create A at 11, touch B at 1000, and A can age out and be accepted
+while B is still held with a record at 10.  Clearing to 11 there and
+then stopping the scan loses B entirely -- no callback saw it, and a
+restart from sc_startrec cannot read it back, because the record is
+gone. An object that never goes quiet would hold that point for ever,
+and would never be delivered either, so one held for six times
+sc_min_age since its first event is delivered on its next event and
+held afresh.
+
+A rename is about the object that moved.  mdd_changelog_ns_store()
+zeroes cr_tfid when mdd_rename() passes no target, which it does
+whenever the destination name did not exist, and the moved object is
+then only in the rename extension's cr_sfid.  Keying on cr_tfid alone
+would give every such rename no object, and a consumer such as
+lfs find --since would miss the renamed file.  A rename over an
+existing name is about both objects, so it is delivered for each.  A
+CL_MIGRATE also carries the extension, but its cr_sfid is the object's
+old FID, which is gone, so it is delivered once, under the new FID.  A
+CL_MARK is about none: cr_markerflags shares its bytes with cr_tfid
+and is not a FID.  A record about no object is delivered per event
+even in object mode, since coalescing keys on the FID.
+
+A resolve reads a struct statx, so the times keep their nanoseconds
+and the birth time comes with them.  A lazy size of 0 is not marked
+lazy: with no SOM llite answers the inode's own size, which is 0 for
+an inode nothing has glimpsed, and an empty file looks the same.
+
+The parent FID is taken only from an event that carries one.  CL_CLOSE
+does not -- mdd_changelog_data_store() is called with pfid NULL -- so
+assigning it from every event while only ever OR-ing the bit in left
+create+write+close reporting LLAPI_SCAN_PARENT over a zero.  A name or
+job id whose copy failed leaves its bit clear for the same reason: a
+bit that promises a string must not be set over a NULL.
+
+A resolve is skipped only for a demand mask every event can answer,
+which LLAPI_SCAN_TYPE is not: scan_cl_mode() answers it for the four
+record types that imply one and no others, so counting it there would
+leave a consumer asking for FID and type with neither a lookup nor a
+type on a CL_CLOSE.
+
+Resolution opens O_PATH only, never for read. A real open is an MDS
+open, which writes CL_OPEN and CL_CLOSE records when a changelog user's
+mask includes OPEN, so resolving would feed the log it reads; and on a
+device node stored in the filesystem it opens the driver. The stat is
+statx() without AT_STATX_DONT_SYNC, which revalidates with the MDT and
+glimpses the OSTs as stat(2) does, so a cached inode does not answer for
+an owner or mode another client has changed.
+
+The uidgid extension is asked for when sc_want is 0, and that case is
+tested on its own rather than by a mask.  Zero means "everything", so
+it is the caller that most needs the extension -- and `0 &
+~LLAPI_SCAN_EVENT` is 0, so any test of that shape would exclude
+precisely the caller that wanted it, leaving LLAPI_SCAN_EVENT_UID out
+of lfsr_valid.
+
+A regular file's size and mtime are strict only when the OSTs were
+glimpsed, which happens when the demand mask is 0 or names a size,
+blocks or an mtime. Otherwise the size is the MDT's lazy one, which
+LLAPI_SCAN_LAZY_SIZE and LLAPI_SCAN_LAZY_BLOCKS say, and the mtime is
+left out.  liblustreapi_pfind.c maps the two to OBD_MD_FLSIZE and
+OBD_MD_FLLAZYSIZE, so they are not interchangeable.  sc_got counts
+them under a resolve, as both siblings' masks do.
+
+LLAPI_SCAN_CL_F_RESOLVE is one open and a stat, so the page says
+which fields it fills.  The project id, the layout, the directory
+stripe and the HSM state each cost an ioctl or an xattr of their own
+and are not filled at any setting.
+
+The checkpoint has a caveat, in the header and the page both.
+Under coalescing a record naming no object goes out as it arrives
+while an object whose earliest record sits lower is still held, so
+the delivered indexes are not a watermark.  A run that reaches the
+end of the log flushes what it holds and the highest index is safe;
+a run the consumer stopped drops it, so that run must leave the
+checkpoint alone.
+
+sc_startrec and sc_endrec are both inclusive, so the page's example
+resumes from the saved index plus one rather than re-delivering the
+record the job already processed.  lfsr_event_flags
+is cr_flags & CLF_FLAGMASK, so CLF_RENAME, CLF_JOBID and
+CLF_EXTRA_FLAGS are masked off -- they say which extensions a record
+carries, not what happened.
+
+Under COALESCE the one record takes each field from the last event
+that carried it, so a file created, written and closed has CL_CLOSE's
+type and CL_CREATE's name.  An object created under one name and
+hardlinked under another arrives carrying only the last of them, which
+is what lfs find --changelog -name matches against.
+
+sc_type_mask without sc_user is refused. The mask is intersected with
+the registered user's own, which the client's mdc asks the MDS for
+through llapi_changelog_start_user(); the mdc then drops the other
+records as it reads them. On the other branch llapi_changelog_start()
+never sees the mask, so a caller asking for CL_UNLINK alone would read
+every event type and nothing would say so. It is refused rather than
+given a second meaning: sc_filter already filters without a user.
+With no mask the plain reader is used even when sc_user is set: the
+filtered one looks the user up on the MDS, which an MDS before 2.17.0
+cannot do, and sc_user is then needed only to clear.
+
+llapi_scan_changelog_test has eleven cases. Five cover what the shape
+of this stream turns on: that a record describes the event it came
+from, that object mode collapses a burst into one record, that the
+demand mask keeps a lookup from happening at all, that a consumer's
+own return value comes back unchanged, and that bad parameters are
+refused rather than crashed on. The rest cover _ONCE, the clear,
+sc_got, renames, sc_type_mask and the hold limit.  It takes -m for
+the MDT, -u for a registered user and -d for a client mount, since
+three of those need a live log.  sanity 56Eea runs it, so the binary
+is not merely built.  Its events have to be on the MDT whose log it
+reads, which under DNE a mkdir below a striped root does not
+guarantee, so the test makes the directory on MDT0 itself; the binary
+still checks and refuses.  -u passes a registered Changelog user.
+test6 and test9 need it and skip without one: test6 clears, which
+cannot be undone, and test9 filters through the user.
+
+Signed-off-by: Hiroshi Nishida <hnishida@thelustrecollective.com>
+Assisted-by: ClaudeCode:Opus-5 llm_code_and_review_tools
+Change-Id: I12efd3bd2150592a4507533129ab56573ef924d9
+---
+ Documentation/man3/Makefile.am             |    1 +
+ Documentation/man3/llapi_scan_changelog.3  |  591 +++++++++
+ Documentation/man7/lustreapi.7             |    1 +
+ include/lustre/lustreapi.h                 |  112 +-
+ lustre/tests/.gitignore                    |    1 +
+ lustre/tests/Makefile.am                   |    4 +
+ lustre/tests/llapi_scan_changelog_test.c   |  862 +++++++++++++
+ lustre/tests/sanity.sh                     |   45 +
+ lustre/utils/Makefile.am                   |    1 +
+ lustre/utils/liblustreapi_scan_changelog.c | 1346 ++++++++++++++++++++
+ lustre/utils/lustreapi_internal.h          |   88 +-
+ 11 files changed, 3049 insertions(+), 3 deletions(-)
+ create mode 100644 Documentation/man3/llapi_scan_changelog.3
+ create mode 100644 lustre/tests/llapi_scan_changelog_test.c
+ create mode 100644 lustre/utils/liblustreapi_scan_changelog.c
+
+diff --git a/Documentation/man3/Makefile.am b/Documentation/man3/Makefile.am
+index 1c2e5d313f..7de61fa608 100644
+--- a/Documentation/man3/Makefile.am
++++ b/Documentation/man3/Makefile.am
+@@ -134,6 +134,7 @@ LIBMAN = 					\
+ 	llapi_quotactl.3			\
+ 	llapi_rmfid.3				\
+ 	llapi_rmfid_at.3			\
++	llapi_scan_changelog.3			\
+ 	llapi_scan_device.3			\
+ 	llapi_scan_namespace.3			\
+ 	llapi_scan_rec_path.3			\
+diff --git a/Documentation/man3/llapi_scan_changelog.3 b/Documentation/man3/llapi_scan_changelog.3
+new file mode 100644
+index 0000000000..4645898c98
+--- /dev/null
++++ b/Documentation/man3/llapi_scan_changelog.3
+@@ -0,0 +1,591 @@
++.TH LLAPI_SCAN_CHANGELOG 3 2026-08-25 "Lustre User API" "Lustre Library Functions"
++.SH NAME
++llapi_scan_changelog \- read a Lustre Changelog as an Object Stream
++.SH SYNOPSIS
++.nf
++.B #include <lustre/lustreapi.h>
++.PP
++.BI "typedef int (*llapi_scan_cb_t)(const struct llapi_scan_rec *" rec ,
++.BI "                               void *" data ");"
++.PP
++.BI "int llapi_scan_changelog(const struct llapi_scan_changelog_param *" sc ,
++.BI "                         llapi_scan_cb_t " cb ", void *" data ");"
++.PP
++.fi
++.SH DESCRIPTION
++.B llapi_scan_changelog()
++reads one MDT's Changelog and calls
++.I cb
++once per event, or with
++.B LLAPI_SCAN_CL_F_COALESCE
++once per object, with the same
++.B struct llapi_scan_rec
++that
++.BR llapi_scan_namespace (3)
++and
++.BR llapi_scan_device (3)
++deliver. A consumer written for either of those is fed by this one without
++being rewritten.
++.LP
++.B It is not a scan.
++A Changelog answers what changed, never what exists: an object that has not
++been touched does not appear, however well it matches. Its window is also
++finite \(em records exist between the oldest unpurged index and now \(em so an
++answer from it means something only against an anchor, which is what a full
++scan provides.
++.SS What the record carries
++A Changelog record has the FID, the parent FID, the name, the event and its
++time, and, where the server recorded them, the uid and gid of whoever caused
++it. That pair is
++.I lfsr_event_uid
++and
++.IR lfsr_event_gid ,
++gated by
++.BR LLAPI_SCAN_EVENT_UID ,
++and it is not
++.IR lfsr_stx.stx_uid :
++the MDT fills the Changelog's uidgid extension from the acting client's
++credentials, so it says who acted and not who owns the object, which is what
++.I lfsr_stx.stx_uid
++means in every scanner that fills it. Only a resolve can answer the owner.
++.LP
++A record has
++.B no
++size, blocks, mode, nlink, owner, object times, project id, layout, directory
++stripe or HSM state at any setting. Those fields arrive absent, with their
++.I lfsr_valid
++bit clear.
++.B LLAPI_SCAN_CL_F_RESOLVE
++fills the first six of them \(em what one
++.BR fstat (2)
++on the object answers for. The project id, the layout, the directory stripe
++and the HSM state are not filled at any setting: each costs an ioctl or an
++xattr of its own, which a log this size cannot pay per record. A consumer
++that needs them holds the FID and can ask for them itself.
++.LP
++The event's own fields are
++.IR lfsr_event_type ,
++.I lfsr_event_flags
++(the
++.B CLF_FLAGMASK
++bits only \(em
++.BR CLF_RENAME ,
++.B CLF_JOBID
++and
++.B CLF_EXTRA_FLAGS
++say which extensions the record carries, not what happened, and are
++masked off),
++.I lfsr_event_time
++and
++.IR lfsr_event_index ;
++they are valid when
++.B LLAPI_SCAN_EVENT
++is set. A rename also carries
++.IR lfsr_src_fid ,
++.I lfsr_src_parent_fid
++and
++.IR lfsr_src_name ,
++gated by
++.BR LLAPI_SCAN_EVENT_SRC ,
++and
++.I lfsr_jobid
++by
++.BR LLAPI_SCAN_JOBID ,
++and the acting uid and gid by
++.BR LLAPI_SCAN_EVENT_UID .
++.LP
++A
++.B CL_RENAME
++is about the object that moved, whose FID the Changelog carries in its rename
++extension, so
++.I lfsr_fid
++and
++.I lfsr_src_fid
++both name it.
++.B mv a b
++over an existing
++.I b
++is also about the object
++.I b
++named, which the rename replaced: it is delivered twice, once with
++.I lfsr_fid
++= that object and once with
++.I lfsr_fid
++= the one that moved, in event mode as in object mode. A
++.B CL_MIGRATE
++record also carries a rename extension, but its
++.I cr_sfid
++is the migrated object's old FID, which no longer exists: that record is
++delivered once, under the new FID.
++.LP
++.I sc_stats
++is filled in when the scan ends, and not every field means here what it
++means for a scan of a namespace or a target.
++.I ss_seen
++counts Changelog records examined and
++.I ss_emitted
++counts what was delivered \(em objects while coalescing, events otherwise \(em
++and
++.I ss_skipped
++and
++.I ss_class
++are not filled at all, a Changelog record carrying no class. The identity
++.B struct llapi_scan_stats
++documents between them does not hold for this scanner.
++.I lfsr_parent_fd
++and
++.I lfsr_fd
++are always \-1: this reader holds no descriptor.
++.LP
++Two fields are answered from the event itself.
++.I lfsr_event_time
++is when the event happened, in whole seconds since the epoch, and is
++deliberately not
++.IR lfsr_stx.stx_mtime :
++an event time and a modification time are different facts. And an event that
++implies a type decides it \(em
++.B CL_CREATE
++is a regular file,
++.B CL_MKDIR
++a directory,
++.B CL_SOFTLINK
++a symlink, and
++.B CL_RMDIR
++names a directory too \(em so
++.B LLAPI_SCAN_TYPE
++is set for those and clear for everything else. An object's type does not
++change, so the answer stands for every later event on it.
++.SS The parameters
++.TP
++.I sc_size
++.BR sizeof (*sc).
++Required, and how the structure grows.
++.TP
++.I sc_mdtname
++The target, as
++.BR testfs-MDT0000 .
++Read through the character device
++.BI /dev/changelog- mdtname
++that the client's
++.B mdc
++creates, so this runs on a client and needs no server access.
++.TP
++.I sc_user
++The registered Changelog user, as
++.BR cl1 .
++Required by
++.BR LLAPI_SCAN_CL_F_CLEAR .
++Registering one is an MDS-side operation and is the caller's:
++.B lctl --device
++.I mdtname
++.BR changelog_register .
++To use
++.IR sc_type_mask ,
++register the user with a mask or a name
++.RB ( "changelog_register -m ALL" ).
++On an MDS without the LU-20647 fix, a plain registration writes a record
++the MDS cannot look up, and the scan then fails with
++.BR -ENOENT .
++.TP
++.I sc_flags
++.B LLAPI_SCAN_CL_F_*
++bits, described below. An unknown bit is refused.
++.TP
++.I sc_mnt
++A client mount of the same filesystem, or NULL.
++.B LLAPI_SCAN_CL_F_RESOLVE
++looks each object up through it and needs it.
++.TP
++.I sc_stats
++A
++.B struct llapi_scan_stats
++filled in when the scan ends, or NULL; see
++.BR llapi_scan_device (3).
++.TP
++.I sc_padding
++Must be zero.
++.TP
++.I sc_want
++The
++.B LLAPI_SCAN_*
++fields the consumer will read; 0 means everything. A consumer asking only for
++what an event carries gets no lookup at all, even with
++.B LLAPI_SCAN_CL_F_RESOLVE
++set.
++.TP
++.I sc_filter
++Called before any lookup. Return 0 to deliver, 1 to skip this record,
++negative to stop the stream. A skipped record is counted in
++.I ss_filtered
++rather than
++.IR ss_emitted ,
++and counts as consumed for
++.BR LLAPI_SCAN_CL_F_CLEAR .
++.TP
++.IR sc_startrec ", " sc_endrec
++The range of Changelog indexes to read, both ends inclusive; 0 means the
++oldest surviving record and the end of the log. An index is per-MDT and is
++only meaningful with the MDT it came from. A job resuming from a saved index
++passes that index plus one, or reads the record it processed last time
++again.
++.TP
++.I sc_type_mask
++.BI BIT( CL_ *)
++of the events wanted, intersected with the registered user's own mask; 0
++means every type the log holds. The client asks the MDS for
++.IR sc_user 's
++mask, which needs an MDS of Lustre 2.17.0 or later, and drops the other
++records as it reads them; they are still read from the MDT. A mask is
++refused without
++.IR sc_user ,
++because there is no user's mask to intersect it with, and refused with
++.BR LLAPI_SCAN_CL_F_CLEAR ,
++because a clear purges the user's records of every type, including the ones
++the mask kept from the consumer. Keep the mask within the user's own: the
++client takes an empty intersection as no mask at all, and delivers every
++type.
++.I sc_filter
++filters without one.
++.TP
++.IR sc_min_age ", " sc_max_cached
++While coalescing: how long an object must be quiet before it is delivered,
++and how many objects may be held. Zero takes the defaults, 600 seconds and
++100000 objects.
++.IP
++An object that keeps changing is not held for ever: once six times
++.I sc_min_age
++has passed since its first event, it is delivered on its next one and held
++afresh from there. A file written without pause is then delivered about once
++every six
++.IR sc_min_age ,
++and the records behind it can be cleared.
++.IP
++The age is measured on the stream, not on the wall clock: the current time
++is taken from each record as it arrives, so quiet is measured by the event
++times of the records read, and the clock stands still while no record
++arrives. Under
++.B LLAPI_SCAN_CL_F_FOLLOW
++a filesystem with no activity therefore holds the objects it last saw for
++as long as it stays quiet, and with
++.B LLAPI_SCAN_CL_F_CLEAR
++as well the records behind them stay uncleared for the same duration. A
++consumer that must act within a bounded time reads with
++.B LLAPI_SCAN_CL_F_FOLLOW
++clear and calls again.
++.SS sc_got
++.I sc_got
++points at a
++.B __u64
++the scan fills before the first record with the subset of
++.I sc_want
++it will answer for, or is NULL when the caller does not want to know. It is
++.I lfsp_got
++for this entry point \(em see
++.BR llapi_scan_device (3)
++\(em so one consumer can ask all three scanners the same question.
++.LP
++A changelog answers for less than either sibling. The event fields are always
++available; the object's own attributes are added only under
++.B LLAPI_SCAN_CL_F_RESOLVE
++with
++.I sc_mnt
++naming a mount, since a lookup is what supplies them. A project id, a layout,
++an LMV, HSM state, a linkea, an inode number, a class and an OST object's
++owner are never filled at any setting, and
++.I sc_got
++is what says so before the scan runs rather than leaving a caller to infer it
++from records that never carry the field.
++.SS The flags
++.TP
++.B LLAPI_SCAN_CL_F_FOLLOW
++Do not stop at the end of the log; wait for new records. With
++.I sc_type_mask
++as well, the range ends only when a record at or past
++.I sc_endrec
++passes the mask, since the others are dropped before they are read.
++.TP
++.B LLAPI_SCAN_CL_F_COALESCE
++Deliver one record per object rather than one per event, once the object has
++been quiet for
++.IR sc_min_age .
++A file written a hundred times is then one record and one lookup.
++.IP
++The record carries the object's
++.B latest
++event: its
++.IR lfsr_event_index ", " lfsr_event_time " and " lfsr_event_type
++are that event's and not an earlier one's.
++.IP
++The fields an event does not always carry are the latest that
++.B did
++carry one, which is not the same thing. A Changelog record has a name only
++when the event had one to record \(em
++.BR mdd_changelog_data_store_by_fid ()
++writes none for
++.BR CL_CLOSE ", " CL_TRUNC ", " CL_SETATTR
++and their kind \(em so a file created, written and closed arrives as one
++record whose
++.I lfsr_event_type
++is
++.B CL_CLOSE
++while its
++.I lfsr_name
++is the one
++.B CL_CREATE
++recorded. Keeping it is the point: taking the latest event's would leave
++most coalesced records with no name at all.
++.IR lfsr_parent_fid ", " lfsr_jobid ", " lfsr_src_fid ", " lfsr_src_parent_fid ", "
++.IR lfsr_src_name " and " lfsr_event_uid
++follow the same rule.
++.IP
++So an object the log named more than once \(em created under one name and
++hardlinked under another \(em arrives carrying only the last of those names,
++and a consumer matching on
++.I lfsr_name
++sees one name per object rather than every name the log recorded for it.
++.TP
++.B LLAPI_SCAN_CL_F_RESOLVE
++Fill what the Changelog does not carry, by opening each object by FID with
++.B O_PATH
++through
++.IR sc_mnt .
++One open per object, and a stat or two that ask the MDT again, so another
++client's change to the owner or mode is seen. A regular file's size and times
++are exact only when the demand mask is 0 or names a size, blocks or a time,
++which glimpses the OSTs; otherwise the size is the lazy one, marked by
++.B LLAPI_SCAN_LAZY_SIZE
++and
++.BR LLAPI_SCAN_LAZY_BLOCKS ,
++and the times are left out. A lazy size or block count of 0 is not marked:
++with no size-on-MDT the client answers 0 for a file it has not glimpsed,
++which cannot be told from an empty file. The times keep their nanoseconds,
++and the birth time is filled where the MDT has one. No object is opened for read, so resolution adds
++no
++.B CL_OPEN
++or
++.B CL_CLOSE
++records to the log it reads. Resolution
++.B fills
++what the stream lacks; it never removes an object from the stream and never
++overrides what the event recorded, so the acting uid in
++.I lfsr_event_uid
++stays as recorded while
++.I lfsr_stx.stx_uid
++is filled with the owner the lookup found. An object that has since been
++unlinked cannot be opened, which is
++not an error: the record is delivered with what the event said and the rest
++absent.
++.TP
++.B LLAPI_SCAN_CL_F_ONCE
++Deliver each object at most once for the whole stream, rather than once per
++burst. Requires
++.BR LLAPI_SCAN_CL_F_COALESCE ,
++and is refused with
++.B -EINVAL
++without it.
++.IP
++Coalescing reduces an object to one record only while it is held: the cache
++is a window, so an object touched again after it has aged out past
++.IR sc_min_age ,
++or after
++.I sc_max_cached
++pushed it out early, arrives a second time. A consumer that reports objects
++rather than events \(em
++.B lfs find --since
++is one \(em then reports it twice. This holds the FID of every object
++already delivered and drops the repeats.
++.IP
++.I sc_filter
++still sees them, before they are dropped, so a consumer anchoring on
++.I lfsr_event_index
++sees every record the stream produced. A dropped repeat is counted in
++.I ss_seen
++and not in
++.IR ss_emitted ,
++and the resolve a delivery would have cost is not paid.
++.IP
++The set holds one
++.B struct lu_fid
++per distinct object the log touched, in a table grown by doubling, and lives
++for the length of the call: memory in the size of the answer rather than of
++the log. A window wide enough to name tens of millions of objects costs
++hundreds of megabytes, which a consumer that cannot afford trades for
++duplicates by leaving this clear.
++.TP
++.B LLAPI_SCAN_CL_F_CLEAR
++Purge consumed records as they are accepted, never ahead of the consumer. A
++record the consumer decided about is consumed whether
++.I cb
++took it or
++.I sc_filter
++rejected it: a filter is the consumer's own code reading the record, so a
++scan whose filter rejects everything still clears what it read. Object mode
++clears no further than the oldest record an object still held depends on.
++.B This cannot be undone
++and it purges the whole registered user's backlog, not this reader's alone,
++so a user id shared with another consumer loses what is cleared. Off by
++default.
++.SH RETURN VALUES
++.TP
++0
++on success.
++.TP
++>0
++the value a callback returned to stop the stream, unchanged.
++.TP
++<0
++a negative errno, or a negative value a consumer's
++.I cb
++returned to stop the stream, unchanged.
++.SH ERRORS
++.TP 15
++.B -EINVAL
++.I sc
++or
++.I cb
++is NULL;
++.I sc_mdtname
++is NULL;
++.I sc_size
++is outside the range this library accepts;
++.I sc_flags
++sets a bit it does not define;
++.B LLAPI_SCAN_CL_F_RESOLVE
++without
++.IR sc_mnt ;
++.B LLAPI_SCAN_CL_F_CLEAR
++without
++.IR sc_user ;
++.B LLAPI_SCAN_CL_F_ONCE
++without
++.BR LLAPI_SCAN_CL_F_COALESCE ;
++.I sc_type_mask
++non-zero without
++.I sc_user
++\(em the mask is a property of a registered user, so there is nothing to
++apply it to;
++.I sc_type_mask
++non-zero with
++.B LLAPI_SCAN_CL_F_CLEAR
++\(em the clear would purge records the mask never delivered;
++.I sc_padding
++non-zero, which is what keeps a field carved out of it later from being
++ignored without a word; or
++.I sc_stats
++is not NULL and its
++.I ss_size
++is smaller than the oldest
++.B struct llapi_scan_stats
++this library writes back.
++.TP 15
++.B -EXDEV
++.B LLAPI_SCAN_CL_F_RESOLVE
++with an
++.I sc_mnt
++of another filesystem than the one
++.I sc_mdtname
++belongs to: a FID names nothing across filesystems, so the lookup would
++fill the record from an unrelated object.
++.TP 15
++.B -ENOENT
++no Changelog device for
++.IR sc_mdtname ,
++which usually means no client is mounted or the name is wrong. With
++.IR sc_type_mask ,
++it can also mean the MDS did not find
++.IR sc_user :
++see
++.I sc_user
++above.
++.TP 15
++.B -EACCES
++the Changelog device is not readable by this user.
++.SH NOTES
++.SS Registering without consuming fills the MDT
++A registered Changelog user is a promise to consume. Records accumulate for
++as long as the user stays registered and nothing clears them, and the cure is
++to consume, to clear, or to deregister with
++.B lctl --device
++.I mdtname
++.BR changelog_deregister .
++.SS Under DNE there is one Changelog per MDT
++Order within one MDT is exact, by
++.IR cr_index .
++Across MDTs there is no global order: an index is per-MDT, and
++.I cr_time
++is a wall clock on each MDS. A rename that moves an object between MDTs
++appears in both logs.
++.SS What the server records is not this reader's choice
++.B CHANGELOG_DEFMASK
++excludes
++.BR CL_ATIME ,
++.BR CL_OPEN ,
++.B CL_GETXATTR
++and
++.BR CL_DN_OPEN ,
++so on a default filesystem "recently accessed" is not a Changelog question at
++all. Enabling them is an administrator's decision, with a cost.
++.SH EXAMPLES
++To report every object that changed on one MDT since a known index, one
++record per object rather than one per event:
++.EX
++        static int changed_cb(const struct llapi_scan_rec *rec, void *data)
++        {
++                if (rec->lfsr_valid & LLAPI_SCAN_EVENT)
++                        printf("%llu " DFID " %s\en",
++                               (unsigned long long)rec->lfsr_event_index,
++                               PFID(&rec->lfsr_fid),
++                               rec->lfsr_name ? rec->lfsr_name : "");
++                return 0;
++        }
++\&
++        struct llapi_scan_changelog_param sc = { 0 };
++        struct llapi_scan_stats st = { .ss_size = sizeof(st) };
++\&
++        sc.sc_size = sizeof(sc);
++        sc.sc_mdtname = "testfs-MDT0000";
++        sc.sc_flags = LLAPI_SCAN_CL_F_COALESCE;
++        sc.sc_startrec = last_index_this_job_saw + 1;
++        sc.sc_stats = &st;
++\&
++        rc = llapi_scan_changelog(&sc, changed_cb, NULL);
++.EE
++.LP
++.I lfsr_event_index
++is the checkpoint, with one caveat under
++.BR LLAPI_SCAN_CL_F_COALESCE .
++A record naming no object of its own is delivered as it arrives, while an
++object whose earliest record sits at a lower index is still held, so the
++indexes a consumer sees are not a watermark. A scan that reaches the end of
++the log delivers everything held before it closes, and the highest index
++seen is then safe to save. A scan the consumer
++.B stopped
++does not: what was held is dropped undelivered, and saving the highest index
++seen would step over it for good. A run that stopped must leave the
++checkpoint where it was.
++.LP
++Reading does not consume: the records stay until a registered user clears
++them, which is
++.B LLAPI_SCAN_CL_F_CLEAR
++with
++.IR sc_user ,
++or
++.BR lfs-changelog_clear (1).
++.SH AVAILABILITY
++.B llapi_scan_changelog()
++is part of the
++.BR lustre (7)
++user application interface library since release 2.18.0.
++.\" Added in commit v2_17_57-xxx-gxxxxxxxxx
++.SH SEE ALSO
++.BR lfs-changelog (1),
++.BR lfs-changelog_clear (1),
++.BR fstat (2),
++.BR statx (2),
++.BR llapi_changelog_clear (3),
++.BR llapi_changelog_start (3),
++.BR llapi_changelog_start_user (3),
++.BR llapi_scan_device (3),
++.BR llapi_scan_namespace (3),
++.BR llapi_scan_rec_path (3),
++.BR lustreapi (7)
+diff --git a/Documentation/man7/lustreapi.7 b/Documentation/man7/lustreapi.7
+index 768d6f05d9..a7feb5a8ec 100644
+--- a/Documentation/man7/lustreapi.7
++++ b/Documentation/man7/lustreapi.7
+@@ -133,6 +133,7 @@ Functions for HSM copytool operations and archive management.
+ Functions for walking a filesystem and reporting a record per object.
+ .PP
+ .BR llapi_find_device (3),
++.BR llapi_scan_changelog (3),
+ .BR llapi_scan_device (3),
+ .BR llapi_scan_namespace (3),
+ .BR llapi_scan_rec_path (3)
+diff --git a/include/lustre/lustreapi.h b/include/lustre/lustreapi.h
+index f115c59d00..5af5e22cea 100644
+--- a/include/lustre/lustreapi.h
++++ b/include/lustre/lustreapi.h
+@@ -695,6 +695,17 @@ void llapi_find_param_free(struct find_param *param);
+ #define LLAPI_SCAN_CLASS	0x0000400000000000ULL	/* lfsr_class */
+ #define LLAPI_SCAN_OWNER	0x0001000000000000ULL	/* lfsr_owner_fid */
+ 
++/*
++ * What a changelog answers for and a scan does not: the event itself.  An
++ * event time is not an object time, so lfsr_event_time is its own field
++ * rather than filling lfsr_stx.stx_mtime -- a search asking for one must not
++ * be handed the other.
++ */
++#define LLAPI_SCAN_EVENT	0x0002000000000000ULL	/* lfsr_event_* */
++#define LLAPI_SCAN_EVENT_SRC	0x0004000000000000ULL	/* the rename source */
++#define LLAPI_SCAN_EVENT_UID	0x0008000000000000ULL	/* the uid/gid pair */
++#define LLAPI_SCAN_JOBID	0x0010000000000000ULL	/* lfsr_jobid */
++
+ /* Fields the scanner can answer without touching the MDT. */
+ #define LLAPI_SCAN_DIRENT_MASK	LLAPI_SCAN_TYPE
+ 
+@@ -735,8 +746,9 @@ enum llapi_scan_class {
+  * struct llapi_scan_rec - one scanned object
+  *
+  * Valid only for the duration of the callback it is passed to.  lfsr_path,
+- * lfsr_name, lfsr_lmm and lfsr_lmv point into scanner-owned memory and must
+- * be copied by a consumer that keeps them.
++ * lfsr_name, lfsr_lmm, lfsr_lmv, lfsr_linkea, lfsr_src_name and
++ * lfsr_jobid point into scanner-owned memory and must be copied by a
++ * consumer that keeps them.
+  *
+  * The pointer fields carry their own answer: lfsr_path is NULL where no
+  * namespace was walked, and lfsr_name is NULL where no name was recovered.
+@@ -843,6 +855,42 @@ struct llapi_scan_rec {
+ 	 */
+ 	/* with LLAPI_SCAN_OWNER */
+ 	struct lu_fid		 lfsr_owner_fid;
++	/* from here on, what a changelog answers for: the event, not the
++	 * object.  LLAPI_SCAN_EVENT covers the first five.
++	 */
++	/* enum changelog_rec_type */
++	__u32			 lfsr_event_type;
++	__u32			 lfsr_event_flags; /* the CLF_FLAGMASK bits */
++	__s64			 lfsr_event_time; /* seconds since the epoch */
++	/*
++	 * cr_index: what a consumer checkpoints on, with one caveat under
++	 * LLAPI_SCAN_CL_F_COALESCE.  A record with no object of its own is
++	 * delivered as it arrives while an object whose earliest record sits
++	 * lower is still held, so the indexes delivered are not a watermark.
++	 * A run that ends on its own delivers everything held before it
++	 * closes and the highest index seen is safe; a run the consumer
++	 * stopped does not, so that run must not advance the checkpoint.
++	 */
++	__u64			 lfsr_event_index;
++	/* always 0: no MDS fills cr_prev */
++	__u64			 lfsr_event_prev;
++	/* where a rename came from, with LLAPI_SCAN_EVENT_SRC */
++	struct lu_fid		 lfsr_src_fid;
++	struct lu_fid		 lfsr_src_parent_fid;
++	const char		*lfsr_src_name;
++	const char		*lfsr_jobid;	/* with LLAPI_SCAN_JOBID */
++	/*
++	 * Who caused the event, which is not who owns the object: the MDT
++	 * fills the uidgid extension from the acting client's credentials
++	 * (mdd_changelog_ns_store() passes uc->uc_uid), so root touching a
++	 * file owned by alice records 0 here while lfsr_stx.stx_uid stays
++	 * alice.  That is the owner in every scanner that fills it, and
++	 * lfs find -uid matches on that, so the actor is its own pair of
++	 * fields rather than being delivered under that name.
++	 */
++	/* with LLAPI_SCAN_EVENT_UID */
++	__u32			 lfsr_event_uid;
++	__u32			 lfsr_event_gid;
+ };
+ 
+ /**
+@@ -1066,6 +1114,66 @@ int llapi_fid2path_at(int mnt_fd, const struct lu_fid *fid, char *path,
+ 		      int pathlen, long long *recno, int *linkno);
+ int llapi_fid2path(const char *device, const char *fidstr, char *path,
+ 		   int pathlen, long long *recno, int *linkno);
++/* llapi_scan_changelog() flags, sc_flags */
++/* do not stop at the end of the log; wait for new records */
++#define LLAPI_SCAN_CL_F_FOLLOW		0x00000001ULL
++/* one record per object rather than one per event */
++#define LLAPI_SCAN_CL_F_COALESCE	0x00000002ULL
++/* fill what the changelog does not carry, through sc_mnt */
++#define LLAPI_SCAN_CL_F_RESOLVE		0x00000004ULL
++/* clear consumed records as they are accepted -- destructive */
++#define LLAPI_SCAN_CL_F_CLEAR		0x00000008ULL
++/* deliver each object at most once for the life of the scan, not once per
++ * burst; needs LLAPI_SCAN_CL_F_COALESCE, and holds a FID per object seen
++ */
++#define LLAPI_SCAN_CL_F_ONCE		0x00000010ULL
++
++/**
++ * struct llapi_scan_changelog_param - what llapi_scan_changelog() is asked for
++ *
++ * sc_size says how much of this structure the caller built, so a field added
++ * at the end later is answerable from the size alone.  sc_padding must be
++ * zero, which is what lets a field be carved out of it later: those bytes are
++ * already counted in sc_size, so a newer caller setting one could not
++ * otherwise be told from an older caller that did not.
++ */
++struct llapi_scan_changelog_param {
++	__u32			 sc_size;	/* sizeof(*sc) */
++	__u32			 sc_min_age;	/* seconds to hold an object
++						 * while coalescing; 0 = the
++						 * default
++						 */
++	__u64			 sc_flags;	/* LLAPI_SCAN_CL_F_* */
++	__u64			 sc_want;	/* LLAPI_SCAN_*; 0: all */
++	llapi_scan_cb_t		 sc_filter;	/* before any lookup, or NULL */
++	const char		*sc_mdtname;	/* "testfs-MDT0000" */
++	const char		*sc_user;	/* "cl1"; required to clear */
++	const char		*sc_mnt;	/* a client mount, for
++						 * LLAPI_SCAN_CL_F_RESOLVE
++						 */
++	__u64			 sc_startrec;	/* 0: the oldest kept */
++	__u64			 sc_endrec;	/* 0: to the end */
++	__u64			 sc_type_mask;	/* BIT(CL_*); 0: every type */
++	__u32			 sc_max_cached;	/* objects held while
++						 * coalescing; 0 = the default
++						 */
++	__u32			 sc_padding;	/* must be zero */
++	struct llapi_scan_stats	*sc_stats;	/* NULL: not wanted */
++	/*
++	 * Filled before the first record with the subset of sc_want this
++	 * scan will answer for, or NULL if the caller does not want to
++	 * know -- lfsp_got for the other two scanners, so one consumer can
++	 * ask all three the same question.  A changelog answers for fewer
++	 * fields than either: it has no layout, no linkea and no inode
++	 * number to give, and what a lookup can add depends on
++	 * LLAPI_SCAN_CL_F_RESOLVE and on a mount being named.
++	 */
++	__u64			*sc_got;
++};
++
++int llapi_scan_changelog(const struct llapi_scan_changelog_param *sc,
++			 llapi_scan_cb_t cb, void *data);
++
+ int llapi_scan_rec_path(int mnt_fd, const char *mnt_path,
+ 			const struct llapi_scan_rec *rec,
+ 			char *buf, size_t buflen);
+diff --git a/lustre/tests/.gitignore b/lustre/tests/.gitignore
+index c30354efe3..130ddafdd2 100644
+--- a/lustre/tests/.gitignore
++++ b/lustre/tests/.gitignore
+@@ -21,6 +21,7 @@
+ /llapi_layout_test
+ /llapi_root_test
+ /llapi_scan_test
++/llapi_scan_changelog_test
+ /llapi_scan_device_test
+ /llapi_pool_test
+ /createdestroy
+diff --git a/lustre/tests/Makefile.am b/lustre/tests/Makefile.am
+index 030e4aa9af..372b395765 100644
+--- a/lustre/tests/Makefile.am
++++ b/lustre/tests/Makefile.am
+@@ -75,6 +75,7 @@ THETESTS += check_fallocate splice-test lseek_test expand_truncate_test
+ THETESTS += foreign_symlink_striping lov_getstripe_old io_uring_probe
+ THETESTS += fadvise_dontneed_helper llapi_root_test llapi_pool_test aheadmany
+ THETESTS += llapi_scan_test llapi_scan_device_test
++THETESTS += llapi_scan_changelog_test
+ THETESTS += monitor_lustrefs test_parity_read
+ 
+ if LIBAIO
+@@ -130,6 +131,9 @@ llapi_scan_device_test_LDADD += $(top_builddir)/lustre/utils/libscan_zfs_in.la \
+ 				$(ZFS_LIBZFS_LDFLAGS) -lzpool -lnvpair
+ endif # ZFS_SCAN_ENABLED
+ endif # PLUGINS
++llapi_scan_changelog_test_SOURCES = llapi_scan_changelog_test.c \
++				    llapi_test_utils.c llapi_test_utils.h
++llapi_scan_changelog_test_LDADD = $(LIBLUSTREAPI) -lpthread
+ group_lock_test_LDADD = $(LIBLUSTREAPI)
+ llapi_fid_test_LDADD = $(LIBLUSTREAPI)
+ llapi_root_test_LDADD = $(LIBLUSTREAPI) -lpthread
+diff --git a/lustre/tests/llapi_scan_changelog_test.c b/lustre/tests/llapi_scan_changelog_test.c
+new file mode 100644
+index 0000000000..c81ccd54e8
+--- /dev/null
++++ b/lustre/tests/llapi_scan_changelog_test.c
+@@ -0,0 +1,862 @@
++// SPDX-License-Identifier: LGPL-2.1+
++/*
++ * Copyright (c) 2026, The Lustre Collective.
++ */
++/*
++ * This file is part of Lustre, http://www.lustre.org/
++ *
++ * Tests for llapi_scan_changelog(): what a compiler cannot check.
++ *
++ * What a compiler cannot check about llapi_scan_changelog(): that the events
++ * it delivers are the ones the workload produced, that object mode collapses
++ * a burst into one record, that a consumer's return value reaches the caller,
++ * that the demand mask keeps a lookup from happening, and that bad arguments
++ * are refused rather than crashed on.
++ *
++ * Usage: llapi_scan_changelog_test -m MDTNAME -d MOUNT [-u USER]
++ *			[-e TESTS] [-o TESTS]
++ *
++ * The changelog user is the caller's to register, as it is for any consumer:
++ *	lctl --device MDTNAME changelog_register -m ALL
++ * -m ALL, because the filter test9 sets cannot find a user registered
++ * without a mask (LU-20647).  Without -u, test6 and test9 skip.
++ *
++ * The cases are registered and run through run_tests(), as this suite's
++ * siblings are: each one is forked, so a case that crashes ends itself
++ * rather than the run -- which is test4's whole subject -- and -e and -o
++ * select what runs.
++ */
++
++#include <errno.h>
++#include <fcntl.h>
++#include <getopt.h>
++#include <pthread.h>
++#include <stdbool.h>
++#include <stdio.h>
++#include <stdlib.h>
++#include <string.h>
++#include <sys/stat.h>
++#include <unistd.h>
++
++#include <lustre/lustreapi.h>
++
++#include "llapi_test_utils.h"
++
++static char *mdtname;
++static char *mntpath;
++static char *cluser;
++static char testdir[PATH_MAX];		/* where every case makes its events */
++
++struct cl_result {
++	unsigned int	cr_records;
++	unsigned int	cr_with_fid;
++	unsigned int	cr_with_event;
++	unsigned int	cr_with_name;
++	unsigned int	cr_resolved;	/* carried a size, so a lookup ran */
++	unsigned int	cr_stop_after;	/* 0: never stop */
++	struct lu_fid	cr_target;	/* counted on its own; 0: none */
++	unsigned int	cr_target_hits;
++	__u64		cr_seen_valid;	/* union of every lfsr_valid seen */
++	__u64		cr_first_index;
++	__u64		cr_last_index;
++	__u64		cr_types;	/* BIT(cr_type) of everything seen */
++};
++
++static int cl_cb(const struct llapi_scan_rec *rec, void *data)
++{
++	struct cl_result *res = data;
++
++	res->cr_records++;
++	res->cr_seen_valid |= rec->lfsr_valid | rec->lfsr_stx.stx_mask;
++
++	if (rec->lfsr_valid & LLAPI_SCAN_FID)
++		res->cr_with_fid++;
++	if ((rec->lfsr_valid & LLAPI_SCAN_FID) &&
++	    rec->lfsr_fid.f_seq == res->cr_target.f_seq &&
++	    rec->lfsr_fid.f_oid == res->cr_target.f_oid &&
++	    res->cr_target.f_seq != 0)
++		res->cr_target_hits++;
++	if (rec->lfsr_valid & LLAPI_SCAN_EVENT) {
++		res->cr_with_event++;
++		if (res->cr_first_index == 0)
++			res->cr_first_index = rec->lfsr_event_index;
++		res->cr_last_index = rec->lfsr_event_index;
++		if (rec->lfsr_event_type < 64)
++			res->cr_types |= 1ULL << rec->lfsr_event_type;
++	}
++	if (rec->lfsr_name != NULL && rec->lfsr_name[0] != '\0')
++		res->cr_with_name++;
++	if (rec->lfsr_stx.stx_mask & STATX_SIZE)
++		res->cr_resolved++;
++
++	if (res->cr_stop_after != 0 && res->cr_records >= res->cr_stop_after)
++		return -ESHUTDOWN;	/* a value of the consumer's choosing */
++
++	return 0;
++}
++
++static void param_init(struct llapi_scan_changelog_param *sc)
++{
++	memset(sc, 0, sizeof(*sc));
++	sc->sc_size = sizeof(*sc);
++	sc->sc_mdtname = mdtname;
++	sc->sc_user = cluser;
++	sc->sc_mnt = mntpath;
++}
++
++/* A workload with one of each event this test reasons about. */
++static __u64 make_events(const char *dir)
++{
++	/* room for dir plus the longest name below, so the compiler can see
++	 * that neither snprintf() can truncate
++	 */
++	char sub[PATH_MAX + 16];
++	char path[PATH_MAX + 32];
++	char other[PATH_MAX + 32];
++	int fd;
++	int i;
++
++	if (mkdir(dir, 0755) < 0 && errno != EEXIST)
++		return 0;
++
++	/*
++	 * The workload gets a directory of its own, named for the process
++	 * that makes it.  @dir is the caller's and may well predate the
++	 * Changelog user -- sanity 56Eea creates it with "lfs mkdir -i 0",
++	 * before registering, to put it on the MDT whose log is read -- and
++	 * a CL_MKDIR outside the window is one test0 cannot see.  Each case
++	 * is forked, so the pid also keeps two calls from colliding.
++	 */
++	snprintf(sub, sizeof(sub), "%s/w%d", dir, (int)getpid());
++	if (mkdir(sub, 0755) < 0)
++		return 0;
++
++	snprintf(path, sizeof(path), "%s/file", sub);
++	snprintf(other, sizeof(other), "%s/renamed", sub);
++
++	fd = open(path, O_CREAT | O_WRONLY | O_TRUNC, 0644);
++	if (fd < 0)
++		return 0;
++
++	/* a burst: object mode must make one record of this */
++	for (i = 0; i < 20; i++) {
++		if (write(fd, "x", 1) != 1)
++			break;
++		fsync(fd);
++	}
++	close(fd);
++
++	if (rename(path, other) < 0)
++		return 0;
++	if (unlink(other) < 0)
++		return 0;
++
++	sync();
++	return 1;
++}
++
++#define T0_DESC "the stream delivers records that describe events"
++static void test0(void)
++{
++	struct llapi_scan_changelog_param sc;
++	struct cl_result res = { 0 };
++	int rc;
++
++	param_init(&sc);
++
++	rc = llapi_scan_changelog(&sc, cl_cb, &res);
++	ASSERTF(rc == 0, "llapi_scan_changelog() failed: %s", strerror(-rc));
++	ASSERTF(res.cr_records > 0, "no records delivered");
++	ASSERTF(res.cr_with_event == res.cr_records,
++		"%u of %u records carry no event",
++		res.cr_records - res.cr_with_event, res.cr_records);
++	ASSERTF(res.cr_with_fid > 0, "no record carried a FID");
++
++	/*
++	 * The workload creates, writes, renames and unlinks one file under a
++	 * new directory, so those four types have to be in the stream: the
++	 * accumulators are what say the events arrived as themselves and not
++	 * merely in the right number.
++	 */
++	ASSERTF(res.cr_types & (1ULL << CL_MKDIR), "no CL_MKDIR in the stream");
++	ASSERTF(res.cr_types & (1ULL << CL_CREATE),
++		"no CL_CREATE in the stream");
++	ASSERTF(res.cr_types & (1ULL << CL_RENAME),
++		"no CL_RENAME in the stream");
++	ASSERTF(res.cr_types & (1ULL << CL_UNLINK),
++		"no CL_UNLINK in the stream");
++	ASSERTF(res.cr_seen_valid & LLAPI_SCAN_EVENT,
++		"no record reported LLAPI_SCAN_EVENT");
++	ASSERTF(res.cr_seen_valid & LLAPI_SCAN_FID,
++		"no record reported LLAPI_SCAN_FID");
++
++	printf("  %u records, %u with a FID, %u with a name, last index %llu\n",
++	       res.cr_records, res.cr_with_fid, res.cr_with_name,
++	       (unsigned long long)res.cr_last_index);
++}
++
++#define T1_DESC "object mode collapses a burst into one record"
++static void test1(void)
++{
++	struct llapi_scan_changelog_param sc;
++	struct cl_result ev = { 0 }, ob = { 0 };
++	int rc;
++
++	param_init(&sc);
++	rc = llapi_scan_changelog(&sc, cl_cb, &ev);
++	ASSERTF(rc == 0, "event mode failed: %s", strerror(-rc));
++
++	param_init(&sc);
++	sc.sc_flags = LLAPI_SCAN_CL_F_COALESCE;
++	sc.sc_min_age = 0;	/* the default; the stream ends, so all flush */
++	rc = llapi_scan_changelog(&sc, cl_cb, &ob);
++	ASSERTF(rc == 0, "object mode failed: %s", strerror(-rc));
++
++	ASSERTF(ob.cr_records > 0, "object mode delivered nothing");
++	ASSERTF(ob.cr_records < ev.cr_records,
++		"object mode collapsed nothing: %u objects from %u events, and the workload repeats events on one file",
++		ob.cr_records, ev.cr_records);
++
++	printf("  %u events collapse to %u objects\n",
++	       ev.cr_records, ob.cr_records);
++}
++
++#define T2_DESC "the demand mask keeps a lookup from happening"
++static void test2(void)
++{
++	struct llapi_scan_changelog_param sc;
++	struct cl_result lean = { 0 }, full = { 0 };
++	int rc;
++
++	param_init(&sc);
++	sc.sc_flags = LLAPI_SCAN_CL_F_RESOLVE;
++	sc.sc_want = LLAPI_SCAN_EVENT | LLAPI_SCAN_FID;
++	rc = llapi_scan_changelog(&sc, cl_cb, &lean);
++	ASSERTF(rc == 0, "lean scan failed: %s", strerror(-rc));
++	ASSERTF(lean.cr_resolved == 0,
++		"%u records carried a size the caller did not ask for",
++		lean.cr_resolved);
++
++	param_init(&sc);
++	sc.sc_flags = LLAPI_SCAN_CL_F_RESOLVE;
++	sc.sc_want = LLAPI_SCAN_SIZE;
++	rc = llapi_scan_changelog(&sc, cl_cb, &full);
++	ASSERTF(rc == 0, "resolving scan failed: %s", strerror(-rc));
++	/* the workload's directories survive, so some lookup must answer */
++	ASSERTF(full.cr_resolved > 0,
++		"no record of %u was resolved when a size was asked for",
++		full.cr_records);
++
++	printf("  no size when unasked; %u of %u resolved when asked\n",
++	       full.cr_resolved, full.cr_records);
++}
++
++#define T3_DESC "a consumer can stop the scan and hear its value back"
++static void test3(void)
++{
++	struct llapi_scan_changelog_param sc;
++	struct cl_result res = { 0 };
++	int rc;
++
++	param_init(&sc);
++	res.cr_stop_after = 1;
++
++	rc = llapi_scan_changelog(&sc, cl_cb, &res);
++	ASSERTF(rc == -ESHUTDOWN, "stop returned %d, expected %d",
++		rc, -ESHUTDOWN);
++	ASSERTF(res.cr_records == 1, "%u records after asking to stop at 1",
++		res.cr_records);
++
++	printf("  stopped after 1 record, -ESHUTDOWN came back\n");
++}
++
++#define T4_DESC "bad arguments are refused, not crashed on"
++static void test4(void)
++{
++	struct llapi_scan_changelog_param sc;
++	struct cl_result res = { 0 };
++	int rc;
++
++	/* the library says so on its own; the test knows already */
++	llapi_msg_set_level(LLAPI_MSG_OFF);
++
++	rc = llapi_scan_changelog(NULL, cl_cb, &res);
++	ASSERTF(rc == -EINVAL, "NULL param returned %d", rc);
++
++	param_init(&sc);
++	rc = llapi_scan_changelog(&sc, NULL, &res);
++	ASSERTF(rc == -EINVAL, "NULL callback returned %d", rc);
++
++	param_init(&sc);
++	sc.sc_size = 4;
++	rc = llapi_scan_changelog(&sc, cl_cb, &res);
++	ASSERTF(rc == -EINVAL, "short sc_size returned %d", rc);
++
++	param_init(&sc);
++	sc.sc_flags = 1ULL << 40;
++	rc = llapi_scan_changelog(&sc, cl_cb, &res);
++	ASSERTF(rc == -EINVAL, "unknown flag returned %d", rc);
++
++	param_init(&sc);
++	sc.sc_mdtname = NULL;
++	rc = llapi_scan_changelog(&sc, cl_cb, &res);
++	ASSERTF(rc == -EINVAL, "NULL mdtname returned %d", rc);
++
++	param_init(&sc);
++	sc.sc_flags = LLAPI_SCAN_CL_F_RESOLVE;
++	sc.sc_mnt = NULL;
++	rc = llapi_scan_changelog(&sc, cl_cb, &res);
++	ASSERTF(rc == -EINVAL, "resolve without a mount returned %d", rc);
++
++	param_init(&sc);
++	sc.sc_flags = LLAPI_SCAN_CL_F_CLEAR;
++	sc.sc_user = NULL;
++	rc = llapi_scan_changelog(&sc, cl_cb, &res);
++	ASSERTF(rc == -EINVAL, "clear without a user returned %d", rc);
++
++	param_init(&sc);
++	sc.sc_flags = LLAPI_SCAN_CL_F_ONCE;
++	rc = llapi_scan_changelog(&sc, cl_cb, &res);
++	ASSERTF(rc == -EINVAL, "_ONCE without _COALESCE returned %d", rc);
++
++	param_init(&sc);
++	sc.sc_type_mask = 1ULL << CL_UNLINK;
++	sc.sc_user = NULL;
++	rc = llapi_scan_changelog(&sc, cl_cb, &res);
++	ASSERTF(rc == -EINVAL, "a type mask without a user returned %d", rc);
++
++	param_init(&sc);
++	sc.sc_type_mask = 1ULL << CL_UNLINK;
++	sc.sc_user = "cl1";
++	sc.sc_flags = LLAPI_SCAN_CL_F_CLEAR;
++	rc = llapi_scan_changelog(&sc, cl_cb, &res);
++	ASSERTF(rc == -EINVAL, "a type mask with _CLEAR returned %d", rc);
++
++	llapi_msg_set_level(LLAPI_MSG_ERROR);
++
++	printf("  ten bad calls refused with -EINVAL\n");
++}
++
++/*
++ * One object with another object's records in between, which is what makes
++ * the coalescing cache give it up and take it back: with sc_max_cached at 1
++ * the second file evicts the first, so the first is delivered before its own
++ * last event is read.  Returns its FID.
++ */
++static int make_reappearing_object(const char *dir, struct lu_fid *fid)
++{
++	char first[PATH_MAX + 16];
++	char second[PATH_MAX + 16];
++	int fd;
++	int rc;
++
++	if (mkdir(dir, 0755) < 0 && errno != EEXIST)
++		return -errno;
++
++	snprintf(first, sizeof(first), "%s/twice", dir);
++	snprintf(second, sizeof(second), "%s/between", dir);
++
++	fd = open(first, O_CREAT | O_WRONLY | O_TRUNC, 0644);
++	if (fd < 0)
++		return -errno;
++	close(fd);
++
++	fd = open(second, O_CREAT | O_WRONLY | O_TRUNC, 0644);
++	if (fd < 0)
++		return -errno;
++	close(fd);
++
++	/* back to the first, after the second has taken its place */
++	fd = open(first, O_WRONLY | O_APPEND);
++	if (fd < 0)
++		return -errno;
++	rc = write(fd, "x", 1) == 1 ? 0 : -errno;
++	fsync(fd);
++	close(fd);
++	if (rc < 0)
++		return rc;
++
++	sync();
++
++	return llapi_path2fid(first, fid);
++}
++
++#define T5_DESC "_ONCE delivers an object once where object mode repeats it"
++static void test5(void)
++{
++	struct llapi_scan_changelog_param sc;
++	struct cl_result again = { 0 }, once = { 0 };
++	struct lu_fid fid;
++	int rc;
++
++	rc = make_reappearing_object(testdir, &fid);
++	ASSERTF(rc == 0, "cannot make the workload under %s: %s",
++		testdir, strerror(-rc));
++	again.cr_target = fid;
++	once.cr_target = fid;
++
++	/*
++	 * The premise, and not an assumption: object mode with a cache of one
++	 * has to deliver this object more than once, or the flag below has
++	 * nothing to suppress and the test would pass on an empty stream.
++	 */
++	param_init(&sc);
++	sc.sc_flags = LLAPI_SCAN_CL_F_COALESCE;
++	sc.sc_max_cached = 1;
++	rc = llapi_scan_changelog(&sc, cl_cb, &again);
++	ASSERTF(rc == 0, "object mode failed: %s", strerror(-rc));
++	ASSERTF(again.cr_target_hits > 1,
++		"object mode delivered "DFID" %u times, so there is no repeat to suppress",
++		PFID(&fid), again.cr_target_hits);
++
++	param_init(&sc);
++	sc.sc_flags = LLAPI_SCAN_CL_F_COALESCE | LLAPI_SCAN_CL_F_ONCE;
++	sc.sc_max_cached = 1;
++	rc = llapi_scan_changelog(&sc, cl_cb, &once);
++	ASSERTF(rc == 0, "_ONCE failed: %s", strerror(-rc));
++	ASSERTF(once.cr_target_hits == 1,
++		"_ONCE delivered "DFID" %u times", PFID(&fid),
++		once.cr_target_hits);
++	ASSERTF(once.cr_records <= again.cr_records,
++		"_ONCE delivered %u records, more than the %u without it",
++		once.cr_records, again.cr_records);
++
++	printf("  "DFID" arrives %u times, once with _ONCE; %u records of %u\n",
++	       PFID(&fid), again.cr_target_hits, once.cr_records,
++	       again.cr_records);
++}
++
++#define T6_DESC "_CLEAR purges the records it delivered"
++static void test6(void)
++{
++	struct llapi_scan_changelog_param sc;
++	struct cl_result cleared = { 0 }, after = { 0 };
++	int rc;
++
++	if (cluser == NULL) {
++		printf("  no -u, so nothing may clear; skipped\n");
++		return;
++	}
++
++	ASSERTF(make_events(testdir) != 0, "cannot make events under %s",
++		testdir);
++
++	param_init(&sc);
++	sc.sc_flags = LLAPI_SCAN_CL_F_CLEAR;
++	rc = llapi_scan_changelog(&sc, cl_cb, &cleared);
++	ASSERTF(rc == 0, "the clearing scan failed: %s", strerror(-rc));
++	ASSERTF(cleared.cr_with_event > 0,
++		"the clearing scan delivered no event, so it cleared nothing and the next assertion would pass on an empty log");
++
++	/*
++	 * What clearing means, stated on indices rather than counts: the
++	 * records this scan accepted are gone for this user, so a later scan
++	 * cannot deliver one at or below the last index it took.  Counts
++	 * would not say it -- make_events() above and the test's own
++	 * teardown keep adding records, so a second scan may well be larger.
++	 */
++	param_init(&sc);
++	rc = llapi_scan_changelog(&sc, cl_cb, &after);
++	ASSERTF(rc == 0, "the scan after clearing failed: %s", strerror(-rc));
++	ASSERTF(after.cr_with_event == 0 ||
++		after.cr_first_index > cleared.cr_last_index,
++		"index %llu came back after %llu was cleared",
++		(unsigned long long)after.cr_first_index,
++		(unsigned long long)cleared.cr_last_index);
++
++	printf("  cleared through %llu; the log now starts past it\n",
++	       (unsigned long long)cleared.cr_last_index);
++}
++
++#define T7_DESC "sc_got reports the subset this scan will answer for"
++static void test7(void)
++{
++	struct llapi_scan_changelog_param sc;
++	struct cl_result res = { 0 };
++	__u64 got = 0;
++	int rc;
++
++	/*
++	 * The field is reachable at all, which is the half a compiler cannot
++	 * check: sc_got is read out of the caller's struct through
++	 * scan_cl_param_whole(), so a field missing from that list is copied
++	 * over and the answer never comes back.
++	 */
++	param_init(&sc);
++	sc.sc_want = LLAPI_SCAN_EVENT | LLAPI_SCAN_FID | LLAPI_SCAN_SIZE;
++	sc.sc_got = &got;
++	rc = llapi_scan_changelog(&sc, cl_cb, &res);
++	ASSERTF(rc == 0, "the scan failed: %s", strerror(-rc));
++	ASSERTF(got != 0, "sc_got came back 0; the scan answers for something");
++	ASSERTF((got & ~sc.sc_want) == 0,
++		"sc_got 0x%llx has bits sc_want 0x%llx did not ask for",
++		(unsigned long long)got, (unsigned long long)sc.sc_want);
++
++	/*
++	 * And that it is the scan's answer rather than an echo: a size needs
++	 * a lookup, which needs _RESOLVE and a mount, so without them it has
++	 * to be dropped from what was asked for.
++	 */
++	ASSERTF(!(got & LLAPI_SCAN_SIZE),
++		"sc_got claims a size with no resolve to supply one");
++	ASSERTF(got & LLAPI_SCAN_EVENT,
++		"sc_got dropped LLAPI_SCAN_EVENT, which every record carries");
++
++	printf("  want 0x%llx -> got 0x%llx without a resolve\n",
++	       (unsigned long long)sc.sc_want, (unsigned long long)got);
++}
++
++/*
++ * One rename to a new name and one over an existing name, each in a
++ * directory of its own.  @moved and @over are the objects that moved, and
++ * @victim the object the second rename replaced.
++ */
++static int make_renames(const char *dir, struct lu_fid *moved,
++			struct lu_fid *over, struct lu_fid *victim)
++{
++	char sub[PATH_MAX + 16];
++	char a[PATH_MAX + 32];
++	char b[PATH_MAX + 32];
++	int fd;
++	int rc;
++
++	snprintf(sub, sizeof(sub), "%s/rn%d", dir, (int)getpid());
++	if (mkdir(sub, 0755) < 0)
++		return -errno;
++
++	snprintf(a, sizeof(a), "%s/a", sub);
++	snprintf(b, sizeof(b), "%s/new", sub);
++	fd = open(a, O_CREAT | O_WRONLY | O_TRUNC, 0644);
++	if (fd < 0)
++		return -errno;
++	close(fd);
++	rc = llapi_path2fid(a, moved);
++	if (rc < 0)
++		return rc;
++	if (rename(a, b) < 0)
++		return -errno;
++
++	snprintf(a, sizeof(a), "%s/c", sub);
++	snprintf(b, sizeof(b), "%s/d", sub);
++	fd = open(a, O_CREAT | O_WRONLY | O_TRUNC, 0644);
++	if (fd < 0)
++		return -errno;
++	close(fd);
++	fd = open(b, O_CREAT | O_WRONLY | O_TRUNC, 0644);
++	if (fd < 0)
++		return -errno;
++	close(fd);
++	rc = llapi_path2fid(a, over);
++	if (rc < 0)
++		return rc;
++	rc = llapi_path2fid(b, victim);
++	if (rc < 0)
++		return rc;
++	if (rename(a, b) < 0)
++		return -errno;
++
++	sync();
++	return 0;
++}
++
++struct rn_result {
++	struct lu_fid	rn_moved;
++	struct lu_fid	rn_over;
++	struct lu_fid	rn_victim;
++	unsigned int	rn_moved_hits;
++	unsigned int	rn_over_hits;
++	unsigned int	rn_victim_hits;
++};
++
++static bool fid_same(const struct lu_fid *a, const struct lu_fid *b)
++{
++	return a->f_seq == b->f_seq && a->f_oid == b->f_oid;
++}
++
++static int rn_cb(const struct llapi_scan_rec *rec, void *data)
++{
++	struct rn_result *res = data;
++
++	if (!(rec->lfsr_valid & LLAPI_SCAN_EVENT) ||
++	    rec->lfsr_event_type != CL_RENAME ||
++	    !(rec->lfsr_valid & LLAPI_SCAN_FID))
++		return 0;
++	if (fid_same(&rec->lfsr_fid, &res->rn_moved))
++		res->rn_moved_hits++;
++	if (fid_same(&rec->lfsr_fid, &res->rn_over))
++		res->rn_over_hits++;
++	if (fid_same(&rec->lfsr_fid, &res->rn_victim))
++		res->rn_victim_hits++;
++	return 0;
++}
++
++#define T8_DESC "a rename is about the object that moved"
++static void test8(void)
++{
++	struct llapi_scan_changelog_param sc;
++	struct rn_result ev = { 0 }, ob = { 0 };
++	int rc;
++
++	rc = make_renames(testdir, &ev.rn_moved, &ev.rn_over, &ev.rn_victim);
++	ASSERTF(rc == 0, "cannot make the renames under %s: %s", testdir,
++		strerror(-rc));
++	ob.rn_moved = ev.rn_moved;
++	ob.rn_over = ev.rn_over;
++	ob.rn_victim = ev.rn_victim;
++
++	param_init(&sc);
++	rc = llapi_scan_changelog(&sc, rn_cb, &ev);
++	ASSERTF(rc == 0, "event mode failed: %s", strerror(-rc));
++
++	param_init(&sc);
++	sc.sc_flags = LLAPI_SCAN_CL_F_COALESCE;
++	rc = llapi_scan_changelog(&sc, rn_cb, &ob);
++	ASSERTF(rc == 0, "object mode failed: %s", strerror(-rc));
++
++	/* a rename to a new name has no target: the moved object is it */
++	ASSERTF(ev.rn_moved_hits == 1 && ob.rn_moved_hits == 1,
++		"the object renamed to a new name: %u records in event mode, %u in object mode",
++		ev.rn_moved_hits, ob.rn_moved_hits);
++	/* a rename over a name is about both objects */
++	ASSERTF(ev.rn_over_hits == 1 && ob.rn_over_hits == 1,
++		"the object renamed over a name: %u records in event mode, %u in object mode",
++		ev.rn_over_hits, ob.rn_over_hits);
++	ASSERTF(ev.rn_victim_hits == 1 && ob.rn_victim_hits == 1,
++		"the object replaced: %u records in event mode, %u in object mode",
++		ev.rn_victim_hits, ob.rn_victim_hits);
++
++	printf("  both renames delivered under the objects they moved\n");
++}
++
++#define T9_DESC "sc_type_mask filters through the registered user"
++static void test9(void)
++{
++	struct llapi_scan_changelog_param sc;
++	struct cl_result all = { 0 }, masked = { 0 };
++	int rc;
++
++	if (cluser == NULL) {
++		printf("  no -u, so no user to filter for; skipped\n");
++		return;
++	}
++
++	ASSERTF(make_events(testdir) != 0, "cannot make events under %s",
++		testdir);
++
++	/* the whole stream, for something to compare against */
++	param_init(&sc);
++	rc = llapi_scan_changelog(&sc, cl_cb, &all);
++	ASSERTF(rc == 0, "the unmasked scan failed: %s", strerror(-rc));
++	ASSERTF(all.cr_with_event > 0, "the unmasked scan delivered nothing");
++
++	/*
++	 * sc_type_mask reaches the server only through
++	 * llapi_changelog_start_user(), which the library calls only when
++	 * the mask is set -- so this is the one case that exercises it, and
++	 * the refusals in test4 cover the mask without a user.
++	 */
++	param_init(&sc);
++	sc.sc_type_mask = 1ULL << CL_CREATE;
++	rc = llapi_scan_changelog(&sc, cl_cb, &masked);
++	ASSERTF(rc == 0, "the masked scan failed: %s", strerror(-rc));
++	ASSERTF(masked.cr_with_event <= all.cr_with_event,
++		"the mask delivered more than the whole stream: %llu > %llu",
++		(unsigned long long)masked.cr_with_event,
++		(unsigned long long)all.cr_with_event);
++	/* and the filter ran: make_events() created a file, and nothing
++	 * else but the log's own markers may come through
++	 */
++	ASSERTF(masked.cr_types & (1ULL << CL_CREATE),
++		"the mask delivered no CL_CREATE, though a file was created");
++	ASSERTF(!(masked.cr_types & ~((1ULL << CL_CREATE) | (1ULL << CL_MARK))),
++		"the mask let other types through: %#llx",
++		(unsigned long long)masked.cr_types);
++
++	printf("  %llu of %llu records with CL_CREATE asked for\n",
++	       (unsigned long long)masked.cr_with_event,
++	       (unsigned long long)all.cr_with_event);
++}
++
++struct busy_state {
++	char		 path[PATH_MAX + 16];	/* testdir, plus the name */
++	struct lu_fid	 fid;
++	bool		 running;	/* the writer is still writing */
++	bool		 stop;
++	bool		 delivered;
++	bool		 while_running;
++};
++
++/* 200 ms apart for 20 s: never quiet for the 1 s sc_min_age below */
++static void *busy_writer(void *arg)
++{
++	struct busy_state *bs = arg;
++	char marker[PATH_MAX + 32];
++	int fd;
++	int i;
++
++	for (i = 0; i < 100 && !__atomic_load_n(&bs->stop, __ATOMIC_ACQUIRE);
++	     i++) {
++		(void)chmod(bs->path, i % 2 ? 0644 : 0640);
++		usleep(200000);
++	}
++	__atomic_store_n(&bs->running, false, __ATOMIC_RELEASE);
++
++	/* an event elsewhere, so a scan still holding the file sees it go
++	 * quiet and ends rather than waiting for a record that never comes
++	 */
++	sleep(2);
++	snprintf(marker, sizeof(marker), "%s.marker", bs->path);
++	fd = creat(marker, 0644);
++	if (fd >= 0)
++		close(fd);
++	return NULL;
++}
++
++static int busy_cb(const struct llapi_scan_rec *rec, void *data)
++{
++	struct busy_state *bs = data;
++
++	if (!(rec->lfsr_valid & LLAPI_SCAN_FID) ||
++	    memcmp(&rec->lfsr_fid, &bs->fid, sizeof(bs->fid)) != 0)
++		return 0;
++	bs->delivered = true;
++	bs->while_running = __atomic_load_n(&bs->running, __ATOMIC_ACQUIRE);
++	return 1;	/* stop: this is what the case waits for */
++}
++
++#define T10_DESC "an object changed without pause is delivered, not held"
++static void test10(void)
++{
++	struct llapi_scan_changelog_param sc;
++	struct busy_state bs = { .running = true };
++	pthread_t th;
++	int rc;
++	int fd;
++
++	snprintf(bs.path, sizeof(bs.path), "%s/busy", testdir);
++	fd = creat(bs.path, 0644);
++	ASSERTF(fd >= 0, "cannot create %s: %s", bs.path, strerror(errno));
++	close(fd);
++	rc = llapi_path2fid(bs.path, &bs.fid);
++	ASSERTF(rc == 0, "no FID for %s: %s", bs.path, strerror(-rc));
++	ASSERTF(pthread_create(&th, NULL, busy_writer, &bs) == 0,
++		"cannot start the writer");
++
++	/* the hold limit is six sc_min_age, so 6 s of changes here */
++	param_init(&sc);
++	sc.sc_flags = LLAPI_SCAN_CL_F_COALESCE | LLAPI_SCAN_CL_F_FOLLOW;
++	sc.sc_min_age = 1;
++	rc = llapi_scan_changelog(&sc, busy_cb, &bs);
++	__atomic_store_n(&bs.stop, true, __ATOMIC_RELEASE);
++	pthread_join(th, NULL);
++
++	ASSERTF(rc == 1, "the scan returned %d, not the consumer's stop", rc);
++	ASSERTF(bs.delivered, "the busy file was never delivered");
++	ASSERTF(bs.while_running,
++		"the busy file was held until it went quiet");
++}
++
++static struct test_tbl_entry test_tbl[] = {
++	TEST_REGISTER(0),
++	TEST_REGISTER(1),
++	TEST_REGISTER(2),
++	TEST_REGISTER(3),
++	TEST_REGISTER(4),
++	TEST_REGISTER(5),
++	TEST_REGISTER(6),
++	TEST_REGISTER(7),
++	TEST_REGISTER(8),
++	TEST_REGISTER(9),
++	TEST_REGISTER(10),
++	TEST_REGISTER_END
++};
++
++static void usage(char *prog)
++{
++	printf("Usage: %s -m MDTNAME -d MOUNT [-u CHANGELOG_USER] [-e TESTS] [-o TESTS]\n"
++	       "       -m  the MDT whose Changelog to read\n"
++	       "       -d  a client mount of the same filesystem\n"
++	       "       -u  a registered Changelog user, to clear and to filter\n"
++	       "       -e  tests to skip, \"1,3,4\"\n"
++	       "       -o  tests to run\n", prog);
++	exit(EXIT_FAILURE);
++}
++
++static void process_args(int argc, char *argv[])
++{
++	int c;
++
++	while ((c = getopt(argc, argv, "d:e:hm:o:u:")) != -1) {
++		switch (c) {
++		case 'd':
++			mntpath = optarg;
++			break;
++		case 'e':
++			set_tests_to_skip(optarg, test_tbl);
++			break;
++		case 'm':
++			mdtname = optarg;
++			break;
++		case 'o':
++			set_tests_to_run(optarg, test_tbl);
++			break;
++		case 'u':
++			cluser = optarg;
++			break;
++		case 'h':
++		default:
++			usage(argv[0]);
++		}
++	}
++
++	if (mdtname == NULL || mntpath == NULL)
++		usage(argv[0]);
++}
++
++/*
++ * Under DNE the events this test makes land in the log of whichever MDT its
++ * directory was created on, which need not be the one -m names: the cases
++ * then read a log full of somebody else's records and fail on what is
++ * missing from it rather than on anything the library did.  Said here,
++ * where it can be said plainly.
++ */
++static void check_mdt_holds_testdir(void)
++{
++	const char *tag = strstr(mdtname, "MDT");
++	int idx = -1;
++	int want;
++	int fd;
++	int rc;
++
++	if (tag == NULL)
++		DIE("'%s' does not name an MDT\n", mdtname);
++	want = (int)strtol(tag + 3, NULL, 16);
++
++	fd = open(testdir, O_RDONLY | O_DIRECTORY);
++	if (fd < 0)
++		DIE("cannot open %s: %s\n", testdir, strerror(errno));
++	rc = llapi_file_fget_mdtidx(fd, &idx);
++	close(fd);
++	if (rc < 0)
++		DIE("cannot read the MDT index of %s: %s\n",
++		    testdir, strerror(-rc));
++
++	if (idx != want)
++		DIE("%s is on MDT%04x, not the MDT%04x that -m names\n",
++		    testdir, idx, want);
++}
++
++int main(int argc, char *argv[])
++{
++	process_args(argc, argv);
++
++	snprintf(testdir, sizeof(testdir), "%s/llapi_scan_changelog_test.d",
++		 mntpath);
++	if (make_events(testdir) == 0)
++		fprintf(stderr,
++			"warning: could not make events under %s; the tests read whatever the log already has\n",
++			testdir);
++	check_mdt_holds_testdir();
++
++	return run_tests(mntpath, test_tbl);
++}
+diff --git a/lustre/tests/sanity.sh b/lustre/tests/sanity.sh
+index 2e76ea453c..3e708d9863 100755
+--- a/lustre/tests/sanity.sh
++++ b/lustre/tests/sanity.sh
+@@ -10651,6 +10651,51 @@ test_56El() {
+ }
+ run_test 56El "lfs find -printf over a subtree that is not on Lustre"
+ 
++test_56Eea()
++{
++	(( CLIENT_VERSION >= $(version_code 2.17.58) )) ||
++		skip "Need client >= 2.17.58 for llapi_scan_changelog()"
++	remote_mds_nodsh && skip "remote MDS with nodsh"
++	[[ $PARALLEL != "yes" ]] || skip "skip parallel run"
++
++	local dir=$MOUNT/llapi_scan_changelog_test.d
++	local cl_user
++
++	# the binary makes its events under $MOUNT and reads mds1's log, so
++	# its directory has to be on mds1: under DNE a mkdir below a striped
++	# root lands wherever the hash says, and the test would then read a
++	# log full of somebody else's records.  Made here rather than left to
++	# the binary, which can only notice and refuse.
++	rm -rf $dir
++	$LFS mkdir -i 0 $dir || error "mkdir $dir failed"
++	stack_trap "rm -rf $dir"
++
++	# -m ALL forces a CHANGELOG_USER_REC2 record: the MDD lookup this
++	# scan's filter goes through does not match the maskless
++	# CHANGELOG_USER_REC a plain register writes (LU-20647).
++	changelog_register -m ALL || error "changelog_register failed"
++	cl_user=${CL_USERS[mds1]%% *}
++	[[ -n "$cl_user" ]] || error "no changelog user registered"
++
++	# test9 filters on the server, with a key the MDS has only from
++	# 2.17.0 (LU-19296); test6 sees a clear purge the log only when no
++	# other changelog user holds it back.  Either skips that case alone.
++	local users=$(do_facet mds1 $LCTL get_param -n \
++		mdd.$(facet_svc mds1).changelog_users | grep -c "^cl")
++	local skip_cases=""
++
++	(( MDS1_VERSION >= $(version_code 2.17.0) )) || skip_cases="9"
++	(( users <= 1 )) || skip_cases="${skip_cases:+$skip_cases,}6"
++
++	# -u puts the read on llapi_changelog_start_user(), which is the
++	# path that sets the server-side filter; without it the binary
++	# never exercises that call at all
++	llapi_scan_changelog_test -m $(facet_svc mds1) -d $MOUNT \
++		-u $cl_user ${skip_cases:+-e $skip_cases} ||
++		error "llapi_scan_changelog_test failed"
++}
++run_test 56Eea "llapi changelog scanner API tests"
++
+ test_57a() {
+ 	[ $PARALLEL == "yes" ] && skip "skip parallel run"
+ 	# note test will not do anything if MDS is not local
+diff --git a/lustre/utils/Makefile.am b/lustre/utils/Makefile.am
+index 1f1e33ecad..de45850e2a 100644
+--- a/lustre/utils/Makefile.am
++++ b/lustre/utils/Makefile.am
+@@ -123,6 +123,7 @@ liblustreapi_la_SOURCES = libhsm_scanner.c \
+ 			  liblustreapi_project.c \
+ 			  liblustreapi_root.c \
+ 			  liblustreapi_scan.c \
++			  liblustreapi_scan_changelog.c \
+ 			  liblustreapi_scan_device.c \
+ 			  lustreapi_scan_backend.h \
+ 			  liblustreapi_swap.c \
+diff --git a/lustre/utils/liblustreapi_scan_changelog.c b/lustre/utils/liblustreapi_scan_changelog.c
+new file mode 100644
+index 0000000000..597651eb29
+--- /dev/null
++++ b/lustre/utils/liblustreapi_scan_changelog.c
+@@ -0,0 +1,1346 @@
++// SPDX-License-Identifier: LGPL-2.1+
++/*
++ * Copyright (c) 2026, The Lustre Collective.
++ */
++/*
++ * This file is part of Lustre, http://www.lustre.org/
++ *
++ * lustreapi library for reading a Lustre Changelog as an Object Stream:
++ * one record per event, or one per object once its events have settled.
++ *
++ * The other two scanners enumerate what exists.  This one enumerates what
++ * happened, and delivers it in the same record, so a consumer written against
++ * llapi_scan_namespace() or llapi_scan_device() can be fed by a delta without
++ * being rewritten.
++ *
++ * What a changelog record carries is FID, parent FID, name, the event and its
++ * time, and -- with the extensions -- uid, gid and a job id.  It carries no
++ * size, mode, times, layout or HSM state at any setting, so those are either
++ * delivered absent, with their lfsr_valid bit clear, or filled by a lookup the
++ * caller asked for with LLAPI_SCAN_CL_F_RESOLVE.  Resolution fills; it never
++ * removes an object from the stream and never overrides what the event said.
++ *
++ * Two modes.  Event mode delivers one record per event, in order.  Object
++ * mode (LLAPI_SCAN_CL_F_COALESCE) holds events in a FID-keyed cache and
++ * delivers one record per object once it has been quiet for sc_min_age
++ * seconds, which is what turns a hundred writes to one file into one record
++ * and one lookup.  The cache is a window, so an object touched again after
++ * it has left arrives a second time; LLAPI_SCAN_CL_F_ONCE keeps the FIDs
++ * delivered so far and drops those repeats, at a FID per distinct object.
++ */
++
++#include <errno.h>
++#include <fcntl.h>
++#include <stdbool.h>
++#include <stdlib.h>
++#include <string.h>
++#include <sys/stat.h>
++#include <sys/types.h>
++#include <time.h>
++#include <unistd.h>
++
++#include <libcfs/util/list.h>
++#include <linux/lustre/lustre_fid.h>
++#include <linux/lustre/lustre_idl.h>
++#include <lustre/lustreapi.h>
++
++#include "lustreapi_internal.h"
++
++/* Held before emitting, so a burst of events on one object is one record. */
++#define SCAN_CL_MIN_AGE_DEF	600
++/*
++ * An object changed without pause is never quiet for sc_min_age.  Held past
++ * this many times sc_min_age, it is delivered on its next event and held
++ * afresh.
++ */
++#define SCAN_CL_MAX_HOLD	6
++/* Objects held while coalescing before the oldest is pushed out early. */
++#define SCAN_CL_MAX_CACHED_DEF	100000
++/* Buckets in the coalescing cache.  A power of two; the FID hash shifts. */
++#define SCAN_CL_HASH_SHIFT	12
++#define SCAN_CL_HASH_SIZE	(1 << SCAN_CL_HASH_SHIFT)
++/* Slots in the delivered-object set, before it grows.  A power of two. */
++#define SCAN_CL_SEEN_MIN_SHIFT	10
++/* Records accepted between one clear and the next: clearing is an ioctl, and
++ * once per record is a syscall per event for no gain.
++ */
++#define SCAN_CL_CLEAR_BATCH	1000
++
++/* What an event carries.  LLAPI_SCAN_TYPE is here because scan_cl_mode()
++ * reads it off four record types.
++ */
++#define SCAN_CL_EVENT_MASK	(LLAPI_SCAN_EVENT | LLAPI_SCAN_EVENT_SRC | \
++				 LLAPI_SCAN_JOBID | LLAPI_SCAN_FID | \
++				 LLAPI_SCAN_PARENT | LLAPI_SCAN_EVENT_UID | \
++				 LLAPI_SCAN_TYPE)
++
++/*
++ * What llapi_scan_changelog() can answer for, which is less than either
++ * sibling: a changelog carries the event and the object's identity, and a
++ * resolve adds what one stat(2) of the object gives.  A project id, a
++ * layout, an LMV, HSM state, a linkea, an inode number, a class and an OST
++ * object's owner are never filled at any setting, and sc_got is what says
++ * so before the first record rather than leaving a caller to infer it.
++ */
++#define SCAN_CL_RESOLVE_MASK	(LLAPI_SCAN_MODE | LLAPI_SCAN_TYPE | \
++				 LLAPI_SCAN_NLINK | LLAPI_SCAN_UID | \
++				 LLAPI_SCAN_GID | LLAPI_SCAN_ATIME | \
++				 LLAPI_SCAN_MTIME | LLAPI_SCAN_CTIME | \
++				 LLAPI_SCAN_BTIME | \
++				 LLAPI_SCAN_SIZE | LLAPI_SCAN_BLOCKS | \
++				 LLAPI_SCAN_LAZY_SIZE | LLAPI_SCAN_LAZY_BLOCKS)
++
++/*
++ * One object's accumulated events, while object mode waits for it to settle.
++ * The name and the rename source are copied rather than pointed at: the
++ * changelog record they came from is freed as soon as the next one is read.
++ */
++struct scan_cl_obj {
++	struct list_head	 co_link;	/* by last-seen, oldest first */
++	struct list_head	 co_hash;
++	struct lu_fid		 co_fid;
++	struct lu_fid		 co_pfid;
++	struct lu_fid		 co_src_fid;
++	struct lu_fid		 co_src_pfid;
++	__u64			 co_valid;	/* LLAPI_SCAN_* it can answer */
++	__u64			 co_index;	/* the latest event's */
++	__u64			 co_first;	/* the earliest event's: what
++						 * a clear must not run past
++						 */
++	__u64			 co_prev;
++	__s64			 co_time;	/* the latest event's */
++	__s64			 co_first_time;	/* the earliest event's */
++	__u32			 co_type;	/* the latest event's */
++	__u32			 co_flags;
++	__u32			 co_event_uid;	/* who acted, not who owns */
++	__u32			 co_event_gid;
++	__u32			 co_mode;	/* S_IFMT, from the event */
++	char			*co_name;
++	char			*co_src_name;
++	char			*co_jobid;
++};
++
++/*
++ * Every object already handed to the callback, under LLAPI_SCAN_CL_F_ONCE.
++ * Open addressing, power-of-two capacity, no deletion, and a FID per entry:
++ * the coalescing cache is a window that an object can leave and re-enter,
++ * so "at most once for the whole scan" is a question the window cannot
++ * answer.  It costs memory in the number of distinct objects the log
++ * touched, which is the size of the answer rather than of the log.
++ */
++struct scan_cl_seen {
++	struct lu_fid		*sn_tab;
++	unsigned int		 sn_shift;	/* capacity is 1 << this */
++	size_t			 sn_used;
++};
++
++struct scan_cl {
++	const struct llapi_scan_changelog_param *sl_param;
++	llapi_scan_cb_t		 sl_cb;
++	void			*sl_data;
++	void			*sl_priv;	/* the changelog reader */
++	int			 sl_mnt_fd;	/* for resolution, or -1 */
++	__u64			 sl_want;
++	__u64			 sl_last_cleared;
++	__u64			 sl_clear_walked; /* sl_accepted at last walk */
++	__u64			 sl_accepted;	/* the last index a consumer
++						 * decided about, in sl_cb or
++						 * in sc_filter, for _CLEAR
++						 */
++	__s64			 sl_now;	/* the latest event time seen:
++						 * the stream's clock, not the
++						 * reader's
++						 */
++	__u32			 sl_min_age;
++	__u32			 sl_max_cached;
++	__u32			 sl_cached;
++	int			 sl_stop_rc;
++	struct llapi_scan_stats	 sl_stats;
++	struct scan_cl_seen	 sl_seen;	/* with _ONCE */
++	struct list_head	 sl_aged;	/* oldest first */
++	struct list_head	 sl_hash[SCAN_CL_HASH_SIZE];
++};
++
++/* The S_IFMT an event implies, or 0 where it implies nothing.  A creation's
++ * type is chosen from the mode in mdd_dir.c, so it can be read back; CL_MKNOD
++ * narrows only to one of four, which is not an S_IFMT.
++ */
++static __u32 scan_cl_mode(__u32 type)
++{
++	switch (type) {
++	case CL_CREATE:
++		return S_IFREG;
++	case CL_MKDIR:
++	case CL_RMDIR:
++		return S_IFDIR;
++	case CL_SOFTLINK:
++		return S_IFLNK;
++	default:
++		return 0;
++	}
++}
++
++static void scan_cl_obj_free(struct scan_cl_obj *o)
++{
++	free(o->co_name);
++	free(o->co_src_name);
++	free(o->co_jobid);
++	free(o);
++}
++
++/*
++ * The record as the event describes it.  Nothing here costs I/O: every field
++ * either came in the changelog record or is left absent for the consumer to
++ * see in lfsr_valid.
++ */
++static void scan_cl_rec_event(const struct scan_cl_obj *o,
++			      struct llapi_scan_rec *rec)
++{
++	memset(rec, 0, sizeof(*rec));
++	rec->lfsr_size = sizeof(*rec);
++	/*
++	 * The memset leaves these 0, which is stdin.  lustreapi.h documents
++	 * both as -1 when the scanner holds no descriptor, and a consumer
++	 * written against llapi_scan_namespace() tests lfsr_parent_fd and then
++	 * calls fstatat(rec->lfsr_parent_fd, rec->lfsr_name, ...) on it.
++	 */
++	rec->lfsr_parent_fd = -1;
++	rec->lfsr_fd = -1;
++
++	rec->lfsr_fid = o->co_fid;
++	rec->lfsr_parent_fid = o->co_pfid;
++	rec->lfsr_name = o->co_name;
++	rec->lfsr_event_uid = o->co_event_uid;
++	rec->lfsr_event_gid = o->co_event_gid;
++	rec->lfsr_stx.stx_mode = o->co_mode;
++	rec->lfsr_event_type = o->co_type;
++	rec->lfsr_event_flags = o->co_flags;
++	rec->lfsr_event_time = o->co_time;
++	rec->lfsr_event_index = o->co_index;
++	rec->lfsr_event_prev = o->co_prev;
++	rec->lfsr_src_fid = o->co_src_fid;
++	rec->lfsr_src_parent_fid = o->co_src_pfid;
++	rec->lfsr_src_name = o->co_src_name;
++	rec->lfsr_jobid = o->co_jobid;
++	/*
++	 * co_valid is kept in the one vocabulary sc_want is written in, and
++	 * split here into the two masks that report it.
++	 */
++	rec->lfsr_valid = o->co_valid & ~LLAPI_SCAN_STATX_MASK;
++	rec->lfsr_stx.stx_mask = o->co_valid & LLAPI_SCAN_STATX_MASK;
++}
++
++/*
++ * FIDs are unique only within one filesystem, so a mount of another one
++ * opens whatever has the same FID there and fills the record from it with
++ * no error.  @mnt is a mount point or a bare fsname, as
++ * llapi_root_path_open() takes it; an MDT name without "-MDT" in it gives
++ * nothing to compare and is let through.
++ */
++static int scan_cl_same_fs(const char *mnt, const char *mdtname)
++{
++	const char *dash = strstr(mdtname, "-MDT");
++	char mfs[PATH_MAX] = "";
++	size_t len;
++	int rc;
++
++	if (dash == NULL)
++		return 0;
++	len = dash - mdtname;
++	if (mnt[0] != '/') {
++		snprintf(mfs, sizeof(mfs), "%s", mnt);
++	} else {
++		rc = llapi_search_fsname(mnt, mfs);
++		if (rc < 0)
++			return rc;
++	}
++	if (strlen(mfs) != len || strncmp(mfs, mdtname, len) != 0) {
++		llapi_error(LLAPI_MSG_ERROR | LLAPI_MSG_NO_ERRNO, -EXDEV,
++			    "'%s' is a mount of '%s', not of the filesystem %s belongs to",
++			    mnt, mfs, mdtname);
++		return -EXDEV;
++	}
++	return 0;
++}
++
++/*
++ * Stat the object through its O_PATH fd.  Without AT_STATX_DONT_SYNC llite
++ * revalidates the inode with the MDT, so a cached inode cannot answer for an
++ * owner or mode another client has changed.  It also glimpses a regular
++ * file's size when the request names a size, blocks or an mtime, as stat(2)
++ * does.  No open is needed for either: an open is an MDS open, and it writes
++ * CL_OPEN and CL_CLOSE records when the changelog mask includes OPEN.
++ *
++ * With @glimpse false the request leaves out size, blocks and mtime, so the
++ * OSTs are not asked, and a regular file's size is the lazy one, read with
++ * AT_STATX_DONT_SYNC; *lazy says so.
++ *
++ * Return: 0, 1 if only the lazy size could not be read, or -errno.
++ */
++static int scan_cl_mdt_stat(int fd, bool glimpse, struct statx *stx,
++			    bool *lazy)
++{
++#ifdef HAVE_STATX
++	__u32 mask = STATX_BASIC_STATS | STATX_BTIME;
++	struct statx lz = { 0 };
++	int rc = 0;
++
++	if (!glimpse)
++		mask &= ~(STATX_SIZE | STATX_BLOCKS | STATX_MTIME);
++	if (statx(fd, "", AT_EMPTY_PATH, mask, stx) != 0)
++		return -errno;
++	/*
++	 * The lazy read second, and not first.  ll_getattr_dentry() skips
++	 * ll_inode_revalidate() for AT_STATX_DONT_SYNC, and
++	 * llapi_open_by_fid_at() sends no RPC for an inode already in cache,
++	 * so read first it answers from the last revalidation -- often this
++	 * FID's previous resolve in event mode -- and the revalidating call
++	 * below it never reaches the size.  After it, the cached size is at
++	 * least as new as the attributes beside it.
++	 */
++	*lazy = !glimpse && S_ISREG(stx->stx_mode);
++	if (*lazy &&
++	    statx(fd, "", AT_EMPTY_PATH | AT_STATX_DONT_SYNC,
++		  STATX_SIZE | STATX_BLOCKS, &lz) != 0)
++		rc = 1;
++
++	if (*lazy) {
++		stx->stx_size = lz.stx_size;
++		stx->stx_blocks = lz.stx_blocks;
++	}
++	return rc;
++#else
++	struct stat st;
++
++	/* fstat(2) always revalidates and glimpses, in whole seconds */
++	if (fstat(fd, &st) != 0)
++		return -errno;
++	memset(stx, 0, sizeof(*stx));
++	stx->stx_mask = STATX_BASIC_STATS;
++	stx->stx_mode = st.st_mode;
++	stx->stx_nlink = st.st_nlink;
++	stx->stx_uid = st.st_uid;
++	stx->stx_gid = st.st_gid;
++	stx->stx_size = st.st_size;
++	stx->stx_blocks = st.st_blocks;
++	stx->stx_atime.tv_sec = st.st_atime;
++	stx->stx_mtime.tv_sec = st.st_mtime;
++	stx->stx_ctime.tv_sec = st.st_ctime;
++	*lazy = false;
++	return 0;
++#endif
++}
++
++/*
++ * Fill what the changelog does not carry, from the object itself.
++ *
++ * This is one open by FID and a stat or two per object, and a glimpse for a
++ * regular file whose size or mtime is wanted, which is why it is opt-in and
++ * why object mode exists: a file written a hundred times is one lookup
++ * here, not a hundred.  An object that has since been unlinked cannot be
++ * opened, and that is not an error -- the record is delivered with what the
++ * event said and the rest absent, and a predicate that needed more counts
++ * undecided.
++ */
++static void scan_cl_resolve(struct scan_cl *sl, struct llapi_scan_rec *rec)
++{
++	bool glimpse;
++	bool lazy = false;
++	bool stated;
++	struct statx st = { 0 };
++	int fd;
++	int rc;
++
++	if (sl->sl_mnt_fd < 0 || !(rec->lfsr_valid & LLAPI_SCAN_FID))
++		return;
++
++	/*
++	 * The demand mask decides whether this costs anything: a consumer
++	 * that wants nothing a resolve can fill gets no open at all, even
++	 * with _RESOLVE set.
++	 */
++	if (sl->sl_want != 0 && (sl->sl_want & SCAN_CL_RESOLVE_MASK) == 0)
++		return;
++
++	/*
++	 * O_PATH first: it is what makes a symlink openable at all, since
++	 * open_by_handle_at() answers -ELOOP without it, and the attributes
++	 * that come back are the link's own rather than its target's.
++	 * O_NOFOLLOW says the same intent and does nothing to enforce it --
++	 * there is no pathname here to resolve -- so it rides along as
++	 * documentation.  O_PATH is also the only open this does: a real open
++	 * of a device node opens its driver, and any real open is an MDS open
++	 * that the changelog may record.
++	 */
++	fd = llapi_open_by_fid_at(sl->sl_mnt_fd, &rec->lfsr_fid,
++				  O_PATH | O_NOFOLLOW);
++	if (fd < 0)
++		return;		/* gone, or not ours to open */
++
++	glimpse = sl->sl_want == 0 ||
++		  (sl->sl_want & (LLAPI_SCAN_SIZE | LLAPI_SCAN_BLOCKS |
++				  LLAPI_SCAN_MTIME | LLAPI_SCAN_ATIME |
++				  LLAPI_SCAN_CTIME));
++	rc = scan_cl_mdt_stat(fd, glimpse, &st, &lazy);
++	stated = rc >= 0;
++
++	if (stated) {
++		rec->lfsr_stx.stx_mode = st.stx_mode;
++		rec->lfsr_stx.stx_nlink = st.stx_nlink;
++		/*
++		 * The owner, which no event carries: the changelog's uidgid
++		 * extension records who acted, and that arrives as
++		 * lfsr_event_uid.  So this never overwrites a recorded field,
++		 * and -uid is answerable only once a lookup has run.
++		 */
++		rec->lfsr_stx.stx_uid = st.stx_uid;
++		rec->lfsr_stx.stx_gid = st.stx_gid;
++		/* with the nanoseconds, as llapi_scan_namespace() gives them */
++		rec->lfsr_stx.stx_atime = st.stx_atime;
++		rec->lfsr_stx.stx_mtime = st.stx_mtime;
++		rec->lfsr_stx.stx_ctime = st.stx_ctime;
++		rec->lfsr_stx.stx_mask |= STATX_MODE | STATX_TYPE |
++					STATX_NLINK | STATX_UID | STATX_GID;
++		if (st.stx_mask & STATX_BTIME) {
++			rec->lfsr_stx.stx_btime = st.stx_btime;
++			rec->lfsr_stx.stx_mask |= STATX_BTIME;
++		}
++		/*
++		 * A regular file's times are exact only after a glimpse:
++		 * the OSTs move all three, and the MDT catches up at close.
++		 */
++		if (!lazy)
++			rec->lfsr_stx.stx_mask |= STATX_ATIME | STATX_MTIME |
++						  STATX_CTIME;
++		/*
++		 * A regular file's size is strict only after a glimpse;
++		 * otherwise it is the MDT's lazy size and LLAPI_SCAN_LAZY_*
++		 * say so.  Nothing else has stripes, so for the rest the
++		 * MDT's answer is the answer -- a symlink included, whose
++		 * size is the length of its target.
++		 */
++		rec->lfsr_stx.stx_size = st.stx_size;
++		rec->lfsr_stx.stx_blocks = st.stx_blocks;
++		if (!lazy) {
++			rec->lfsr_stx.stx_mask |= STATX_SIZE | STATX_BLOCKS;
++		} else if (rc == 0) {	/* not if the lazy read failed */
++			/*
++			 * With no SOM on the MDT, llite answers the inode's
++			 * own size, 0 when nothing has filled it: no answer,
++			 * and not told apart from an empty file.
++			 */
++			if (st.stx_size != 0)
++				rec->lfsr_valid |= LLAPI_SCAN_LAZY_SIZE;
++			if (st.stx_blocks != 0)
++				rec->lfsr_valid |= LLAPI_SCAN_LAZY_BLOCKS;
++		}
++	}
++
++	close(fd);
++}
++
++/* -------------------------------------------------------------------- */
++/* The delivered-object set: what LLAPI_SCAN_CL_F_ONCE tests against	 */
++
++/* an entry is keyed on a FID the coalescing cache accepted, and
++ * scan_cl_object() sends everything fid_is_sane() rejects the other way, so
++ * a zero slot is an empty one
++ */
++static bool scan_cl_fid_zero(const struct lu_fid *f)
++{
++	return f->f_seq == 0 && f->f_oid == 0;
++}
++
++static int scan_cl_seen_add(struct scan_cl_seen *sn, const struct lu_fid *fid);
++
++static int scan_cl_seen_grow(struct scan_cl_seen *sn, unsigned int shift)
++{
++	struct scan_cl_seen bigger = { 0 };
++	size_t cap = sn->sn_tab != NULL ? (size_t)1 << sn->sn_shift : 0;
++	size_t i;
++
++	bigger.sn_tab = calloc((size_t)1 << shift, sizeof(*bigger.sn_tab));
++	if (bigger.sn_tab == NULL)
++		return -ENOMEM;
++	bigger.sn_shift = shift;
++
++	for (i = 0; i < cap; i++) {
++		if (scan_cl_fid_zero(&sn->sn_tab[i]))
++			continue;
++		/* into a table at most three eighths full: cannot grow again,
++		 * so the recursion is one deep
++		 */
++		scan_cl_seen_add(&bigger, &sn->sn_tab[i]);
++	}
++
++	free(sn->sn_tab);
++	*sn = bigger;
++
++	return 0;
++}
++
++static int scan_cl_seen_add(struct scan_cl_seen *sn, const struct lu_fid *fid)
++{
++	size_t cap;
++	size_t i;
++
++	/* grown at three quarters full, as the directory map is: open
++	 * addressing turns into a walk of the whole table as it fills
++	 */
++	if (sn->sn_tab == NULL ||
++	    sn->sn_used * 4 >= ((size_t)1 << sn->sn_shift) * 3) {
++		int rc = scan_cl_seen_grow(sn, sn->sn_tab == NULL ?
++					   SCAN_CL_SEEN_MIN_SHIFT :
++					   sn->sn_shift + 1);
++
++		if (rc < 0)
++			return rc;
++	}
++
++	cap = (size_t)1 << sn->sn_shift;
++	i = llapi_fid_hash(fid, sn->sn_shift);
++	while (!scan_cl_fid_zero(&sn->sn_tab[i])) {
++		if (lu_fid_eq(&sn->sn_tab[i], fid))
++			return 0;
++		i = (i + 1) & (cap - 1);
++	}
++
++	sn->sn_tab[i] = *fid;
++	sn->sn_used++;
++
++	return 0;
++}
++
++static bool scan_cl_seen_has(const struct scan_cl_seen *sn,
++			     const struct lu_fid *fid)
++{
++	size_t cap;
++	size_t i;
++
++	if (sn->sn_tab == NULL)
++		return false;
++
++	cap = (size_t)1 << sn->sn_shift;
++	i = llapi_fid_hash(fid, sn->sn_shift);
++	while (!scan_cl_fid_zero(&sn->sn_tab[i])) {
++		if (lu_fid_eq(&sn->sn_tab[i], fid))
++			return true;
++		i = (i + 1) & (cap - 1);
++	}
++
++	return false;
++}
++
++static void scan_cl_seen_free(struct scan_cl_seen *sn)
++{
++	free(sn->sn_tab);
++	sn->sn_tab = NULL;
++	sn->sn_shift = 0;
++	sn->sn_used = 0;
++}
++
++/*
++ * @keyed says the object came out of the coalescing cache, so its FID is the
++ * one the cache keyed it on.  A record routed through scan_cl_event() is not
++ * keyed: in event mode every record is delivered, and in object mode it is a
++ * record about no object, which is not a duplicate of the next.
++ */
++static int scan_cl_deliver(struct scan_cl *sl, struct scan_cl_obj *o,
++			   bool keyed)
++{
++	const struct llapi_scan_changelog_param *sc = sl->sl_param;
++	bool once = keyed && (sc->sc_flags & LLAPI_SCAN_CL_F_ONCE);
++	struct llapi_scan_rec rec;
++	int rc;
++
++	scan_cl_rec_event(o, &rec);
++
++	if (sc->sc_filter != NULL) {
++		rc = sc->sc_filter(&rec, sl->sl_data);
++		if (rc > 0) {
++			sl->sl_stats.ss_filtered++;
++			/*
++			 * Consumed, as a record the callback took is: the
++			 * consumer's own code read it and said no.  Left
++			 * behind, _CLEAR stalls outright on a stream the
++			 * filter rejects entirely -- sl_accepted stays 0 and
++			 * scan_cl_clear() returns on it, while the registered
++			 * user's backlog grows without bound -- and on a
++			 * mixed stream it re-reads whatever tail of filtered
++			 * records a run ends on.  Object mode is still
++			 * bounded by scan_cl_held_first().
++			 */
++			sl->sl_accepted = o->co_index;
++			return 0;
++		}
++		if (rc < 0)
++			return rc;
++	}
++
++	/*
++	 * _ONCE: this object has been delivered already, so the events it
++	 * gathered since are dropped.  After sc_filter, which stays a view
++	 * of the whole stream -- lfs find's --since-cookie anchor is taken
++	 * there -- and before the resolve, which is what a duplicate would
++	 * cost.  sl_accepted moves anyway: the records were consumed, and
++	 * holding it back would stall _CLEAR on a log whose tail is all
++	 * repeats.
++	 */
++	if (once && scan_cl_seen_has(&sl->sl_seen, &o->co_fid)) {
++		sl->sl_accepted = o->co_index;
++		return 0;
++	}
++
++	if (sc->sc_flags & LLAPI_SCAN_CL_F_RESOLVE)
++		scan_cl_resolve(sl, &rec);
++
++	/* counted as handed over, as the other scanners count it */
++	sl->sl_stats.ss_emitted++;
++	rc = sl->sl_cb(&rec, sl->sl_data);
++	if (rc != 0)
++		return rc;
++
++	/* after the callback took it, so a scan the consumer stopped on this
++	 * record has not recorded it as delivered
++	 */
++	if (once) {
++		rc = scan_cl_seen_add(&sl->sl_seen, &o->co_fid);
++		if (rc < 0)
++			return rc;
++	}
++
++	sl->sl_accepted = o->co_index;
++
++	return 0;
++}
++
++/* -------------------------------------------------------------------- */
++/* Object mode: one record per object, once its events have settled       */
++
++static struct list_head *scan_cl_bucket(struct scan_cl *sl,
++					const struct lu_fid *fid)
++{
++	return &sl->sl_hash[llapi_fid_hash(fid, SCAN_CL_HASH_SHIFT)];
++}
++
++static struct scan_cl_obj *scan_cl_find(struct scan_cl *sl,
++					const struct lu_fid *fid)
++{
++	struct list_head *bucket = scan_cl_bucket(sl, fid);
++	struct scan_cl_obj *o;
++
++	list_for_each_entry(o, bucket, co_hash) {
++		if (lu_fid_eq(&o->co_fid, fid))
++			return o;
++	}
++
++	return NULL;
++}
++
++static void scan_cl_unlink(struct scan_cl *sl, struct scan_cl_obj *o)
++{
++	list_del(&o->co_hash);
++	list_del(&o->co_link);
++	sl->sl_cached--;
++}
++
++/*
++ * Emit everything that has been quiet for long enough, oldest first.  With
++ * @all, emit the lot: the stream has ended, or a consumer has stopped it.
++ *
++ * "Quiet for long enough" is measured on the stream's clock -- the latest
++ * event time read -- and not on the reader's.  Catching up on a log written
++ * an hour ago would otherwise find every object already older than sc_min_age
++ * the moment it arrived, and deliver a record per event, which is the mode
++ * the caller asked not to have.
++ */
++static int scan_cl_flush(struct scan_cl *sl, bool all)
++{
++	struct scan_cl_obj *o, *tmp;
++	int rc = 0;
++
++	list_for_each_entry_safe(o, tmp, &sl->sl_aged, co_link) {
++		if (!all && sl->sl_now - o->co_time < (__s64)sl->sl_min_age)
++			break;	/* the list is in last-seen order */
++
++		/*
++		 * Delivered first, and unlinked only once it was accepted.
++		 * An object that leaves the cache is no longer counted by
++		 * scan_cl_held_first(), so freeing one the consumer refused
++		 * would let scan_cl_clear() purge records nothing accepted --
++		 * and a restart from sc_startrec cannot read them back.
++		 */
++		rc = scan_cl_deliver(sl, o, true);
++		if (rc != 0)
++			return rc;	/* still cached, so still held */
++		scan_cl_unlink(sl, o);
++		scan_cl_obj_free(o);
++	}
++
++	return 0;
++}
++
++/* -------------------------------------------------------------------- */
++
++static char *scan_cl_strdup(const char *s, size_t len)
++{
++	char *copy;
++
++	if (s == NULL || len == 0)
++		return NULL;
++
++	copy = malloc(len + 1);
++	if (copy == NULL)
++		return NULL;
++
++	memcpy(copy, s, len);
++	copy[len] = '\0';
++
++	return copy;
++}
++
++/*
++ * What one changelog record says, in the terms the record uses, about the
++ * object @fid names: one of scan_cl_rec_fids(), or NULL for a record about
++ * none.
++ */
++static void scan_cl_absorb(struct scan_cl_obj *o, const struct changelog_rec *r,
++			   const struct lu_fid *fid)
++{
++	__u32 mode;
++
++	if (fid != NULL)
++		o->co_fid = *fid;
++	else
++		memset(&o->co_fid, 0, sizeof(o->co_fid));
++	/*
++	 * Only a namespace record carries a parent: it has a name, and a
++	 * CL_MARK's name is the MDT's.  The MDS fills cr_pfid for the others
++	 * (CL_CLOSE, CL_LAYOUT, CL_HSM, ...) only when it has one, in a
++	 * reused buffer, so there it can be the previous record's parent.
++	 */
++	if (r->cr_namelen != 0 && r->cr_type != CL_MARK &&
++	    fid_is_sane(&r->cr_pfid))
++		o->co_pfid = r->cr_pfid;
++	o->co_type = r->cr_type;
++	o->co_flags = r->cr_flags & CLF_FLAGMASK;
++	o->co_time = (__s64)(r->cr_time >> 30);	/* cr_time is 30-bit shifted */
++	o->co_index = r->cr_index;
++	/* no MDS writes cr_prev, and the reused buffer leaves old bytes */
++	o->co_prev = 0;
++	o->co_valid |= LLAPI_SCAN_EVENT;
++
++	if (fid_is_sane(&o->co_fid))
++		o->co_valid |= LLAPI_SCAN_FID;
++	else
++		o->co_valid &= ~LLAPI_SCAN_FID;
++	if (fid_is_sane(&o->co_pfid))
++		o->co_valid |= LLAPI_SCAN_PARENT;
++	else
++		o->co_valid &= ~LLAPI_SCAN_PARENT;
++
++	if (r->cr_namelen != 0) {
++		free(o->co_name);
++		/*
++		 * A copy that failed leaves no name rather than the previous
++		 * object's, which lfsr_name is documented to allow: NULL is
++		 * "no name could be recovered".
++		 *
++		 * Bounded with strnlen() rather than cr_namelen: for a
++		 * CLF_RENAME record mdd_changelog_rec_ext_rename() stores the
++		 * source name after the target one and adds its length to
++		 * cr_namelen, so the field spans both.  lustre_rsync.c bounds
++		 * it the same way.
++		 */
++		o->co_name = scan_cl_strdup(changelog_rec_name(r),
++					    strnlen(changelog_rec_name(r),
++						    r->cr_namelen));
++	}
++
++	/*
++	 * The S_IFMT a creation implies, and nothing more: LLAPI_SCAN_TYPE is
++	 * documented as the S_IFMT alone, which is exactly what this is.
++	 *
++	 * Only an event that implies a type answers it -- the three creations
++	 * and CL_RMDIR, whose target is a directory by definition -- so a
++	 * later event must not overwrite the answer with its own nothing.
++	 * Setting the mode whenever an event arrived, while the bit is only
++	 * ever OR'd in, would leave a coalesced object claiming to know its
++	 * type and carrying zero for it -- the one thing the validity mask
++	 * exists to keep apart, "cannot answer" from "the answer is zero".
++	 * An object's type does not change, so the first answer stands for
++	 * every event after it.
++	 */
++	mode = scan_cl_mode(r->cr_type);
++	if (mode != 0) {
++		o->co_mode = mode;
++		o->co_valid |= LLAPI_SCAN_TYPE;
++	}
++
++	if (r->cr_flags & CLF_RENAME) {
++		struct changelog_ext_rename *rn = changelog_rec_rename(r);
++
++		if (fid_is_sane(&rn->cr_sfid)) {
++			o->co_src_fid = rn->cr_sfid;
++			o->co_src_pfid = rn->cr_spfid;
++			free(o->co_src_name);
++			o->co_src_name = scan_cl_strdup(changelog_rec_sname(r),
++						changelog_rec_snamelen(r));
++			/* the bit says the source is there to read, so it
++			 * is not set over a copy that failed
++			 */
++			if (o->co_src_name != NULL)
++				o->co_valid |= LLAPI_SCAN_EVENT_SRC;
++			else
++				o->co_valid &= ~LLAPI_SCAN_EVENT_SRC;
++		}
++	}
++
++	if (r->cr_flags & CLF_JOBID) {
++		struct changelog_ext_jobid *j = changelog_rec_jobid(r);
++
++		if (j->cr_jobid[0] != '\0') {
++			free(o->co_jobid);
++			o->co_jobid = strdup(j->cr_jobid);
++			/* likewise: the bit promises a string, not a NULL */
++			if (o->co_jobid != NULL)
++				o->co_valid |= LLAPI_SCAN_JOBID;
++			else
++				o->co_valid &= ~LLAPI_SCAN_JOBID;
++		}
++	}
++
++	if (r->cr_flags & CLF_EXTRA_FLAGS) {
++		struct changelog_ext_extra_flags *ef =
++			changelog_rec_extra_flags(r);
++
++		if (ef->cr_extra_flags & CLFE_UIDGID) {
++			struct changelog_ext_uidgid *ug =
++				changelog_rec_uidgid(r);
++
++			/*
++			 * The acting client's credentials, not the object's
++			 * owner: mdd_changelog_ns_store() fills this from
++			 * lu_ucred(env).  lfsr_stx.stx_uid is the owner
++			 * wherever it is filled, and lfs find -uid matches
++			 * on that, so this goes to lfsr_event_uid and only a
++			 * resolve supplies the owner.
++			 */
++			o->co_event_uid = (__u32)ug->cr_uid;
++			o->co_event_gid = (__u32)ug->cr_gid;
++			o->co_valid |= LLAPI_SCAN_EVENT_UID;
++		}
++	}
++}
++
++/*
++ * The objects a record is about: at most two, in @fids.  Usually the target.
++ * A rename to a new name has a zero cr_tfid -- mdd_rename() passes no target
++ * to mdd_changelog_ns_store() -- and the object that moved is only in the
++ * rename extension, so it is that one.  A rename over an existing name is
++ * about both: the object it replaced and the one that moved.  A migrate
++ * is about one object, under its new FID.
++ *
++ * A CL_MARK is about none.  mdd_changelog_write_header() writes
++ * cr_markerflags into the union with cr_tfid, and CLM_ON|CLM_START lands
++ * inside FID_SEQ_IGIF, which fid_is_sane() accepts.
++ */
++static int scan_cl_rec_fids(const struct changelog_rec *r,
++			    struct lu_fid fids[2])
++{
++	int n = 0;
++
++	if (r->cr_type == CL_MARK)
++		return 0;
++	if (fid_is_sane(&r->cr_tfid))
++		fids[n++] = r->cr_tfid;
++	/* a CL_MIGRATE's cr_sfid is the object's old FID, now gone */
++	if ((r->cr_flags & CLF_RENAME) && r->cr_type != CL_MIGRATE) {
++		struct changelog_ext_rename *rn = changelog_rec_rename(r);
++
++		if (fid_is_sane(&rn->cr_sfid) &&
++		    (n == 0 || !lu_fid_eq(&rn->cr_sfid, &fids[0])))
++			fids[n++] = rn->cr_sfid;
++	}
++	return n;
++}
++
++/* one record per object the event is about, or one with no FID for none */
++static int scan_cl_event(struct scan_cl *sl, const struct changelog_rec *r)
++{
++	struct lu_fid fids[2];
++	int n = scan_cl_rec_fids(r, fids);
++	__u64 before = sl->sl_accepted;
++	int rc = 0;
++	int i = 0;
++
++	do {
++		struct scan_cl_obj one = { 0 };
++
++		scan_cl_absorb(&one, r, n > 0 ? &fids[i] : NULL);
++		rc = scan_cl_deliver(sl, &one, false);
++
++		free(one.co_name);
++		free(one.co_src_name);
++		free(one.co_jobid);
++	} while (rc == 0 && ++i < n);
++
++	/*
++	 * A rename over an existing name is two objects under one cr_index,
++	 * and sl_accepted moves per object.  A consumer that stops on the
++	 * second would otherwise leave the whole record counted as consumed,
++	 * and _CLEAR would purge it with no callback having seen that
++	 * object -- which is what llapi_scan_changelog.3 promises cannot
++	 * happen.  The cache is empty in event mode, so scan_cl_held_first()
++	 * does not hold it back either.  Put it back where it was: a record
++	 * is consumed only when all of it is.
++	 */
++	if (rc != 0)
++		sl->sl_accepted = before;
++
++	return rc;
++}
++
++static int scan_cl_object_one(struct scan_cl *sl, const struct changelog_rec *r,
++			      const struct lu_fid *fid)
++{
++	struct scan_cl_obj *o;
++
++	o = scan_cl_find(sl, fid);
++	if (o != NULL) {
++		/* seen again: it keeps its place in the hash and goes to the
++		 * back of the age list, carrying what the new event said
++		 */
++		list_del(&o->co_link);
++		scan_cl_absorb(o, r, fid);
++		list_add_tail(&o->co_link, &sl->sl_aged);
++		/*
++		 * Busy past the limit: delivered now, so that it is reported
++		 * at all and its first record can be cleared.  Its next event
++		 * starts it afresh.
++		 */
++		if (o->co_time - o->co_first_time >=
++		    (__s64)sl->sl_min_age * SCAN_CL_MAX_HOLD) {
++			int rc = scan_cl_deliver(sl, o, true);
++
++			if (rc != 0)
++				return rc;
++			scan_cl_unlink(sl, o);
++			scan_cl_obj_free(o);
++		}
++		return 0;
++	}
++
++	o = calloc(1, sizeof(*o));
++	if (o == NULL)
++		return -ENOMEM;
++
++	scan_cl_absorb(o, r, fid);
++	o->co_first = o->co_index;	/* only here: absorb() moves co_index */
++	o->co_first_time = o->co_time;
++	list_add_tail(&o->co_link, &sl->sl_aged);
++	list_add(&o->co_hash, scan_cl_bucket(sl, &o->co_fid));
++	sl->sl_cached++;
++
++	/*
++	 * The cache is a window, not a database.  When it is full the oldest
++	 * object leaves early, which costs a second record if that object is
++	 * touched again -- the alternative is holding a busy filesystem's
++	 * whole working set.
++	 */
++	if (sl->sl_cached > sl->sl_max_cached) {
++		struct scan_cl_obj *old;
++		int rc;
++
++		old = list_first_entry(&sl->sl_aged, struct scan_cl_obj,
++				       co_link);
++		/* as scan_cl_flush(): held until it is accepted */
++		rc = scan_cl_deliver(sl, old, true);
++		if (rc != 0)
++			return rc;
++		scan_cl_unlink(sl, old);
++		scan_cl_obj_free(old);
++	}
++
++	return 0;
++}
++
++/*
++ * Coalesce the record under each object it is about.  A record about none --
++ * a CL_MARK, or a rename whose FIDs are not sane -- is delivered per event
++ * instead: coalescing keys on the FID, and all of them would share one entry.
++ */
++static int scan_cl_object(struct scan_cl *sl, const struct changelog_rec *r)
++{
++	struct lu_fid fids[2];
++	int n = scan_cl_rec_fids(r, fids);
++	int rc = 0;
++	int i;
++
++	if (n == 0)
++		return scan_cl_event(sl, r);
++
++	for (i = 0; i < n && rc == 0; i++)
++		rc = scan_cl_object_one(sl, r, &fids[i]);
++
++	return rc;
++}
++
++/*
++ * The oldest record any cached object still depends on, or 0 for an empty
++ * cache.  Coalescing means an object's records can sit well below the last
++ * one delivered: create B at 10, create A at 11, touch B at 1000, and A can
++ * age out and be accepted while B is still held with a record at 10.
++ */
++static __u64 scan_cl_held_first(const struct scan_cl *sl)
++{
++	const struct scan_cl_obj *o;
++	__u64 first = 0;
++
++	list_for_each_entry(o, &sl->sl_aged, co_link) {
++		if (first == 0 || o->co_first < first)
++			first = o->co_first;
++	}
++
++	return first;
++}
++
++static void scan_cl_clear(struct scan_cl *sl, bool final)
++{
++	const struct llapi_scan_changelog_param *sc = sl->sl_param;
++	__u64 upto = sl->sl_accepted;
++	__u64 held;
++	int rc;
++
++	if (!(sc->sc_flags & LLAPI_SCAN_CL_F_CLEAR))
++		return;
++
++	/*
++	 * The batch test first: scan_cl_held_first() below walks the whole
++	 * cache, and it can only lower upto, so a batch too small to clear
++	 * is too small either way.  Walking first cost a pass over
++	 * sc_max_cached entries per record.
++	 */
++	if (upto == 0 || upto == sl->sl_last_cleared)
++		return;
++	/* from the last walk, not the last clear: a held object can pin that */
++	if (!final && upto - sl->sl_clear_walked < SCAN_CL_CLEAR_BATCH)
++		return;
++	sl->sl_clear_walked = upto;
++
++	/*
++	 * Never past a record an object still in the cache was built from.
++	 * Clearing to the last accepted index alone would purge it, and a
++	 * consumer that stops the scan there loses the object without any
++	 * callback having seen it -- and a restart from sc_startrec cannot
++	 * read it back, because the record is gone.
++	 */
++	held = scan_cl_held_first(sl);
++	if (held != 0 && held - 1 < upto)
++		upto = held - 1;
++
++	if (upto == 0 || upto <= sl->sl_last_cleared)
++		return;
++
++	/*
++	 * Only up to a record the consumer has taken or chosen not to
++	 * see -- one sc_filter rejected, or an _ONCE repeat.  Clearing is
++	 * irreversible and it is the registered user's whole backlog, not
++	 * ours alone, so it never runs ahead of the consumer.
++	 */
++	rc = llapi_changelog_clear(sc->sc_mdtname, sc->sc_user, upto);
++	if (rc < 0)
++		llapi_error(LLAPI_MSG_ERROR, rc,
++			    "cannot clear %s past record %llu",
++			    sc->sc_mdtname, (unsigned long long)upto);
++	else
++		sl->sl_last_cleared = upto;
++}
++
++/**
++ * llapi_scan_changelog() - an Object Stream from one MDT's changelog
++ * @sc: what to read and what to answer for
++ * @cb: called once per event, or once per object with _COALESCE
++ * @data: passed to @cb and to sc_filter untouched
++ *
++ * Reads @sc->sc_mdtname's changelog through the client's character device
++ * and delivers the records described in llapi_scan_changelog(3).  The stream
++ * ends at sc_endrec, at the end of the log, or when @cb returns non-zero,
++ * whose value is returned unchanged.
++ *
++ * A changelog answers what changed, never what exists: an object that has not
++ * been touched does not appear, however well it matches.  With
++ * LLAPI_SCAN_CL_F_CLEAR the consumed records are purged as they are accepted,
++ * which needs sc_user and cannot be undone.
++ *
++ * Return: 0 on success, the value a callback returned to stop the stream
++ * unchanged -- which need not be negative -- or a negative errno.
++ */
++int llapi_scan_changelog(const struct llapi_scan_changelog_param *sc,
++			 llapi_scan_cb_t cb, void *data)
++{
++	struct llapi_scan_changelog_param scl = { 0 };
++	enum changelog_send_flag flags;
++	struct changelog_rec *rec;
++	struct scan_cl *sl;
++	__u64 idx;
++	int crc;	/* what a consumer or a flush returned, not the read */
++	int rc;
++	int i;
++
++	if (sc == NULL || cb == NULL)
++		return -EINVAL;
++	rc = scan_cl_param_copyin(&scl, sc);
++	if (rc < 0)
++		return rc;
++
++	/*
++	 * Off the copy, and only after sc_size: sc_mdtname sits at the end of
++	 * the minimum, so reading it off the caller's own struct first would
++	 * read past a struct too short to carry it -- the size check is what
++	 * establishes that it is there at all.
++	 */
++	if (scl.sc_mdtname == NULL)
++		return -EINVAL;
++
++	/*
++	 * Only now, and off the copy.  sc_user and sc_mnt sit past the
++	 * minimum sc_size, so a caller whose struct stops short of them has
++	 * declared no such field: the copy reads zero there, the caller's
++	 * own memory would be read past its end.  llapi_scan_device() defers
++	 * its own lfsp_stats check for the same reason.
++	 */
++	if ((scl.sc_flags & LLAPI_SCAN_CL_F_CLEAR) && scl.sc_user == NULL)
++		return -EINVAL;
++	if ((scl.sc_flags & LLAPI_SCAN_CL_F_RESOLVE) && scl.sc_mnt == NULL)
++		return -EINVAL;
++	/*
++	 * Refused rather than ignored: event mode already delivers one record
++	 * per event by definition, so there is nothing for _ONCE to mean
++	 * there, and a caller that asked for at most one record per object
++	 * and got one per event would hear nothing about it.
++	 */
++	if ((scl.sc_flags & LLAPI_SCAN_CL_F_ONCE) &&
++	    !(scl.sc_flags & LLAPI_SCAN_CL_F_COALESCE))
++		return -EINVAL;
++	/*
++	 * sc_type_mask is intersected with the registered user's own mask,
++	 * which the client's mdc asks the MDS for; the mdc then drops the
++	 * other records as it reads them.  Without a user there is nothing
++	 * to intersect with, and the mask was dropped in silence.  Refused
++	 * rather than given a second meaning: sc_filter already filters
++	 * without a user.
++	 */
++	if (scl.sc_type_mask != 0 && scl.sc_user == NULL)
++		return -EINVAL;
++	/* a clear purges every type, so it would drop what the mask hid */
++	if (scl.sc_type_mask != 0 && (scl.sc_flags & LLAPI_SCAN_CL_F_CLEAR))
++		return -EINVAL;
++	if (scl.sc_stats != NULL &&
++	    scl.sc_stats->ss_size < LLAPI_SCAN_STATS_MIN_SIZE)
++		return -EINVAL;
++
++	sl = calloc(1, sizeof(*sl));
++	if (sl == NULL)
++		return -ENOMEM;
++
++	sl->sl_param = &scl;
++	sl->sl_cb = cb;
++	sl->sl_data = data;
++	sl->sl_mnt_fd = -1;
++	sl->sl_want = scl.sc_want;
++	if (scl.sc_got != NULL) {
++		__u64 known = SCAN_CL_EVENT_MASK;
++
++		/* a lookup is what adds the object's own attributes, and it
++		 * needs both the flag and a mount to open through
++		 */
++		if ((scl.sc_flags & LLAPI_SCAN_CL_F_RESOLVE) &&
++		    scl.sc_mnt != NULL)
++			known |= SCAN_CL_RESOLVE_MASK;
++		*scl.sc_got = scl.sc_want != 0 ? (scl.sc_want & known) : known;
++	}
++	sl->sl_min_age = scl.sc_min_age ?: SCAN_CL_MIN_AGE_DEF;
++	sl->sl_max_cached = scl.sc_max_cached ?: SCAN_CL_MAX_CACHED_DEF;
++	sl->sl_stats.ss_size = sizeof(sl->sl_stats);
++	INIT_LIST_HEAD(&sl->sl_aged);
++	for (i = 0; i < SCAN_CL_HASH_SIZE; i++)
++		INIT_LIST_HEAD(&sl->sl_hash[i]);
++
++	if (scl.sc_flags & LLAPI_SCAN_CL_F_RESOLVE) {
++		rc = llapi_root_path_open(scl.sc_mnt, &sl->sl_mnt_fd);
++		if (rc < 0) {
++			llapi_error(LLAPI_MSG_ERROR, rc,
++				    "cannot open '%s' to resolve FIDs; it has to be a client mount of the same filesystem",
++				    scl.sc_mnt);
++			goto out;
++		}
++		rc = scan_cl_same_fs(scl.sc_mnt, scl.sc_mdtname);
++		if (rc < 0)
++			goto out;
++	}
++
++	/*
++	 * EXTRA_FLAGS is what carries the uid and gid of whoever acted; asking
++	 * for JOBID costs nothing when the
++	 * server did not record one.
++	 */
++	flags = CHANGELOG_FLAG_EXTRA_FLAGS | CHANGELOG_FLAG_JOBID;
++	if (scl.sc_flags & LLAPI_SCAN_CL_F_FOLLOW)
++		flags |= CHANGELOG_FLAG_FOLLOW;
++
++	/*
++	 * Only a type mask needs the user: the filter ioctl looks the user up
++	 * on the MDS, which an MDS before 2.17.0 cannot do.  sc_user is
++	 * otherwise needed only to clear.
++	 */
++	if (scl.sc_type_mask != 0)
++		rc = llapi_changelog_start_user(&sl->sl_priv, flags,
++						scl.sc_mdtname, scl.sc_user,
++						scl.sc_type_mask,
++						(long long)scl.sc_startrec);
++	else
++		rc = llapi_changelog_start(&sl->sl_priv, flags, scl.sc_mdtname,
++					   (long long)scl.sc_startrec);
++	if (rc < 0) {
++		llapi_error(LLAPI_MSG_ERROR, rc, "cannot read %s's changelog",
++			    scl.sc_mdtname);
++		/*
++		 * llapi_changelog_start_user() opens the device and sets
++		 * *priv before it issues OBD_IOC_CHANGELOG_FILTER, so a
++		 * failure there leaves the reader live.  The fini here is
++		 * what closes it: the error path jumps past the one at the
++		 * end, and the fd, its buffer and the kernel-side reader
++		 * state stay pinned until the process exits otherwise.
++		 */
++		if (sl->sl_priv != NULL)
++			llapi_changelog_fini(&sl->sl_priv);
++		goto out;
++	}
++
++	/*
++	 * sc_want of 0 is "everything", so it is tested for on its own: it
++	 * is the caller that most needs the extension, and any test of the
++	 * form `sc_want & <bits>` reads 0 as wanting none of them.  Without
++	 * the flag the uidgid extension is dropped on repack and
++	 * LLAPI_SCAN_EVENT_UID never reaches lfsr_valid.
++	 */
++	if (scl.sc_want == 0 || scl.sc_want & LLAPI_SCAN_EVENT_UID)
++		llapi_changelog_set_xflags(sl->sl_priv,
++					   CHANGELOG_EXTRA_FLAG_UIDGID);
++
++	while ((rc = llapi_changelog_recv(sl->sl_priv, &rec)) == 0) {
++		sl->sl_now = (__s64)(rec->cr_time >> 30);
++
++		/* before the count: the record that ends the range was read
++		 * but not examined, and counting it made a bounded scan
++		 * report one more than it processed
++		 */
++		if (scl.sc_endrec != 0 && rec->cr_index > scl.sc_endrec) {
++			llapi_changelog_free(&rec);
++			break;
++		}
++
++		sl->sl_stats.ss_seen++;
++
++		if (scl.sc_flags & LLAPI_SCAN_CL_F_COALESCE)
++			crc = scan_cl_object(sl, rec);
++		else
++			crc = scan_cl_event(sl, rec);
++
++		idx = rec->cr_index;
++		llapi_changelog_free(&rec);
++		/*
++		 * Kept out of rc, which below decides whether the log may be
++		 * cleared: that turns on the READ having reached an end, and
++		 * a consumer's own sentinel is not a read failure whichever
++		 * sign it has.  sl_stop_rc carries it out as the return.
++		 */
++		if (crc != 0) {
++			sl->sl_stop_rc = crc;
++			rc = 0;
++			break;
++		}
++
++		if (scl.sc_flags & LLAPI_SCAN_CL_F_COALESCE) {
++			crc = scan_cl_flush(sl, false);
++			if (crc != 0) {
++				sl->sl_stop_rc = crc;
++				rc = 0;
++				break;
++			}
++		}
++
++		scan_cl_clear(sl, false);
++
++		/* sc_endrec is inclusive: under _FOLLOW the next record may
++		 * never come, so the range ends on this one
++		 */
++		if (scl.sc_endrec != 0 && idx >= scl.sc_endrec)
++			break;
++	}
++
++	if (rc == 1)		/* the end of the log, not an error */
++		rc = 0;
++
++	/* whatever is still held is delivered before the stream closes */
++	if (sl->sl_stop_rc == 0 && (scl.sc_flags & LLAPI_SCAN_CL_F_COALESCE)) {
++		int frc = scan_cl_flush(sl, true);
++
++		if (frc != 0)
++			sl->sl_stop_rc = frc;
++	}
++
++	/*
++	 * Not after a failed read.  Clearing is irreversible and purges the
++	 * registered user's whole backlog, so only a failed read keeps it
++	 * from advancing -- the same rule the
++	 * --since-cookie anchor follows, and for the same reason: a caller
++	 * that treats a negative return as "this run produced nothing" and
++	 * retries from its old position must still find the records there.
++	 *
++	 * The end of the log has already been folded into rc 0 above, and a
++	 * break out of the loop -- a consumer's stop, sc_endrec reached, or
++	 * a flush that failed -- sets it to 0 too; all of those are ends
++	 * this clears for, and the consumer's own value leaves as
++	 * sl_stop_rc instead.  rc is the read's, so only the read failing
++	 * leaves it negative, whatever sign a consumer chose for its
++	 * sentinel.  The flush above still runs either way: delivering what
++	 * is held costs the caller nothing, where clearing cannot be undone.
++	 */
++	if (rc >= 0)
++		scan_cl_clear(sl, true);
++	llapi_changelog_fini(&sl->sl_priv);
++
++	if (sl->sl_stop_rc != 0)
++		rc = sl->sl_stop_rc;
++out:
++	if (sl->sl_mnt_fd >= 0)
++		close(sl->sl_mnt_fd);
++
++	/* anything still cached after an error leaves with the scan */
++	while (!list_empty(&sl->sl_aged)) {
++		struct scan_cl_obj *o = list_first_entry(&sl->sl_aged,
++							 struct scan_cl_obj,
++							 co_link);
++		scan_cl_unlink(sl, o);
++		scan_cl_obj_free(o);
++	}
++
++	scan_cl_seen_free(&sl->sl_seen);
++
++	if (scl.sc_stats != NULL) {
++		__u32 room = scl.sc_stats->ss_size;
++
++		if (room > sizeof(sl->sl_stats))
++			room = sizeof(sl->sl_stats);
++		/* a whole counter, never half of one */
++		room = scan_stats_whole(room);
++		memcpy(scl.sc_stats, &sl->sl_stats, room);
++		scl.sc_stats->ss_size = room;
++	}
++
++	free(sl);
++
++	return rc;
++}
+diff --git a/lustre/utils/lustreapi_internal.h b/lustre/utils/lustreapi_internal.h
+index a9c6900f6c..3c88440669 100644
+--- a/lustre/utils/lustreapi_internal.h
++++ b/lustre/utils/lustreapi_internal.h
+@@ -297,6 +297,21 @@ struct llapi_scan_rec;
+ /* a device scan knows those, and the ones only it can act on */
+ #define LLAPI_SCAN_F_KNOWN_DEV	(LLAPI_SCAN_F_KNOWN_NS |		\
+ 				 LLAPI_SCAN_F_INTERNAL)
++/* every sc_flags bit llapi_scan_changelog() knows, kept here for the reason
++ * LLAPI_SCAN_F_KNOWN_NS is: an "all flags" value a caller could build
++ * against would mean a different set of bits to it than to the library.
++ */
++#define LLAPI_SCAN_CL_F_KNOWN	(LLAPI_SCAN_CL_F_FOLLOW |		\
++				 LLAPI_SCAN_CL_F_COALESCE |		\
++				 LLAPI_SCAN_CL_F_RESOLVE |		\
++				 LLAPI_SCAN_CL_F_CLEAR |		\
++				 LLAPI_SCAN_CL_F_ONCE)
++/* the shortest struct llapi_scan_changelog_param: through sc_mdtname, which
++ * names the log and is not optional
++ */
++#define LLAPI_SCAN_CL_PARAM_MIN_SIZE					\
++	((__u32)(offsetof(struct llapi_scan_changelog_param, sc_mdtname) + \
++		 sizeof(const char *)))
+ /* and the shortest struct llapi_scan_stats a scan will write back */
+ #define LLAPI_SCAN_STATS_MIN_SIZE					\
+ 	((__u32)(offsetof(struct llapi_scan_stats, ss_seen) +		\
+@@ -357,7 +372,9 @@ struct llapi_scan_rec;
+  * Rounded down rather than refused, because a short size is already how a
+  * caller says "this field is missing" -- one that stops mid-field is the
+  * same statement made imprecisely, and the field it stops in is exactly the
+- * one to drop.
++ * one to drop.  scan_cl_param_whole() below is the same thing for
++ * llapi_scan_changelog(), whose parameter has four pointers past its own
++ * minimum.
+  */
+ static inline __u32 scan_param_whole(__u32 size)
+ {
+@@ -424,6 +441,41 @@ static inline __u32 scan_stats_whole(__u32 size)
+ 	return whole;
+ }
+ 
++/*
++ * The same, for struct llapi_scan_changelog_param.  Its minimum reaches
++ * through sc_mdtname, but sc_user, sc_mnt, sc_stats and sc_got are pointers
++ * beyond it, so a size stopping inside one of them would leave it half the
++ * caller's bytes and half zero -- and sc_user and sc_mnt are dereferenced
++ * as strings.  Rounded down to the last whole field, as the parameter
++ * struct above is, so a short size means "declared nothing from here on"
++ * rather than "declared half a pointer".
++ */
++static inline __u32 scan_cl_param_whole(__u32 size)
++{
++#define SCAN_CLF_END(f)							\
++	((__u32)(offsetof(struct llapi_scan_changelog_param, f) +	\
++		 sizeof(((struct llapi_scan_changelog_param *)0)->f)))
++	static const __u32 ends[] = {
++		SCAN_CLF_END(sc_mdtname), SCAN_CLF_END(sc_user),
++		SCAN_CLF_END(sc_mnt),     SCAN_CLF_END(sc_startrec),
++		SCAN_CLF_END(sc_endrec),  SCAN_CLF_END(sc_type_mask),
++		SCAN_CLF_END(sc_max_cached), SCAN_CLF_END(sc_padding),
++		SCAN_CLF_END(sc_stats),   SCAN_CLF_END(sc_got),
++	};
++	static_assert(SCAN_CLF_END(sc_got) ==
++		      sizeof(struct llapi_scan_changelog_param),
++		      "a field was added without a row in ends[]");
++#undef SCAN_CLF_END
++	__u32 whole = ends[0];
++	unsigned int i;
++
++	for (i = 0; i < sizeof(ends) / sizeof(ends[0]); i++)
++		if (ends[i] <= size && ends[i] > whole)
++			whole = ends[i];
++
++	return whole;
++}
++
+ /*
+  * The reserved bytes are documented must-be-zero, so that a field carved
+  * out of them later cannot be set by a newer caller and silently ignored
+@@ -495,6 +547,40 @@ static inline int scan_param_copyin(struct llapi_scan_param *dst,
+ 	return 0;
+ }
+ 
++/* The same for llapi_scan_changelog()'s parameters. */
++static inline int
++scan_cl_param_copyin(struct llapi_scan_changelog_param *dst,
++		     const struct llapi_scan_changelog_param *src)
++{
++	const unsigned char *tail;
++	__u32 i;
++
++	memset(dst, 0, sizeof(*dst));
++
++	if (src->sc_size < LLAPI_SCAN_CL_PARAM_MIN_SIZE ||
++	    src->sc_size > LLAPI_SCAN_PARAM_MAX_SIZE)
++		return -EINVAL;
++	if (src->sc_flags & ~LLAPI_SCAN_CL_F_KNOWN)
++		return -EINVAL;
++
++	if (src->sc_size > (__u32)sizeof(*dst)) {
++		tail = (const unsigned char *)src + sizeof(*dst);
++		for (i = 0; i < src->sc_size - (__u32)sizeof(*dst); i++)
++			if (tail[i] != 0)
++				return -EINVAL;
++		memcpy(dst, src, sizeof(*dst));
++	} else {
++		memcpy(dst, src, scan_cl_param_whole(src->sc_size));
++	}
++	dst->sc_size = sizeof(*dst);
++
++	/* past the minimum, so the zero-filled copy is what is tested */
++	if (dst->sc_padding != 0)
++		return -EINVAL;
++
++	return 0;
++}
++
+ /*
+  * What a scan will answer for, reported to the caller before the first
+  * record.  @known is the entry point's mask, already narrowed to the
+-- 
+2.43.0
+

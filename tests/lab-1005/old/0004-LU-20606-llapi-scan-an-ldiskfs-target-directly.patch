@@ -1,0 +1,4185 @@
+From 507b70072f3d5a16dbac8712b268c8913df45f11 Mon Sep 17 00:00:00 2001
+From: Hiroshi Nishida <hnishida@thelustrecollective.com>
+Date: Mon, 24 Aug 2026 09:48:44 -0700
+Subject: [PATCH 04/16] LU-20606 llapi: scan an ldiskfs target directly
+
+Add llapi_scan_device(). It reads the objects of an MDT or OST
+directly from the device with libext2fs, and gives the same records as
+llapi_scan_namespace(). It needs no mount, no MDS and no kernel change,
+so it works on a stopped target, a snapshot, or a failover partner's
+LUN. It only reads.
+
+The backend is a plugin, scan_osd_ldiskfs.so, loaded with dlopen() in
+the same way as mount.lustre's mount_osd_ldiskfs.so. So liblustreapi
+does not link libext2fs. The errors are different so that a caller can
+tell them apart:
+- ENOTSUP: there is no backend, for example on a client build.
+- ENOPKG: the backend cannot open the target. Stock e2fsprogs refuses
+  dirdata, so Lustre's e2fsprogs is needed.
+- EINVAL: the device is not a Lustre target.
+
+New record fields for a device scan: object id, LMA flags, raw
+linkea, parent FID and a class. The target label is read in
+all four forms that mkfs.lustre and tunefs.lustre write: '-', ':', '='
+and '+'.
+
+New public API:
+- lfsp_stats points to a struct llapi_scan_stats that the caller owns.
+  It is added after lfsp_got, so older callers are not affected. Both
+  scanners fill it. On a completed scan, ss_seen equals ss_filtered +
+  ss_skipped + the sum of ss_class. ss_size works like lfsp_size, so
+  the struct can grow later.
+- LLAPI_SCAN_F_INTERNAL also returns the objects that the namespace
+  does not show: the OSD's own objects, DNE agent inodes, and objects
+  with no LMA.
+
+So that both scanners give the same answer for one file:
+- An object with no LMA on MDT0000 gets its IGIF, built the same way
+  as osd_scrub.c does. This is done only on MDT0000, and only from
+  inode 12: fid_is_igif() is used, not fid_is_sane(). An OST object
+  with no LMA has no FID.
+- A directory's own stripe uses LMV_MAGIC_V1, as llite returns.
+  LMV_USER_MAGIC means a default LMV.
+- stx_attributes has only the flags llite also reports (immutable,
+  append, encrypted), and so_attrs_mask says which flags the scan can
+  answer.
+- LLAPI_SCAN_PARENT is set only when the parent FID is sane.
+- An OST scan does not report the MDT index, linkea or parent in
+  lfsp_got.
+- LLAPI_SCAN_LMV_FOREIGN asked for alone also reads the LMV.
+- A file that HSM has released gets its size from the MDT inode, and
+  one block, as a client sees it. Its old SOM is not used.
+
+The scanner is new here, so these are how it is written rather than
+fixes to anything in the tree:
+- The LMV buffer is cleared as far as the stripe count reaches, so a
+  reader does not see the previous directory's data. The buffer is a
+  union of the two structures, so it has the right alignment.
+- An inode that cannot be read is counted once, by the chunk that owns
+  it, and only if the inode bitmap says it is in use.
+- If a worker cannot start, the scan goes on with fewer workers.
+- If one worker gets a read error, all workers stop.
+
+fid_is_root() moves to the UAPI header, so userspace can use it.
+Existing callers are not affected; its only new caller is
+scan_classify().
+
+The header and the man pages describe what each field is. Each page
+says what its scanner offers lfsp_filter, and llapi_scan_device.3 says
+what 0 in lfsp_want means for a device scan.
+
+run_tests() in lustre/tests/llapi_test_utils.{c,h} is split, so that
+run_test_tbl() can take a device instead of a mount point.
+
+conf-sanity test_300 checks the MDS version. It fails, not skips, if
+the scanner is missing, because that is a broken install. It skips the
+OST part for a ZFS, unreachable or older OST, and says so.
+
+lustreapi_internal.h no longer includes lstddef.h: nothing in it uses
+ARRAY_SIZE any more, and the include reached 27 files.
+
+Classification and size, with fixes by Artem Blagodarenko:
+- On an MDT, an object with a namespace FID but no trusted.link is the
+  target's own, like CONFIGS/mountdata and the update logs, and is
+  classified internal. trusted.link is read for every object so that
+  its absence means absent. A file from 1.8 (an IGIF) that LFSCK has
+  not given a link yet is counted internal too.
+- A Data-on-MDT file whose instantiated components are all on the MDT
+  gets its inode's size and blocks, as mdt_lmm_dom_entry_check()
+  decides.
+- The project quota inode and ea_inode inodes are not objects and are
+  skipped, as osd_scrub skips them.
+- STATX_ATTR_ENCRYPTED comes from LMAI_ENCRYPT in trusted.lma. The OSD
+  keeps it there, not in the inode flags.
+
+Signed-off-by: Hiroshi Nishida <hnishida@thelustrecollective.com>
+Signed-off-by: Artem Blagodarenko <ablagodarenko@thelustrecollective.com>
+Assisted-by: ClaudeCode:Opus-5 llm_code_and_review_tools
+Change-Id: I8a28a8173b0b8f03ba8f9dc5a58a821118ac6296
+---
+ Documentation/man3/Makefile.am            |    1 +
+ Documentation/man3/llapi_scan_device.3    |  591 ++++++++++
+ Documentation/man3/llapi_scan_namespace.3 |   43 +-
+ Documentation/man7/lustreapi.7            |    1 +
+ include/lustre/lustreapi.h                |  151 ++-
+ include/uapi/linux/lustre/lustre_fid.h    |   10 +
+ lustre.spec.in                            |    1 +
+ lustre/include/lustre_fid.h               |    9 -
+ lustre/tests/.gitignore                   |    1 +
+ lustre/tests/Makefile.am                  |    5 +-
+ lustre/tests/conf-sanity.sh               |   72 ++
+ lustre/tests/llapi_scan_device_test.c     |  491 ++++++++
+ lustre/tests/llapi_test_utils.c           |   21 +-
+ lustre/tests/llapi_test_utils.h           |    3 +
+ lustre/utils/Makefile.am                  |   42 +
+ lustre/utils/liblustreapi_scan.c          |   45 +-
+ lustre/utils/liblustreapi_scan_device.c   | 1233 +++++++++++++++++++++
+ lustre/utils/libscan_ldiskfs.c            |  679 ++++++++++++
+ lustre/utils/lustreapi_internal.h         |   82 +-
+ lustre/utils/lustreapi_scan_backend.h     |  160 +++
+ 20 files changed, 3593 insertions(+), 48 deletions(-)
+ create mode 100644 Documentation/man3/llapi_scan_device.3
+ create mode 100644 lustre/tests/llapi_scan_device_test.c
+ create mode 100644 lustre/utils/liblustreapi_scan_device.c
+ create mode 100644 lustre/utils/libscan_ldiskfs.c
+ create mode 100644 lustre/utils/lustreapi_scan_backend.h
+
+diff --git a/Documentation/man3/Makefile.am b/Documentation/man3/Makefile.am
+index 759798b367..0f210b558e 100644
+--- a/Documentation/man3/Makefile.am
++++ b/Documentation/man3/Makefile.am
+@@ -133,6 +133,7 @@ LIBMAN = 					\
+ 	llapi_quotactl.3			\
+ 	llapi_rmfid.3				\
+ 	llapi_rmfid_at.3			\
++	llapi_scan_device.3			\
+ 	llapi_scan_namespace.3			\
+ 	llapi_search_mdt.3			\
+ 	llapi_search_ost.3			\
+diff --git a/Documentation/man3/llapi_scan_device.3 b/Documentation/man3/llapi_scan_device.3
+new file mode 100644
+index 0000000000..bcb3c06589
+--- /dev/null
++++ b/Documentation/man3/llapi_scan_device.3
+@@ -0,0 +1,591 @@
++.TH LLAPI_SCAN_DEVICE 3 2026-08-19 "Lustre User API" "Lustre Library Functions"
++.SH NAME
++llapi_scan_device \- scan a Lustre target's own objects, one record per object
++.SH SYNOPSIS
++.nf
++.B #include <lustre/lustreapi.h>
++.PP
++.BI "typedef int (*llapi_scan_cb_t)(const struct llapi_scan_rec *" rec ,
++.BI "                               void *" data ");"
++.PP
++.BI "int llapi_scan_device(const char *" device ,
++.BI "                      const struct llapi_scan_param *" sp ,
++.BI "                      llapi_scan_cb_t " cb ", void *" data ");"
++.PP
++.fi
++.SH DESCRIPTION
++.B llapi_scan_device()
++reads the objects of an MDT or OST directly from
++.IR device ,
++which may be a block device, a disk image or a snapshot, and calls
++.I cb
++once for each of them with the same
++.B struct llapi_scan_rec
++that
++.BR llapi_scan_namespace (3)
++delivers.
++.LP
++The target is opened read-only and there is no write path. It is not
++mounted, not modified, and the server that owns it is neither asked nor
++told: a scan reads what is on the device, at device speed, and a target
++that is in service is scanned without interrupting it.
++.LP
++.I sp
++is the same parameter structure
++.BR llapi_scan_namespace (3)
++takes, and is documented there.
++.I lfsp_want
++selects which fields the consumer will read, or 0 for this scanner's own
++default, which is everything a target answers for \(em unlike a namespace
++scan, which leaves out the fields that cost it an ioctl or an open. On a
++device it decides which of the object's extended attributes are fetched, so
++.B LLAPI_SCAN_LAYOUT
++reads
++.BR trusted.lov ,
++.B LLAPI_SCAN_LMV
++reads
++.BR trusted.lmv ,
++a size reads
++.BR trusted.lov ,
++.B trusted.som
++and
++.BR trusted.lmv ,
++and
++.B LLAPI_SCAN_HSM
++reads
++.BR trusted.hsm ,
++which a device answers for from the object itself where a namespace scan
++pays an ioctl.
++It is set only for an object that has a
++.BR trusted.hsm ;
++a namespace scan sets it with no states for any regular file, which the
++MDT answers for even where the file was never archived.
++.B lfsr_lmm
++is the object's own
++.B trusted.lov
++as stored, and differs from a namespace scan's in two places: a directory
++with no default layout of its own has none, where a namespace scan reports
++the filesystem root's, and an instantiated DoM component carries its layout
++generation in
++.IR lmm_stripe_offset ,
++where a namespace scan reports the MDT index.
++.B trusted.lma
++and
++.B trusted.link
++are always read: without the first an object has neither a FID nor a class,
++and on an MDT the second is what tells a file from the target's own.
++.LP
++.I lfsp_filter
++is the cheap stage. It is called with everything the object carries itself
++\(em mode, link count, owner, project id, times and attribute flags \(em and
++before any extended attribute has been read, so an object it rejects costs
++nothing further. It is called for every object that can be read, including
++those that are held back afterwards for what they turn out to be.
++.SS What a device scan answers for
++Every field carries its own bit in
++.IR lfsr_valid ,
++and what a device answers for is not what a namespace walk answers for.
++These fields are a device scan's alone, a namespace walk having no target
++underneath it to read them from:
++.TP 24
++.I lfsr_ino
++.RB ( LLAPI_SCAN_INO )
++the object's id on the target: an inode number on ldiskfs, a dnode on ZFS.
++Always set; it is how a scan names an object no FID and no IGIF can name.
++.TP
++.I lfsr_class
++.RB ( LLAPI_SCAN_CLASS )
++what the object is, from
++.BR "enum llapi_scan_class" ,
++described below.
++.TP
++.I lfsr_lma_compat ", " lfsr_lma_incompat
++.RB ( LLAPI_SCAN_LMA )
++the
++.B LMAC_
++and
++.B LMAI_
++bits as
++.B trusted.lma
++carries them, for a consumer that wants the object's own account of itself
++rather than this library's reading of it.
++.TP
++.I lfsr_linkea
++.RB ( LLAPI_SCAN_LINKEA )
++the raw
++.BR trusted.link ,
++with
++.I lfsr_linkeasize
++bytes at it.
++.TP
++.I lfsr_parent_fid
++.RB ( LLAPI_SCAN_PARENT )
++the FID of the directory the object's first
++.B trusted.link
++entry names, delivered with
++.I lfsr_name
++alongside it. The bit is set only where the FID is a sane one, so a caller
++that reads the field without testing
++.I lfsr_valid
++gets a zeroed FID rather than one the scan vouched for.
++.LP
++.I lfsr_path
++is always NULL. A device holds names and parent FIDs, not paths: with
++.B LLAPI_SCAN_LINKEA
++asked for, the raw
++.B trusted.link
++is delivered as
++.I lfsr_linkea
++and its first entry as
++.I lfsr_name
++and
++.IR lfsr_parent_fid .
++Turning those into a path is a walk of its own.
++.I lfsr_parent_fd
++and
++.I lfsr_fd
++are always \-1: nothing here is open, because nothing here is mounted.
++.LP
++For a regular file with a layout the file's data is on OSTs, so the object's
++own size is not the file's and the target reads
++.B trusted.som
++instead. A strict size-on-MDT value is authoritative \(em the MDT hands that
++one to a client as a real size \(em so it sets
++.B LLAPI_SCAN_SIZE
++and
++.BR LLAPI_SCAN_BLOCKS ,
++while a lazy or stale one sets
++.B LLAPI_SCAN_LAZY_SIZE
++and
++.BR LLAPI_SCAN_LAZY_BLOCKS .
++Everything else is answered from the object itself and is authoritative too:
++anything that is not a regular file, every data object on an OST \(em where
++the object's size is exactly what that OST holds \(em and a regular file
++carrying no layout at all. So is a file that HSM has released: its data is
++in the archive, and the MDT keeps its size in the inode and reports one
++block for it, as a client sees it.
++A striped directory is the exception: the client aggregates its size and
++blocks across the shards, so the master object a target holds answers for
++neither, and both bits are left clear \(em as
++.BR ll_dir_ioctl ()
++leaves them for a walk.
++The value is in
++.I lfsr_stx.stx_size
++and
++.I lfsr_stx.stx_blocks
++in every case, and neither bit set means the size is not known to the target.
++.LP
++A data\-on\-MDT file whose instantiated components are all on the MDT is
++one of those too: the inode holds the data, as an OST object does, and the
++MDT keeps no
++.B trusted.som
++for it. Its size and blocks are the object's own and
++.B LLAPI_SCAN_SIZE
++and
++.B LLAPI_SCAN_BLOCKS
++are set, which is the test
++.BR mdt_lmm_dom_entry_check ()
++applies to the same file. One that has instantiated an OST component as well
++takes the size\-on\-MDT path like any other file with a layout.
++.LP
++A consumer that wants a size rather than a statement about its provenance
++should therefore test
++.B LLAPI_SCAN_SIZE
++and
++.B LLAPI_SCAN_LAZY_SIZE
++together. Testing only the lazy bit silently drops every file whose size the
++target knows best, which on a filesystem with
++.B mdt.*.enable_strict_som
++on \(em the default \(em is most of them.
++.LP
++For a character or block device,
++.I lfsr_stx.stx_rdev_major
++and
++.I lfsr_stx.stx_rdev_minor
++are the device number that
++.BR stat (2)
++shows on a client.
++statx has no mask bit for them.
++.I lfsr_stx.stx_blksize
++is the page size, as a namespace scan reports it.
++.LP
++.I lfsr_class
++says what an object is, because a device scan reaches what a namespace walk
++cannot: the target's own objects, OST data objects, DNE agent inodes. It is
++one of
++.BR "enum llapi_scan_class" :
++.TP 24
++.B LLAPI_SCAN_CLS_VISIBLE
++reachable from the namespace \(em a file or directory a client can name.
++Each shard of a striped directory is one too, with a name of its own in
++.BR trusted.link ,
++so a directory striped over N MDTs is N+1 records across their scans.
++A hardlinked file is the other way round: one record here, with
++.I lfsr_name
++from the first entry of its
++.BR trusted.link ,
++where a walk gives one record per name.
++.TP
++.B LLAPI_SCAN_CLS_INTERNAL
++an object the target keeps for itself: its LMA sets
++.BR LMAC_NOT_IN_OI ,
++or its FID is an
++.B O/<seq>/LAST_ID
++counter, or its sequence is not one the namespace uses.
++On an MDT, so is an object whose FID the namespace would use but which has no
++.BR trusted.link :
++the target's own files outside ROOT, such as
++.I CONFIGS/mountdata
++and the update logs, carry such FIDs and no name.
++A file from before linkEA (Lustre 1.8, with an IGIF) that LFSCK has not yet
++given one is counted here too, having nothing on the target to say it is
++reachable.
++On an MDT upgraded from 1.8 with no namespace LFSCK run, those are user files,
++and a default scan holds them back.
++.TP
++.B LLAPI_SCAN_CLS_OST_OBJ
++a data object on an OST \(em
++.B LMAC_FID_ON_OST
++or an IDIF sequence \(em one stripe of some file's data.
++.TP
++.B LLAPI_SCAN_CLS_AGENT
++a DNE agent inode
++.RB ( LMAI_AGENT ),
++which this MDT keeps as the local stand-in for a remote directory
++entry \(em not an HSM object: a released file keeps an ordinary LMA and
++carries
++.B LMAC_HSM
++in
++.IR lma_compat .
++.TP
++.B LLAPI_SCAN_CLS_NO_LMA
++an object with no
++.BR trusted.lma ,
++so with no FID of its own recorded.
++On MDT0000,
++.I lfsr_fid
++carries the IGIF built from its inode number and generation, and
++.B LLAPI_SCAN_FID
++is set: an IGIF is not a reconstruction but the FID such an inode has, and
++.B osd_scrub
++answers one the same way.
++Nowhere else is that the FID such an object has,
++and an inode numbered below 12 has none,
++its IGIF being a sequence Lustre reserves.
++There, and for an object whose backend has no generation \(em a
++ZFS dnode, whose id is wider than an IGIF holds \(em
++.B LLAPI_SCAN_FID
++is clear and the object is named by
++.I lfsr_ino
++alone.
++.TP
++.B LLAPI_SCAN_CLS_BAD
++its LMA sets an incompatible bit this library does not know, so what the
++object is cannot be decided. It is counted, and held back with the rest.
++.TP
++.B LLAPI_SCAN_CLS_ORPHAN
++an open\-unlinked file, or a volatile one a migrate, resync or HSM restore
++is using \(em
++.B LMAI_ORPHAN
++in
++.IR lma_incompat ,
++which
++.BR mdd_mark_orphan_object ()
++sets. PENDING keeps a link to it, so it has a FID and would otherwise read
++as visible, but no name reaches it: it is gone when the MDT next mounts and
++clears PENDING.
++.LP
++Only the target's own subject matter is delivered, which on an MDT means
++the namespace-visible objects
++.RB ( LLAPI_SCAN_CLS_VISIBLE )
++and on an OST means the data objects
++.RB ( LLAPI_SCAN_CLS_OST_OBJ ),
++there being no namespace on an OST at all. Everything else is counted in
++.I ss_class
++and held back unless
++.B LLAPI_SCAN_F_INTERNAL
++is set in
++.IR lfsp_flags .
++The target says which it is through its own label.
++A few of the objects the filesystem keeps for itself are reachable by name
++all the same and are delivered as visible: ROOT itself, the
++.B .lustre
++pseudo\-directory and what is under it.
++.BR fid_is_namespace_visible ()
++accepts their FIDs, which is the MDT's own test; the scan adds the
++.B trusted.link
++one above, since that test passes the target's own files as well.
++.SS Consistency
++A scan takes no locks and replays no journal, so it sees the on-disk state
++and not the state a client would see.
++.I lfsr_stx.stx_attributes
++is not one of the places it shows up. A backend narrows the inode's own
++flags to the set a namespace scan can also report, so one file answers
++.B lfs find --attrs
++the same way whichever scanner ran; the backend declares that set in
++.IR lfsr_stx.stx_attributes_mask ,
++which is how a consumer tells a bit that is clear from a bit this scanner
++cannot answer for. The ldiskfs backend declares
++.B STATX_ATTR_IMMUTABLE
++and
++.BR STATX_ATTR_APPEND .
++.B STATX_ATTR_ENCRYPTED
++is answered from
++.B trusted.lma
++for every backend, because the OSD keeps it there and not in the inode.
++These are the same three
++.BR llapi_scan_namespace (3)
++gets from the client.
++.LP
++On a target in service a scan also finds
++objects caught mid-update, which are skipped rather than reported wrong and
++are counted in
++.IR ss_skipped .
++Set
++.I lfsp_stats
++to a
++.B struct llapi_scan_stats
++with
++.I ss_size
++set to
++.BI sizeof( struct " llapi_scan_stats" )
++to learn how many. The structure grows the way the parameter one does, by
++appending: what comes back is the smaller of
++.I ss_size
++and what this library writes, so counters added later leave a caller built
++against an older definition reading exactly its own fields.
++.I ss_size
++below the oldest definition this library supports is refused rather than
++guessed at. It is filled in when the scan ends:
++.TP 24
++.I ss_seen
++objects the scan looked at.
++.TP
++.I ss_emitted
++records handed to
++.IR cb .
++.TP
++.I ss_skipped
++objects dropped unread, torn or unreadable.
++.TP
++.I ss_filtered
++objects
++.I lfsp_filter
++rejected.
++.TP
++.I ss_class
++how many of each
++.BR "enum llapi_scan_class" ,
++including the ones held back. It has
++.B LLAPI_SCAN_CLS_SLOTS
++entries, more than there are classes, so a class added later does not
++move a counter added after it; the entries from
++.B LLAPI_SCAN_CLS_MAX
++on are zero.
++.LP
++Every object is accounted for exactly once, so
++.I ss_seen
++equals
++.I ss_filtered
++plus
++.I ss_skipped
++plus the sum of
++.IR ss_class .
++.I ss_emitted
++is not a fourth part of that sum: it counts what the callback was handed,
++which is the target's own subject matter, plus the rest when
++.B LLAPI_SCAN_F_INTERNAL
++is set. On a target that is not changing,
++.I ss_skipped
++is normally zero. The exception is ldiskfs inodes left on the orphan list
++with no links at all, as in a snapshot of a target in service or after a
++crash: they are counted in
++.IR ss_skipped .
++Lustre's own open\-unlinked files are not among them \(em PENDING keeps a
++link to each, so they are read and classified
++.BR LLAPI_SCAN_CLS_ORPHAN .
++.SH RETURN VALUES
++.B llapi_scan_device()
++returns:
++.TP
++0
++on success.
++.TP
++<0
++a negative errno on failure.
++.LP
++A callback returning a non-zero value stops the scan, and that value is
++returned to the caller unchanged.
++.SH ERRORS
++.TP 15
++.B -EINVAL
++.I device
++or
++.I cb
++is NULL, or
++.I lfsp_size
++is outside what this library accepts \(em smaller than the oldest
++definition of the parameter structure it supports, larger than 4096 bytes,
++or larger than its own with a byte past the end of it set \(em or
++.I lfsp_stats
++is not NULL and its
++.I ss_size
++is smaller than the oldest
++.B struct llapi_scan_stats
++this library writes back, or
++.I lfsp_flags
++sets a bit this library does not define, or
++.I lfsp_padding
++is not zero, or
++.I device
++holds no filesystem the backend recognises, or the target's label names
++neither an MDT nor an OST. A filesystem that is not a Lustre target is
++refused rather than scanned: no object on it carries an LMA, so a scan
++would deliver nothing and succeed.
++.TP 15
++.B -ENOTSUP
++this build has no scanning backend for the target: none was compiled, or
++the plugin for it could not be loaded. Nothing about the target was looked
++at.
++.TP 15
++.B -ENOPKG
++the backend is here and refused the target: it uses on\-disk features the
++installed libext2fs does not support. A Lustre MDT sets
++.BR dirdata ,
++which only the e2fsprogs distributed with Lustre lists as supported, so the
++package to install is the answer. This and
++.B -ENOTSUP
++are deliberately distinct \(em a caller that skips its work where a build
++cannot scan at all must not also skip it on a node that can, but whose
++e2fsprogs is the stock one.
++.TP 15
++.B -ENOENT
++.I device
++does not exist.
++.TP 15
++.B -EIO
++a read of the target's inode table failed. An object that cannot be read
++is skipped and counted in
++.IR ss_skipped ;
++this is the read that leaves the scan nowhere to go.
++.TP 15
++.B -EACCES
++the caller cannot read the device. Reading a target exposes the metadata
++of every object on it, with none of the access control a mounted filesystem
++applies, so the scan is as privileged as the device node.
++.SH NOTES
++With
++.I lfsp_thread_count
++greater than 1 the callback is invoked concurrently from several threads and
++must be thread-safe. Workers partition the target's objects and never
++deliver one twice.
++.LP
++.B LLAPI_SCAN_F_STOP_ON_ERROR
++has no effect here. A scan of a target skips an object it cannot read
++rather than trusting it, and reports how many in
++.IR ss_skipped ,
++which is part of the answer and not a diagnostic. A read of the inode
++table itself is the exception: nothing has advanced past it, so the scan
++of that target ends with
++.B -EIO
++rather than reading the same block again. It is accepted so that one
++.I lfsp_flags
++value works with
++.BR llapi_scan_namespace (3)
++too.
++.LP
++.I lfsp_max_depth
++has no effect here either, and for the same reason: it bounds a descent,
++and a scan of a target has none \(em objects arrive in the order the device
++holds them. It is accepted rather than refused so that one parameter block
++serves both scanners.
++.LP
++A directory's
++.I lfsr_lmv
++is an
++.BR lmv_user_md ,
++the same form
++.BR llapi_scan_namespace (3)
++reports, converted from the
++.B lmv_mds_md_v1
++the target holds. The shard FIDs are left out: naming a stripe needs its MDT
++index, and that is an FLD lookup a scan of a target has no client to make.
++A slave stripe's own
++.B LMV_MAGIC_STRIPE
++has no user form and is reported as no stripe at all.
++.LP
++.I lum_objects[]
++is therefore measured by
++.IR lfsr_lmvsize ,
++never by
++.IR lum_stripe_count .
++The count is the directory's real one, as it is on a namespace scan, but only
++a namespace scan is answered with the shards to match it \(em so the same
++directory is
++.B lmv_user_md_size(
++.IR count ,
++.BR LMV_USER_MAGIC_SPECIFIC )
++bytes there and a bare header here.
++.LP
++The record is valid only for the duration of the callback. A consumer that
++keeps any part of it must copy that part, including whatever
++.IR lfsr_name ,
++.IR lfsr_lmm ,
++.I lfsr_lmv
++and
++.I lfsr_linkea
++point at.
++.SH EXAMPLES
++To count the objects on an unmounted MDT and read back what the scan did:
++.EX
++        static pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
++\&
++        static int count_cb(const struct llapi_scan_rec *rec, void *data)
++        {
++                __u64 *n = data;
++\&
++                if ((rec->lfsr_stx.stx_mask & STATX_MODE) &&
++                    S_ISREG(rec->lfsr_stx.stx_mode)) {
++                        pthread_mutex_lock(&lock);
++                        (*n)++;
++                        pthread_mutex_unlock(&lock);
++                }
++                return 0;
++        }
++\&
++        struct llapi_scan_stats stats = { .ss_size = sizeof(stats) };
++        struct llapi_scan_param sp = {
++                .lfsp_size         = sizeof(sp),
++                .lfsp_want         = LLAPI_SCAN_MODE | LLAPI_SCAN_FID,
++                .lfsp_thread_count = 4,
++                .lfsp_stats        = &stats,
++        };
++        __u64 n = 0;
++        int rc = llapi_scan_device("/dev/vdb", &sp, count_cb, &n);
++\&
++        if (rc == 0)
++                printf("%llu files; %llu seen, %llu skipped\\n",
++                       (unsigned long long)n,
++                       (unsigned long long)stats.ss_seen,
++                       (unsigned long long)stats.ss_skipped);
++.EE
++.LP
++.I lfsp_want
++names only the fields the callback reads, and
++.I ss_size
++must be set before the call so that the library writes back no more of
++.I stats
++than the caller allocated. The counter is taken under a lock because
++.I lfsp_thread_count
++asks for four workers and the callback runs on each of them.
++.SH AVAILABILITY
++.B llapi_scan_device()
++is part of the
++.BR lustre (7)
++user application interface library since release 2.18.0.
++.\" Added in commit v2_17_57-xxx-gxxxxxxxxx
++.SH SEE ALSO
++.BR lfs-find (1),
++.BR llapi_layout_get_by_xattr (3),
++.BR llapi_scan_namespace (3),
++.BR lustreapi (7)
+diff --git a/Documentation/man3/llapi_scan_namespace.3 b/Documentation/man3/llapi_scan_namespace.3
+index 3ef2792a6f..62290331a7 100644
+--- a/Documentation/man3/llapi_scan_namespace.3
++++ b/Documentation/man3/llapi_scan_namespace.3
+@@ -1,4 +1,4 @@
+-.TH LLAPI_SCAN_NAMESPACE 3 2026-08-18 "Lustre User API" "Lustre Library Functions"
++.TH LLAPI_SCAN_NAMESPACE 3 2026-09-01 "Lustre User API" "Lustre Library Functions"
+ .SH NAME
+ llapi_scan_namespace \- scan a Lustre namespace, one record per object
+ .SH SYNOPSIS
+@@ -55,6 +55,15 @@ must be zero: those bytes are already counted in
+ .IR lfsp_size ,
+ so a field carved out of them later can only be refused here, never
+ noticed.
++.I lfsp_stats
++points at a
++.B struct llapi_scan_stats
++the scan fills in with what it did, described in
++.BR llapi_scan_device (3),
++or NULL when the caller does not want it. A walk counts an object as seen
++once, then as filtered, skipped, or delivered and namespace-visible \(em
++everything a walk reaches arrived through a directory entry, so the other
++classes are ones only a scan of a target meets.
+ .LP
+ .I lfsp_want
+ is the demand mask: the
+@@ -366,12 +375,28 @@ where
+ names it and the filesystem supports project quotas. It is the same walk with
+ .BR stat (2)
+ as the attribute source, not a second scanner.
++.LP
++A scanner reading a target's objects directly answers for more than a
++namespace walk can \(em see
++.BR llapi_scan_device (3).
+ .SH RETURN VALUES
+ .B llapi_scan_namespace()
+ returns:
+ .TP
+ 0
+-on success.
++on success. Objects may still have been left out: a fetch that fails for
++a reason other than the object having gone \(em an eviction or a recovery
++window, say \(em drops that object from the callback stream and the scan
++carries on. Set
++.B LLAPI_SCAN_F_STOP_ON_ERROR
++in
++.I lfsp_flags
++for a scan that stops on the first of those instead, and read
++.I ss_skipped
++to learn how many were left out. It also counts the objects that went
++between the readdir and the fetch, which are not errors, so a nonzero
++.I ss_skipped
++on a busy tree does not by itself mean something was lost.
+ .TP
+ <0
+ a negative errno on failure, or the negative value
+@@ -402,12 +427,23 @@ is smaller than the fields up to and including
+ or is larger than 4096 bytes, or is larger than the library's definition of
+ the parameter structure and a byte past the end of it is not zero, or
+ .I lfsp_flags
+-sets a bit this library does not define, or
++sets a bit this library does not define or that only
++.BR llapi_scan_device (3)
++acts on, such as
++.BR LLAPI_SCAN_F_INTERNAL ,
++or
+ .I lfsp_padding
+ is not zero. Neither changes
+ .IR lfsp_size ,
+ so refusing them is what gives flags and the reserved bytes the same
+ guarantee fields already have: a caller never has one silently ignored.
++It is also returned when
++.I lfsp_stats
++is not NULL and its
++.I ss_size
++is shorter than the minimum a scan writes back, which reaches through
++.IR ss_seen ,
++for the same reason.
+ .TP 15
+ .B -ENAMETOOLONG
+ .I path
+@@ -498,4 +534,5 @@ user application interface library since release 2.18.0.
+ .SH SEE ALSO
+ .BR lfs-find (1),
+ .BR llapi_layout_get_by_xattr (3),
++.BR llapi_scan_device (3),
+ .BR lustreapi (7)
+diff --git a/Documentation/man7/lustreapi.7 b/Documentation/man7/lustreapi.7
+index d3ff9fa0de..e0e33ab3c6 100644
+--- a/Documentation/man7/lustreapi.7
++++ b/Documentation/man7/lustreapi.7
+@@ -132,6 +132,7 @@ Functions for HSM copytool operations and archive management.
+ .SS Namespace Scanning
+ Functions for walking a filesystem and reporting a record per object.
+ .PP
++.BR llapi_scan_device (3),
+ .BR llapi_scan_namespace (3)
+ .SS Persistent Client Cache (PCC)
+ Functions for managing Persistent Client Cache operations.
+diff --git a/include/lustre/lustreapi.h b/include/lustre/lustreapi.h
+index 8aa4b742a9..83d7ceb039 100644
+--- a/include/lustre/lustreapi.h
++++ b/include/lustre/lustreapi.h
+@@ -595,7 +595,14 @@ void llapi_find_param_free(struct find_param *param);
+ /* The whole of that half, whether this API has a name for the bit or not. */
+ #define LLAPI_SCAN_STATX_MASK	0x00000000ffffffffULL
+ 
+-/* The high half is this API's own, and is what lfsr_valid reports. */
++/*
++ * The high half is this API's own, and is what lfsr_valid reports.
++ *
++ * STATX_INO is deliberately not among the aliases above: LLAPI_SCAN_INO
++ * below is the object's id on the target it was read from, and stx_ino is
++ * the client's inode number for the same object.  Two different numbers
++ * cannot share one bit.
++ */
+ #define LLAPI_SCAN_FID		0x0000000100000000ULL
+ /* stx_attributes, masked by stx_attributes_mask; statx has no bit for it */
+ #define LLAPI_SCAN_ATTRS	0x0000000200000000ULL
+@@ -603,7 +610,9 @@ void llapi_find_param_free(struct find_param *param);
+  * lfsr_lmm.  For a directory this is the *default* layout new files under
+  * it inherit, never a layout of its own -- and where the directory has none,
+  * what the filesystem root's default is, which may describe nothing about
+- * this directory at all.  It carries no objects either way.
++ * this directory at all.  It carries no objects either way.  That is a
++ * namespace scan's answer; a device scan gives the stored trusted.lov,
++ * see llapi_scan_device(3).
+  */
+ #define LLAPI_SCAN_LAYOUT	0x0000000400000000ULL
+ /* costs an open per regular file: gathered only when named in lfsp_want */
+@@ -634,10 +643,52 @@ void llapi_find_param_free(struct find_param *param);
+  * object for these; a scan of a target reads them from trusted.hsm.
+  */
+ #define LLAPI_SCAN_HSM		0x0000020000000000ULL
++/*
++ * The object as the target holds it: its id there, the parent and name its
++ * linkea records, and its LMA.
++ */
++#define LLAPI_SCAN_INO		0x0000040000000000ULL	/* lfsr_ino */
++#define LLAPI_SCAN_PARENT	0x0000080000000000ULL	/* lfsr_parent_fid */
++#define LLAPI_SCAN_LINKEA	0x0000100000000000ULL	/* lfsr_linkea */
++#define LLAPI_SCAN_LMA		0x0000200000000000ULL	/* lfsr_lma_* */
++#define LLAPI_SCAN_CLASS	0x0000400000000000ULL	/* lfsr_class */
+ 
+ /* Fields the scanner can answer without touching the MDT. */
+ #define LLAPI_SCAN_DIRENT_MASK	LLAPI_SCAN_TYPE
+ 
++/**
++ * enum llapi_scan_class - what an object is, for a scanner that sees them all
++ *
++ * Besides the objects a client can name, a target holds the ones the
++ * filesystem keeps for itself, and a consumer that acts on what it is
++ * given has to be able to tell them apart.
++ */
++enum llapi_scan_class {
++	LLAPI_SCAN_CLS_VISIBLE = 0,	/* reachable from the namespace */
++	LLAPI_SCAN_CLS_INTERNAL = 1,	/* the OSD's own object */
++	LLAPI_SCAN_CLS_OST_OBJ = 2,	/* an OST data object */
++	LLAPI_SCAN_CLS_AGENT = 3,	/* DNE agent inode: a remote entry's
++					 * local stand-in (LMAI_AGENT)
++					 */
++	/*
++	 * no LMA.  lfsr_fid is the IGIF the inode number and its generation
++	 * make, but only on MDT0000: nowhere else is that the FID such an
++	 * object has, and LLAPI_SCAN_FID is clear instead.
++	 */
++	LLAPI_SCAN_CLS_NO_LMA = 4,
++	LLAPI_SCAN_CLS_BAD = 5,		/* LMA has an unknown incompat bit */
++	/*
++	 * in PENDING: an open-unlinked file, or a volatile one a migrate,
++	 * resync or HSM restore is using.  It keeps a link and a FID, so it
++	 * would otherwise read as visible, but no name reaches it.
++	 */
++	LLAPI_SCAN_CLS_ORPHAN = 6,
++	LLAPI_SCAN_CLS_MAX = 7
++};
++
++/* entries in ss_class, fixed so the struct can grow after it */
++#define LLAPI_SCAN_CLS_SLOTS	16
++
+ /**
+  * struct llapi_scan_rec - one scanned object
+  *
+@@ -645,6 +696,10 @@ void llapi_find_param_free(struct find_param *param);
+  * lfsr_name, lfsr_lmm and lfsr_lmv point into scanner-owned memory and must
+  * be copied by a consumer that keeps them.
+  *
++ * The pointer fields carry their own answer: lfsr_path is NULL where no
++ * namespace was walked, and lfsr_name is NULL where no name was recovered.
++ * A path is not a scan's to invent.
++ *
+  * This is an in-process record and not a serialization.  It holds pointers
+  * into scanner-owned memory and open descriptors, so it cannot be written to
+  * a file, sent over a network or passed across the kernel boundary: the
+@@ -704,13 +759,15 @@ struct llapi_scan_rec {
+ 	const struct lov_user_md *lfsr_lmm;	/* raw layout, or NULL */
+ 	/*
+ 	 * The directory stripe, in the lmv_user_md form unless
+-	 * LLAPI_SCAN_LMV_FOREIGN says otherwise: a device scan converts the
+-	 * on-disk lmv_mds_md_v1 it reads, so the field means one thing
+-	 * whichever scanner filled it.  A foreign LMV has no such form and
+-	 * is delivered as the struct lmv_foreign_md it is, which is what
+-	 * that bit is for.  A device scan does not carry the shard FIDs --
+-	 * naming a stripe needs an MDT index, which is an FLD lookup it has
+-	 * no client to make.
++	 * LLAPI_SCAN_LMV_FOREIGN says otherwise: a foreign LMV has no such
++	 * form and is delivered as the struct lmv_foreign_md it is, which
++	 * is what that bit is for.
++	 *
++	 * The shard FIDs may be absent, naming a stripe needing an MDT
++	 * index and so an FLD lookup, so lum_objects[] is measured by
++	 * lfsr_lmvsize and never by lum_stripe_count: the count is the
++	 * directory's real one either way, and the two sizes differ by 24
++	 * bytes a stripe.
+ 	 */
+ 	const struct lmv_user_md *lfsr_lmv;	/* dir stripe, or NULL */
+ 	/* open parent dir, or -1 */
+@@ -720,25 +777,68 @@ struct llapi_scan_rec {
+ 	/* enum hsm_states, HS_* */
+ 	__u32			 lfsr_hsm_states;
+ 	__u32			 lfsr_hsm_archive_id;
++	/* from here on, the object as the target holds it */
++	__u64			 lfsr_ino;	/* object id on the target */
++	/* first linkea parent */
++	struct lu_fid		 lfsr_parent_fid;
++	const void		*lfsr_linkea;	/* raw trusted.link */
++	/* bytes at lfsr_linkea */
++	__u32			 lfsr_linkeasize;
++	__u32			 lfsr_class;	/* enum llapi_scan_class */
++	__u32			 lfsr_lma_compat;	/* LMAC_* */
++	__u32			 lfsr_lma_incompat; /* LMAI_* */
++};
++
++/**
++ * struct llapi_scan_stats - what a scan did, filled in on return
++ *
++ * A scan of a live target skips objects it cannot trust rather than
++ * reporting them wrong, so the count of what it dropped is part of its
++ * answer and not a diagnostic.  ss_size must be set to sizeof(*stats).
++ *
++ * Every object the scan looked at is accounted for exactly once, so on a
++ * completed scan ss_seen == ss_filtered + ss_skipped + sum(ss_class).
++ * ss_class has LLAPI_SCAN_CLS_SLOTS entries, more than there are classes,
++ * so a class added later does not move a counter added after ss_class.
++ * Entries from LLAPI_SCAN_CLS_MAX on are zero.
++ * ss_emitted is not a fourth part of that sum: it counts the records the
++ * callback was handed, which is the ss_class entries that are the
++ * target's own subject matter, plus the rest when
++ * LLAPI_SCAN_F_INTERNAL is set.
++ */
++struct llapi_scan_stats {
++	__u32			 ss_size;
++	__u32			 ss_padding;
++	__u64			 ss_seen;	/* objects examined */
++	__u64			 ss_emitted;	/* records delivered */
++	__u64			 ss_skipped;	/* unreadable or inconsistent */
++	__u64			 ss_filtered;	/* rejected by lfsp_filter */
++	__u64			 ss_class[LLAPI_SCAN_CLS_SLOTS];
+ };
+ 
+ /* struct llapi_scan_param flags (lfsp_flags). */
+ #define LLAPI_SCAN_F_STOP_ON_ERROR	0x00000001ULL
++/* deliver objects that are not namespace-visible, which a scan of a target's
++ * own objects otherwise keeps to itself (see enum llapi_scan_class)
++ */
++#define LLAPI_SCAN_F_INTERNAL		0x00000002ULL
+ 
+ /**
+  * llapi_scan_cb_t - consumer callback
+  *
+  * Called once per object.  Return 0 to continue the scan; any other value
+- * stops it and is returned to the caller of llapi_scan_namespace().  With
+- * more than one scan thread this is called concurrently and must be
+- * thread-safe.
++ * stops it and is returned to the caller of llapi_scan_namespace() or
++ * llapi_scan_device().  With more than one scan thread this is called
++ * concurrently and must be thread-safe.
++ *
++ * As lfsp_filter it is called before any I/O on the object, so the record
++ * carries only what the scan already had: the directory entry for a
++ * namespace walk, the object's own inode for a scan of a target.  Which
++ * fields that is, is each scanner's, and its page says so.
+  *
+- * As lfsp_filter it is called before any I/O on the object, with a record
+- * carrying only lfsr_path, lfsr_name and, when the directory entry knew it,
+- * LLAPI_SCAN_TYPE -- which a subdirectory does not carry once there is
+- * more than one scan thread.  There the return values are 0 to gather
+- * and deliver the object, 1 to skip it without gathering (descent into
+- * a directory is unaffected), and negative to stop the scan.
++ * There the return values are 0 to gather and deliver the object, 1 to skip
++ * it without gathering (descent into a directory is unaffected), and
++ * negative to stop the scan.
+  */
+ typedef int (*llapi_scan_cb_t)(const struct llapi_scan_rec *rec, void *data);
+ 
+@@ -773,14 +873,9 @@ typedef int (*llapi_scan_cb_t)(const struct llapi_scan_rec *rec, void *data);
+  * this one rather than as a change to it.
+  *
+  * lfsp_want is the demand mask: which LLAPI_SCAN_* fields the consumer will
+- * read.  0 asks for everything except LLAPI_SCAN_MDT_INDEX,
+- * LLAPI_SCAN_PROJID and LLAPI_SCAN_HSM, which each cost an ioctl or an open
+- * per object and have to be named.  LLAPI_SCAN_LMV is not one of them:
+- * it costs a second ioctl, but only on a directory, which is the one
+- * place it means anything.  A scan wanting nothing
+- * outside LLAPI_SCAN_DIRENT_MASK performs no ioctl per object, which is
+- * what makes a name-only search cheap.  A field not asked for may still
+- * arrive.
++ * read.  0 means the scanner's own default, and the two are not the same
++ * -- what each leaves out is what costs it I/O, so each scanner's page
++ * says which.  A field not asked for may still arrive.
+  */
+ struct llapi_scan_param {
+ 	__u32			 lfsp_size;
+@@ -807,10 +902,14 @@ struct llapi_scan_param {
+ 	 * default came to.
+ 	 */
+ 	__u64			*lfsp_got;
++	/* filled in when the scan ends.  NULL: not wanted */
++	struct llapi_scan_stats	*lfsp_stats;
+ };
+ 
+ int llapi_scan_namespace(const char *path, const struct llapi_scan_param *sp,
+ 			 llapi_scan_cb_t cb, void *data);
++int llapi_scan_device(const char *device, const struct llapi_scan_param *sp,
++		      llapi_scan_cb_t cb, void *data);
+ 
+ int llapi_file_fget_mdtidx(int fd, int *mdtidx);
+ int llapi_dir_set_default_lmv(const char *name,
+diff --git a/include/uapi/linux/lustre/lustre_fid.h b/include/uapi/linux/lustre/lustre_fid.h
+index d3e1dade9b..fea5bad4a4 100644
+--- a/include/uapi/linux/lustre/lustre_fid.h
++++ b/include/uapi/linux/lustre/lustre_fid.h
+@@ -365,6 +365,16 @@ static inline bool lu_fid_eq(const struct lu_fid *f0, const struct lu_fid *f1)
+ 	return !memcmp(f0, f1, sizeof(*f0));
+ }
+ 
++/*
++ * For new FS (>= 2.4), the root FID will be changed to
++ * [FID_SEQ_ROOT:1:0], for existing FS, (upgraded to 2.4),
++ * the root FID will still be IGIF
++ */
++static inline int fid_is_root(const struct lu_fid *fid)
++{
++	return lu_fid_eq(fid, &LU_ROOT_FID);
++}
++
+ static inline int lu_fid_cmp(const struct lu_fid *f0,
+ 			     const struct lu_fid *f1)
+ {
+diff --git a/lustre.spec.in b/lustre.spec.in
+index 53eb49b14e..58fd6585a1 100644
+--- a/lustre.spec.in
++++ b/lustre.spec.in
+@@ -1061,6 +1061,7 @@ echo '%exclude %{_libdir}/lustre/tests/lcov-merge.sh*' >> lustre-tests.files
+ %defattr(-,root,root)
+ %dir %{_libdir}/@PACKAGE@
+ %{_libdir}/@PACKAGE@/mount_osd_ldiskfs.so
++%{_libdir}/@PACKAGE@/scan_osd_ldiskfs.so
+ %endif
+ %endif
+ %endif
+diff --git a/lustre/include/lustre_fid.h b/lustre/include/lustre_fid.h
+index cc2f54beed..a28d954248 100644
+--- a/lustre/include/lustre_fid.h
++++ b/lustre/include/lustre_fid.h
+@@ -220,15 +220,6 @@ static inline void lu_local_name_obj_fid(struct lu_fid *fid, __u32 oid)
+ 	fid->f_ver = 0;
+ }
+ 
+-/* For new FS (>= 2.4), the root FID will be changed to
+- * [FID_SEQ_ROOT:1:0], for existing FS, (upgraded to 2.4),
+- * the root FID will still be IGIF
+- */
+-static inline int fid_is_root(const struct lu_fid *fid)
+-{
+-	return unlikely(lu_fid_eq(fid, &LU_ROOT_FID));
+-}
+-
+ static inline int fid_is_dot_lustre(const struct lu_fid *fid)
+ {
+ 	return unlikely(lu_fid_eq(fid, &LU_DOT_LUSTRE_FID));
+diff --git a/lustre/tests/.gitignore b/lustre/tests/.gitignore
+index b47eb8ba48..c30354efe3 100644
+--- a/lustre/tests/.gitignore
++++ b/lustre/tests/.gitignore
+@@ -21,6 +21,7 @@
+ /llapi_layout_test
+ /llapi_root_test
+ /llapi_scan_test
++/llapi_scan_device_test
+ /llapi_pool_test
+ /createdestroy
+ /createmany
+diff --git a/lustre/tests/Makefile.am b/lustre/tests/Makefile.am
+index 72abd86407..c9192fec53 100644
+--- a/lustre/tests/Makefile.am
++++ b/lustre/tests/Makefile.am
+@@ -74,7 +74,7 @@ THETESTS += create_foreign_dir parse_foreign_dir
+ THETESTS += check_fallocate splice-test lseek_test expand_truncate_test
+ THETESTS += foreign_symlink_striping lov_getstripe_old io_uring_probe
+ THETESTS += fadvise_dontneed_helper llapi_root_test llapi_pool_test aheadmany
+-THETESTS += llapi_scan_test
++THETESTS += llapi_scan_test llapi_scan_device_test
+ THETESTS += monitor_lustrefs test_parity_read
+ 
+ if LIBAIO
+@@ -114,6 +114,9 @@ llapi_pool_test_SOURCES = llapi_pool_test.c llapi_test_utils.c llapi_test_utils.
+ llapi_pool_test_LDADD = $(LIBLUSTREAPI)
+ llapi_scan_test_SOURCES = llapi_scan_test.c llapi_test_utils.c llapi_test_utils.h
+ llapi_scan_test_LDADD = $(LIBLUSTREAPI) -lpthread
++llapi_scan_device_test_SOURCES = llapi_scan_device_test.c llapi_test_utils.c \
++				 llapi_test_utils.h
++llapi_scan_device_test_LDADD = $(LIBLUSTREAPI) -lpthread
+ group_lock_test_LDADD = $(LIBLUSTREAPI)
+ llapi_fid_test_LDADD = $(LIBLUSTREAPI)
+ llapi_root_test_LDADD = $(LIBLUSTREAPI) -lpthread
+diff --git a/lustre/tests/conf-sanity.sh b/lustre/tests/conf-sanity.sh
+index 20e97195f1..46d0e71250 100755
+--- a/lustre/tests/conf-sanity.sh
++++ b/lustre/tests/conf-sanity.sh
+@@ -13304,6 +13304,78 @@ test_250() {
+ }
+ run_test 250 "verify lcfg_erase removes filesystem parameters"
+ 
++test_300() {
++	[ "$mds1_FSTYPE" == ldiskfs ] || skip "ldiskfs only test"
++	remote_mds_nodsh && skip "remote MDS with nodsh"
++	(( MDS1_VERSION >= $(version_code 2.17.58) )) ||
++		skip "Need MDS >= 2.17.58 for a target scan"
++
++	local scanner=${SCANNER:-$LUSTRE/tests/llapi_scan_device_test}
++	local mdt1=$(mdsdevname 1)
++	local client_fids=$TMP/$tfile.client
++	local scan_fids=$TMP/$tfile.scan
++	local scan_err=$TMP/$tfile.scanerr
++	local missing
++
++	# an error and not a skip: past the version check a scanner missing
++	# from mds1 is a packaging fault, which a skip would hide
++	do_facet mds1 "test -x $scanner" ||
++		error "$scanner is not on mds1"
++
++	setup_noconfig
++	mkdir_on_mdt0 $DIR/$tdir || error "mkdir $tdir failed"
++	createmany -o $DIR/$tdir/$tfile- 100 || error "createmany failed"
++	test_mkdir -c 1 -i 0 $DIR/$tdir/subdir || error "mkdir subdir failed"
++
++	# every FID the namespace can see, from the client that made them
++	$LFS find $DIR/$tdir | while read -r f; do
++		$LFS path2fid "$f"
++	done | sort > $client_fids
++	[[ -s $client_fids ]] || error "no FIDs from the client"
++
++	# and now the same objects, read off the device with nothing mounted:
++	# an unmounted target has no journal to replay and nothing moving, so
++	# a difference here is the scanner's and not the timing's
++	stopall
++	stack_trap setupall
++
++	# an error, never a skip: an ldiskfs build needs libext2fs to configure
++	# and packages the backend beside the osd plugin that mounted this MDT
++	do_facet mds1 "$scanner -d $mdt1 -l" > $scan_fids.raw 2> $scan_err || {
++		cat $scan_err
++		error "scanning $mdt1 failed"
++	}
++	sort $scan_fids.raw > $scan_fids
++	do_facet mds1 "$scanner -d $mdt1" ||
++		error "llapi_scan_device_test on $mdt1 failed"
++
++	# an OST has no namespace, so what it delivers by default is its data
++	# objects; a scan that returned nothing here would look like success
++	if [[ "$ost1_FSTYPE" != ldiskfs ]] || remote_ost_nodsh ||
++	   (( OST1_VERSION < $(version_code 2.17.58) )); then
++		echo "not scanning ost1: $ost1_FSTYPE, no shell there, or too old"
++	else
++		do_facet ost1 "test -x $scanner" ||
++			error "$scanner is not on ost1"
++		do_facet ost1 "$scanner -d $(ostdevname 1)" ||
++			error "llapi_scan_device_test on $(ostdevname 1) failed"
++	fi
++
++	# misses are what matters: a scanner a cleanup tool acts on must not
++	# lose objects.  Extras are expected -- the target's own objects, and
++	# the .lustre entries no client walk reaches
++	missing=$(comm -23 $client_fids $scan_fids)
++	[[ -z "$missing" ]] || {
++		echo "$missing" | head -20
++		error "$(echo "$missing" | wc -l) client FIDs not on the device"
++	}
++
++	echo "scanned $(wc -l < $scan_fids) objects;" \
++		"found all $(wc -l < $client_fids) visible FIDs"
++	rm -f $client_fids $scan_fids $scan_fids.raw $scan_err
++}
++run_test 300 "llapi_scan_device finds every object the namespace has"
++
+ #
+ # (This was sanity/802a)
+ #
+diff --git a/lustre/tests/llapi_scan_device_test.c b/lustre/tests/llapi_scan_device_test.c
+new file mode 100644
+index 0000000000..157d69fc04
+--- /dev/null
++++ b/lustre/tests/llapi_scan_device_test.c
+@@ -0,0 +1,491 @@
++// SPDX-License-Identifier: GPL-2.0
++
++/*
++ * Copyright (c) 2026, The Lustre Collective.
++ */
++
++/*
++ * llapi_scan_device() against a real target, which need not be unmounted: a
++ * scan in service skips what it cannot trust and counts it, so the counts
++ * are part of what is checked.
++ *
++ * It does have to be quiescent, though, which is a weaker thing than
++ * unmounted.  test1 scans four times and asserts one object count and one
++ * FID digest across all of them, so anything creating or unlinking on the
++ * target while it runs will fail it -- correctly, but for a reason that is
++ * not the scanner's.  conf-sanity 300 runs this after stopall and so never
++ * meets it.
++ *
++ * With -l it prints one FID per object instead, which is what makes the
++ * conf-sanity oracle possible.
++ *
++ * Author: Hiroshi Nishida <hnishida@thelustrecollective.com>
++ */
++
++#include <errno.h>
++#include <getopt.h>
++#include <pthread.h>
++#include <stdbool.h>
++#include <stdio.h>
++#include <stdlib.h>
++#include <string.h>
++#include <unistd.h>
++
++#include <lustre/lustreapi.h>
++
++#include "llapi_test_utils.h"
++
++#ifndef ARRAY_SIZE
++#define ARRAY_SIZE(a) ((sizeof(a)) / (sizeof((a)[0])))
++#endif
++
++static char *device;
++
++/* Fields an object carries by itself, before an xattr has been read. */
++#define SCAN_TIER0_MASK	(LLAPI_SCAN_INO | LLAPI_SCAN_MODE | LLAPI_SCAN_TYPE | \
++			 LLAPI_SCAN_NLINK | LLAPI_SCAN_UID | LLAPI_SCAN_GID | \
++			 LLAPI_SCAN_ATIME | LLAPI_SCAN_MTIME |		      \
++			 LLAPI_SCAN_CTIME | LLAPI_SCAN_BTIME |		      \
++			 LLAPI_SCAN_ATTRS | LLAPI_SCAN_PROJID |		      \
++			 LLAPI_SCAN_MDT_INDEX)
++
++struct scan_result {
++	pthread_mutex_t	 res_lock;
++	unsigned int	 res_count;
++	unsigned int	 res_no_fid;
++	unsigned int	 res_no_class;
++	unsigned int	 res_bad_size;
++	unsigned int	 res_mdt_index;	/* records with LLAPI_SCAN_MDT_INDEX */
++	unsigned int	 res_stop_after;	/* 0: never stop */
++	/* union of every lfsr_valid seen */
++	__u64		 res_seen_valid;
++	__u64		 res_fid_sum;	/* order-independent object digest */
++};
++
++static void result_init(struct scan_result *res)
++{
++	memset(res, 0, sizeof(*res));
++	pthread_mutex_init(&res->res_lock, NULL);
++}
++
++/* Everything the record claims to have answered for, both masks at once. */
++static __u64 scan_rec_valid(const struct llapi_scan_rec *rec)
++{
++	return rec->lfsr_valid | rec->lfsr_stx.stx_mask;
++}
++
++static int count_cb(const struct llapi_scan_rec *rec, void *data)
++{
++	struct scan_result *res = data;
++	unsigned int n;
++
++	pthread_mutex_lock(&res->res_lock);
++	n = ++res->res_count;
++	res->res_seen_valid |= scan_rec_valid(rec);
++	res->res_fid_sum += rec->lfsr_fid.f_seq + rec->lfsr_fid.f_oid +
++			    rec->lfsr_ino;
++	if (rec->lfsr_size != sizeof(*rec))
++		res->res_bad_size++;
++	if (!(rec->lfsr_valid & LLAPI_SCAN_FID))
++		res->res_no_fid++;
++	if (!(rec->lfsr_valid & LLAPI_SCAN_CLASS))
++		res->res_no_class++;
++	if (rec->lfsr_valid & LLAPI_SCAN_MDT_INDEX)
++		res->res_mdt_index++;
++	pthread_mutex_unlock(&res->res_lock);
++
++	if (res->res_stop_after != 0 && n >= res->res_stop_after)
++		return 42;	/* must come back out of the scan */
++	return 0;
++}
++
++#define T0_DESC "llapi_scan_device delivers records off the target"
++static void test0(void)
++{
++	struct llapi_scan_stats stats = { .ss_size = sizeof(stats) };
++	struct llapi_scan_param sp = { .lfsp_size = sizeof(sp) };
++	__u64 classified = 0;
++	struct scan_result res;
++	unsigned int i;
++	int rc;
++
++	result_init(&res);
++	sp.lfsp_stats = &stats;
++
++	rc = llapi_scan_device(device, &sp, count_cb, &res);
++	ASSERTF(rc == 0, "llapi_scan_device(%s) failed: %s",
++		device, strerror(-rc));
++	ASSERTF(res.res_count > 0, "%s delivered no objects at all", device);
++	ASSERTF(res.res_bad_size == 0,
++		"%u records did not carry sizeof(struct llapi_scan_rec)",
++		res.res_bad_size);
++	ASSERTF(res.res_no_class == 0, "%u records arrived unclassified",
++		res.res_no_class);
++	/* an object with no LMA is possible; every object having none is not */
++	ASSERTF(res.res_no_fid < res.res_count,
++		"not one of %u records carried a FID", res.res_count);
++	ASSERTF(res.res_seen_valid & LLAPI_SCAN_INO,
++		"no record reported the object id it came from");
++
++	ASSERTF(stats.ss_emitted == res.res_count,
++		"stats say %llu records, the consumer saw %u",
++		(unsigned long long)stats.ss_emitted, res.res_count);
++	ASSERTF(stats.ss_seen >= stats.ss_emitted,
++		"%llu objects emitted out of %llu seen",
++		(unsigned long long)stats.ss_emitted,
++		(unsigned long long)stats.ss_seen);
++
++	/*
++	 * Every object is accounted for exactly once: an object the filter
++	 * rejected, one that was skipped, and one that reached the classifier
++	 * are the three ends of a scan, and their sum is what was seen.  A
++	 * counter incremented on both sides of the pre-filter passes the
++	 * inequality above and fails here.
++	 */
++	for (i = 0; i < LLAPI_SCAN_CLS_MAX; i++)
++		classified += stats.ss_class[i];
++	ASSERTF(stats.ss_seen ==
++		stats.ss_filtered + stats.ss_skipped + classified,
++		"%llu seen, but %llu filtered + %llu skipped + %llu classified",
++		(unsigned long long)stats.ss_seen,
++		(unsigned long long)stats.ss_filtered,
++		(unsigned long long)stats.ss_skipped,
++		(unsigned long long)classified);
++}
++
++#define T1_DESC "llapi_scan_device is the same answer at any thread count"
++static void test1(void)
++{
++	const __u8 threads[] = { 1, 2, 4, 8 };
++	unsigned int count = 0;
++	__u64 sum = 0;
++	unsigned int i;
++
++	for (i = 0; i < ARRAY_SIZE(threads); i++) {
++		struct llapi_scan_param sp = {
++			.lfsp_size = sizeof(sp),
++			.lfsp_thread_count = threads[i],
++		};
++		struct scan_result res;
++		int rc;
++
++		result_init(&res);
++		rc = llapi_scan_device(device, &sp, count_cb, &res);
++		ASSERTF(rc == 0, "scan with %u threads failed: %s",
++			threads[i], strerror(-rc));
++
++		if (i == 0) {
++			count = res.res_count;
++			sum = res.res_fid_sum;
++			continue;
++		}
++		/*
++		 * Workers must partition the objects, never share or drop
++		 * one.  It only means something on a target big enough for
++		 * more than one unit of work; any real MDT is past that.
++		 */
++		ASSERTF(res.res_count == count && res.res_fid_sum == sum,
++			"%u threads: %u objects (%llu); 1 thread: %u (%llu)",
++			threads[i], res.res_count,
++			(unsigned long long)res.res_fid_sum, count,
++			(unsigned long long)sum);
++	}
++}
++
++#define T2_DESC "lfsp_want holds back what the consumer did not ask for"
++static void test2(void)
++{
++	struct llapi_scan_param sp = {
++		.lfsp_size = sizeof(sp),
++		.lfsp_want = LLAPI_SCAN_FID | LLAPI_SCAN_MODE,
++	};
++	__u64 mdt_only = LLAPI_SCAN_MDT_INDEX | LLAPI_SCAN_LINKEA |
++			 LLAPI_SCAN_PARENT;
++	struct scan_result res;
++	__u64 got = 0;
++	int rc;
++
++	result_init(&res);
++	rc = llapi_scan_device(device, &sp, count_cb, &res);
++	ASSERTF(rc == 0, "restricted scan failed: %s", strerror(-rc));
++
++	/* the xattrs nothing asked for must not have been read */
++	ASSERTF(!(res.res_seen_valid & (LLAPI_SCAN_LAYOUT | LLAPI_SCAN_LMV |
++				       LLAPI_SCAN_LINKEA | LLAPI_SCAN_PARENT)),
++		"a scan that asked for none of them reported 0x%llx",
++		(unsigned long long)res.res_seen_valid);
++	/*
++	 * And no size: on an MDT, whether an object's own size is the file's
++	 * rests on a layout this scan did not read.
++	 */
++	ASSERTF(!(res.res_seen_valid & (LLAPI_SCAN_SIZE | LLAPI_SCAN_BLOCKS |
++				       LLAPI_SCAN_LAZY_SIZE |
++				       LLAPI_SCAN_LAZY_BLOCKS)),
++		"a scan that did not ask for a size reported one anyway");
++
++	/*
++	 * lfsp_got is what the scan will answer for.  A layout is an MDT's,
++	 * and so are the MDT index, the linkea and the parent it names;
++	 * where the target has an index every record carries it.
++	 */
++	result_init(&res);
++	sp.lfsp_want = LLAPI_SCAN_FID | LLAPI_SCAN_LAYOUT | mdt_only;
++	sp.lfsp_got = &got;
++	rc = llapi_scan_device(device, &sp, count_cb, &res);
++	ASSERTF(rc == 0, "lfsp_got scan failed: %s", strerror(-rc));
++	if (!(got & LLAPI_SCAN_LAYOUT))
++		ASSERTF(!(got & mdt_only),
++			"an OST scan promised MDT fields 0x%llx",
++			(unsigned long long)(got & mdt_only));
++	if (got & LLAPI_SCAN_MDT_INDEX)
++		ASSERTF(res.res_mdt_index == res.res_count,
++			"lfsp_got has the MDT index, %u of %u records carry it",
++			res.res_mdt_index, res.res_count);
++}
++
++/* the pre-filter runs before any xattr is read, so it must see no more
++ * than what the object carries itself
++ */
++static int tier0_filter_cb(const struct llapi_scan_rec *rec, void *data)
++{
++	struct scan_result *res = data;
++
++	if (scan_rec_valid(rec) & ~(__u64)SCAN_TIER0_MASK) {
++		pthread_mutex_lock(&res->res_lock);
++		res->res_no_class++;	/* reused: "saw more than it should" */
++		pthread_mutex_unlock(&res->res_lock);
++		return -EIO;
++	}
++	return 1;			/* reject everything */
++}
++
++#define T3_DESC "lfsp_filter rejects an object before its xattrs are read"
++static void test3(void)
++{
++	struct llapi_scan_stats stats = { .ss_size = sizeof(stats) };
++	struct llapi_scan_param sp = {
++		.lfsp_size = sizeof(sp),
++		.lfsp_filter = tier0_filter_cb,
++	};
++	struct scan_result res;
++	int rc;
++
++	result_init(&res);
++	sp.lfsp_stats = &stats;
++
++	rc = llapi_scan_device(device, &sp, count_cb, &res);
++	ASSERTF(rc == 0, "filtered scan failed: %s", strerror(-rc));
++	ASSERTF(res.res_no_class == 0,
++		"the pre-filter saw fields no xattr had been read for");
++	ASSERTF(res.res_count == 0,
++		"a filter that rejected everything still delivered %u records",
++		res.res_count);
++	ASSERTF(stats.ss_filtered > 0,
++		"nothing was counted as filtered, out of %llu seen",
++		(unsigned long long)stats.ss_seen);
++}
++
++#define T4_DESC "a consumer can stop the scan and hear its own value back"
++static void test4(void)
++{
++	const __u8 threads[] = { 1, 4 };
++	unsigned int i;
++
++	for (i = 0; i < ARRAY_SIZE(threads); i++) {
++		struct llapi_scan_stats stats = { .ss_size = sizeof(stats) };
++		struct llapi_scan_param sp = {
++			.lfsp_size = sizeof(sp),
++			.lfsp_thread_count = threads[i],
++			.lfsp_stats = &stats,
++		};
++		struct scan_result res;
++		int rc;
++
++		result_init(&res);
++		res.res_stop_after = 1;
++
++		rc = llapi_scan_device(device, &sp, count_cb, &res);
++		ASSERTF(rc == 42,
++			"scan with %u threads returned %d, not its own 42",
++			threads[i], rc);
++		/* the record that stopped the scan was handed over too */
++		ASSERTF(stats.ss_emitted == res.res_count,
++			"%u threads: ss_emitted %llu, the callback saw %u",
++			threads[i], (unsigned long long)stats.ss_emitted,
++			res.res_count);
++	}
++}
++
++#define T5_DESC "the objects a namespace never shows are held back by default"
++static void test5(void)
++{
++	struct llapi_scan_param sp = { .lfsp_size = sizeof(sp) };
++	struct scan_result all;
++	struct scan_result visible;
++	int rc;
++
++	result_init(&visible);
++	rc = llapi_scan_device(device, &sp, count_cb, &visible);
++	ASSERTF(rc == 0, "default scan failed: %s", strerror(-rc));
++
++	result_init(&all);
++	sp.lfsp_flags = LLAPI_SCAN_F_INTERNAL;
++	rc = llapi_scan_device(device, &sp, count_cb, &all);
++	ASSERTF(rc == 0, "scan with LLAPI_SCAN_F_INTERNAL failed: %s",
++		strerror(-rc));
++
++	ASSERTF(all.res_count >= visible.res_count,
++		"everything gave %u objects, fewer than the %u visible",
++		all.res_count, visible.res_count);
++	/* a Lustre target always has objects of its own */
++	ASSERTF(all.res_count > visible.res_count,
++		"a target with %u visible objects reported not one of its own",
++		visible.res_count);
++}
++
++#define T6_DESC "bad arguments are refused, not crashed on"
++static void test6(void)
++{
++	struct llapi_scan_param sp = { .lfsp_size = sizeof(sp) };
++	/* what a caller built against a later definition of the struct
++	 * passes: our fields, then bytes we know nothing about
++	 */
++	union {
++		struct llapi_scan_param sp;
++		unsigned char buf[sizeof(struct llapi_scan_param) + 8];
++	} big = { .sp = { .lfsp_size = sizeof(big) } };
++	struct llapi_scan_stats stats = { 0 };
++	struct scan_result res;
++	int rc;
++
++	result_init(&res);
++
++	rc = llapi_scan_device(NULL, &sp, count_cb, &res);
++	ASSERTF(rc == -EINVAL, "NULL device returned %d, expected -EINVAL", rc);
++
++	rc = llapi_scan_device(device, &sp, NULL, &res);
++	ASSERTF(rc == -EINVAL, "NULL callback returned %d, expected -EINVAL",
++		rc);
++
++	/*
++	 * A caller built against a longer struct than this library's: taken
++	 * while the bytes past the end of our definition are zero, refused
++	 * once one of them is set.  The buffer really is that long, because
++	 * the library reads it.
++	 */
++	result_init(&res);
++	rc = llapi_scan_device(device, &big.sp, count_cb, &res);
++	ASSERTF(rc == 0, "a longer lfsp_size with a zero tail returned %d", rc);
++	ASSERTF(res.res_count > 0, "a longer lfsp_size delivered no records");
++
++	big.buf[sizeof(struct llapi_scan_param) + 3] = 1;
++	rc = llapi_scan_device(device, &big.sp, count_cb, &res);
++	ASSERTF(rc == -EINVAL,
++		"a longer lfsp_size with a field set returned %d, expected -EINVAL",
++		rc);
++	result_init(&res);
++
++	/*
++	 * A stats buffer too short to hold a counter is refused rather than
++	 * filled with nothing, which a caller cannot tell from a scan that
++	 * saw nothing.
++	 */
++	sp.lfsp_stats = &stats;
++	rc = llapi_scan_device(device, &sp, count_cb, &res);
++	ASSERTF(rc == -EINVAL, "ss_size 0 returned %d, expected -EINVAL", rc);
++	sp.lfsp_stats = NULL;
++
++	/* the library says so on its own; the test knows already */
++	llapi_msg_set_level(LLAPI_MSG_OFF);
++	rc = llapi_scan_device("/dev/does-not-exist", &sp, count_cb, &res);
++	llapi_msg_set_level(LLAPI_MSG_ERROR);
++	ASSERTF(rc < 0, "a missing device returned %d, expected an error", rc);
++	ASSERTF(res.res_count == 0, "a missing device delivered %u records",
++		res.res_count);
++}
++
++static struct test_tbl_entry test_tbl[] = {
++	TEST_REGISTER(0),
++	TEST_REGISTER(1),
++	TEST_REGISTER(2),
++	TEST_REGISTER(3),
++	TEST_REGISTER(4),
++	TEST_REGISTER(5),
++	TEST_REGISTER(6),
++	TEST_REGISTER_END
++};
++
++/* One FID per line, for a caller diffing this against what a client sees. */
++static int fid_cb(const struct llapi_scan_rec *rec, void *data)
++{
++	if (rec->lfsr_valid & LLAPI_SCAN_FID)
++		printf(DFID"\n", PFID(&rec->lfsr_fid));
++	return 0;
++}
++
++static int list_fids(void)
++{
++	struct llapi_scan_param sp = { .lfsp_size = sizeof(sp) };
++	int rc;
++
++	rc = llapi_scan_device(device, &sp, fid_cb, NULL);
++	if (rc < 0)
++		fprintf(stderr, "%s: %s\n", device, strerror(-rc));
++
++	return rc == 0 ? EXIT_SUCCESS : EXIT_FAILURE;
++}
++
++static void usage(char *prog)
++{
++	fprintf(stderr,
++		"Usage: %s [-l] [-e <test>] [-o <test>] -d <device>\n"
++		"       -d  the target to scan, read-only\n"
++		"       -l  list the FID of every object, one per line\n"
++		"       -e  tests to skip\n"
++		"       -o  tests to run\n",
++		prog);
++	exit(EXIT_FAILURE);
++}
++
++int main(int argc, char *argv[])
++{
++	bool list = false;
++	int c;
++
++	while ((c = getopt(argc, argv, "d:e:lo:")) != -1) {
++		switch (c) {
++		case 'd':
++			device = optarg;
++			break;
++		case 'e':
++			set_tests_to_skip(optarg, test_tbl);
++			break;
++		case 'l':
++			list = true;
++			break;
++		case 'o':
++			set_tests_to_run(optarg, test_tbl);
++			break;
++		default:
++			usage(argv[0]);
++		}
++	}
++
++	if (device == NULL)
++		usage(argv[0]);
++
++	if (list)
++		return list_fids();
++
++	/*
++	 * As run_tests() does for the mountpoint suites.  This one calls
++	 * run_test_tbl() directly -- its subject is a device, not a Lustre
++	 * directory -- so without this the scans run at liblustreapi's
++	 * default of LLAPI_MSG_MAX where its siblings run quiet, and test6,
++	 * which turns messages off and puts them back, restores a level
++	 * nothing had set.
++	 */
++	llapi_msg_set_level(LLAPI_MSG_ERROR);
++
++	return run_test_tbl(test_tbl);
++}
+diff --git a/lustre/tests/llapi_test_utils.c b/lustre/tests/llapi_test_utils.c
+index 1b2a33055c..f467d459ee 100644
+--- a/lustre/tests/llapi_test_utils.c
++++ b/lustre/tests/llapi_test_utils.c
+@@ -154,7 +154,6 @@ void set_tests_to_run(const char *str_tests, struct test_tbl_entry *tst_tbl)
+ 
+ int run_tests(const char *lustre_dir, struct test_tbl_entry *tst_tbl)
+ {
+-	struct test_tbl_entry *tst;
+ 	char fsname[8 + 1];
+ 	struct stat st;
+ 	int saved_msg_level = llapi_msg_get_level();
+@@ -180,6 +179,24 @@ int run_tests(const char *lustre_dir, struct test_tbl_entry *tst_tbl)
+ 		return EXIT_FAILURE;
+ 	}
+ 
++	rc = run_test_tbl(tst_tbl);
++	llapi_msg_set_level(saved_msg_level);
++
++	return rc;
++}
++
++/*
++ * The same runner, for a test whose subject is not a Lustre directory: a
++ * scan of a target has a device, not a mountpoint.
++ */
++int run_test_tbl(struct test_tbl_entry *tst_tbl)
++{
++	struct test_tbl_entry *tst;
++	int rc = 0;
++
++	if (tst_tbl == NULL)
++		DIE("no test table provided\n");
++
+ 	/* Play nice with Lustre test scripts. Non-line buffered output
+ 	 * stream under I/O redirection may appear incorrectly.
+ 	 */
+@@ -191,7 +208,5 @@ int run_tests(const char *lustre_dir, struct test_tbl_entry *tst_tbl)
+ 			rc++;
+ 	}
+ 
+-	llapi_msg_set_level(saved_msg_level);
+-
+ 	return rc;
+ }
+diff --git a/lustre/tests/llapi_test_utils.h b/lustre/tests/llapi_test_utils.h
+index 7f84ef4cbb..5c71167ab3 100644
+--- a/lustre/tests/llapi_test_utils.h
++++ b/lustre/tests/llapi_test_utils.h
+@@ -43,6 +43,9 @@ extern char fsmountdir[PATH_MAX];	/* Lustre mountpoint */
+  */
+ int run_tests(const char *lustre_dir, struct test_tbl_entry *tst_tbl);
+ 
++/* The same, for a test whose subject is not a Lustre mountpoint. */
++int run_test_tbl(struct test_tbl_entry *tst_tbl);
++
+ /* 'str_tests' are the tests to be skipped/run, such as "1,3,4,.." */
+ void set_tests_to_skip(const char *str_tests, struct test_tbl_entry *tst_tbl);
+ void set_tests_to_run(const char *str_tests, struct test_tbl_entry *tst_tbl);
+diff --git a/lustre/utils/Makefile.am b/lustre/utils/Makefile.am
+index 7ff7ad2c82..c7214c7309 100644
+--- a/lustre/utils/Makefile.am
++++ b/lustre/utils/Makefile.am
+@@ -121,6 +121,8 @@ liblustreapi_la_SOURCES = libhsm_scanner.c \
+ 			  liblustreapi_project.c \
+ 			  liblustreapi_root.c \
+ 			  liblustreapi_scan.c \
++			  liblustreapi_scan_device.c \
++			  lustreapi_scan_backend.h \
+ 			  liblustreapi_swap.c \
+ 			  liblustreapi_util.c \
+ 			  erasurecode/ec_base.c \
+@@ -136,6 +138,29 @@ liblustreapi_la_LIBADD = $(top_builddir)/lib/libcfs/libcfs.la \
+ 			 $(top_builddir)/lnet/utils/lnetconfig/liblnetconfig.la \
+ 			 $(LIBNL3_LIBS) -lpthread
+ 
++#
++# llapi_scan_device()'s backend.  With plugins -- the default -- it is a
++# shared object beside mount_osd_ldiskfs.so, dlopen'ed on the first scan, so
++# that this library never links libext2fs and a client build carries no trace
++# of it.  Without them there is nowhere to dlopen from, and a build that has
++# ldiskfs links the backend in, as mount.lustre does with its own.
++#
++if PLUGINS
++liblustreapi_la_CFLAGS += -DPLUGIN_DIR=\"${pkglibdir}\"
++liblustreapi_la_LIBADD += -ldl
++else
++if UTILS
++if LDISKFS_ENABLED
++# Compiled in, not linked in: adding a plain .a to a libtool library's
++# LIBADD leaves its objects out of the static liblustreapi.a, and every
++# program that links that archive is then short the backend.
++liblustreapi_la_SOURCES += libscan_ldiskfs.c
++liblustreapi_la_CFLAGS += -DHAVE_LDISKFS_SCAN
++liblustreapi_la_LIBADD += -lext2fs
++endif # LDISKFS_ENABLED
++endif # UTILS
++endif # PLUGINS
++
+ pkgconfigdir = $(libdir)/pkgconfig
+ pkgconfig_DATA = lustre.pc
+ 
+@@ -144,6 +169,7 @@ LIB_TARGETS =
+ if PLUGINS
+ if LDISKFS_ENABLED
+ LIB_TARGETS += mount_osd_ldiskfs.so
++LIB_TARGETS += scan_osd_ldiskfs.so
+ endif
+ if ZFS_ENABLED
+ LIB_TARGETS += mount_osd_zfs.so
+@@ -225,6 +251,22 @@ PLUGIN_LIB += libmount_utils_zfs.a
+ endif # PLUGINS
+ endif # ZFS_ENABLED
+ 
++if LDISKFS_ENABLED
++if PLUGINS
++noinst_LIBRARIES += libscan_ldiskfs.a
++
++libscan_ldiskfs_a_SOURCES = libscan_ldiskfs.c
++libscan_ldiskfs_a_CPPFLAGS :=
++
++lib_LTLIBRARIES += libscan_ldiskfs.la
++libscan_ldiskfs.la : libscan_ldiskfs.a
++	$(CC) $(LDFLAGS) $(MNTMODLDFLAGS) -shared -Wl,--export-dynamic \
++			 -o scan_osd_ldiskfs.so \
++			 `$(AR) -t libscan_ldiskfs.a` \
++			 -lext2fs
++endif # PLUGINS
++endif # LDISKFS_ENABLED
++
+ if LDISKFS_ENABLED
+ noinst_LIBRARIES += libmount_utils_ldiskfs.a
+ 
+diff --git a/lustre/utils/liblustreapi_scan.c b/lustre/utils/liblustreapi_scan.c
+index 4b0cc983ba..d01a856073 100644
+--- a/lustre/utils/liblustreapi_scan.c
++++ b/lustre/utils/liblustreapi_scan.c
+@@ -65,8 +65,20 @@ struct llapi_scan_state {
+ 	 * negative from ss_filter
+ 	 */
+ 	int			 ss_stop_rc;
++	/*
++	 * What the scan did, for a caller that asked.  A walk runs its
++	 * callback on every thread at once, so these are counted atomically
++	 * rather than merged at the end as the device scan's per-worker
++	 * counters are.
++	 */
++	struct llapi_scan_stats	 ss_stats;
+ };
+ 
++static inline void scan_ns_count(__u64 *counter)
++{
++	__atomic_fetch_add(counter, 1, __ATOMIC_RELAXED);
++}
++
+ /*
+  * The part of the record that costs nothing: path, name, and the object
+  * type if the directory entry carried one.  This is what lfsp_filter sees,
+@@ -496,26 +508,39 @@ static int llapi_scan_cb_init(char *path, int p, int *dp,
+ 		return -1;
+ 
+ 	scan_rec_dirent(&rec, path, p, d, de);
++	scan_ns_count(&st->ss_stats.ss_seen);
+ 
+ 	if (st->ss_filter != NULL) {
+ 		rc = st->ss_filter(&rec, st->ss_data);
+-		if (rc > 0)
++		if (rc > 0) {
++			scan_ns_count(&st->ss_stats.ss_filtered);
+ 			goto out;		/* skip, but still descend */
++		}
+ 		if (rc < 0)
+ 			goto stop;
+ 	}
+ 
+ 	rc = scan_rec_gather(param, path, p, d, &fd, st->ss_want,
+ 			     &rec);
+-	if (rc == -ENOENT || rc == -ESTALE)
++	if (rc == -ENOENT || rc == -ESTALE) {
+ 		/* unlinked between readdir and here: not an error */
++		scan_ns_count(&st->ss_stats.ss_skipped);
+ 		goto out;
++	}
+ 	if (rc < 0) {
++		scan_ns_count(&st->ss_stats.ss_skipped);
+ 		if (param->fp_stop_on_error)
+ 			goto err;
+ 		goto out;
+ 	}
+ 
++	/*
++	 * Everything a walk reaches is namespace-visible by definition: it
++	 * arrived through a directory entry.  The other classes are what a
++	 * scan of a target meets and a walk cannot.
++	 */
++	scan_ns_count(&st->ss_stats.ss_class[LLAPI_SCAN_CLS_VISIBLE]);
++	scan_ns_count(&st->ss_stats.ss_emitted);
+ 	rc = st->ss_cb(&rec, st->ss_data);
+ 	if (rc != 0)
+ 		goto stop;
+@@ -595,6 +620,10 @@ int llapi_scan_namespace(const char *path, const struct llapi_scan_param *sp,
+ 		if (rc != 0)
+ 			return rc;
+ 		sp = &spl;
++		/* only now: a short lfsp_size may not reach lfsp_stats */
++		if (spl.lfsp_stats != NULL &&
++		    spl.lfsp_stats->ss_size < LLAPI_SCAN_STATS_MIN_SIZE)
++			return -EINVAL;
+ 	}
+ 
+ 	rc = snprintf(buf, sizeof(buf), "%s", path);
+@@ -617,6 +646,7 @@ int llapi_scan_namespace(const char *path, const struct llapi_scan_param *sp,
+ 					 LLAPI_SCAN_WANT_DEFAULT);
+ 	scan_param_report_got(sp, st.ss_want, LLAPI_SCAN_WANT_KNOWN_NS);
+ 	st.ss_stop_rc = 0;
++	memset(&st.ss_stats, 0, sizeof(st.ss_stats));
+ 
+ 	/* -1 is "unlimited", as lfs find sets it */
+ 	param.fp_max_depth = (unsigned int)-1;
+@@ -630,6 +660,17 @@ int llapi_scan_namespace(const char *path, const struct llapi_scan_param *sp,
+ 	rc = llapi_find_with_cb(buf, &param, llapi_scan_cb_init,
+ 				cb_common_fini);
+ 
++	if (sp != NULL && sp->lfsp_stats != NULL) {
++		__u32 room = sp->lfsp_stats->ss_size;
++
++		if (room > sizeof(st.ss_stats))
++			room = sizeof(st.ss_stats);
++		/* a whole counter, never half of one */
++		room = scan_stats_whole(room);
++		st.ss_stats.ss_size = room;
++		memcpy(sp->lfsp_stats, &st.ss_stats, room);
++	}
++
+ 	/* a consumer that stopped the scan hears its own value back */
+ 	return st.ss_stop_rc != 0 ? st.ss_stop_rc : rc;
+ }
+diff --git a/lustre/utils/liblustreapi_scan_device.c b/lustre/utils/liblustreapi_scan_device.c
+new file mode 100644
+index 0000000000..bd24355ad6
+--- /dev/null
++++ b/lustre/utils/liblustreapi_scan_device.c
+@@ -0,0 +1,1233 @@
++// SPDX-License-Identifier: LGPL-2.1+
++
++/*
++ * Copyright (c) 2026, The Lustre Collective.
++ */
++
++/*
++ * llapi_scan_device(): llapi_scan_namespace()'s records, read off a
++ * target instead of walked from a client.  A backend reads the objects
++ * (lustreapi_scan_backend.h) and everything Lustre knows about them is
++ * here, which is what keeps libext2fs out of this library.
++ *
++ * Author: Hiroshi Nishida <hnishida@thelustrecollective.com>
++ */
++
++#include <errno.h>
++#include <pthread.h>
++#include <stdlib.h>
++#include <string.h>
++#include <unistd.h>
++
++#include <asm/byteorder.h>
++#include <linux/lustre/lustre_fid.h>
++#include <linux/lustre/lustre_idl.h>
++#include <linux/lustre/lustre_user.h>
++
++#include <lustre/lustreapi.h>
++
++#include "lustreapi_internal.h"
++#include "lustreapi_scan_backend.h"
++
++#ifdef PLUGIN_DIR
++#include <dlfcn.h>
++#endif
++
++/* One scan.  Shared by every worker; only sd_cursor, sd_end, sd_stop_rc and
++ * sd_error are written after the workers start, and those are atomic.
++ */
++struct scan_dev {
++	const struct llapi_scan_backend	*sd_be;
++	void				*sd_tgt;
++	struct llapi_scan_tgt		 sd_tgt_info;
++	llapi_scan_cb_t			 sd_cb;
++	llapi_scan_cb_t			 sd_filter;
++	void				*sd_data;
++	__u64				 sd_want;
++	__u64				 sd_flags;
++	enum llapi_scan_class		 sd_visible;
++	__u32				 sd_want_xattr;
++	__u64				 sd_cursor;	/* next chunk out */
++	__u64				 sd_end;	/* one past the last */
++	int				 sd_stop_rc;	/* consumer's value */
++	int				 sd_error;	/* backend's, first */
++};
++
++/*
++ * Room for one converted directory stripe: the header and a zeroed entry for
++ * every stripe a directory can have, so lum_stripe_count never claims more
++ * entries than the buffer holds.  The shard FIDs are not filled.  A foreign
++ * LMV larger than this is left out of the record rather than truncated.
++ */
++#define SCAN_LMV_BUF	(sizeof(struct lmv_user_md) +		\
++			 LMV_MAX_STRIPE_COUNT *			\
++			 sizeof(struct lmv_user_mds_data))
++
++/* One worker: its own backend context, its own counters, its own name
++ * buffer, so that nothing but the merge at the end is shared.
++ */
++struct scan_worker {
++	struct scan_dev		*sw_dev;
++	void			*sw_bectx;
++	struct llapi_scan_stats	 sw_stats;
++	char			 sw_name[NAME_MAX + 1];
++	/*
++	 * The record's LMV is an lmv_user_md, or an lmv_foreign_md for a
++	 * foreign directory, and the target holds the on-disk form:
++	 * scan_lmv_to_user() converts into here.  A union rather than a
++	 * bare char[], which would carry neither structure's alignment and
++	 * leave the cast at the call site assuming one.
++	 */
++	union {
++		struct lmv_user_md	 sl_user;
++		struct lmv_foreign_md	 sl_foreign;
++		char			 sl_buf[SCAN_LMV_BUF];
++	}			 sw_lmv;
++	pthread_t		 sw_thread;
++};
++
++/*
++ * The xattrs a demand mask implies.  trusted.lma and trusted.link are always
++ * read: an object without an LMA has no FID and no class, and on an MDT one
++ * with a namespace FID but no link is the target's own and not a file's --
++ * see scan_classify().  A size needs two, trusted.lov to say whether the
++ * object's own size is the file's and trusted.som to answer when it is not.
++ */
++static __u32 scan_want_xattr(__u64 want)
++{
++	__u32 xa = LLAPI_SCAN_XA_BIT(LLAPI_SCAN_XA_LMA) |
++		   LLAPI_SCAN_XA_BIT(LLAPI_SCAN_XA_LINK);
++
++	if (want & LLAPI_SCAN_LAYOUT)
++		xa |= LLAPI_SCAN_XA_BIT(LLAPI_SCAN_XA_LOV);
++	if (want & LLAPI_SCAN_LMV)
++		xa |= LLAPI_SCAN_XA_BIT(LLAPI_SCAN_XA_LMV);
++	/*
++	 * trusted.lmv with it: a striped directory's own size is not the
++	 * directory's, and scan_size() has no other way to tell one.
++	 */
++	if (want & (LLAPI_SCAN_SIZE | LLAPI_SCAN_BLOCKS |
++		    LLAPI_SCAN_LAZY_SIZE | LLAPI_SCAN_LAZY_BLOCKS))
++		xa |= LLAPI_SCAN_XA_BIT(LLAPI_SCAN_XA_LOV) |
++		      LLAPI_SCAN_XA_BIT(LLAPI_SCAN_XA_SOM) |
++		      LLAPI_SCAN_XA_BIT(LLAPI_SCAN_XA_LMV);
++	if (want & LLAPI_SCAN_HSM)
++		xa |= LLAPI_SCAN_XA_BIT(LLAPI_SCAN_XA_HSM);
++
++	return xa;
++}
++
++static const void *scan_xattr(const struct llapi_scan_obj *obj,
++			      enum llapi_scan_xattr x, size_t *len)
++{
++	if (!(obj->so_xa_valid & LLAPI_SCAN_XA_BIT(x)))
++		return NULL;
++	*len = obj->so_xattr[x].sv_len;
++	return obj->so_xattr[x].sv_buf;
++}
++
++/* Whether the object has a trusted.link, as every name in the namespace does */
++static bool scan_has_link(const struct llapi_scan_obj *obj)
++{
++	size_t len;
++
++	return scan_xattr(obj, LLAPI_SCAN_XA_LINK, &len) != NULL;
++}
++
++/*
++ * The LMA as it is on disk is little-endian, which is what osd_get_lma()
++ * undoes on the way in.  Never trust the length: this is a structure read
++ * out of a device buffer that may have been written while we read it.
++ */
++static bool scan_decode_lma(const struct llapi_scan_obj *obj,
++			    struct lustre_mdt_attrs *lma)
++{
++	const struct lustre_mdt_attrs *disk;
++	size_t len = 0;
++
++	disk = scan_xattr(obj, LLAPI_SCAN_XA_LMA, &len);
++	if (disk == NULL || len < sizeof(*lma))
++		return false;
++
++	lma->lma_compat = __le32_to_cpu(disk->lma_compat);
++	lma->lma_incompat = __le32_to_cpu(disk->lma_incompat);
++	lma->lma_self_fid.f_seq = __le64_to_cpu(disk->lma_self_fid.f_seq);
++	lma->lma_self_fid.f_oid = __le32_to_cpu(disk->lma_self_fid.f_oid);
++	lma->lma_self_fid.f_ver = __le32_to_cpu(disk->lma_self_fid.f_ver);
++
++	return true;
++}
++
++/*
++ * What an object is, following osd_scrub_get_fid() and, for the visible
++ * answer, fid_is_namespace_visible().  A FID is never invented for an object
++ * without an LMA: reconstructing one is LFSCK's job.
++ *
++ * fid_is_namespace_visible() goes by the FID alone, which is not enough on
++ * an MDT: the target's own files outside ROOT -- CONFIGS/mountdata with an
++ * IGIF, the update logs with a normal FID -- pass it.  What they lack is a
++ * name in the namespace, so an MDT object with such a FID and no trusted.link
++ * is the target's own.  So is a file from before linkEA (1.8, an IGIF) that
++ * LFSCK has not given one yet: it is reachable, but nothing here says so.
++ */
++static enum llapi_scan_class scan_classify(const struct lustre_mdt_attrs *lma,
++					   bool have_lma, bool mdt,
++					   bool have_link)
++{
++	__u64 seq;
++
++	if (!have_lma)
++		return LLAPI_SCAN_CLS_NO_LMA;
++
++	if (lma->lma_incompat & ~(__u32)LMA_INCOMPAT_SUPP)
++		return LLAPI_SCAN_CLS_BAD;
++	if (lma->lma_compat & LMAC_NOT_IN_OI)
++		return LLAPI_SCAN_CLS_INTERNAL;
++	if (lma->lma_incompat & LMAI_AGENT)
++		return LLAPI_SCAN_CLS_AGENT;
++	/*
++	 * An O/<seq>/LAST_ID has f_oid 0 and its sequence's own f_seq, so it
++	 * would otherwise look like an ordinary object of that sequence.
++	 * fid_is_namespace_visible() excludes it and so must this, or the
++	 * target's own counter is delivered as its subject matter -- and
++	 * before the OST tests, not after: osd_object_create() sets
++	 * LMAC_FID_ON_OST for it, fid_is_on_ost() being true of a LAST_ID,
++	 * so on an OST the counter answered as a data object.
++	 */
++	if (fid_is_last_id(&lma->lma_self_fid))
++		return LLAPI_SCAN_CLS_INTERNAL;
++	if (lma->lma_compat & LMAC_FID_ON_OST)
++		return LLAPI_SCAN_CLS_OST_OBJ;
++
++	seq = lma->lma_self_fid.f_seq;
++	if (fid_seq_is_idif(seq))
++		return LLAPI_SCAN_CLS_OST_OBJ;
++	/*
++	 * PENDING keeps a link to an open-unlinked file, so it has a normal
++	 * FID and would otherwise read as visible.  Last of the tests, so
++	 * only what would have been visible changes class.
++	 */
++	if (lma->lma_incompat & LMAI_ORPHAN)
++		return LLAPI_SCAN_CLS_ORPHAN;
++	/*
++	 * The root itself, not its whole sequence: fid_is_namespace_visible()
++	 * uses fid_is_root(), one FID out of FID_SEQ_ROOT, so a wider test
++	 * here would classify the echo client's root -- FID_OID_ECHO_ROOT in
++	 * the same sequence -- as namespace-visible where the MDT would not.
++	 */
++	if (fid_is_root(&lma->lma_self_fid) || fid_seq_is_dot(seq))
++		return LLAPI_SCAN_CLS_VISIBLE;
++	if (fid_seq_is_norm(seq) || fid_seq_is_igif(seq))
++		return mdt && !have_link ? LLAPI_SCAN_CLS_INTERNAL :
++					   LLAPI_SCAN_CLS_VISIBLE;
++
++	return LLAPI_SCAN_CLS_INTERNAL;
++}
++
++/*
++ * The master object of a striped directory: trusted.lmv holding an
++ * lmv_mds_md_v1, which is what lmv_dir_striped() tests on the client side.
++ * A shard's own LMV_MAGIC_STRIPE and a foreign LMV are neither.
++ */
++static bool scan_lmv_is_striped(const struct llapi_scan_obj *obj)
++{
++	size_t len = 0;
++	__u32 magic;
++	const void *lmv;
++
++	lmv = scan_xattr(obj, LLAPI_SCAN_XA_LMV, &len);
++	if (lmv == NULL || len < sizeof(magic))
++		return false;
++
++	memcpy(&magic, lmv, sizeof(magic));
++
++	return __le32_to_cpu(magic) == LMV_MAGIC_V1;
++}
++
++/*
++ * The directory stripe, converted to the form the record declares.
++ *
++ * A target holds trusted.lmv as lmv_mds_md_v1, little-endian; the record's
++ * lfsr_lmv is an lmv_user_md, which is what a namespace scan puts there and
++ * what every consumer of this API reads.  They are different structures --
++ * lum_type and lum_max_inherit sit where lmv_layout_version and
++ * lmv_migrate_offset do, and the pool name is at a different offset -- so
++ * handing the raw bytes over would make the field mean one thing from one
++ * scanner and another from the other.
++ *
++ * The shard FIDs are not carried: the user form names each stripe by FID and
++ * MDT index, and the index is an FLD lookup, which a scan of a target has no
++ * client to make.  A consumer that needs them reads the directory through a
++ * mount.
++ *
++ * Returns the bytes written at @out, or 0 if there is nothing a consumer of
++ * lmv_user_md could read -- a slave stripe's own LMV_MAGIC_STRIPE, an
++ * unknown magic, or a value too large for @outlen.
++ */
++static __u32 scan_lmv_to_user(const void *disk, __u32 len, void *out,
++			      __u32 outlen)
++{
++	const struct lmv_mds_md_v1 *md = disk;
++	struct lmv_user_md *lmv = out;
++	__u32 stripes, room;
++	__u32 magic;
++
++	if (len < sizeof(__u32))
++		return 0;
++
++	memcpy(&magic, disk, sizeof(magic));
++	magic = __le32_to_cpu(magic);
++
++	if (magic == LMV_MAGIC_FOREIGN) {
++		/*
++		 * Same structure on both sides, so this is a copy with the
++		 * header put in host order.  lfm_value is opaque bytes and
++		 * stays as it is.
++		 */
++		struct lmv_foreign_md *lfm = out;
++
++		if (len < offsetof(struct lmv_foreign_md, lfm_value) ||
++		    len > outlen)
++			return 0;
++		memcpy(out, disk, len);
++		lfm->lfm_magic = magic;
++		lfm->lfm_length = __le32_to_cpu(lfm->lfm_length);
++		lfm->lfm_type = __le32_to_cpu(lfm->lfm_type);
++		lfm->lfm_flags = __le32_to_cpu(lfm->lfm_flags);
++		if (lfm->lfm_length >
++		    len - offsetof(struct lmv_foreign_md, lfm_value))
++			return 0;
++		return len;
++	}
++
++	if (magic != LMV_MAGIC_V1 || len < sizeof(*md) ||
++	    outlen < lmv_user_md_size(0, LMV_USER_MAGIC))
++		return 0;
++
++	/*
++	 * The header is not the whole of what a reader may touch.  One
++	 * buffer serves every object a worker meets, and a consumer sizing
++	 * lum_objects[] by lum_stripe_count -- which is what
++	 * lmv_dump_user_lmm() does -- reads past the header into whatever
++	 * the last object left there, a preceding foreign LMV's value
++	 * included.  The buffer holds LMV_MAX_STRIPE_COUNT entries, so the
++	 * whole shard area the count claims is cleared.
++	 *
++	 * The count comes off a device, so the room bounds it before it
++	 * measures anything.
++	 */
++	stripes = __le32_to_cpu(md->lmv_stripe_count);
++	/*
++	 * A count no Lustre directory can have is not a count: refused here
++	 * rather than carried, because lmv_user_md_size() returns unsigned
++	 * int and a count whose product with sizeof(struct lmv_user_mds_data)
++	 * is a multiple of 2^32 -- 0x20000000 and its multiples -- computes
++	 * back to the bare header size, so every bound built from it reads
++	 * as "the array is there" for an array that is not.
++	 */
++	if (stripes > LMV_MAX_STRIPE_COUNT)
++		return 0;
++	room = (outlen - lmv_user_md_size(0, LMV_USER_MAGIC)) /
++	       sizeof(struct lmv_user_mds_data);
++	memset(out, 0, lmv_user_md_size(stripes < room ? stripes : room,
++					LMV_USER_MAGIC_SPECIFIC));
++	/*
++	 * LMV_MAGIC_V1 and not LMV_USER_MAGIC: this is the directory's own
++	 * stripe, read from trusted.lmv, and the rest of the library uses
++	 * LMV_USER_MAGIC for a *default* LMV -- which lives in trusted.dmv
++	 * and is not asked for here.  lmv_dump_user_lmm() keys off it for the
++	 * "(Default)" prefix and for which fields a bare -v shows, and llite
++	 * fills LMV_MAGIC_V1 for LL_IOC_LMV_GETSTRIPE, so the two scanners
++	 * would otherwise describe one striped directory differently.  The
++	 * size is the same either way: lmv_user_md_size() only grows for
++	 * LMV_USER_MAGIC_SPECIFIC.
++	 */
++	lmv->lum_magic = LMV_MAGIC_V1;
++	lmv->lum_stripe_count = __le32_to_cpu(md->lmv_stripe_count);
++	lmv->lum_stripe_offset = __le32_to_cpu(md->lmv_master_mdt_index);
++	lmv->lum_hash_type = __le32_to_cpu(md->lmv_hash_type);
++	memcpy(lmv->lum_pool_name, md->lmv_pool_name,
++	       sizeof(lmv->lum_pool_name));
++	lmv->lum_pool_name[sizeof(lmv->lum_pool_name) - 1] = '\0';
++
++	return lmv_user_md_size(0, LMV_USER_MAGIC);
++}
++
++/*
++ * The first linkea entry: a name, and the FID of the directory it is in.
++ * Entries are big-endian, the header is not necessarily; the kernel's
++ * linkea_init() and linkea_entry_unpack() are what this mirrors.
++ *
++ * A name is not a path.  Turning one into the other is a walk of its own
++ * and is not this scan's to do.
++ */
++static void scan_linkea(const struct llapi_scan_obj *obj, char *name,
++			size_t namesize, struct llapi_scan_rec *rec)
++{
++	const struct link_ea_header *leh;
++	const struct link_ea_entry *lee;
++	size_t len = 0;
++	__u32 reccount;
++	__u32 magic;
++	int reclen;
++	int namelen;
++
++	leh = scan_xattr(obj, LLAPI_SCAN_XA_LINK, &len);
++	if (leh == NULL || len < sizeof(*leh))
++		return;
++
++	magic = leh->leh_magic;
++	reccount = leh->leh_reccount;
++	if (magic == __swab32(LINK_EA_MAGIC)) {
++		magic = LINK_EA_MAGIC;
++		reccount = __swab32(reccount);
++	}
++	if (magic != LINK_EA_MAGIC || reccount == 0)
++		return;
++
++	rec->lfsr_linkea = leh;
++	rec->lfsr_linkeasize = len;
++	rec->lfsr_valid |= LLAPI_SCAN_LINKEA;
++
++	if (len < sizeof(*leh) + sizeof(*lee))
++		return;
++
++	lee = (const struct link_ea_entry *)(leh + 1);
++	reclen = (lee->lee_reclen[0] << 8) | lee->lee_reclen[1];
++	namelen = reclen - (int)sizeof(*lee);
++	if (reclen <= (int)sizeof(*lee) ||
++	    (size_t)reclen > len - sizeof(*leh))
++		return;
++
++	memcpy(&rec->lfsr_parent_fid, lee->lee_parent_fid,
++	       sizeof(rec->lfsr_parent_fid));
++	rec->lfsr_parent_fid.f_seq = __be64_to_cpu(rec->lfsr_parent_fid.f_seq);
++	rec->lfsr_parent_fid.f_oid = __be32_to_cpu(rec->lfsr_parent_fid.f_oid);
++	rec->lfsr_parent_fid.f_ver = __be32_to_cpu(rec->lfsr_parent_fid.f_ver);
++	if (fid_is_sane(&rec->lfsr_parent_fid))
++		rec->lfsr_valid |= LLAPI_SCAN_PARENT;
++	else
++		memset(&rec->lfsr_parent_fid, 0, sizeof(rec->lfsr_parent_fid));
++
++	if ((size_t)namelen >= namesize)
++		namelen = namesize - 1;
++	memcpy(name, lee->lee_name, namelen);
++	name[namelen] = '\0';
++	rec->lfsr_name = name;
++}
++
++/*
++ * HSM state, from trusted.hsm.  Its flags are the HS_* values the MDT hands
++ * to llapi_hsm_state_get(), and the archive id narrows the same way there,
++ * so both producers answer alike.
++ */
++static void scan_hsm(const struct llapi_scan_obj *obj,
++		     struct llapi_scan_rec *rec)
++{
++	const struct hsm_attrs *hsm;
++	size_t len = 0;
++
++	hsm = scan_xattr(obj, LLAPI_SCAN_XA_HSM, &len);
++	if (hsm == NULL || len < sizeof(*hsm))
++		return;
++
++	rec->lfsr_hsm_states = __le32_to_cpu(hsm->hsm_flags);
++	rec->lfsr_hsm_archive_id = __le64_to_cpu(hsm->hsm_arch_id);
++	rec->lfsr_valid |= LLAPI_SCAN_HSM;
++}
++
++/*
++ * Whether HSM has released the file, decided as mdt_hsm_is_released()
++ * does: every component released.  The bytes are raw from the target.
++ */
++static bool scan_lov_released(const void *buf, size_t len)
++{
++	const struct lov_comp_md_v1 *comp = buf;
++	const struct lov_user_md_v1 *v1 = buf;
++	__u32 magic;
++	__u16 count;
++	__u16 i;
++
++	if (len < sizeof(*v1))
++		return false;
++
++	magic = __le32_to_cpu(v1->lmm_magic);
++	if (magic == LOV_MAGIC_V1 || magic == LOV_MAGIC_V3)
++		return __le32_to_cpu(v1->lmm_pattern) & LOV_PATTERN_F_RELEASED;
++	if (magic != LOV_MAGIC_COMP_V1 || len < sizeof(*comp))
++		return false;
++
++	count = __le16_to_cpu(comp->lcm_entry_count);
++	if (len < sizeof(*comp) + count * sizeof(comp->lcm_entries[0]))
++		return false;
++	for (i = 0; i < count; i++) {
++		__u32 off = __le32_to_cpu(comp->lcm_entries[i].lcme_offset);
++
++		if (off > len - sizeof(*v1))
++			return false;
++		v1 = (const struct lov_user_md_v1 *)((const char *)buf + off);
++		if (!(__le32_to_cpu(v1->lmm_pattern) & LOV_PATTERN_F_RELEASED))
++			return false;
++	}
++	return true;
++}
++
++/*
++ * Whether every instantiated component is on the MDT, as
++ * mdt_lmm_dom_entry_check() decides for is_dom_only: then the MDT inode
++ * holds the data, the MDT keeps no SOM for it (mdt_som.c), and the inode's
++ * own size is the file's.  The bytes are raw from the target.
++ */
++static bool scan_lov_dom_only(const void *buf, size_t len)
++{
++	const struct lov_comp_md_v1 *comp = buf;
++	const struct lov_user_md_v1 *v1;
++	bool dom = false;
++	__u16 count;
++	__u16 i;
++
++	if (len < sizeof(*comp) ||
++	    __le32_to_cpu(comp->lcm_magic) != LOV_MAGIC_COMP_V1)
++		return false;
++
++	count = __le16_to_cpu(comp->lcm_entry_count);
++	if (len < sizeof(*comp) + count * sizeof(comp->lcm_entries[0]))
++		return false;
++	for (i = 0; i < count; i++) {
++		const struct lov_comp_md_entry_v1 *e = &comp->lcm_entries[i];
++		__u32 off = __le32_to_cpu(e->lcme_offset);
++
++		if (!(__le32_to_cpu(e->lcme_flags) & LCME_FL_INIT))
++			continue;
++		if (off > len - sizeof(*v1))
++			return false;
++		v1 = (const struct lov_user_md_v1 *)((const char *)buf + off);
++		if (!(__le32_to_cpu(v1->lmm_pattern) & LOV_PATTERN_MDT))
++			return false;
++		dom = true;
++	}
++	return dom;
++}
++
++/*
++ * Size and blocks.  The object's own size is the file's when the file has
++ * no layout, HSM has released it, or all its data is on the MDT; trusted.som
++ * answers otherwise, and answers lazily, which is what LLAPI_SCAN_LAZY_SIZE
++ * already means.
++ */
++static void scan_size(const struct llapi_scan_obj *obj, __u64 want,
++		      bool ost, struct llapi_scan_rec *rec)
++{
++	const struct lustre_som_attrs *som;
++	const void *lov;
++	size_t len = 0;
++	__u16 valid;
++
++	/*
++	 * Only when asked for: without the demand mask naming a size, no
++	 * layout was read, so nothing here knows whether the object's own
++	 * size is the file's.
++	 */
++	if (!(want & (LLAPI_SCAN_SIZE | LLAPI_SCAN_BLOCKS |
++		      LLAPI_SCAN_LAZY_SIZE | LLAPI_SCAN_LAZY_BLOCKS)))
++		return;
++
++	/*
++	 * A striped directory's size and blocks are aggregated by the client
++	 * across its shards, so the master object's own are not the
++	 * directory's: ll_dir_ioctl() drops STATX_SIZE and STATX_BLOCKS for
++	 * one, and a scan of a target, which holds only the master, answers
++	 * "not known" as well rather than a number of its own.
++	 */
++	if (S_ISDIR(obj->so_mode) && scan_lmv_is_striped(obj))
++		return;
++
++	if (!S_ISREG(obj->so_mode) ||
++	    !(obj->so_xa_valid & LLAPI_SCAN_XA_BIT(LLAPI_SCAN_XA_LOV))) {
++		/* nothing is striped out from under it */
++		rec->lfsr_stx.stx_size = obj->so_size;
++		/*
++		 * A regular file with no layout has no data blocks on an MDT:
++		 * the inode's own are its xattrs, which mdt_pack_attr2body()
++		 * does not report either.  On an OST the object is the data,
++		 * so its own blocks are exactly what that target holds, which
++		 * is what llapi_scan_device.3 promises for one.
++		 */
++		rec->lfsr_stx.stx_blocks = S_ISREG(obj->so_mode) && !ost ? 0 :
++					   obj->so_blocks;
++		rec->lfsr_stx.stx_mask |= STATX_SIZE | STATX_BLOCKS;
++		return;
++	}
++
++	/* released: the MDT inode holds the size; one block, as for a client */
++	lov = scan_xattr(obj, LLAPI_SCAN_XA_LOV, &len);
++	if (lov != NULL && scan_lov_released(lov, len)) {
++		rec->lfsr_stx.stx_size = obj->so_size;
++		rec->lfsr_stx.stx_blocks = obj->so_size == 0 ? 0 : 1;
++		rec->lfsr_stx.stx_mask |= STATX_SIZE | STATX_BLOCKS;
++		return;
++	}
++	/* Data-on-MDT only: the inode is the data, as an OST object is */
++	if (lov != NULL && scan_lov_dom_only(lov, len)) {
++		rec->lfsr_stx.stx_size = obj->so_size;
++		rec->lfsr_stx.stx_blocks = obj->so_blocks;
++		rec->lfsr_stx.stx_mask |= STATX_SIZE | STATX_BLOCKS;
++		return;
++	}
++
++	som = scan_xattr(obj, LLAPI_SCAN_XA_SOM, &len);
++	if (som == NULL || len < sizeof(*som))
++		return;
++
++	valid = __le16_to_cpu(som->lsa_valid);
++	if (!(valid & (SOM_FL_STRICT | SOM_FL_LAZY | SOM_FL_STALE)))
++		return;
++
++	rec->lfsr_stx.stx_size = __le64_to_cpu(som->lsa_size);
++	rec->lfsr_stx.stx_blocks = __le64_to_cpu(som->lsa_blocks);
++	/*
++	 * SOM_FL_STRICT is "known strictly correct", and the MDT hands that
++	 * one to a client as a real size: mdt_pack_attr2body() sets
++	 * OBD_MD_FLSIZE and OBD_MD_FLBLOCKS for it while
++	 * mdt_enable_strict_som is on, which it is by default.  Collapsing
++	 * all three states to lazy would report the same file as approximate
++	 * from a target and exact from a namespace, which is the difference
++	 * the two bits exist to carry.
++	 */
++	if (valid & SOM_FL_STRICT)
++		rec->lfsr_stx.stx_mask |= STATX_SIZE | STATX_BLOCKS;
++	else
++		rec->lfsr_valid |= LLAPI_SCAN_LAZY_SIZE |
++				   LLAPI_SCAN_LAZY_BLOCKS;
++}
++
++/* The attributes the object carries itself, before any xattr is read. */
++static void scan_rec_obj(const struct scan_dev *dev,
++			 const struct llapi_scan_obj *obj,
++			 struct llapi_scan_rec *rec)
++{
++	memset(rec, 0, sizeof(*rec));
++	rec->lfsr_size = sizeof(*rec);
++	rec->lfsr_parent_fd = -1;
++	rec->lfsr_fd = -1;
++
++	rec->lfsr_ino = obj->so_id;
++	rec->lfsr_stx.stx_mode = obj->so_mode;
++	rec->lfsr_stx.stx_nlink = obj->so_nlink;
++	rec->lfsr_stx.stx_uid = obj->so_uid;
++	rec->lfsr_stx.stx_gid = obj->so_gid;
++	/*
++	 * la_rdev holds the client's old_encode_dev() value; decode it as
++	 * ll_update_inode() does, so this is what stat(2) shows.
++	 */
++	if (S_ISCHR(obj->so_mode) || S_ISBLK(obj->so_mode)) {
++		rec->lfsr_stx.stx_rdev_major = (obj->so_rdev >> 8) & 0xff;
++		rec->lfsr_stx.stx_rdev_minor = obj->so_rdev & 0xff;
++	}
++	rec->lfsr_stx.stx_blksize = getpagesize();	/* as ll_dir_ioctl() */
++	/*
++	 * The backend ABI carries whole seconds, so the nanoseconds are zero
++	 * rather than unknown -- statx has no bit for a timestamp's fraction
++	 * on its own, and a target's inode is not read at that resolution.
++	 */
++	rec->lfsr_stx.stx_atime.tv_sec = obj->so_atime;
++	rec->lfsr_stx.stx_mtime.tv_sec = obj->so_mtime;
++	rec->lfsr_stx.stx_ctime.tv_sec = obj->so_ctime;
++	rec->lfsr_stx.stx_mask = STATX_MODE | STATX_TYPE | STATX_NLINK |
++			       STATX_UID | STATX_GID | STATX_ATIME |
++			       STATX_MTIME | STATX_CTIME;
++	/*
++	 * What this backend can answer for, as statx means it: the two do not
++	 * support the same set, so the declaration is the backend's and not
++	 * one constant here.  Narrowed to it for the same reason
++	 * scan_rec_mdt() narrows the MDT's, so a record never reports a bit
++	 * it does not also declare.  A backend that declares nothing leaves
++	 * LLAPI_SCAN_ATTRS clear rather than having the record claim
++	 * attributes nothing vouches for.
++	 */
++	rec->lfsr_stx.stx_attributes_mask = obj->so_attrs_mask;
++	rec->lfsr_stx.stx_attributes = obj->so_flags & obj->so_attrs_mask;
++	rec->lfsr_valid = LLAPI_SCAN_INO;
++	if (obj->so_attrs_mask != 0)
++		rec->lfsr_valid |= LLAPI_SCAN_ATTRS;
++
++	if (obj->so_valid & LLAPI_SCAN_SO_BTIME) {
++		rec->lfsr_stx.stx_btime.tv_sec = obj->so_btime;
++		rec->lfsr_stx.stx_mask |= STATX_BTIME;
++	}
++	if (obj->so_valid & LLAPI_SCAN_SO_PROJID) {
++		rec->lfsr_projid = obj->so_projid;
++		rec->lfsr_valid |= LLAPI_SCAN_PROJID;
++	}
++
++	/*
++	 * Only when the label really named an MDT and gave its number: an
++	 * OST has no MDT index, and an unregistered target has none yet.
++	 */
++	if ((dev->sd_tgt_info.tt_flags &
++	     (LLAPI_SCAN_TGT_MDT | LLAPI_SCAN_TGT_INDEX)) ==
++	    (LLAPI_SCAN_TGT_MDT | LLAPI_SCAN_TGT_INDEX)) {
++		rec->lfsr_mdt_index = dev->sd_tgt_info.tt_index;
++		rec->lfsr_valid |= LLAPI_SCAN_MDT_INDEX;
++	}
++}
++
++/*
++ * Is an inode with no LMA an IGIF here?  Only on MDT0000.
++ *
++ * osd_scrub_get_fid() builds one only under os_convert_igif, which
++ * osd_scrub_setup() sets for MDT0 alone, and says why: on another MDT the
++ * object may be FID-on-OST, or carry a FID that a file-level restore has
++ * already invalidated, and "we do not know which is the right FID for the
++ * object".  An OST's no-LMA object is named by the IDIF in its trusted.fid,
++ * which osd_get_idif() reads rather than computes -- the OST object id is in
++ * the O/<seq>/d<n>/ directory entry that names the inode, not in the inode,
++ * so a scan of inodes has the target's own id for it and no more.
++ */
++static bool scan_tgt_has_igif(const struct scan_dev *dev)
++{
++	__u32 need = LLAPI_SCAN_TGT_MDT | LLAPI_SCAN_TGT_INDEX;
++
++	return (dev->sd_tgt_info.tt_flags & need) == need &&
++	       dev->sd_tgt_info.tt_index == 0;
++}
++
++/* The cheap stage: what the object carries, before any xattr is read. */
++static int scan_sink_prefilter(void *ctx, const struct llapi_scan_obj *obj)
++{
++	struct scan_worker *w = ctx;
++	struct scan_dev *dev = w->sw_dev;
++	struct llapi_scan_rec rec;
++	int rc;
++
++	w->sw_stats.ss_seen++;
++
++	if (__atomic_load_n(&dev->sd_stop_rc, __ATOMIC_ACQUIRE) != 0)
++		return -1;
++
++	if (dev->sd_filter == NULL)
++		return 0;
++
++	scan_rec_obj(dev, obj, &rec);
++	rc = dev->sd_filter(&rec, dev->sd_data);
++	if (rc > 0) {
++		w->sw_stats.ss_filtered++;
++		return 1;
++	}
++	if (rc < 0) {
++		int zero = 0;
++
++		__atomic_compare_exchange_n(&dev->sd_stop_rc, &zero, rc, false,
++					    __ATOMIC_ACQ_REL, __ATOMIC_ACQUIRE);
++		return -1;
++	}
++	return 0;
++}
++
++static int scan_sink_object(void *ctx, const struct llapi_scan_obj *obj)
++{
++	struct scan_worker *w = ctx;
++	struct scan_dev *dev = w->sw_dev;
++	struct lustre_mdt_attrs lma = { 0 };
++	struct llapi_scan_rec rec;
++	enum llapi_scan_class cls;
++	bool have_lma;
++	size_t len = 0;
++	const void *val;
++	int rc;
++
++	have_lma = scan_decode_lma(obj, &lma);
++	cls = scan_classify(&lma, have_lma,
++			    dev->sd_tgt_info.tt_flags & LLAPI_SCAN_TGT_MDT,
++			    scan_has_link(obj));
++	w->sw_stats.ss_class[cls]++;
++
++	/*
++	 * Only the target's own subject matter: the namespace-visible objects
++	 * on an MDT, the data objects on an OST, which has no namespace at
++	 * all.  The rest is counted and kept back unless it was asked for.
++	 */
++	if (cls != dev->sd_visible &&
++	    !(dev->sd_flags & LLAPI_SCAN_F_INTERNAL))
++		return 0;
++
++	scan_rec_obj(dev, obj, &rec);
++
++	rec.lfsr_class = cls;
++	rec.lfsr_valid |= LLAPI_SCAN_CLASS;
++	if (have_lma) {
++		rec.lfsr_lma_compat = lma.lma_compat;
++		rec.lfsr_lma_incompat = lma.lma_incompat;
++		rec.lfsr_valid |= LLAPI_SCAN_LMA;
++		/* the OSD keeps encryption in the LMA, not in the inode */
++		rec.lfsr_stx.stx_attributes_mask |= STATX_ATTR_ENCRYPTED;
++		if (lma.lma_incompat & LMAI_ENCRYPT)
++			rec.lfsr_stx.stx_attributes |= STATX_ATTR_ENCRYPTED;
++		rec.lfsr_valid |= LLAPI_SCAN_ATTRS;
++		rec.lfsr_fid = lma.lma_self_fid;
++		if (fid_is_sane(&rec.lfsr_fid))
++			rec.lfsr_valid |= LLAPI_SCAN_FID;
++	} else if ((obj->so_valid & LLAPI_SCAN_SO_GEN) &&
++		   scan_tgt_has_igif(dev)) {
++		/*
++		 * No LMA, so no FID of its own recorded: on MDT0000 the inode
++		 * number and its generation are an IGIF, which is the FID such
++		 * an object has.  osd_scrub.c answers one the same way rather
++		 * than leaving a caller to assemble it.  The build takes a
++		 * 32-bit inode, which is what a backend with a generation
++		 * carries -- a ZFS object id is wider and has no IGIF form,
++		 * and leaves LLAPI_SCAN_SO_GEN clear.
++		 */
++		lu_igif_build(&rec.lfsr_fid, (__u32)obj->so_id, obj->so_gen);
++		/*
++		 * fid_is_igif() and not fid_is_sane(): an inode numbered 1 to
++		 * 11 builds a sequence fid_seq_is_rsvd() calls sane, and
++		 * lustre_idl.h reserves those precisely because they are not
++		 * inode numbers: lost+found would be [0xb:0x0:0x0], which is
++		 * FID_SEQ_RSVD and names something else entirely.  Below the
++		 * IGIF range there is no IGIF, and the object is left with
++		 * the target's own id for it.
++		 */
++		if (fid_is_igif(&rec.lfsr_fid))
++			rec.lfsr_valid |= LLAPI_SCAN_FID;
++	}
++
++	/* Raw, as on disk: llapi_layout_get_by_xattr() swabs it. */
++	val = scan_xattr(obj, LLAPI_SCAN_XA_LOV, &len);
++	if (val != NULL) {
++		rec.lfsr_lmm = val;
++		rec.lfsr_lmmsize = len;
++		rec.lfsr_valid |= LLAPI_SCAN_LAYOUT;
++	}
++	val = scan_xattr(obj, LLAPI_SCAN_XA_LMV, &len);
++	if (val != NULL) {
++		__u32 ulen = scan_lmv_to_user(val, len, w->sw_lmv.sl_buf,
++					      sizeof(w->sw_lmv.sl_buf));
++
++		if (ulen != 0) {
++			const struct lmv_user_md *lmv = &w->sw_lmv.sl_user;
++
++			rec.lfsr_lmv = lmv;
++			rec.lfsr_lmvsize = ulen;
++			rec.lfsr_valid |= LLAPI_SCAN_LMV;
++			/*
++			 * scan_lmv_to_user() converts an lmv_mds_md_v1, but a
++			 * foreign LMV has no such form and is copied out as
++			 * the lmv_foreign_md it is.
++			 */
++			if (lmv_is_foreign(lmv->lum_magic))
++				rec.lfsr_valid |= LLAPI_SCAN_LMV_FOREIGN;
++		}
++	}
++
++	if (dev->sd_want & (LLAPI_SCAN_LINKEA | LLAPI_SCAN_PARENT))
++		scan_linkea(obj, w->sw_name, sizeof(w->sw_name), &rec);
++	scan_hsm(obj, &rec);
++	scan_size(obj, dev->sd_want,
++		  dev->sd_tgt_info.tt_flags & LLAPI_SCAN_TGT_OST, &rec);
++
++	/* counted as handed over, as a walk counts it: a stop included */
++	w->sw_stats.ss_emitted++;
++	rc = dev->sd_cb(&rec, dev->sd_data);
++	if (rc != 0) {
++		int zero = 0;
++
++		/* first stopper wins: several workers can decide at once */
++		__atomic_compare_exchange_n(&dev->sd_stop_rc, &zero, rc, false,
++					    __ATOMIC_ACQ_REL, __ATOMIC_ACQUIRE);
++		return -1;
++	}
++
++	return 0;
++}
++
++static void scan_sink_skip(void *ctx, enum llapi_scan_skip why)
++{
++	struct scan_worker *w = ctx;
++
++	/*
++	 * ss_seen is counted in the pre-filter, so only a skip raised before
++	 * the object ever got there is counted here as well: a consumer
++	 * checking its accounting needs emitted, filtered and skipped to be
++	 * parts of seen rather than a separate tally.  SKIP_XATTR is raised
++	 * after the pre-filter has run and its object is already in ss_seen,
++	 * so counting it again would inflate exactly the torn-read case
++	 * these counters exist to describe.
++	 */
++	if (why != LLAPI_SCAN_SKIP_XATTR)
++		w->sw_stats.ss_seen++;
++	w->sw_stats.ss_skipped++;
++}
++
++static void *scan_worker_run(void *arg)
++{
++	struct scan_worker *w = arg;
++	struct scan_dev *dev = w->sw_dev;
++	struct llapi_scan_sink sink = {
++		.sk_ctx		= w,
++		.sk_want_xattr	= dev->sd_want_xattr,
++		.sk_prefilter	= scan_sink_prefilter,
++		.sk_object	= scan_sink_object,
++		.sk_skip	= scan_sink_skip,
++	};
++
++	for (;;) {
++		__u64 idx;
++		int done = 0;
++		int rc;
++
++		if (__atomic_load_n(&dev->sd_stop_rc, __ATOMIC_ACQUIRE) != 0 ||
++		    __atomic_load_n(&dev->sd_error, __ATOMIC_ACQUIRE) != 0)
++			break;
++
++		idx = __atomic_fetch_add(&dev->sd_cursor, 1, __ATOMIC_RELAXED);
++		if (idx >= __atomic_load_n(&dev->sd_end, __ATOMIC_ACQUIRE))
++			break;
++
++		rc = dev->sd_be->sb_scan_chunk(dev->sd_tgt, w->sw_bectx, idx,
++					       &sink, &done);
++		if (rc < 0) {
++			int zero = 0;
++
++			/* a consumer's stop is already recorded; anything
++			 * else ends the scan, for every worker
++			 */
++			if (__atomic_load_n(&dev->sd_stop_rc,
++					    __ATOMIC_ACQUIRE) == 0)
++				__atomic_compare_exchange_n(&dev->sd_error,
++							    &zero, rc, false,
++							    __ATOMIC_ACQ_REL,
++							    __ATOMIC_ACQUIRE);
++			break;
++		}
++
++		/*
++		 * The backend knows there is nothing at or beyond this
++		 * chunk.  Chunks are handed out in order, so that is the end
++		 * of the target for every worker, not just this one.
++		 */
++		if (done) {
++			__u64 end = __atomic_load_n(&dev->sd_end,
++						    __ATOMIC_ACQUIRE);
++
++			while (idx + 1 < end &&
++			       !__atomic_compare_exchange_n(&dev->sd_end, &end,
++							    idx + 1, false,
++							    __ATOMIC_ACQ_REL,
++							    __ATOMIC_ACQUIRE))
++				;
++			break;
++		}
++	}
++
++	return NULL;
++}
++
++static void scan_stats_merge(struct llapi_scan_stats *to,
++			     const struct llapi_scan_stats *from)
++{
++	unsigned int i;
++
++	to->ss_seen += from->ss_seen;
++	to->ss_emitted += from->ss_emitted;
++	to->ss_skipped += from->ss_skipped;
++	to->ss_filtered += from->ss_filtered;
++	for (i = 0; i < LLAPI_SCAN_CLS_MAX; i++)
++		to->ss_class[i] += from->ss_class[i];
++}
++
++/*
++ * The backend, loaded once: a plugin beside mount_osd_ldiskfs.so, found the
++ * same way, or linked in where plugins are disabled.
++ */
++#ifndef PLUGIN_DIR
++#ifdef HAVE_LDISKFS_SCAN
++static struct llapi_scan_backend scan_backend_ldiskfs = {
++	.sb_open	= scan_ldiskfs_open,
++	.sb_close	= scan_ldiskfs_close,
++	.sb_worker_init	= scan_ldiskfs_worker_init,
++	.sb_worker_fini	= scan_ldiskfs_worker_fini,
++	.sb_scan_chunk	= scan_ldiskfs_scan_chunk,
++};
++#endif /* HAVE_LDISKFS_SCAN */
++#endif /* !PLUGIN_DIR */
++
++static pthread_once_t scan_backend_once = PTHREAD_ONCE_INIT;
++static struct llapi_scan_backend *scan_backend;
++
++#ifdef PLUGIN_DIR
++#define SCAN_DLSYM(handle, ops, func)					\
++	((ops)->sb_##func = (typeof((ops)->sb_##func))			\
++			    dlsym(handle, "scan_ldiskfs_" #func))
++
++static void scan_backend_load(void)
++{
++	struct llapi_scan_backend *be;
++	char filename[PATH_MAX];
++	const char *dirname;
++	void *handle;
++
++	snprintf(filename, sizeof(filename), PLUGIN_DIR"/scan_osd_ldiskfs.so");
++	handle = dlopen(filename, RTLD_NOW);
++
++	/* $LUSTRE is how test-framework points at a build tree */
++	if (handle == NULL) {
++		dirname = secure_getenv("LUSTRE");
++		if (dirname != NULL) {
++			snprintf(filename, sizeof(filename),
++				 "%s/utils/scan_osd_ldiskfs.so", dirname);
++			handle = dlopen(filename, RTLD_NOW);
++		}
++	}
++	if (handle == NULL) {
++		/* worth saying out loud: the caller asked for a scan */
++		llapi_error(LLAPI_MSG_ERROR | LLAPI_MSG_NO_ERRNO, -ENOTSUP,
++			    "no device scan backend: %s", dlerror());
++		return;
++	}
++
++	be = calloc(1, sizeof(*be));
++	if (be == NULL) {
++		dlclose(handle);
++		return;
++	}
++
++	SCAN_DLSYM(handle, be, open);
++	SCAN_DLSYM(handle, be, close);
++	SCAN_DLSYM(handle, be, worker_init);
++	SCAN_DLSYM(handle, be, worker_fini);
++	SCAN_DLSYM(handle, be, scan_chunk);
++
++	/*
++	 * Every pointer, not dlerror(): glibc clears the pending error at the
++	 * start of each _dlerror_run(), so a dlsym() that succeeds wipes what
++	 * a failing one left behind and only the last of the five could be
++	 * reported.  This library and the plugin ship in separate RPMs, and
++	 * the $LUSTRE fallback above loads whatever a build tree has, so a
++	 * scan_osd_ldiskfs.so out of step with this library is a real
++	 * arrival -- and a symbol missing from it would be called through
++	 * NULL.
++	 */
++	if (be->sb_open == NULL || be->sb_close == NULL ||
++	    be->sb_worker_init == NULL || be->sb_worker_fini == NULL ||
++	    be->sb_scan_chunk == NULL) {
++		llapi_error(LLAPI_MSG_ERROR | LLAPI_MSG_NO_ERRNO, -ENOTSUP,
++			    "%s is not a device scan backend", filename);
++		dlclose(handle);
++		free(be);
++		return;
++	}
++
++	scan_backend = be;
++}
++#else /* !PLUGIN_DIR */
++static void scan_backend_load(void)
++{
++#ifdef HAVE_LDISKFS_SCAN
++	scan_backend = &scan_backend_ldiskfs;
++#endif
++}
++#endif /* PLUGIN_DIR */
++
++/* A Lustre target sets dirdata, which stock libext2fs refuses to open. */
++static void scan_open_error(const char *device, int rc)
++{
++	if (rc == -ENOPKG)
++		llapi_error(LLAPI_MSG_ERROR | LLAPI_MSG_NO_ERRNO, rc,
++			    "%s: unsupported features; needs Lustre's e2fsprogs",
++			    device);
++	else
++		llapi_error(LLAPI_MSG_ERROR, rc, "cannot open %s", device);
++}
++
++/**
++ * llapi_scan_device() - scan a target's own objects, one record per object
++ * @device:	block device, image or snapshot holding an MDT or OST
++ * @sp:		scan parameters, or NULL for the defaults
++ * @cb:		called once per object
++ * @data:	passed to @cb and to sp->lfsp_filter untouched
++ *
++ * The target is opened read-only and is neither mounted nor coordinated
++ * with.  It may be in service, at the cost of a stale view and the odd
++ * object caught mid-update, which is skipped and counted in lfsp_stats.
++ *
++ * Records carry no path: a device holds names and parent FIDs, in lfsr_name
++ * and lfsr_parent_fid.  The callback contract is llapi_scan_namespace()'s,
++ * thread-safety included.
++ *
++ * Return: 0 on success, or a negative errno.  -ENOTSUP means this build
++ * has no backend for the target; -ENOPKG means the backend is here and
++ * refused the target, which is a different thing to tell a user and a
++ * different thing for a test to skip on.  A callback returning non-zero
++ * stops the scan, and its value is returned unchanged.
++ */
++int llapi_scan_device(const char *device, const struct llapi_scan_param *sp,
++		      llapi_scan_cb_t cb, void *data)
++{
++	struct llapi_scan_param spl = { 0 };
++	struct llapi_scan_stats stats = { 0 };
++	struct scan_worker *workers;
++	struct scan_dev dev = { 0 };
++	unsigned int nworkers;
++	unsigned int started;
++	unsigned int i;
++	__u64 known;
++	int rc;
++
++	if (device == NULL || cb == NULL)
++		return -EINVAL;
++
++	if (sp != NULL) {
++		rc = scan_param_copyin(&spl, sp, LLAPI_SCAN_F_KNOWN_DEV);
++		if (rc != 0)
++			return rc;
++		sp = &spl;
++		/* only now: a short lfsp_size may not reach lfsp_stats */
++		if (spl.lfsp_stats != NULL &&
++		    spl.lfsp_stats->ss_size < LLAPI_SCAN_STATS_MIN_SIZE)
++			return -EINVAL;
++	}
++
++	pthread_once(&scan_backend_once, scan_backend_load);
++	if (scan_backend == NULL)
++		return -ENOTSUP;
++
++	dev.sd_be = scan_backend;
++	dev.sd_cb = cb;
++	dev.sd_data = data;
++	dev.sd_filter = sp != NULL ? sp->lfsp_filter : NULL;
++	dev.sd_flags = sp != NULL ? sp->lfsp_flags : 0;
++	/* everything: no field here costs a read of its own, only the
++	 * object's xattrs, which are one read whatever is asked of them
++	 */
++	dev.sd_want = scan_want_widen(sp != NULL && sp->lfsp_want != 0 ?
++				      sp->lfsp_want : ~0ULL);
++	dev.sd_want_xattr = scan_want_xattr(dev.sd_want);
++
++	rc = dev.sd_be->sb_open(device, &dev.sd_tgt, &dev.sd_tgt_info);
++	if (rc < 0) {
++		scan_open_error(device, rc);
++		return rc;
++	}
++
++	/*
++	 * Which objects are the target's subject matter depends on what the
++	 * target is, so a device whose label names neither is refused rather
++	 * than guessed at: on a filesystem that is not a Lustre target no
++	 * object has an LMA, every one of them classifies as CLS_NO_LMA, and
++	 * a scan that delivered nothing would return 0 and read as an empty
++	 * target.  Neither ENOTSUP, the answer for a build with no backend,
++	 * nor ENOPKG, the answer for a target the backend refused: a
++	 * caller keys its own behaviour off all three.
++	 */
++	if (!(dev.sd_tgt_info.tt_flags &
++	      (LLAPI_SCAN_TGT_MDT | LLAPI_SCAN_TGT_OST))) {
++		llapi_error(LLAPI_MSG_ERROR | LLAPI_MSG_NO_ERRNO, -EINVAL,
++			    "%s: label '%s' names no MDT or OST", device,
++			    dev.sd_tgt_info.tt_label);
++		rc = -EINVAL;
++		goto out_close;
++	}
++
++	/*
++	 * The target is known now, so the demand mask can be answered for
++	 * this scan rather than for the entry point: what a scan of a device
++	 * fills, less the fields only the other kind of target has, less the
++	 * MDT index where the label did not carry one.
++	 */
++	known = LLAPI_SCAN_WANT_KNOWN_DEV;
++	if (!(dev.sd_tgt_info.tt_flags & LLAPI_SCAN_TGT_MDT))
++		known &= ~(__u64)LLAPI_SCAN_WANT_MDT_ONLY;
++	if (!(dev.sd_tgt_info.tt_flags & LLAPI_SCAN_TGT_INDEX))
++		known &= ~(__u64)LLAPI_SCAN_MDT_INDEX;
++	scan_param_report_got(sp, dev.sd_want, known);
++
++	dev.sd_end = dev.sd_tgt_info.tt_chunks;
++	dev.sd_visible = dev.sd_tgt_info.tt_flags & LLAPI_SCAN_TGT_OST ?
++			 LLAPI_SCAN_CLS_OST_OBJ : LLAPI_SCAN_CLS_VISIBLE;
++
++	nworkers = sp != NULL && sp->lfsp_thread_count > 1 ?
++		   sp->lfsp_thread_count : 1;
++	workers = calloc(nworkers, sizeof(*workers));
++	if (workers == NULL) {
++		rc = -ENOMEM;
++		goto out_close;
++	}
++
++	for (i = 0; i < nworkers; i++) {
++		workers[i].sw_dev = &dev;
++		rc = dev.sd_be->sb_worker_init(dev.sd_tgt,
++					       &workers[i].sw_bectx);
++		if (rc < 0) {
++			/*
++			 * Degraded, not failed, once one worker exists: the
++			 * same reasoning as the pthread_create() arm below.
++			 * A backend opens the device again per worker, and
++			 * lfsp_thread_count is a __u8, so running out here is
++			 * a caller asking for more than the node has.
++			 */
++			if (i == 0)
++				goto out_workers;
++			llapi_error(LLAPI_MSG_WARN | LLAPI_MSG_NO_ERRNO, rc,
++				    "scanning with %u of %u workers",
++				    i, nworkers);
++			nworkers = i;
++			rc = 0;
++			break;
++		}
++	}
++
++	/* the caller's thread is one of the workers */
++	for (started = 1; started < nworkers; started++) {
++		rc = pthread_create(&workers[started].sw_thread, NULL,
++				    scan_worker_run, &workers[started]);
++		if (rc != 0) {
++			/*
++			 * Degraded, not failed: the cursor feeds whatever
++			 * workers exist and the scan still covers everything,
++			 * so this must not turn a complete result into an
++			 * error a caller would retry.
++			 */
++			llapi_error(LLAPI_MSG_WARN | LLAPI_MSG_NO_ERRNO, -rc,
++				    "scanning with %u of %u threads",
++				    started, nworkers);
++			rc = 0;
++			break;
++		}
++	}
++
++	scan_worker_run(&workers[0]);
++
++	for (i = 1; i < started; i++)
++		pthread_join(workers[i].sw_thread, NULL);
++
++	for (i = 0; i < nworkers; i++)
++		scan_stats_merge(&stats, &workers[i].sw_stats);
++	if (rc == 0)
++		rc = dev.sd_error;
++
++	if (sp != NULL && sp->lfsp_stats != NULL) {
++		struct llapi_scan_stats *out = sp->lfsp_stats;
++		__u32 size = out->ss_size;
++
++		if (size > sizeof(stats))
++			size = sizeof(stats);
++		/* a whole counter, never half of one */
++		size = scan_stats_whole(size);
++		stats.ss_size = size;
++		memcpy(out, &stats, size);
++	}
++
++out_workers:
++	for (i = 0; i < nworkers; i++) {
++		if (workers[i].sw_bectx != NULL)
++			dev.sd_be->sb_worker_fini(dev.sd_tgt,
++						  workers[i].sw_bectx);
++	}
++	free(workers);
++out_close:
++	dev.sd_be->sb_close(dev.sd_tgt);
++
++	/* a consumer that stopped the scan hears its own value back */
++	return dev.sd_stop_rc != 0 ? dev.sd_stop_rc : rc;
++}
+diff --git a/lustre/utils/libscan_ldiskfs.c b/lustre/utils/libscan_ldiskfs.c
+new file mode 100644
+index 0000000000..032591fe93
+--- /dev/null
++++ b/lustre/utils/libscan_ldiskfs.c
+@@ -0,0 +1,679 @@
++// SPDX-License-Identifier: LGPL-2.1+
++
++/*
++ * Copyright (c) 2026, The Lustre Collective.
++ */
++
++/*
++ * The ldiskfs backend of llapi_scan_device(): an MDT's or OST's objects read
++ * off the block device with libext2fs, unmounted and without the server.
++ * Opened read-only; there is no write path here.
++ *
++ * What this file knows is ext4.  What an LMA means is liblustreapi's, on the
++ * other side of struct llapi_scan_sink.
++ *
++ * Author: Hiroshi Nishida <hnishida@thelustrecollective.com>
++ */
++
++#include <errno.h>
++#include <stdlib.h>
++#include <string.h>
++#include <sys/stat.h>
++
++#include <ext2fs/ext2fs.h>
++
++#include <linux/lustre/lustre_idl.h>
++
++#include "lustreapi_scan_backend.h"
++
++/*
++ * No EXT2_FLAG_RW: there is no write path.  SKIP_MMP because we only read,
++ * SOFTSUPP_FEATURES for ldiskfs features this build does not implement, and
++ * IGNORE_CSUM_ERRORS so that ext2fs_open() gets past the metadata of a
++ * mounted target.  A worker clears it on its own handle: with it set,
++ * libext2fs never verifies an inode, and a torn one would be delivered
++ * rather than counted and skipped.
++ */
++#define SCAN_EXT2_FLAGS	(EXT2_FLAG_SKIP_MMP | EXT2_FLAG_SOFTSUPP_FEATURES | \
++			 EXT2_FLAG_64BITS | EXT2_FLAG_IGNORE_CSUM_ERRORS)
++
++/* Enough block groups to cover about this many inodes per unit of work, so
++ * the chunk count stays in the thousands and the shared cursor the workers
++ * take from is not a contention point.
++ */
++#define SCAN_CHUNK_INODES	65536
++
++/* Values libext2fs hands back are ours to free: LMA plus the five the
++ * demand mask can ask for -- LOV, LMV, SOM, LINK and HSM.
++ */
++#define SCAN_EA_BUFS		LLAPI_SCAN_XA_MAX
++
++struct scan_ldiskfs_tgt {
++	ext2_filsys	 st_fs;		/* geometry, and the shared bitmap */
++	char		*st_device;
++	unsigned int	 st_groups_per_chunk;
++};
++
++struct scan_ldiskfs_worker {
++	ext2_filsys		 sw_fs;	/* private handle and scan position */
++	ext2_inode_scan		 sw_scan;
++	struct ext2_inode_large	*sw_inode;
++	unsigned int		 sw_bufsize;
++	void			*sw_bufs[SCAN_EA_BUFS];
++	int			 sw_nbufs;
++};
++
++static const char *const scan_xattr_name[LLAPI_SCAN_XA_MAX] = {
++	[LLAPI_SCAN_XA_LMA]	= XATTR_NAME_LMA,
++	[LLAPI_SCAN_XA_LOV]	= XATTR_NAME_LOV,
++	[LLAPI_SCAN_XA_LMV]	= XATTR_NAME_LMV,
++	[LLAPI_SCAN_XA_SOM]	= XATTR_NAME_SOM,
++	[LLAPI_SCAN_XA_LINK]	= XATTR_NAME_LINK,
++	[LLAPI_SCAN_XA_HSM]	= XATTR_NAME_HSM,
++};
++
++/*
++ * A target's label is what mkfs.lustre wrote there: fsname-MDT0000.  It is
++ * free at open time and it is the only thing on the device that says which
++ * target this is, so it settles both the index and MDT versus OST.
++ */
++static void scan_ldiskfs_label(const struct ext2_super_block *sb,
++			       struct llapi_scan_tgt *tgt)
++{
++	const char *sep;
++	size_t len;
++	char *end;
++	long idx;
++
++	memcpy(tgt->tt_label, sb->s_volume_name, sizeof(sb->s_volume_name));
++	tgt->tt_label[sizeof(sb->s_volume_name)] = '\0';
++
++	/*
++	 * fsname-MDT0000 once mounted, fsname:MDT0000 never mounted,
++	 * fsname=MDT0000 after writeconf, fsname+MDT0000 after
++	 * --nolocallogs: the target part is the last eight characters
++	 * every way.  mount_lustre.c reads the same four separators.
++	 */
++	len = strlen(tgt->tt_label);
++	if (len < 8)
++		return;
++	sep = tgt->tt_label + len - 8;
++	if (sep[0] != '-' && sep[0] != ':' && sep[0] != '=' && sep[0] != '+')
++		return;
++
++	idx = strtol(sep + 4, &end, 16);
++	if (end != sep + 8 || idx < 0)
++		return;
++
++	if (strncmp(sep + 1, "OST", 3) == 0)
++		tgt->tt_flags |= LLAPI_SCAN_TGT_OST;
++	else if (strncmp(sep + 1, "MDT", 3) == 0)
++		tgt->tt_flags |= LLAPI_SCAN_TGT_MDT;
++	else
++		return;
++
++	/*
++	 * A target formatted without --index carries INDEX_UNASSIGNED
++	 * (mount_utils.h, 0xffff) until it first registers, which reads as
++	 * a real index here.  The target is still an MDT or an OST; only
++	 * its number is not known yet.
++	 */
++	if (idx == 0xffff)
++		return;
++
++	tgt->tt_index = (__u32)idx;
++	tgt->tt_flags |= LLAPI_SCAN_TGT_INDEX;
++}
++
++/*
++ * Below EXT2_ET_BASE an errcode is a plain errno, so a missing device says
++ * ENOENT rather than arriving as an I/O error.  An unsupported feature gets
++ * ENOPKG, for the caller to explain: a Lustre target sets dirdata, which
++ * only the e2fsprogs distributed with Lustre lists as supported, so the
++ * package to install is the answer.  Not ENOTSUP, which is this library
++ * saying it has no backend at all -- the two look alike from a shell and
++ * mean opposite things about the node.
++ *
++ * A device with no ext superblock at all -- a ZFS target, a raw LUN, a file
++ * that is not an image -- says EINVAL, the same answer llapi_scan_device()
++ * gives a label naming neither an MDT nor an OST.  It is not EIO: that is
++ * documented as a read of the target having failed, which tells a caller to
++ * look at the media.
++ */
++static int scan_errcode(errcode_t err)
++{
++	if (err == EXT2_ET_UNSUPP_FEATURE || err == EXT2_ET_RO_UNSUPP_FEATURE)
++		return -ENOPKG;
++	if (err == EXT2_ET_BAD_MAGIC)
++		return -EINVAL;
++	if (err > 0 && err < EXT2_ET_BASE)
++		return -(int)err;
++	return -EIO;
++}
++
++int scan_ldiskfs_open(const char *device, void **tgtp,
++		      struct llapi_scan_tgt *tgt)
++{
++	struct scan_ldiskfs_tgt *t;
++	unsigned int ipg;
++	errcode_t err;
++	int rc;
++
++	t = calloc(1, sizeof(*t));
++	if (t == NULL)
++		return -ENOMEM;
++
++	t->st_device = strdup(device);
++	if (t->st_device == NULL) {
++		rc = -ENOMEM;
++		goto out;
++	}
++
++	err = ext2fs_open(device, SCAN_EXT2_FLAGS, 0, 0, unix_io_manager,
++			  &t->st_fs);
++	if (err != 0) {
++		rc = scan_errcode(err);
++		goto out;
++	}
++
++	/*
++	 * The allocation bitmap is the authority on which objects exist, and
++	 * every worker only ever tests it, so one copy read here is shared
++	 * rather than one per worker.  ext2fs_open() leaves default_bitmap_type
++	 * at EXT2FS_BMAP64_BITARRAY, whose test is a plain bit read, so the
++	 * concurrent tests are safe; e2fsck's rbtree bitmap would not be.  It
++	 * outlives the workers, which are joined before scan_ldiskfs_close().
++	 */
++	err = ext2fs_read_inode_bitmap(t->st_fs);
++	if (err != 0) {
++		rc = scan_errcode(err);
++		goto out;
++	}
++
++	ipg = t->st_fs->super->s_inodes_per_group;
++	t->st_groups_per_chunk = ipg != 0 ?
++		(SCAN_CHUNK_INODES + ipg - 1) / ipg : 1;
++	if (t->st_groups_per_chunk < 1)
++		t->st_groups_per_chunk = 1;
++
++	memset(tgt, 0, sizeof(*tgt));
++	scan_ldiskfs_label(t->st_fs->super, tgt);
++	tgt->tt_chunks = (t->st_fs->group_desc_count +
++			  t->st_groups_per_chunk - 1) / t->st_groups_per_chunk;
++
++	*tgtp = t;
++	return 0;
++out:
++	if (t->st_fs != NULL)
++		ext2fs_close_free(&t->st_fs);
++	free(t->st_device);
++	free(t);
++	return rc;
++}
++
++void scan_ldiskfs_close(void *tgt)
++{
++	struct scan_ldiskfs_tgt *t = tgt;
++
++	if (t == NULL)
++		return;
++	if (t->st_fs != NULL)
++		ext2fs_close_free(&t->st_fs);
++	free(t->st_device);
++	free(t);
++}
++
++int scan_ldiskfs_worker_init(void *tgt, void **wctxp)
++{
++	struct scan_ldiskfs_tgt *t = tgt;
++	struct scan_ldiskfs_worker *wk;
++	unsigned int inode_size;
++	errcode_t err;
++	int rc;
++
++	wk = calloc(1, sizeof(*wk));
++	if (wk == NULL)
++		return -ENOMEM;
++
++	/* libext2fs is not thread-safe across one handle, so a worker gets
++	 * its own -- and with it its own scan position.  It reads no bitmap:
++	 * the target's is shared, and the inode scan never consults one.
++	 */
++	err = ext2fs_open(t->st_device, SCAN_EXT2_FLAGS, 0, 0, unix_io_manager,
++			  &wk->sw_fs);
++	if (err != 0) {
++		rc = scan_errcode(err);
++		goto out;
++	}
++	/* verify each inode it reads; see SCAN_EXT2_FLAGS */
++	wk->sw_fs->flags &= ~EXT2_FLAG_IGNORE_CSUM_ERRORS;
++
++	/* The scan buffer has to be at least the on-disk inode size, so that
++	 * the inline xattr region comes back with the inode.
++	 */
++	inode_size = EXT2_INODE_SIZE(wk->sw_fs->super);
++	wk->sw_bufsize = inode_size > sizeof(*wk->sw_inode) ?
++			 inode_size : sizeof(*wk->sw_inode);
++	err = ext2fs_get_memzero(wk->sw_bufsize, &wk->sw_inode);
++	if (err != 0) {
++		rc = -ENOMEM;
++		goto out;
++	}
++
++	err = ext2fs_open_inode_scan(wk->sw_fs,
++				     EXT2_INODE_SCAN_DEFAULT_BUFFER_BLOCKS,
++				     &wk->sw_scan);
++	if (err != 0) {
++		rc = -EIO;
++		goto out;
++	}
++
++	/* without this, a group whose inode table was never allocated fails
++	 * the scan with EXT2_ET_MISSING_INODE_TABLE instead of being skipped
++	 */
++	ext2fs_inode_scan_flags(wk->sw_scan, EXT2_SF_SKIP_MISSING_ITABLE |
++				EXT2_SF_WARN_GARBAGE_INODES, 0);
++
++	*wctxp = wk;
++	return 0;
++out:
++	if (wk->sw_inode != NULL)
++		ext2fs_free_mem(&wk->sw_inode);
++	if (wk->sw_fs != NULL)
++		ext2fs_close_free(&wk->sw_fs);
++	free(wk);
++	return rc;
++}
++
++void scan_ldiskfs_worker_fini(void *tgt, void *wctx)
++{
++	struct scan_ldiskfs_worker *wk = wctx;
++
++	if (wk == NULL)
++		return;
++	if (wk->sw_scan != NULL)
++		ext2fs_close_inode_scan(wk->sw_scan);
++	if (wk->sw_inode != NULL)
++		ext2fs_free_mem(&wk->sw_inode);
++	if (wk->sw_fs != NULL)
++		ext2fs_close_free(&wk->sw_fs);
++	free(wk);
++}
++
++/*
++ * Cheap checks rejecting an object that cannot be legal, so one caught
++ * mid-update is skipped.  metadata_csum is not enabled on a Lustre MDT, so
++ * there is nothing exact to verify against.
++ */
++static int scan_inode_plausible(const struct ext2_inode_large *inode,
++				unsigned int inode_size)
++{
++	__u16 fmt = inode->i_mode & LINUX_S_IFMT;
++
++	if (inode->i_links_count == 0)
++		return 0;
++
++	switch (fmt) {
++	case LINUX_S_IFREG:
++	case LINUX_S_IFDIR:
++	case LINUX_S_IFLNK:
++	case LINUX_S_IFBLK:
++	case LINUX_S_IFCHR:
++	case LINUX_S_IFIFO:
++	case LINUX_S_IFSOCK:
++		break;
++	default:
++		return 0;
++	}
++
++	if (inode_size > EXT2_GOOD_OLD_INODE_SIZE) {
++		/* i_extra_isize must fit in the inode, and must at least be
++		 * large enough to hold itself
++		 */
++		if (inode->i_extra_isize >
++		    inode_size - EXT2_GOOD_OLD_INODE_SIZE)
++			return 0;
++		if (inode->i_extra_isize != 0 &&
++		    inode->i_extra_isize < sizeof(inode->i_extra_isize))
++			return 0;
++	}
++
++	return 1;
++}
++
++/*
++ * ldiskfs keeps a signed 32-bit seconds field, and for a large inode two
++ * more epoch bits in the low half of the matching i_*time_extra.  Reading
++ * the seconds unsigned turns a pre-1970 timestamp into a 2106 one, and
++ * dropping the epoch bits puts anything past 2038 out by a multiple of
++ * 2^32 -- either way the same object's mtime would differ between this
++ * scanner and llapi_scan_namespace(), which is the comparison a consumer
++ * filtering on age makes.
++ */
++#define SCAN_EXT4_EPOCH_MASK	0x3
++
++static __s64 scan_inode_time(__u32 secs, __u32 extra, bool have_extra)
++{
++	__s64 t = (__s32)secs;
++
++	if (have_extra)
++		t += (__s64)(extra & SCAN_EXT4_EPOCH_MASK) << 32;
++
++	return t;
++}
++
++/* whether i_extra_isize reaches @field, given the @have it accounts for */
++#define scan_inode_has(have, field)					\
++	((have) >= offsetof(struct ext2_inode_large, field) +		\
++		   sizeof(((struct ext2_inode_large *)0)->field))
++
++/* Inodes ldiskfs keeps for itself, as osd_scrub skips them. */
++static bool scan_ino_is_fs_own(ext2_filsys fs, ext2_ino_t ino)
++{
++	if (ino < EXT2_FIRST_INODE(fs->super))
++		return true;
++	/* the project quota inode is above s_first_ino */
++	return ext2fs_has_feature_project(fs->super) &&
++	       ino == fs->super->s_prj_quota_inum;
++}
++
++/* Everything here is already in the inode buffer the scan handed back. */
++static void scan_inode_attrs(ext2_filsys fs,
++			     const struct ext2_inode_large *inode,
++			     ext2_ino_t ino, unsigned int inode_size,
++			     struct llapi_scan_obj *obj)
++{
++	unsigned int have = 0;
++	bool xtra;
++
++	memset(obj, 0, sizeof(*obj));
++
++	obj->so_id = ino;
++	obj->so_mode = inode->i_mode;
++	obj->so_nlink = inode->i_links_count;
++	obj->so_uid = inode->i_uid |
++		      ((__u32)inode->osd2.linux2.l_i_uid_high << 16);
++	obj->so_gid = inode->i_gid |
++		      ((__u32)inode->osd2.linux2.l_i_gid_high << 16);
++	obj->so_size = EXT2_I_SIZE(inode);
++	/* 512-byte units, whatever huge_file and EXT4_HUGE_FILE_FL say */
++	obj->so_blocks = ext2fs_get_stat_i_blocks(fs,
++						 (struct ext2_inode *)inode);
++	obj->so_gen = inode->i_generation;
++	/* as ext4_iget() reads i_rdev, which osd-ldiskfs reports as la_rdev */
++	if (LINUX_S_ISCHR(inode->i_mode) || LINUX_S_ISBLK(inode->i_mode)) {
++		__u32 old = inode->i_block[0];
++		__u32 new = inode->i_block[1];
++
++		if (old != 0)
++			obj->so_rdev = (((old >> 8) & 0xff) << 20) |
++				       (old & 0xff);
++		else
++			obj->so_rdev = (((new & 0xfff00) >> 8) << 20) |
++				       (new & 0xff) | ((new >> 12) & 0xfff00);
++	}
++	obj->so_valid |= LLAPI_SCAN_SO_GEN;
++	/*
++	 * The i_flags bits that share their values with STATX_ATTR_*, narrowed
++	 * to the set a namespace scan can also report: ll_dir_ioctl() puts
++	 * only IMMUTABLE, APPEND and -- under HAVE_LUSTRE_CRYPTO -- ENCRYPTED
++	 * in stx_attributes_mask, and llapi_scan_namespace() takes
++	 * stx_attributes from that mask.  Reporting COMPR and NODUMP here as
++	 * well would make one file answer "lfs find --attrs d" differently
++	 * depending on which scanner ran, where stx_attributes is meant to mean
++	 * one thing whichever filled it.  The bit is on the MDT inode either
++	 * way; making it answerable is llite's to do, for both scanners at
++	 * once.
++	 *
++	 * so_attrs_mask is that same set, declared: a consumer can then tell
++	 * "not immutable" from "this scanner cannot say", which is the
++	 * distinction statx keeps stx_attributes_mask for.
++	 */
++	obj->so_flags = inode->i_flags & (EXT2_IMMUTABLE_FL | EXT2_APPEND_FL);
++	/* not ENCRYPTED: osd-ldiskfs keeps it in the LMA, see the sink */
++	obj->so_attrs_mask = STATX_ATTR_IMMUTABLE | STATX_ATTR_APPEND;
++
++	/*
++	 * The epoch bits, btime and projid all live past i_extra_isize, and
++	 * a field is readable only if i_extra_isize reaches it: they are laid
++	 * out ctime_extra, mtime_extra, atime_extra, crtime, crtime_extra,
++	 * version_hi, projid, so a reader that clears one has not earned the
++	 * next.  version_hi is named because it is four bytes between
++	 * crtime_extra and projid: scan_inode_has() takes every offset from
++	 * offsetof() and so cannot skip it, but a reader checking this list
++	 * by hand would land short of projid without it.
++	 *
++	 * The three timestamps are gated together on i_atime_extra, the last
++	 * of them: an inode reaching only i_ctime_extra loses the epoch bits
++	 * it does carry, which errs towards the 1970 window rather than
++	 * towards reading a field that is not there.
++	 */
++	if (inode_size > EXT2_GOOD_OLD_INODE_SIZE)
++		have = EXT2_GOOD_OLD_INODE_SIZE + inode->i_extra_isize;
++
++	xtra = scan_inode_has(have, i_atime_extra);
++	obj->so_atime = scan_inode_time(inode->i_atime,
++					inode->i_atime_extra, xtra);
++	obj->so_mtime = scan_inode_time(inode->i_mtime,
++					inode->i_mtime_extra, xtra);
++	obj->so_ctime = scan_inode_time(inode->i_ctime,
++					inode->i_ctime_extra, xtra);
++
++	if (scan_inode_has(have, i_crtime)) {
++		bool cxtra = scan_inode_has(have, i_crtime_extra);
++
++		obj->so_btime = scan_inode_time(inode->i_crtime,
++						inode->i_crtime_extra, cxtra);
++		obj->so_valid |= LLAPI_SCAN_SO_BTIME;
++	}
++	if (scan_inode_has(have, i_projid)) {
++		obj->so_projid = inode->i_projid;
++		obj->so_valid |= LLAPI_SCAN_SO_PROJID;
++	}
++}
++
++static void scan_ea_bufs_free(struct scan_ldiskfs_worker *wk)
++{
++	while (wk->sw_nbufs > 0)
++		ext2fs_free_mem(&wk->sw_bufs[--wk->sw_nbufs]);
++}
++
++static void scan_ea_fetch(struct scan_ldiskfs_worker *wk,
++			  struct ext2_xattr_handle *h, enum llapi_scan_xattr x,
++			  struct llapi_scan_obj *obj)
++{
++	void *val = NULL;
++	size_t len = 0;
++
++	if (wk->sw_nbufs == SCAN_EA_BUFS)
++		return;
++	if (ext2fs_xattr_get(h, scan_xattr_name[x], &val, &len) != 0 ||
++	    val == NULL)
++		return;
++
++	wk->sw_bufs[wk->sw_nbufs++] = val;
++	obj->so_xattr[x].sv_buf = val;
++	obj->so_xattr[x].sv_len = len;
++	obj->so_xa_valid |= LLAPI_SCAN_XA_BIT(x);
++}
++
++static void scan_ea_fetch_set(struct scan_ldiskfs_worker *wk,
++			      struct ext2_xattr_handle *h, __u32 want,
++			      struct llapi_scan_obj *obj)
++{
++	int x;
++
++	for (x = 0; x < LLAPI_SCAN_XA_MAX; x++) {
++		if (want & LLAPI_SCAN_XA_BIT(x))
++			scan_ea_fetch(wk, h, x, obj);
++	}
++}
++
++/*
++ * ext2fs_xattrs_read_inode() follows i_file_acl to the external block, so an
++ * object's xattrs come back in one pass whether or not they are inline.
++ *
++ * A failure here means the object's Lustre state is unreadable: without it
++ * a visible object misclassifies and a striped file's own size passes as
++ * the file's, so the caller must skip and count the object, not use it.
++ */
++static int scan_read_xattrs(struct scan_ldiskfs_worker *wk, ext2_ino_t ino,
++			    __u32 want, struct llapi_scan_obj *obj)
++{
++	struct ext2_xattr_handle *h = NULL;
++
++	if (ext2fs_xattrs_open(wk->sw_fs, ino, &h) != 0)
++		return -1;
++
++	/* follows i_file_acl itself, so an external block costs no re-read */
++	if (ext2fs_xattrs_read_inode(h, wk->sw_inode) != 0) {
++		ext2fs_xattrs_close(&h);
++		return -1;
++	}
++
++	scan_ea_fetch_set(wk, h, want, obj);
++	ext2fs_xattrs_close(&h);
++
++	return 0;
++}
++
++int scan_ldiskfs_scan_chunk(void *tgt, void *wctx, __u64 idx,
++			    const struct llapi_scan_sink *sink, int *done)
++{
++	struct scan_ldiskfs_tgt *t = tgt;
++	struct scan_ldiskfs_worker *wk = wctx;
++	ext2_filsys fs = wk->sw_fs;
++	unsigned int inode_size = EXT2_INODE_SIZE(fs->super);
++	__u64 ipg = fs->super->s_inodes_per_group;
++	__u64 group = idx * t->st_groups_per_chunk;
++	__u64 end_ino;
++	ext2_ino_t ino;
++	errcode_t err;
++
++	if (group >= fs->group_desc_count) {
++		*done = 1;
++		return 0;
++	}
++
++	/* group g holds inodes [g * ipg + 1, (g + 1) * ipg] */
++	end_ino = (group + t->st_groups_per_chunk) * ipg;
++	if (end_ino >= fs->super->s_inodes_count) {
++		end_ino = fs->super->s_inodes_count;
++		*done = 1;
++	}
++
++	err = ext2fs_inode_scan_goto_blockgroup(wk->sw_scan, (int)group);
++	if (err != 0)
++		return -EIO;
++
++	for (;;) {
++		struct llapi_scan_obj obj;
++		int rc;
++
++		err = ext2fs_get_next_inode_full(wk->sw_scan, &ino,
++						 (struct ext2_inode *)
++						 wk->sw_inode, wk->sw_bufsize);
++		/*
++		 * The errors that still advance the scan describe one
++		 * inode, not the target: a bad block under it, a checksum
++		 * that does not verify, a body libext2fs calls garbage.
++		 * Skipping is what the scan promises for an object it
++		 * cannot read; ending the target's scan on one of them
++		 * would lose every inode after it as well.
++		 */
++		if (err == EXT2_ET_BAD_BLOCK_IN_INODE_TABLE ||
++		    err == EXT2_ET_INODE_CSUM_INVALID ||
++		    err == EXT2_ET_INODE_IS_GARBAGE) {
++			/*
++			 * The same questions the readable path below asks,
++			 * and for the same reasons: whose chunk this inode
++			 * is, whether it is an object at all, and whether
++			 * the bitmap has it.  The bitmap is in another
++			 * block, read at open, so it is still good here.
++			 * ext2fs_get_next_inode_full() assigns *ino before
++			 * it returns any of these three, so all can be
++			 * asked here -- unlike the errors above, which
++			 * leave it untouched.
++			 *
++			 * The bound matters here too: an unreadable inode
++			 * past end_ino belongs to the chunk starting
++			 * there, which reads it again, so counting it in
++			 * this one counts it twice.
++			 */
++			if ((__u64)ino > end_ino)
++				return 0;
++			if (scan_ino_is_fs_own(fs, ino))
++				continue;
++			if (!ext2fs_test_inode_bitmap2(t->st_fs->inode_map,
++						       ino))
++				continue;
++			sink->sk_skip(sink->sk_ctx, LLAPI_SCAN_SKIP_IO);
++			continue;
++		}
++		/*
++		 * A read of the inode table itself failed, and nothing has
++		 * advanced -- retrying would read the same block forever.
++		 * That one ends the scan of this target.
++		 */
++		if (err != 0)
++			return -EIO;
++		if (ino == 0) {
++			*done = 1;	/* the end of the whole table */
++			return 0;
++		}
++		if ((__u64)ino > end_ino)
++			return 0;	/* the end of this chunk */
++
++		/* ext4's own inodes: Lustre's objects start above */
++		if (scan_ino_is_fs_own(fs, ino))
++			continue;
++
++		/*
++		 * The inode table also returns freed inodes, stale but still
++		 * parseable, so the bitmap is what says an object exists --
++		 * as osd_iit_next() has it.  An empty slot is not a skipped
++		 * object and is not counted as one.
++		 *
++		 * i_dtime is deliberately not consulted with it.  ldiskfs
++		 * aliases it as NEXT_ORPHAN, and ext4_orphan_add() writes
++		 * the next orphan's inode number there and dirties the
++		 * inode, so it reaches the device: a file mid-truncate, or
++		 * every orphan after an unclean shutdown this read-only
++		 * scan replays no journal for, has i_dtime set with its
++		 * links intact.  A genuinely freed inode is caught by the
++		 * bitmap and by i_links_count in scan_inode_plausible(),
++		 * which is what the kernel's own iterator relies on.
++		 */
++		if (!ext2fs_test_inode_bitmap2(t->st_fs->inode_map, ino))
++			continue;
++
++		if (!scan_inode_plausible(wk->sw_inode, inode_size)) {
++			sink->sk_skip(sink->sk_ctx, LLAPI_SCAN_SKIP_INVALID);
++			continue;
++		}
++		/* an ea_inode holds one xattr value, not an object */
++		if (wk->sw_inode->i_flags & EXT4_EA_INODE_FL)
++			continue;
++
++		scan_inode_attrs(fs, wk->sw_inode, ino, inode_size, &obj);
++
++		/* the cheap stage: no xattr has been read yet */
++		rc = sink->sk_prefilter(sink->sk_ctx, &obj);
++		if (rc > 0)
++			continue;
++		if (rc < 0)
++			return rc;
++
++		if (scan_read_xattrs(wk, ino, sink->sk_want_xattr,
++				     &obj) < 0) {
++			/* a partial read still holds buffers */
++			scan_ea_bufs_free(wk);
++			sink->sk_skip(sink->sk_ctx, LLAPI_SCAN_SKIP_XATTR);
++			continue;
++		}
++		rc = sink->sk_object(sink->sk_ctx, &obj);
++		scan_ea_bufs_free(wk);
++		if (rc < 0)
++			return rc;
++	}
++}
+diff --git a/lustre/utils/lustreapi_internal.h b/lustre/utils/lustreapi_internal.h
+index d7718d4aac..7b8d8033c4 100644
+--- a/lustre/utils/lustreapi_internal.h
++++ b/lustre/utils/lustreapi_internal.h
+@@ -30,8 +30,6 @@
+ #include <linux/lustre/lustre_idl.h>
+ #include <linux/lustre/lustre_kernelcomm.h>
+ 
+-#include "lstddef.h"		/* ARRAY_SIZE */
+-
+ #include <lustre/lustreapi.h>
+ 
+ struct cYAML;
+@@ -296,6 +294,13 @@ struct llapi_scan_rec;
+  * against.
+  */
+ #define LLAPI_SCAN_F_KNOWN_NS	(LLAPI_SCAN_F_STOP_ON_ERROR)
++/* a device scan knows those, and the ones only it can act on */
++#define LLAPI_SCAN_F_KNOWN_DEV	(LLAPI_SCAN_F_KNOWN_NS |		\
++				 LLAPI_SCAN_F_INTERNAL)
++/* and the shortest struct llapi_scan_stats a scan will write back */
++#define LLAPI_SCAN_STATS_MIN_SIZE					\
++	((__u32)(offsetof(struct llapi_scan_stats, ss_seen) +		\
++		 sizeof(((struct llapi_scan_stats *)0)->ss_seen)))
+ /*
+  * What a namespace scan has to reach the MDT for.  The rest of what it can
+  * answer for comes from the directory entry and is LLAPI_SCAN_DIRENT_MASK,
+@@ -363,18 +368,58 @@ static inline __u32 scan_param_whole(__u32 size)
+ 		SCAN_PF_END(lfsp_want), SCAN_PF_END(lfsp_filter),
+ 		SCAN_PF_END(lfsp_thread_count), SCAN_PF_END(lfsp_padding),
+ 		SCAN_PF_END(lfsp_got),
++		SCAN_PF_END(lfsp_stats),
+ 	};
+-	static_assert(SCAN_PF_END(lfsp_got) ==
++	static_assert(SCAN_PF_END(lfsp_stats) ==
+ 		      sizeof(struct llapi_scan_param),
+ 		      "a field was added without a row in ends[]");
+ #undef SCAN_PF_END
+ 	__u32 whole = ends[0];
+ 	unsigned int i;
+ 
+-	for (i = 0; i < ARRAY_SIZE(ends); i++)
++	for (i = 0; i < sizeof(ends) / sizeof(ends[0]); i++)
++		if (ends[i] <= size)
++			whole = ends[i];
++
++	return whole;
++}
++
++/*
++ * The same, for struct llapi_scan_stats, which a caller also sizes with its
++ * own ss_size.  Rounding down to a whole counter matters more here than it
++ * looks: an ss_size that stops inside one -- 20 passes
++ * LLAPI_SCAN_STATS_MIN_SIZE and lands in the middle of ss_emitted -- would
++ * otherwise leave the caller the low half of a number and its own bytes in
++ * the high half, which is neither the library's value nor zero.
++ */
++static inline __u32 scan_stats_whole(__u32 size)
++{
++#define SCAN_SF_END(f)							\
++	((__u32)(offsetof(struct llapi_scan_stats, f) +			\
++		 sizeof(((struct llapi_scan_stats *)0)->f)))
++	static const __u32 ends[] = {
++		SCAN_SF_END(ss_padding), SCAN_SF_END(ss_seen),
++		SCAN_SF_END(ss_emitted), SCAN_SF_END(ss_skipped),
++		SCAN_SF_END(ss_filtered), SCAN_SF_END(ss_class),
++	};
++	static_assert(LLAPI_SCAN_CLS_MAX <= LLAPI_SCAN_CLS_SLOTS,
++		      "ss_class has no room for a new class");
++	static_assert(SCAN_SF_END(ss_class) ==
++		      sizeof(struct llapi_scan_stats),
++		      "a counter was added without a row in ends[]");
++	const __u32 class_start = SCAN_SF_END(ss_filtered);
++#undef SCAN_SF_END
++	__u32 whole = ends[0];
++	unsigned int i;
++
++	for (i = 0; i < sizeof(ends) / sizeof(ends[0]); i++)
+ 		if (ends[i] <= size)
+ 			whole = ends[i];
+ 
++	/* inside ss_class, keep each whole element the caller has room for */
++	if (whole == class_start && size > class_start)
++		whole += (size - class_start) / sizeof(__u64) * sizeof(__u64);
++
+ 	return whole;
+ }
+ 
+@@ -479,6 +524,35 @@ static inline void scan_param_report_got(const struct llapi_scan_param *sp,
+ 	(~0ULL & ~(LLAPI_SCAN_MDT_INDEX | LLAPI_SCAN_PROJID |		\
+ 		   LLAPI_SCAN_HSM))
+ 
++/*
++ * And what llapi_scan_device() can answer for, which is not the same set:
++ * a scan of a target reads the object itself, so it answers for fields a
++ * walk pays an ioctl or an open for, and for the class and linkea a
++ * namespace has no need of.  Narrowed again by what the target turns out
++ * to be -- only an MDT has a layout or a directory stripe -- so lfsp_got is
++ * answered for the scan actually being run.
++ */
++#define LLAPI_SCAN_WANT_KNOWN_DEV					\
++	(LLAPI_SCAN_TYPE | LLAPI_SCAN_MODE | LLAPI_SCAN_NLINK |		\
++	 LLAPI_SCAN_UID | LLAPI_SCAN_GID | LLAPI_SCAN_ATIME |		\
++	 LLAPI_SCAN_MTIME | LLAPI_SCAN_CTIME | LLAPI_SCAN_BTIME |	\
++	 LLAPI_SCAN_SIZE | LLAPI_SCAN_BLOCKS | LLAPI_SCAN_ATTRS |	\
++	 LLAPI_SCAN_LAZY_SIZE | LLAPI_SCAN_LAZY_BLOCKS |		\
++	 LLAPI_SCAN_FID | LLAPI_SCAN_LAYOUT | LLAPI_SCAN_LMV |		\
++	 LLAPI_SCAN_LMV_FOREIGN |				\
++	 LLAPI_SCAN_MDT_INDEX | LLAPI_SCAN_PROJID | LLAPI_SCAN_HSM |	\
++	 LLAPI_SCAN_INO | LLAPI_SCAN_PARENT | LLAPI_SCAN_LINKEA |	\
++	 LLAPI_SCAN_LMA | LLAPI_SCAN_CLASS)
++/* and what only one kind of target has, so a scan of the other never
++ * answers for it: the layout, the directory stripe, the lazy SOM size, the
++ * MDT index and the linkea with the parent it names are the MDT's.
++ */
++#define LLAPI_SCAN_WANT_MDT_ONLY					\
++	(LLAPI_SCAN_LAYOUT | LLAPI_SCAN_LMV | LLAPI_SCAN_LMV_FOREIGN |	\
++	 LLAPI_SCAN_HSM |						\
++	 LLAPI_SCAN_LAZY_SIZE | LLAPI_SCAN_LAZY_BLOCKS |		\
++	 LLAPI_SCAN_MDT_INDEX | LLAPI_SCAN_LINKEA | LLAPI_SCAN_PARENT)
++
+ void scan_rec_dirent(struct llapi_scan_rec *rec, const char *path,
+ 		     int p, int d, const struct dirent64 *de);
+ int scan_rec_gather_begin(struct find_param *param, char *path, int d,
+diff --git a/lustre/utils/lustreapi_scan_backend.h b/lustre/utils/lustreapi_scan_backend.h
+new file mode 100644
+index 0000000000..4bf85034ef
+--- /dev/null
++++ b/lustre/utils/lustreapi_scan_backend.h
+@@ -0,0 +1,160 @@
++/* SPDX-License-Identifier: LGPL-2.1+ */
++
++/*
++ * Copyright (c) 2026, The Lustre Collective.
++ */
++
++/*
++ * The interface between llapi_scan_device() and a device backend.
++ *
++ * A backend gets an object's attributes off a target and hands them over;
++ * what the bytes mean stays in liblustreapi, so a second backend is a second
++ * reader and not a second copy of that.  It is also what keeps libext2fs out
++ * of the library: the ldiskfs backend is dlopen'ed, as mount.lustre does.
++ *
++ * Control is inverted relative to a next()/read() iterator: the backend walks
++ * one chunk of its id space and calls the sink per object.
++ *
++ * Author: Hiroshi Nishida <hnishida@thelustrecollective.com>
++ */
++#ifndef _LUSTREAPI_SCAN_BACKEND_H_
++#define _LUSTREAPI_SCAN_BACKEND_H_
++
++#include <stddef.h>
++#include <linux/types.h>
++
++/* The xattrs a backend may be asked to bring back with an object. */
++enum llapi_scan_xattr {
++	LLAPI_SCAN_XA_LMA = 0,		/* trusted.lma: always asked for */
++	LLAPI_SCAN_XA_LOV,		/* trusted.lov */
++	LLAPI_SCAN_XA_LMV,		/* trusted.lmv */
++	LLAPI_SCAN_XA_SOM,		/* trusted.som */
++	LLAPI_SCAN_XA_LINK,		/* trusted.link */
++	LLAPI_SCAN_XA_HSM,		/* trusted.hsm */
++	LLAPI_SCAN_XA_MAX
++};
++
++#define LLAPI_SCAN_XA_BIT(x)	(1U << (x))
++
++/* Why an object was not delivered; counted, never silent. */
++enum llapi_scan_skip {
++	LLAPI_SCAN_SKIP_INVALID = 0,	/* not a legal object: a torn read */
++	LLAPI_SCAN_SKIP_IO,		/* the target could not read it */
++	LLAPI_SCAN_SKIP_XATTR,		/* its xattrs could not be read */
++	LLAPI_SCAN_SKIP_MAX
++};
++
++/* A value the backend read, still in on-disk form. */
++struct llapi_scan_val {
++	const void	*sv_buf;
++	size_t		 sv_len;
++};
++
++/**
++ * struct llapi_scan_obj - one object, as the backend found it
++ *
++ * Attributes are in host order, xattr values are not.  The so_xattr pointers
++ * are the backend's and last until the sink call returns.
++ */
++struct llapi_scan_obj {
++	__u64	so_id;			/* inode number, dnode, object id */
++	__u32	so_mode;
++	__u32	so_nlink;
++	__u32	so_uid;
++	__u32	so_gid;
++	__u32	so_projid;
++	__u32	so_flags;		/* STATX_ATTR_*-compatible bits */
++	__u32	so_gen;
++	__u32	so_rdev;		/* la_rdev of a device node */
++	__u64	so_size;		/* the target's own, not the file's */
++	__u64	so_blocks;		/* 512-byte units, on this target */
++	__s64	so_atime;
++	__s64	so_mtime;
++	__s64	so_ctime;
++	__s64	so_btime;
++	__u32	so_valid;		/* LLAPI_SCAN_SO_* that mean anything */
++	__u32	so_xa_valid;		/* LLAPI_SCAN_XA_BIT() actually read */
++	/*
++	 * Which STATX_ATTR_* this backend can report in so_flags, as statx
++	 * means stx_attributes_mask: a bit clear here is "cannot say", which
++	 * is a different answer from the bit being clear in so_flags.  The
++	 * backends do not support the same set, so one constant in the
++	 * scanner would over-claim for one of them.  ENCRYPTED is not here:
++	 * the scanner takes it from the LMA for every backend.
++	 */
++	__u32	so_attrs_mask;
++	__u32	so_padding[1];
++	struct llapi_scan_val so_xattr[LLAPI_SCAN_XA_MAX];
++};
++
++/* Attributes an inode may be too small to carry; zero is a different answer. */
++#define LLAPI_SCAN_SO_PROJID	0x00000001U
++#define LLAPI_SCAN_SO_BTIME	0x00000002U
++#define LLAPI_SCAN_SO_GEN	0x00000004U
++
++/* Target flags a backend reports at open time. */
++#define LLAPI_SCAN_TGT_OST	0x00000001U	/* a recognised OST */
++#define LLAPI_SCAN_TGT_MDT	0x00000002U	/* a recognised MDT */
++#define LLAPI_SCAN_TGT_INDEX	0x00000004U	/* tt_index was assigned */
++
++/**
++ * struct llapi_scan_tgt - what the backend says about the target
++ *
++ * tt_chunks is the unit of work, its meaning the backend's: indices below it
++ * must cover the target exactly once.
++ */
++struct llapi_scan_tgt {
++	char	tt_label[64];		/* fsname-MDT0000, as formatted */
++	__u32	tt_index;		/* target index, if TGT_INDEX */
++	__u32	tt_flags;		/* LLAPI_SCAN_TGT_* */
++	__u64	tt_chunks;		/* units of work */
++};
++
++/**
++ * struct llapi_scan_sink - what the backend calls, once per object
++ *
++ * One sink per worker; sk_ctx must not be shared between threads.
++ *
++ * sk_prefilter() is the cheap stage, called with no xattr read behind it:
++ * 0 to go on, 1 to drop the object, negative to stop the scan.  sk_object()
++ * follows once the demanded xattrs are in hand, same convention.
++ */
++struct llapi_scan_sink {
++	void	*sk_ctx;
++	__u32	 sk_want_xattr;		/* LLAPI_SCAN_XA_BIT() to fetch */
++	__u32	 sk_padding;
++	int	(*sk_prefilter)(void *ctx, const struct llapi_scan_obj *obj);
++	int	(*sk_object)(void *ctx, const struct llapi_scan_obj *obj);
++	void	(*sk_skip)(void *ctx, enum llapi_scan_skip why);
++};
++
++/**
++ * struct llapi_scan_backend - the entry points a backend exports
++ *
++ * Resolved by dlsym() as scan_ldiskfs_open and so on, or taken from the
++ * linked-in table where plugins are disabled.  sb_scan_chunk() sets *done
++ * on the last chunk of the target, which is how a scan ends without the
++ * core knowing what a chunk is.  It says "no chunk after this one", not
++ * "this chunk is empty": the chunk carrying the tail of the target still
++ * delivers its objects, and the core keeps it inside the range.
++ */
++struct llapi_scan_backend {
++	int	(*sb_open)(const char *device, void **tgtp,
++			   struct llapi_scan_tgt *tgt);
++	void	(*sb_close)(void *tgt);
++	int	(*sb_worker_init)(void *tgt, void **wctxp);
++	void	(*sb_worker_fini)(void *tgt, void *wctx);
++	int	(*sb_scan_chunk)(void *tgt, void *wctx, __u64 idx,
++				 const struct llapi_scan_sink *sink, int *done);
++};
++
++/* The ldiskfs entry points, for the build that links them in. */
++int scan_ldiskfs_open(const char *device, void **tgtp,
++		      struct llapi_scan_tgt *tgt);
++void scan_ldiskfs_close(void *tgt);
++int scan_ldiskfs_worker_init(void *tgt, void **wctxp);
++void scan_ldiskfs_worker_fini(void *tgt, void *wctx);
++int scan_ldiskfs_scan_chunk(void *tgt, void *wctx, __u64 idx,
++			    const struct llapi_scan_sink *sink, int *done);
++
++#endif /* _LUSTREAPI_SCAN_BACKEND_H_ */
+-- 
+2.43.0
+
