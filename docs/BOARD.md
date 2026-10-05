@@ -4,7 +4,37 @@ Every ticket and Gerrit id in play, and the ones that are *not* ours. Regenerate
 the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
 **2026-09-06**.
 
-## 2026-10-05 end of day: polling stopped -- start here
+## 2026-10-05 evening: lreview (2) on the fixed tip, fixed locally -- start here
+
+- **Push candidate:** fix-1005 tip **3a179e7307** (was ae9b2ca3a3; backup
+  tag bk-fix-1005-pre-lrv2, fixups tag lrv2-fixups-tip). 68156-68158
+  commits unchanged. Nothing pushed.
+- lreview (opus) on 68159 68415-68420 at the fixed tip: 20 findings.
+  Reports + TRIAGE.md in docs/rounds/a-1005/lreview2/. 68288 skipped
+  (docs only), 68156 already re-reviewed, 68158 parent only.
+- **Fixed:** 68417 --since printed an object twice on DNE (_ONCE set was
+  per MDT; now one tsearch FID set across MDTs); 68415 sl_accepted raised
+  only (scan_cl_accept), so _CLEAR no longer stops short; 68159 kind
+  refusals (--mdt/--ost/layout vs target) before any per-device skip;
+  68418 fp_max_depth 0 accepted under --changelog (calloc'd find_param),
+  FID-named warning says "or are outside this fileset"; 68419 cookie
+  header with no root refused; 68417 uses find_mount_is_fileset() (IGIF).
+- **Docs/wording:** lfs-find.1 cookie: the MDT parallel-write race (N+1
+  before N) documented, keep FILE outside the searched tree;
+  llapi_scan_fid.3 "mount root", V1 getinfo -> -ESTALE; llapi_find_since.3
+  one -ENOTSUP entry; -MDT-1 "out-of-bounds write" claim removed (comment,
+  160Ac, 68420 message); 68415 message glimpse/times. 160Ac gains a
+  no-root arm.
+- **Skipped (style):** 68417 #3, 68415 #3, 68418 #3, 68419 #4.
+- **Built:** scripted rebuild (rebuild.py beside the reports), final tree
+  == fixup tip; per-commit sweep in ~/lrv2-sweep (utils-only configure)
+  clean at all 10 after one fix (fss_as_recorded split 68417/68418);
+  checkpatch counts unchanged.
+- **NOT yet run on Lustre.** The owed GCP lab now also needs: DNE
+  (mdscount>=2) --since with a remote mkdir / cross-MDT rename printing
+  once; 160Ac no-root arm; --device sweep refusal consistency.
+
+## 2026-10-05 end of day: polling stopped
 
 - **Push candidate:** 68156-68420 (13) on branch **fix-1005**
   (~/lfs-fix-1005), tip **ae9b2ca3a3**, on 68095 PS26 (d2a385f08f). All 13 get
