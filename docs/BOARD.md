@@ -4,6 +4,27 @@ Every ticket and Gerrit id in play, and the ones that are *not* ours. Regenerate
 the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
 **2026-09-06**.
 
+## 2026-10-05 morning: Andreas moved 157c; local fixes, nothing pushed
+
+- **68094 PS26:** adilger CR+1, and answered the 157c thread: pushed
+  **69417** "LU-20603 tests: move sanity/157c to 56Ee" (on 68094) and asks
+  for a prompt review so it lands with 68094 in master-next. Already CR+1
+  from ablagodarenko, npapakonstantinou; smatch OK. Checked: 56Ee free in
+  master and our stack. Gate 2.17.58.40 is below master (2.17.58-116), so
+  it does not protect -- nit at most. Added to gpoll.
+- **Same problem in ours:** 68415 adds **test_157d** right after 157c, also
+  in the lustre.pin group, and its hunk context is 157c's lines that 69417
+  deletes. Needs a new number (proposal 56Eea) and a rebase onto 69417.
+  ASK the user.
+- **68420 (adilger):** 160aa-160ae -> **160Aa-160Ae**. Done locally.
+- **68416 AI (5 minor/style):** all fixed locally (allocation wording in
+  kernel-doc + man, comment placement, lu_fid_eq).
+- **69339 AI:** "Looks good to me".
+- Local: branch **fix-1005** (~/lfs-fix-1005) = r0928b-tip + the two
+  fixes autosquashed into 68416 and 68420; per-commit diff checked, syntax
+  build OK, checkpatch unchanged. 68420 message also rewrapped (two lines
+  were >70). Upstream oddity: master has 56Ea/56Eaa/56Eab defined twice.
+
 ## 2026-10-04 night: lreview on the offload, all fixed
 
 - lreview on 8c663511a2 / ad0545fd69 / ec908389b6: 15 findings, verified.
