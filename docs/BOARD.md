@@ -12,16 +12,20 @@ the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
   from ablagodarenko, npapakonstantinou; smatch OK. Checked: 56Ee free in
   master and our stack. Gate 2.17.58.40 is below master (2.17.58-116), so
   it does not protect -- nit at most. Added to gpoll.
-- **Same problem in ours:** 68415 adds **test_157d** right after 157c, also
-  in the lustre.pin group, and its hunk context is 157c's lines that 69417
-  deletes. Needs a new number (proposal 56Eea) and a rebase onto 69417.
-  ASK the user.
+- **Same problem in ours:** 68415 added test_157d. User OK'd 10-05:
+  **moved to 56Eea** (right after 56Ee) and the series **rebased onto
+  69417** (68095 now sits on 69417, not on 68094 directly). Messages of
+  68163/68416 now say "sanity 56Ee"; 68415's "sanity 56Eea" (committed
+  --no-verify: its message already had >70 lines on Gerrit). Every tree
+  identical apart from the moves; bash -n clean at each commit. User had
+  already voted CR+1 on 69417.
 - **68420 (adilger):** 160aa-160ae -> **160Aa-160Ae**. Done locally.
 - **68416 AI (5 minor/style):** all fixed locally (allocation wording in
   kernel-doc + man, comment placement, lu_fid_eq).
 - **69339 AI:** "Looks good to me".
-- Local: branch **fix-1005** (~/lfs-fix-1005) = r0928b-tip + the two
-  fixes autosquashed into 68416 and 68420; per-commit diff checked, syntax
+- Local: branch **fix-1005** (~/lfs-fix-1005), now on 69417, tip
+  `cc8b25272b`; backup tag bk-fix-1005-pre-69417. The two fixes are
+  autosquashed into 68416 and 68420; per-commit diff checked, syntax
   build OK, checkpatch unchanged. 68420 message also rewrapped (two lines
   were >70). Upstream oddity: master has 56Ea/56Eaa/56Eab defined twice.
 
