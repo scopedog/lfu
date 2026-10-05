@@ -182,7 +182,7 @@ footer p { max-width: none; }
 <main>
 
 <header class="masthead">
-  <p class="eyebrow">LU-20462 &middot; progress against the HLD &middot; 2026-09-01 &middot; offload measured 2026-09-10 &middot; <code>lfs find</code> offloaded 2026-10-04</p>
+  <p class="eyebrow">LU-20462 &middot; progress against the HLD &middot; 2026-09-01 &middot; offload measured 2026-09-10 &middot; <code>lfs find</code> offloaded in one pass 2026-10-04</p>
   <h1>LFU Phase 1</h1>
   <p class="standfirst">
     Every module the HLD names as initial and client- or device-side is written
@@ -580,16 +580,18 @@ footer p { max-width: none; }
     binary, two arms: <code>--no-offload</code> walks, <code>--offload</code>
     scans. Two GCP <code>c3-standard-8</code> instances, client and MDS, one
     MDT, the same 87,944-file fixture and predicate, caches dropped on both
-    nodes, median of five.
+    nodes, median of five. Both arms in one run: the walk varies between
+    restarts of the instances (4.97&nbsp;s in an earlier run), so only pairs
+    from the same run are compared.
   </p>
   <div class="tw">
     <table>
       <thead><tr><th>Scope</th><th>Share</th><th>Walk</th><th>Offloaded</th><th>&nbsp;</th></tr></thead>
       <tbody>
-        <tr><td><code>/</code></td><td class="num">100%</td><td class="num">4.969 s</td><td class="num">0.582 s</td><td class="num"><strong>8.5&times; faster</strong></td></tr>
-        <tr><td><code>bench</code></td><td class="num">99.9%</td><td class="num">4.902 s</td><td class="num">0.580 s</td><td class="num">8.5&times; faster</td></tr>
-        <tr><td><code>bench/d3</code></td><td class="num">11.4%</td><td class="num">1.618 s</td><td class="num">0.521 s</td><td class="num">3.1&times; faster</td></tr>
-        <tr><td><code>d0</code></td><td class="num">0.06%</td><td class="num">0.061 s</td><td class="num">0.510 s</td><td class="num">8.4&times; slower</td></tr>
+        <tr><td><code>/</code></td><td class="num">100%</td><td class="num">4.399 s</td><td class="num">0.439 s</td><td class="num"><strong>10&times; faster</strong></td></tr>
+        <tr><td><code>bench</code></td><td class="num">99.9%</td><td class="num">4.383 s</td><td class="num">0.438 s</td><td class="num">10&times; faster</td></tr>
+        <tr><td><code>bench/d3</code></td><td class="num">11.4%</td><td class="num">1.419 s</td><td class="num">0.438 s</td><td class="num">3.2&times; faster</td></tr>
+        <tr><td><code>d0</code></td><td class="num">0.06%</td><td class="num">0.054 s</td><td class="num">0.432 s</td><td class="num">8.0&times; slower</td></tr>
       </tbody>
     </table>
   </div>
@@ -597,8 +599,21 @@ footer p { max-width: none; }
     The printed pathnames were compared, sorted, against the walk&rsquo;s on
     every scope: identical. With no flag at all, a search from the root on a
     predicate the MDT answers alike (<code>-uid 0 -type f</code>) offloaded by
-    itself, 4.957&nbsp;s to 0.578&nbsp;s, in 38 ioctls where the walk makes
+    itself, 4.403&nbsp;s to 0.441&nbsp;s, in 19 ioctls where the walk makes
     one per file.
+  </p>
+  <p>
+    The first version read every MDT twice: once to map the directories that
+    pathnames are composed from, once to search. The map is now built by the
+    search&rsquo;s own pass, and a match that arrives before its parent
+    directory is named when the pass ends. Paired against the two-pass build
+    on the same instances: <strong>0.551&nbsp;s to 0.442&nbsp;s cold, 0.193 to
+    0.123 warm</strong>, with the same output &mdash; including a fixture
+    rearranged so that 8,657 objects arrive before an ancestor. That is the
+    floor here: a cold pass reads 86&nbsp;MiB, the used inodes and nothing
+    else, at the disk&rsquo;s ~225&nbsp;MiB/s. On an MDT larger than the
+    server&rsquo;s memory the second pass was a second cold read, so the
+    saving there should approach half.
   </p>
   <div class="note">
     <span class="lbl">When <code>lfs find</code> offloads on its own</span>
@@ -616,9 +631,9 @@ footer p { max-width: none; }
     <span class="lbl">Not the same number as 30&times;</span>
     <p>
       Do not put these rows beside the ones above. The walk is faster on these
-      hosts (4.97&nbsp;s against 8.89&nbsp;s), and the offloaded arm now does
-      what <code>lfs find</code> must: a directory-only pass to build the map,
-      then a pathname for every match. Predicates still run on the client
+      hosts (4.40&nbsp;s against 8.89&nbsp;s), and the offloaded arm now does
+      what <code>lfs find</code> must: map the directories and compose a
+      pathname for every match. Predicates still run on the client
       &mdash; the MDT streams every record, and filter pushdown into
       <code>lfu.ko</code> is not built. Single MDT; DNE untested.
     </p>
@@ -709,7 +724,8 @@ footer p { max-width: none; }
     Offload figures from <code>bench-data/2026-09-10/subtree-two-node.txt</code>
     and <code>bench-data/2026-09-10/walk-threads-two-node.txt</code>;
     <code>lfs find</code> offloaded from
-    <code>bench-data/2026-10-04/lfs-find-offload-raw.txt</code>.
+    <code>bench-data/2026-10-04/lfs-find-onepass-raw.txt</code> and
+    <code>lfs-find-onepass-ab.txt</code>.
     Performance figures from <code>measurements/cold-on-fast-storage-2026-08-16.md</code>
     and <code>measurements/blockparse-2026-08-16.md</code>.
   </p>
