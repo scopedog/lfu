@@ -30,8 +30,9 @@ the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
     server limitation, SEE ALSO (llapi_changelog_*, statx), message
     accuracy + reflow.
   - 68157 comment tying the %L letter list to the switches; 68160 comment.
-  - **Deferred (style/suggestion):** 68159 move find_lmv_rejects() to
-    find_device_cb; 68415 test binary to take a directory option.
+  - **Ignored (user 10-05, style):** 68159 move find_lmv_rejects() to
+    find_device_cb; 68415 test binary to take a directory option. Leave the
+    threads unanswered-as-fixed; no code change.
   - **Decline candidate:** 68157 "Fixes: tag only fits the %L change".
 - Checks: per-commit syntax build of every changed file OK at all 13
   commits; checkpatch identical before/after except 68163 +1 warning
