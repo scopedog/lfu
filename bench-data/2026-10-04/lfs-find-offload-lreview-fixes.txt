@@ -1,0 +1,100 @@
+lreview fix round on the offloaded lfs find (c9903b6b15), checked on GCP
+=======================================================================
+2026-10-04 night.  The 3-node DNE lab of lfs-find-dne-parallel.txt, rebuilt
+(lfu-dne-s0/s1/cli), all three built from 818d0ceee7; client userspace then
+rebuilt from c9903b6b15 (the nameless -name record fix) and installed by
+hand, md5 checked.  tests/lab-offload/09-fixcheck.sh, then 08-dne-bench.sh N=3.
+
+Every comparison is walk (--no-offload) vs --offload, sorted output:
+hard links in one dir, across dirs and across MDTs; -name and ! -name on a
+linked file; subtrees incl. a cross-MDT chain; -name on the root and on a
+subtree root; a fileset mount (/testfs/bench) root, striped subdir, -name,
+-type d; deferred names after moving bench/d2 under a new zz/yy.  20 of 20
+identical.  Automatic offload with MDT1 inactive: falls back, no scan
+message.  --offload --stripe-count: refused in 0.012 s.  Fixture restored.
+
+DNE timing after the fixes (was 0.231 / 0.221 s cold for offN):
+/          cold  walk 4.447  off1 0.347  offN 0.227
+/bench/d3  cold  walk 1.677  off1 0.337  offN 0.216
+
+== hard links (same dir, cross-dir, cross-MDT)
+SAME  n=88047  root, all files
+SAME  n=2  -name hl*
+SAME  n=12  -name f0 (one name of a linked file)
+SAME  n=2  ! -name f* -type f
+SAME  n=8657  subtree bench/d7 (holds a link)
+SAME  n=53  subtree d0
+SAME  n=102  subtree x (MDT1 -> MDT0 chain)
+SAME  n=15  -type d
+SAME  n=1  -name testfs (the root itself)
+SAME  n=1  -name bench (a subtree root)
+SAME  n=10  -name d3 under bench
+== fileset mount of /testfs/bench
+mounted
+SAME  n=87906  fileset root
+SAME  n=10001  fileset subdir d3 (striped)
+SAME  n=1  fileset subdir d7, -name hl0
+SAME  n=11  fileset -type d
+== deferred names: move bench/d2 under a new zz/yy
+SAME  n=88047  root after move
+SAME  n=8658  subtree zz
+== auto fallback is quiet: MDT1 inactive on this client
+auto rc=108 stderr: [0 scan messages] lfs find: llapi_semantic_traverse: Failed to open '/mnt/testfs/x': Cannot send after transport endpoint shutdown (108)
+lfs find: llapi_semantic_traverse: Failed
+forced rc=19 stderr: lfs find: testfs-MDT0001_UUID is INACTIVE, and a scan that skipped it would read as a complete answer
+lfs find: cannot open /mnt/testfs: No such device (19)
+lfs
+== --offload with a layout option fails before scanning
+rc=95 in 0.012s: lfs find: --offload: the layout options cannot be answered by a scan of the MDTs
+lfs: failed for '/mnt/testfs': Operation not supported
+== workers: one MDT-count cap (clones with --threads 16)
+clones 1 (2 MDTs)
+== undo links
+files: 88044
+ALL SAME
+
+0
+== lfs 2.17.58_70_g818d0ce MDTS: 0: testfs-MDT0000_UUID ACTIVE 1: testfs-MDT0001_UUID ACTIVE 
+threads=1: clones 0
+threads=0: clones 1
+== oracle: walk vs offload (default workers), sorted
+SAME n=88044  /mnt/testfs -mtime -30 -type f 
+SAME n=87894  /mnt/testfs/bench -mtime -30 -type f 
+SAME n=10000  /mnt/testfs/bench/d3 -mtime -30 -type f 
+SAME n=8655  /mnt/testfs/bench/d7 -mtime -30 -type f 
+SAME n=50  /mnt/testfs/d0 -mtime -30 -type f 
+SAME n=100  /mnt/testfs/x -mtime -30 -type f 
+SAME n=100  /mnt/testfs/x/y -mtime -30 -type f 
+SAME n=15  /mnt/testfs -type d -mtime -30 
+== timed: scope arm cache wall
+/ walk cold 4.547
+/ off1 cold 0.370
+/ off1 warm 0.127
+/ offN cold 0.227
+/ offN warm 0.095
+/bench/d3 walk cold 1.550
+/bench/d3 off1 cold 0.333
+/bench/d3 off1 warm 0.095
+/bench/d3 offN cold 0.216
+/bench/d3 offN warm 0.063
+/ walk cold 4.440
+/ off1 cold 0.346
+/ off1 warm 0.129
+/ offN cold 0.221
+/ offN warm 0.107
+/bench/d3 walk cold 1.677
+/bench/d3 off1 cold 0.337
+/bench/d3 off1 warm 0.095
+/bench/d3 offN cold 0.222
+/bench/d3 offN warm 0.059
+/ walk cold 4.447
+/ off1 cold 0.347
+/ off1 warm 0.126
+/ offN cold 0.228
+/ offN warm 0.109
+/bench/d3 walk cold 1.686
+/bench/d3 off1 cold 0.341
+/bench/d3 off1 warm 0.095
+/bench/d3 offN cold 0.215
+/bench/d3 offN warm 0.064
+STAGE8 OK
