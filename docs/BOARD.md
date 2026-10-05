@@ -10,7 +10,12 @@ the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
   68419 68420 (68156, 68158 pure carry at the time). Reports in
   docs/rounds/a-1005/lreview/. 68156 then got a Gerrit AI round (2): the
   device-vs-walk lfsr_lmm differences documented (man + lustreapi.h);
-  fill-lfsr_name suggestion skipped. 68156 lreview queued after.
+  fill-lfsr_name suggestion skipped. **68156 lreview (2):** #1 REAL --
+  worker handles kept EXT2_FLAG_IGNORE_CSUM_ERRORS, so libext2fs never
+  verified an inode and a torn inode on a metadata_csum target was
+  delivered; fixed (flag cleared per worker, WARN_GARBAGE set),
+  tests/lab-ldiskfs-csum: torn inode 14 delivered unfixed, CSUM_INVALID
+  fixed, clean image identical. #2 comment nit skipped. Tip now ae9b2ca3a3.
 - **Fixed** (tip **18420ca8c0** on fix-1005, backups bk-fix-1005-pre-lrv1005):
   - 68416: -ESTALE also when the MDT gather found no FID (path resolved
     off Lustre).
