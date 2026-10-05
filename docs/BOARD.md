@@ -4,6 +4,17 @@ Every ticket and Gerrit id in play, and the ones that are *not* ours. Regenerate
 the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
 **2026-09-06**.
 
+## 2026-10-04 night: lreview on the offload, all fixed
+
+- lreview on 8c663511a2 / ad0545fd69 / ec908389b6: 15 findings, verified.
+  Fixed in **c9903b6b15** on top (hard links per name, fileset paths via
+  the top FID, quiet fallback, early refusal, worker cap, man page). The
+  migrating-file duplicate stays open (design question).
+- 3-node GCP check: 20/20 equal to the walk; DNE timing unchanged; lab
+  deleted. Data: bench-data/2026-10-04/lfs-find-offload-lreview-fixes.txt.
+- When squashing: reword the messages per lreview (name the API, the
+  --threads change, the worker count).
+
 ## 2026-10-04 evening: polling stopped — start here
 
 - Gerrit quiet all day; nothing to push. 157c renumber still waits on
