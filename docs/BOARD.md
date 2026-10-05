@@ -4,6 +4,39 @@ Every ticket and Gerrit id in play, and the ones that are *not* ours. Regenerate
 the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
 **2026-09-06**.
 
+## 2026-10-05: AI round on 68157-68415, fixed locally; 69417 rebase UNDONE
+
+- **Rebase onto 69417 undone.** It moved 68095 off its PS26 commit
+  (d2a385f08f) -- pushing that would re-spin a frozen change. fix-1005 is
+  back on 68095 PS26; 157d -> **56Eea placed after 56El** (not after 56Ee),
+  so 69417 and our stack apply in either order with no conflict (both
+  cherry-pick directions tested; final tree = ours + 69417's move).
+- **AI round, 14 comments on 68415(5) 68288(2) 68160(1) 68157(2)
+  68159(3) 68163(1).** Fixed locally, tip **1704cdd835** on fix-1005 (backup
+  tags bk-fix-1005-pre-ai1005, bk-fix-1005-on-69417):
+  - 68159 find_lmm_fits(): **real over-read** -- unknown entry magic and
+    short foreign entry accepted, then llapi_layout_get_by_xattr() reads a
+    pool name / lov_hsm_md past the buffer. ASan harness
+    tests/lab-lmmfits: OLD overflows on both torn cases, NEW refuses them,
+    legal layouts accepted by both. Also msg: foreign-dir %L on a walk.
+  - 68163: **pthread key leak** per kernel_init/fini (libzpool's
+    tsd_create never deleted). tests/lab-zfs-tsd on host libzpool 2.2.2:
+    10 cycles leave 1014 keys free unfixed, 1024 fixed; 1100 fixed cycles
+    fine. Fix scan_zfs_fini(). NOT run against a real pool. Re-import
+    per scan (the reviewer's perf point) left as is.
+  - 68288: -ENOTDIR from stat() no longer gets the "--paths has none"
+    message (pp_refused flag); man page; blank line.
+  - 68415: clear wording (consumer, failed read), LU-20647 phrased as a
+    server limitation, SEE ALSO (llapi_changelog_*, statx), message
+    accuracy + reflow.
+  - 68157 comment tying the %L letter list to the switches; 68160 comment.
+  - **Deferred (style/suggestion):** 68159 move find_lmv_rejects() to
+    find_device_cb; 68415 test binary to take a directory option.
+  - **Decline candidate:** 68157 "Fixes: tag only fits the %L change".
+- Checks: per-commit syntax build of every changed file OK at all 13
+  commits; checkpatch identical before/after except 68163 +1 warning
+  (extern in .c, the same as OpenZFS's own kernel.c). Nothing pushed.
+
 ## 2026-10-05 morning: Andreas moved 157c; local fixes, nothing pushed
 
 - **68094 PS26:** adilger CR+1, and answered the 157c thread: pushed
