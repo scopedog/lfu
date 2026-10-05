@@ -4,6 +4,38 @@ Every ticket and Gerrit id in play, and the ones that are *not* ours. Regenerate
 the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
 **2026-09-06**.
 
+## 2026-10-05 later: lreview on the 11 changed commits, fixed locally
+
+- lreview (opus) on 68157 68159 68160 68163 68288 68415 68416 68417 68418
+  68419 68420 (68156, 68158 pure carry at the time). Reports in
+  docs/rounds/a-1005/lreview/. 68156 then got a Gerrit AI round (2): the
+  device-vs-walk lfsr_lmm differences documented (man + lustreapi.h);
+  fill-lfsr_name suggestion skipped. 68156 lreview queued after.
+- **Fixed** (tip **18420ca8c0** on fix-1005, backups bk-fix-1005-pre-lrv1005):
+  - 68416: -ESTALE also when the MDT gather found no FID (path resolved
+    off Lustre).
+  - 68159: %Lo on an unstriped dir on a scan prints [idx] like a walk;
+    `! -btime` and `! -newerXb` now match an object with no birth time.
+  - 68415: atime/ctime exact only after a glimpse (glimpse when asked, else
+    left out); -EXDEV when sc_mnt is another filesystem than sc_mdtname.
+  - 68417/68418: find_rec_to_lmv() -ENOMEM no longer ignored; "no longer
+    exist" warning says "or are outside this fileset" on a fileset mount;
+    68417 message rewritten in the present tense.
+  - 68418 docs: fp_changelog_mdt values, single-MDT reading, INDEX with one
+    MDT, -ENODEV; kernel-doc.
+  - 68419: dead-check comment/message; llapi_find_since.3 cookie paragraph,
+    -EIO stdout, purge window. 68420: window in lfs-find.1, hardlink
+    example qualified by burst, message (five cases, 160Ae order, fourth
+    man change).
+  - 68288: stale comment; lfs-find.1 synopsis spacing.
+- **Skipped (style/suggestion, user 10-05):** 68163 kstat-before-label-scan,
+  68288 comment merge, 68417 imperative subject + "dropped with it",
+  68418 option order, 68419 cookie-on-searched-fs, 68420 test timing.
+- **Open, design-level:** 68419 stale check vs scan window (a purge on a
+  later MDT during an earlier one's read is not seen) -- documented only.
+- Checks: compile sweep + bash -n OK at all 13; checkpatch unchanged
+  except 68163 +1 (extern). Nothing pushed.
+
 ## 2026-10-05: AI round on 68157-68415, fixed locally; 69417 rebase UNDONE
 
 - **Rebase onto 69417 undone.** It moved 68095 off its PS26 commit
