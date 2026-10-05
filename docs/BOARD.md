@@ -4,6 +4,27 @@ Every ticket and Gerrit id in play, and the ones that are *not* ours. Regenerate
 the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
 **2026-09-06**.
 
+## 2026-10-05 end of day: polling stopped -- start here
+
+- **Push candidate:** 68156-68420 (13) on branch **fix-1005**
+  (~/lfs-fix-1005), tip **ae9b2ca3a3**, on 68095 PS26 (d2a385f08f). All 13 get
+  a new PS (68158 by parent only). 68094/68095 stay frozen. lreview done
+  on all 12 changed commits, every real finding fixed; compile and
+  checkpatch clean at every commit.
+- **Before the push-ask (next):**
+  1. GCP lab: sanity 56E*, 157*, 160A* and conf-sanity 165-167, ldiskfs
+     and ZFS. Nothing from this round has run on a real Lustre yet
+     (renamed tests, ! -btime, %Lo, changelog atime/ctime + -EXDEV,
+     ldiskfs csum flag on every device scan, ZFS key delete).
+  2. Draft Gerrit replies: ~40 AI threads (Done. / short decline reasons).
+  3. Human threads to answer: 68156 adilger filter_fid -> handled by
+     68288 (trusted.fid); 68159 green/adilger ZFS 2.4.x (informational);
+     68420 adilger 160Aa -> Done.
+- **Open decision (user):** 68419 stale-check vs scan window -- fix
+  properly (scan reports first index read) or leave documented.
+- 69417 (adilger, 157c -> 56Ee): CR+1 x3, Maloo V+1, AI LGTM.
+- Not for this push: lfs-find-offload (2.19, parked).
+
 ## 2026-10-05 later: lreview on the 11 changed commits, fixed locally
 
 - lreview (opus) on 68157 68159 68160 68163 68288 68415 68416 68417 68418
