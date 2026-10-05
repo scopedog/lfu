@@ -4,6 +4,19 @@ Every ticket and Gerrit id in play, and the ones that are *not* ours. Regenerate
 the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
 **2026-09-06**.
 
+## 2026-10-04 evening: polling stopped — start here
+
+- Gerrit quiet all day; nothing to push. 157c renumber still waits on
+  Andreas; man-page item still HELD for the next AI round.
+- **lfs-find-offload** (unpushed, 2.19): three commits on top of the
+  2.19 stack -- 8c663511a2 offload, ad0545fd69 one pass, ec908389b6 a worker
+  per MDT. GCP: 10x at the root on one MDT (one pass), 18x on two MDTs
+  (parallel, -32% vs one worker). Data in bench-data/2026-10-04/.
+- JLUG26 slides 15-17 and the progress artifact (v10) carry these numbers.
+- All GCP instances deleted. Local VMs (mgs-mds-clone, client-clone) shut down.
+- **Next:** restart gpoll; lreview + sanity coverage for the offload if it
+  is to go anywhere.
+
 ## 2026-10-04 afternoon: lfs find offload BUILT and measured (LU-20721)
 
 - **Branch `lfs-find-offload`**, worktree `~/lfs-find-offload` (in
