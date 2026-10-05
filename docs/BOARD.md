@@ -4,7 +4,22 @@ Every ticket and Gerrit id in play, and the ones that are *not* ours. Regenerate
 the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
 **2026-09-06**.
 
-## 2026-10-05 evening: lreview (2) on the fixed tip, fixed locally -- start here
+## 2026-10-05 night: fix-1005 PUSHED -- start here
+
+- **Pushed** 68156-68420 from fix-1005 tip **3a179e7307** (tag
+  a1005-pushed): 68156/68157 PS31, 68158/68159/68163 PS28, 68160 PS29,
+  68288 PS22, 68415/68416 PS20, 68417-68420 PS13. 68094 PS26 / 68095 PS26
+  untouched (68095 PS26 sits on 68094 PS25, as on Gerrit).
+- **Replies:** 35 posted and threaded (docs/rounds/a-1005/replies/):
+  33 resolved, 2 declines left unresolved (68157 Fixes: tag, 68417
+  "could not be decided"). Style threads left unanswered (user 10-05):
+  68156 lfsr_name, 68159 find_lmv_rejects move, 68415 test dir option.
+  68159 green/adilger ZFS 2.4.3 not ours, no reply.
+- **Still open (user):** 68419 stale check vs scan window; writer race
+  documented only.
+- Next: polling for the AI round and Maloo on the new patchsets.
+
+## 2026-10-05 evening: lreview (2) on the fixed tip, fixed locally
 
 - **Push candidate:** fix-1005 tip **3a179e7307** (was ae9b2ca3a3; backup
   tag bk-fix-1005-pre-lrv2, fixups tag lrv2-fixups-tip). 68156-68158
