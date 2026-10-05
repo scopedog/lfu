@@ -1,0 +1,74 @@
+lfs find offloaded in ONE pass (ad0545fd69) vs the walk, one binary
+====================================================================
+2026-10-04 evening, same GCP lab and fixture as lfs-find-offload-raw.txt,
+instances restarted (the walk came out 4.40 s here against 4.97 s in the
+morning: compare only within this file).  Client userspace installed from
+ad0545fd69 by hand, md5 checked (liblustreapi 24bb3593).  05-bench.sh, N=5.
+
+Medians:
+/          walk 4.399  offload 0.439   10.0x
+/bench     walk 4.383  offload 0.438   10.0x
+/bench/d3  walk 1.419  offload 0.438   3.2x
+/d0        walk 0.054  offload 0.432   8.0x slower
+/ auto     walk 4.403  auto    0.441   10.0x
+
+0
+== version: 2.17.58_67_gec890bd srv: 2.17.58_67_gec890bd
+== oracle: sorted pathnames, walk vs offload
+/          walk  87944  offload  87944  diff 0  stderr: 
+/bench     walk  87894  offload  87894  diff 0  stderr: 
+/bench/d3  walk  10000  offload  10000  diff 0  stderr: 
+/d0        walk     50  offload     50  diff 0  stderr: 
+auto /     walk  87944  auto    87944  diff 0  ioctls 19 (a walk makes one per file)
+== timed: scope arm count wall
+/ walk 87944 4.568
+/ offload 87944 0.443
+/bench walk 87894 4.422
+/bench offload 87894 0.435
+/bench/d3 walk 10000 1.479
+/bench/d3 offload 10000 0.438
+/d0 walk 50 0.057
+/d0 offload 50 0.432
+/ auto-walk 87944 4.425
+/ auto 87944 0.439
+/ walk 87944 4.406
+/ offload 87944 0.437
+/bench walk 87894 4.383
+/bench offload 87894 0.440
+/bench/d3 walk 10000 1.421
+/bench/d3 offload 10000 0.434
+/d0 walk 50 0.054
+/d0 offload 50 0.433
+/ auto-walk 87944 4.387
+/ auto 87944 0.439
+/ walk 87944 4.366
+/ offload 87944 0.439
+/bench walk 87894 4.380
+/bench offload 87894 0.438
+/bench/d3 walk 10000 1.303
+/bench/d3 offload 10000 0.438
+/d0 walk 50 0.054
+/d0 offload 50 0.432
+/ auto-walk 87944 4.403
+/ auto 87944 0.443
+/ walk 87944 4.399
+/ offload 87944 0.439
+/bench walk 87894 4.357
+/bench offload 87894 0.435
+/bench/d3 walk 10000 1.384
+/bench/d3 offload 10000 0.436
+/d0 walk 50 0.057
+/d0 offload 50 0.434
+/ auto-walk 87944 4.377
+/ auto 87944 0.441
+/ walk 87944 4.369
+/ offload 87944 0.442
+/bench walk 87894 4.430
+/bench offload 87894 0.438
+/bench/d3 walk 10000 1.419
+/bench/d3 offload 10000 0.446
+/d0 walk 50 0.053
+/d0 offload 50 0.432
+/ auto-walk 87944 4.432
+/ auto 87944 0.443
+STAGE5 OK
