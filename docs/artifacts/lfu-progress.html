@@ -639,6 +639,33 @@ footer p { max-width: none; }
     </p>
   </div>
 
+  <h3>Two MDTs, read in parallel</h3>
+  <p>
+    The search ran on one thread, because it kept one set of per-record
+    buffers, so a DNE filesystem&rsquo;s MDTs were scanned one after another.
+    Each scan worker now has its own copy of the search and takes whole MDTs;
+    the directory map, the held names and the counters are shared safely.
+    Three GCP nodes &mdash; an MDT on each of two servers, so each has its own
+    disk &mdash; and a client; 88,044 files with remote directories, a
+    directory striped over both MDTs, and a chain that crosses them. One
+    binary, <code>--threads 1</code> against the default.
+  </p>
+  <div class="tw">
+    <table>
+      <thead><tr><th>Scope, cold</th><th>Walk</th><th>One worker</th><th>One per MDT</th><th>&nbsp;</th></tr></thead>
+      <tbody>
+        <tr><td><code>/</code></td><td class="num">4.191 s</td><td class="num">0.339 s</td><td class="num">0.231 s</td><td class="num"><strong>&minus;32%; 18&times; the walk</strong></td></tr>
+        <tr><td><code>bench/d3</code>, striped</td><td class="num">1.710 s</td><td class="num">0.334 s</td><td class="num">0.221 s</td><td class="num">&minus;34%; 7.7&times; the walk</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>
+    Pathnames were identical to the walk&rsquo;s on every scope, the striped,
+    remote and cross-MDT directories included. Perfect scaling would be about
+    0.19&nbsp;s &mdash; the larger MDT holds 55% of the inodes &mdash; and the
+    rest goes to the client, where the workers share one directory map.
+  </p>
+
   <h3>The walk&rsquo;s first result was a default, not a cost</h3>
   <p>
     The first run put <code>llapi_scan_namespace()</code> 2.4&times; behind
@@ -725,7 +752,8 @@ footer p { max-width: none; }
     and <code>bench-data/2026-09-10/walk-threads-two-node.txt</code>;
     <code>lfs find</code> offloaded from
     <code>bench-data/2026-10-04/lfs-find-onepass-raw.txt</code> and
-    <code>lfs-find-onepass-ab.txt</code>.
+    <code>lfs-find-onepass-ab.txt</code>; DNE from
+    <code>lfs-find-dne-parallel.txt</code>.
     Performance figures from <code>measurements/cold-on-fast-storage-2026-08-16.md</code>
     and <code>measurements/blockparse-2026-08-16.md</code>.
   </p>
