@@ -182,7 +182,7 @@ footer p { max-width: none; }
 <main>
 
 <header class="masthead">
-  <p class="eyebrow">LU-20462 &middot; progress against the HLD &middot; 2026-09-01 &middot; offload measured 2026-09-10</p>
+  <p class="eyebrow">LU-20462 &middot; progress against the HLD &middot; 2026-09-01 &middot; offload measured 2026-09-10 &middot; <code>lfs find</code> offloaded 2026-10-04</p>
   <h1>LFU Phase 1</h1>
   <p class="standfirst">
     Every module the HLD names as initial and client- or device-side is written
@@ -337,7 +337,7 @@ footer p { max-width: none; }
         <tr><td><code>lfs find</code> Filter Rule and Output Format</td><td><span class="chip rev">in review</span></td><td>68095, 68157, 68158, 68159 &mdash; LU-20605, LU-20611</td></tr>
         <tr><td>FID &rarr; pathname Output Format</td><td><span class="chip rev">in review</span></td><td>68288 &mdash; LU-20637. Resolution now asks nothing of the target being scanned &mdash; written and lab-verified 2026-09-01, <strong>not yet pushed</strong>; see below</td></tr>
         <tr><td>POSIX Input Scanner</td><td><span class="chip rev">in review</span></td><td>68094 &mdash; LU-20603. The same scanner with a stat for an attribute source, as the HLD asks, rather than a second crawler. LU-20665, which fetches with <code>statx(2)</code> so a birth time answers off Lustre, is written and held back until this round is reviewed</td></tr>
-        <tr><td>Client Bulk RPC Filter Rule</td><td><span class="chip p2">Phase 2</span></td><td><code>llapi_scan_mount()</code> reads that stream from a client &mdash; 68818, LU-20730, preview; <a href="#offload">measured below</a></td></tr>
+        <tr><td>Client Bulk RPC Filter Rule</td><td><span class="chip p2">Phase 2</span></td><td><code>llapi_scan_mount()</code> reads that stream from a client &mdash; 68818, LU-20730, preview. Since 2026-10-04 <code>lfs find</code> itself runs on it (LU-20721), written and measured, <strong>not yet pushed</strong>; <a href="#offload">measured below</a></td></tr>
 
         <tr class="grp"><td colspan="3">Future improvements, per the HLD</td></tr>
         <tr><td>Structured output formats &mdash; JSON, BSON, Parquet</td><td><span class="chip none">not started</span></td><td>&mdash;</td></tr>
@@ -570,6 +570,60 @@ footer p { max-width: none; }
     </p>
   </div>
 
+  <h3><code>lfs find</code> itself, offloaded &mdash; 2026-10-04</h3>
+  <p>
+    The numbers above come from a harness that printed FIDs. The answer a user
+    gets is <code>lfs find</code>&rsquo;s, so on 2026-10-04 it was wired in:
+    <code>llapi_find_offload()</code> runs the same predicates over
+    <code>llapi_scan_mount()</code> and prints pathnames composed from the
+    MDT&rsquo;s own directory map, spelled the way the walk spells them. One
+    binary, two arms: <code>--no-offload</code> walks, <code>--offload</code>
+    scans. Two GCP <code>c3-standard-8</code> instances, client and MDS, one
+    MDT, the same 87,944-file fixture and predicate, caches dropped on both
+    nodes, median of five.
+  </p>
+  <div class="tw">
+    <table>
+      <thead><tr><th>Scope</th><th>Share</th><th>Walk</th><th>Offloaded</th><th>&nbsp;</th></tr></thead>
+      <tbody>
+        <tr><td><code>/</code></td><td class="num">100%</td><td class="num">4.969 s</td><td class="num">0.582 s</td><td class="num"><strong>8.5&times; faster</strong></td></tr>
+        <tr><td><code>bench</code></td><td class="num">99.9%</td><td class="num">4.902 s</td><td class="num">0.580 s</td><td class="num">8.5&times; faster</td></tr>
+        <tr><td><code>bench/d3</code></td><td class="num">11.4%</td><td class="num">1.618 s</td><td class="num">0.521 s</td><td class="num">3.1&times; faster</td></tr>
+        <tr><td><code>d0</code></td><td class="num">0.06%</td><td class="num">0.061 s</td><td class="num">0.510 s</td><td class="num">8.4&times; slower</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>
+    The printed pathnames were compared, sorted, against the walk&rsquo;s on
+    every scope: identical. With no flag at all, a search from the root on a
+    predicate the MDT answers alike (<code>-uid 0 -type f</code>) offloaded by
+    itself, 4.957&nbsp;s to 0.578&nbsp;s, in 38 ioctls where the walk makes
+    one per file.
+  </p>
+  <div class="note">
+    <span class="lbl">When <code>lfs find</code> offloads on its own</span>
+    <p>
+      Only when the answer cannot change: the search starts at the filesystem
+      root, the caller has <code>CAP_SYS_ADMIN</code>, and no predicate needs
+      what only the OSTs or the walk hold &mdash; times and sizes the MDT may
+      not settle, layouts, link counts, depth. A search on names and types
+      alone walks too, because directory entries already answer it in a
+      readdir. <code>--offload</code> asks for it anyway, subtrees included;
+      a scan that fails before its first record walks instead.
+    </p>
+  </div>
+  <div class="note cost">
+    <span class="lbl">Not the same number as 30&times;</span>
+    <p>
+      Do not put these rows beside the ones above. The walk is faster on these
+      hosts (4.97&nbsp;s against 8.89&nbsp;s), and the offloaded arm now does
+      what <code>lfs find</code> must: a directory-only pass to build the map,
+      then a pathname for every match. Predicates still run on the client
+      &mdash; the MDT streams every record, and filter pushdown into
+      <code>lfu.ko</code> is not built. Single MDT; DNE untested.
+    </p>
+  </div>
+
   <h3>The walk&rsquo;s first result was a default, not a cost</h3>
   <p>
     The first run put <code>llapi_scan_namespace()</code> 2.4&times; behind
@@ -653,7 +707,9 @@ footer p { max-width: none; }
     <a href="https://jira.whamcloud.com/browse/LU-20462">LU-20462</a> and its
     nine subtasks; the Gerrit board as of 2026-09-01.
     Offload figures from <code>bench-data/2026-09-10/subtree-two-node.txt</code>
-    and <code>bench-data/2026-09-10/walk-threads-two-node.txt</code>.
+    and <code>bench-data/2026-09-10/walk-threads-two-node.txt</code>;
+    <code>lfs find</code> offloaded from
+    <code>bench-data/2026-10-04/lfs-find-offload-raw.txt</code>.
     Performance figures from <code>measurements/cold-on-fast-storage-2026-08-16.md</code>
     and <code>measurements/blockparse-2026-08-16.md</code>.
   </p>
