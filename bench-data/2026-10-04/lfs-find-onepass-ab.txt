@@ -1,0 +1,95 @@
+Offloaded lfs find: two passes (A, 8c663511a2) vs one pass (B, ad0545fd69)
+==========================================================================
+2026-10-04, same GCP lab and fixture as lfs-find-offload-raw.txt.  Arms run
+as LD_PRELOAD=<arm>/liblustreapi.so <arm>/lfs; arms proven different by the
+scan ioctl count (A 38, B 19).  Alternated, N=5, cold = caches dropped on
+both nodes, warm = immediately after.  -mtime -30 -type f, --offload.
+
+Medians:            A two-pass   B one-pass
+/          cold     0.551        0.442   (-20%)
+/          warm     0.193        0.123   (-36%)
+/bench/d3  cold     0.515        0.444
+/d0        cold     0.509        0.442
+
+Deferred-naming check: bench/d1 moved under a new zz/yy (8,657 objects then
+arrive before an ancestor): walk vs B identical on /, zz, zz/yy/d1, bench.
+Fixture restored (87,944 files).
+
+Floor: a raw single llapi_scan_mount() pass cold is 0.40-0.46 s and reads
+86 MiB on the server (= 88k used inodes x 1 KiB) at ~225 MiB/s, the
+pd-balanced cap.  B is at that floor.  On an MDT larger than the server's
+RAM, A's second pass is a second cold read, so B should approach 2x there.
+
+0
+md5 A 62ced96a  B 24bb3593
+arm A ioctls (nomatch, root): 38
+arm B ioctls (nomatch, root): 19
+== oracle: B vs walk, sorted
+SAME n=87944  /mnt/testfs -mtime -30 -type f
+SAME n=87894  /mnt/testfs/bench -mtime -30 -type f
+SAME n=10000  /mnt/testfs/bench/d3 -mtime -30 -type f
+SAME n=50  /mnt/testfs/d0 -mtime -30 -type f
+SAME n=13  /mnt/testfs -type d -mtime -30
+SAME n=11  /mnt/testfs/bench/ -type d -mtime -30
+SAME n=1110  . -mtime -30 -name f12*
+== timed: scope arm cache wall
+/ A cold 0.572
+/ A warm 0.192
+/ B cold 0.448
+/ B warm 0.122
+/bench/d3 A cold 0.517
+/bench/d3 A warm 0.160
+/bench/d3 B cold 0.444
+/bench/d3 B warm 0.095
+/d0 A cold 0.512
+/d0 A warm 0.154
+/d0 B cold 0.442
+/d0 B warm 0.092
+/ A cold 0.551
+/ A warm 0.193
+/ B cold 0.440
+/ B warm 0.124
+/bench/d3 A cold 0.515
+/bench/d3 A warm 0.158
+/bench/d3 B cold 0.445
+/bench/d3 B warm 0.095
+/d0 A cold 0.504
+/d0 A warm 0.149
+/d0 B cold 0.445
+/d0 B warm 0.091
+/ A cold 0.548
+/ A warm 0.190
+/ B cold 0.444
+/ B warm 0.123
+/bench/d3 A cold 0.515
+/bench/d3 A warm 0.155
+/bench/d3 B cold 0.442
+/bench/d3 B warm 0.095
+/d0 A cold 0.508
+/d0 A warm 0.152
+/d0 B cold 0.442
+/d0 B warm 0.092
+/ A cold 0.552
+/ A warm 0.194
+/ B cold 0.442
+/ B warm 0.125
+/bench/d3 A cold 0.519
+/bench/d3 A warm 0.161
+/bench/d3 B cold 0.444
+/bench/d3 B warm 0.097
+/d0 A cold 0.509
+/d0 A warm 0.158
+/d0 B cold 0.439
+/d0 B warm 0.093
+/ A cold 0.547
+/ A warm 0.196
+/ B cold 0.438
+/ B warm 0.123
+/bench/d3 A cold 0.513
+/bench/d3 A warm 0.158
+/bench/d3 B cold 0.441
+/bench/d3 B warm 0.098
+/d0 A cold 0.510
+/d0 A warm 0.152
+/d0 B cold 0.440
+/d0 B warm 0.092
