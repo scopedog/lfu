@@ -15,8 +15,13 @@ the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
   "could not be decided"). Style threads left unanswered (user 10-05):
   68156 lfsr_name, 68159 find_lmv_rejects move, 68415 test dir option.
   68159 green/adilger ZFS 2.4.3 not ours, no reply.
-- **Still open (user):** 68419 stale check vs scan window; writer race
-  documented only.
+- **Decided (user 10-05): 68419 stale check vs scan window -> option 2,
+  as a FOLLOW-UP change** (not folded into 68419). The scan reports the
+  first index it read per MDT; first != anchor+1 means a purge in the
+  window -> -ESTALE, anchors kept, cookie not rewritten (duplicates on the
+  next run are the accepted trade). Hook: find_since_filter_cb() already
+  sees every record in order. Writer race (N+1 before N at the tail) is
+  separate and stays documented.
 - Next: polling for the AI round and Maloo on the new patchsets.
 
 ## 2026-10-05 evening: lreview (2) on the fixed tip, fixed locally
