@@ -42,6 +42,7 @@ the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
 - **10-06:** 69443 PS1 rebuild Verified+1. 68156 PS31 dne-zfs-part-1 crashed
   in sanity 805 (tgt_grant_sanity_check LBUG) = LU-20523: linked + retested.
   68416 PS20 dne-zfs-part-5 sanityn 70b OSS OOM = LU-20276: linked + retested.
+  68158 PS28 dne-part-4 sanity-hsm 251+254b = LU-16932: linked + retested.
 
 ## 2026-10-05 evening: lreview (2) on the fixed tip, fixed locally
 
