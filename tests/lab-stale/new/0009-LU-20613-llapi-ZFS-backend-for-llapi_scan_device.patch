@@ -1,0 +1,2645 @@
+From 0e8a719ed2635ceed48b5f3559583d17cc5ffd2f Mon Sep 17 00:00:00 2001
+From: Hiroshi Nishida <hnishida@thelustrecollective.com>
+Date: Sun, 27 Sep 2026 06:37:44 -0700
+Subject: [PATCH 09/17] LU-20613 llapi: ZFS backend for llapi_scan_device
+
+Add scan_osd_zfs.so, the ZFS half of llapi_scan_device(), which reads
+objects out of a pool through libzpool the way zdb does, behind the
+same llapi_scan_sink the ldiskfs backend is behind.
+
+A pool that is still imported answers EBUSY rather than being read
+underneath its server: reading an imported pool from outside is not
+supported, so the pool has to be exported first, and its snapshots
+then become readable too. lfsp_search names the directories to look in
+for a pool's vdevs, since a pool on file vdevs is invisible to a scan
+of /dev. The scan loads no /etc/zfs/zpool.cache: a pool listed there
+would be opened directly, before those checks, and a pool the kernel
+holds would answer EREMOTEIO instead of EBUSY.
+
+Like zdb, the scan caps the ARC at 256 MB, because it reads each
+block once. It also sets zfs_arc_min to 32 MB: in libzpool the
+minimum starts at half the maximum, and a cap below the minimum is
+ignored. On an MDT with 1.2 million objects this lowered peak memory
+from about 450 MB to about 345 MB, with no measurable change in scan
+time. There is no spa_export() call: under SPA_MODE_READ it returns
+EROFS, and the import ends at kernel_fini() when the last scan closes.
+
+A directory's size is the length of its ZAP, as osd_attr_get()
+reports it to a client. The SA size of a directory is not kept up to
+date on osd-zfs.
+
+osd-zfs keeps an xattr that does not fit in the SA in a directory of
+its own, one object for each value. These objects hold the xattrs of
+another object, like an ldiskfs ea_inode, so they are neither reported
+nor counted. They have no ZPL_MODE, so otherwise they would be counted
+in ss_skipped, and lfs find --device would report damage that is not
+there.
+
+A dataset that holds no ZPL objects -- a zvol, or a snapshot of one --
+answers EMEDIUMTYPE, which is this backend refusing this dataset and
+not the ENOTSUP the library returns when it has no backend to ask at
+all.  The ldiskfs backend separates the same two with ENOPKG; a caller
+that skips its work where a build cannot scan must not also skip it
+where the build can and the target was misnamed.
+
+conf-sanity 300 is extended to cover it rather than left
+ldiskfs-only: its gate becomes ldiskfs-or-zfs, and so does the OST
+half's, which asks about ost1_FSTYPE for itself rather than about
+whether it matches the MDT's.  MDSFSTYPE and OSTFSTYPE are set
+separately -- facet_fstype() reads the facet's own first -- so an
+ldiskfs OST under a ZFS MDT is a real combination, and keying off
+the match would leave it unscanned by a backend that can read it.
+Both facets grow an export_zpool and import_zpool pair around the
+scan, because a pool still imported by its server answers EBUSY.
+-p and --search are passed so a pool on file vdevs is found.
+
+lfs find gains --search DIRS, which sets lfsp_search, and --device
+takes a pool/dataset name for a ZFS target; lfs-find.1 says when such
+a pool answers EBUSY.  scan_device_target(), which llapi_find_device()
+reads a target's label with, takes the search path too and selects its
+backend the way llapi_scan_device() does.  The ldiskfs half of
+conf-sanity 300 still errors where the backend will not load, an
+ldiskfs build being unable to configure without libext2fs; only a ZFS
+target skips on ENOTSUP, and only when the build has no ZFS backend:
+every dlopen() tried found no scan_osd_zfs.so. The loader now names
+each attempt's error, so a plugin that is there but does not load
+fails the test instead. While mds1 is still up, the test also checks
+that --target on a ZFS MDT is refused as in use.
+
+The backend goes into the programs that scan, not into liblustreapi,
+which is what mkfs.lustre already does with -lzfs -lnvpair -lzpool.
+libzpool is the DMU built for userspace and it arrives with libspl and
+libnvpair behind it.  In the no-plugins build those are linked into
+the library, so they reach every program that links it -- lfs, lctl,
+and every helper under lustre/tests -- and not only the ones that
+scan.  sanity 131d shows this: it reads errno through rwv, which
+links liblustreapi and never scans anything.  libext2fs is one
+ordinary library and does not carry that, so the ldiskfs backend stays
+where it is.
+
+So liblustreapi keeps -DHAVE_ZFS_SCAN and declares the five entry
+points weak, and libscan_zfs_in.la is linked into
+llapi_scan_device_test, the scanner conf-sanity 300 drives, and not
+into lfs, which clients install.  A program without it links and
+leaves the slot NULL, which is the -ENOTSUP llapi_scan_device.3
+already describes -- the same answer as a build whose configure found
+no libzpool headers at all, so no caller and no test learns a new
+outcome.  lfs find --device therefore reads a ZFS target in a packaged
+build, which dlopens scan_osd_zfs.so, and answers ENOTSUP for one in a
+build without plugins; conf-sanity 300 skips its lfs find half on
+exactly that, for a ZFS target only.
+
+The weak reference is not on its own enough to link the backend in,
+and the failure is silent.  libtool hands a convenience library to the
+link as a plain .a, and an undefined *weak* symbol is not a reason for
+the linker to extract an archive member -- so the five stay NULL, the
+scanner answers -ENOTSUP on a build that has the backend, and nothing
+says why: nm reads "w scan_zfs_open" and the binary holds no
+libzpool symbol at all.  So the program names one symbol undefined
+up front, -Wl,-u,scan_zfs_open,
+which extracts the member that defines it and brings the other four
+with it.
+
+Its own autotest reaches the ZFS half only where configure finds the
+headers; the Test-Parameters line below asks for the ZFS session that
+can say something, and the default testing already runs sanity 157c.
+
+Neither exercises the weak slot, and that is not an omission.
+PLUGINS is enable_shared, so the weak references, libscan_zfs_in.la
+and the -u exist only in a --disable-shared build; the autotest
+sessions are built from the spec, which is %bcond_without shared, and
+take the dlopen() path.  The build that does carry them is the
+janitor's, which configures --disable-shared and runs the whole of
+sanity on every change.
+Asking for ONLY=131d here would run it against the shared build,
+where the condition cannot arise.
+
+lustre.spec.in changes with it: %files osd-zfs-mount becomes a
+generated lustre-osd-zfs-mount.files, carrying its %dir and zed.d
+entries over, because the plugin is built only when configure found
+libzpool and a static file list cannot say that.
+
+A name that begins with '/' is a device path. scan_device_exists()
+stats it and returns -ENOENT, -ENOTDIR, -ELOOP or -EACCES before a
+backend is chosen, so a mistyped path gets the real error even on a
+build without ZFS. scan_backend_kind() also takes such a name as
+ldiskfs before its own stat(), so a mount point or another directory
+is never sent to the ZFS backend. A relative name is ldiskfs only if
+it is a block device or a regular file; any other relative name,
+including one that does not exist, is taken as a dataset. -ENOTSUP
+keeps the meaning that llapi_scan_device.3 gives it, and that
+conf-sanity 300 uses for its skip: this build has no backend for the
+target.
+
+SCAN_CHUNKS_MAX is derived from DN_MAX_OBJECT in <sys/dnode.h>, the
+bound the walk needs, so a ZFS that widens the object id carries
+this along with it.
+
+A pool this kernel holds is told from one that is merely named like
+a kstat by asking for a directory.  /proc/spl/kstat/zfs holds about
+twenty global kstats -- zil, fm, dbufs, arcstats and the rest -- as
+regular files in the same directory pools appear in, so a stat() that
+only asks "does the name exist" would answer -EBUSY for an exported
+pool called fm.  Only a directory there is a pool.
+
+-EBUSY names both of the things that raise it: a pool another mount
+holds, and a dataset already owned within this process, which is a
+second scan of the same target.  dmu_objset_own() answers the same
+errno through dsl_dataset_tryown() for the second, where the pool is
+exported and there is nothing to export.  llapi_scan_device.3 says
+the same.
+
+Test-Parameters: fstype=zfs testlist=conf-sanity env=ONLY=300
+Signed-off-by: Hiroshi Nishida <hnishida@thelustrecollective.com>
+Assisted-by: ClaudeCode:Fable-5 llm_code_and_review_tools
+Assisted-by: ClaudeCode:Opus-5 llm_code_and_review_tools
+Change-Id: I97a6d8815924b2671c818152f42d66cc580a609d
+---
+ Documentation/man1/lfs-find.1             |  43 ++
+ Documentation/man3/llapi_find_device.3    |  23 +-
+ Documentation/man3/llapi_scan_device.3    | 117 ++-
+ Documentation/man3/llapi_scan_namespace.3 |   5 +
+ config/lustre-build-zfs.m4                |  89 +++
+ include/lustre/lustreapi.h                |  14 +-
+ lustre.spec.in                            |  24 +-
+ lustre/tests/Makefile.am                  |  13 +
+ lustre/tests/conf-sanity.sh               | 143 +++-
+ lustre/tests/llapi_scan_device_test.c     |  36 +-
+ lustre/utils/Makefile.am                  |  55 +-
+ lustre/utils/lfs.c                        |  10 +-
+ lustre/utils/lfs_find_parse.c             |  16 +-
+ lustre/utils/lfs_find_parse.h             |   1 +
+ lustre/utils/liblustreapi_pfind.c         |   2 +-
+ lustre/utils/liblustreapi_scan_device.c   | 249 ++++--
+ lustre/utils/libscan_ldiskfs.c            |   2 +-
+ lustre/utils/libscan_zfs.c                | 897 ++++++++++++++++++++++
+ lustre/utils/lustreapi_internal.h         |   7 +-
+ lustre/utils/lustreapi_scan_backend.h     |  39 +-
+ 20 files changed, 1648 insertions(+), 137 deletions(-)
+ create mode 100644 lustre/utils/libscan_zfs.c
+
+diff --git a/Documentation/man1/lfs-find.1 b/Documentation/man1/lfs-find.1
+index 4b9e331acf..ae5ef4933c 100644
+--- a/Documentation/man1/lfs-find.1
++++ b/Documentation/man1/lfs-find.1
+@@ -175,6 +175,8 @@ lfs-find \- Lustre utility to list files with specific attributes
+ .IR DEVICE |\c
+ .BR --local }
+ .RB [ --internal ]
++.RB [ --search
++.IR DIRS ]
+ .RI [ OPTION ]...
+ .YS
+ .SH DESCRIPTION
+@@ -822,6 +824,22 @@ without
+ unless the device node is itself stored on Lustre:
+ that is a file, and is walked as before.
+ A disk image may not, since it cannot be told apart from a file.
++.IP
++For a ZFS target,
++.I DEVICE
++is the pool/dataset name.
++A name that begins with
++.B /
++is always a device path.
++A relative name is a device only if it is a block device or a regular file;
++any other relative name, including one that does not exist,
++is taken as a dataset.
++Its pool must not be imported anywhere,
++including on a failover partner or left dirty by a crash:
++such a pool answers
++.BR EBUSY ,
++so export it first.
++A snapshot inside it becomes readable at the same time.
+ .TP
+ .BI --target " NAME"
+ Read a target mounted on this node,
+@@ -832,6 +850,15 @@ labelled it, such as
+ Its device is found through the
+ .BI osd-*. NAME .mntdev
+ parameter, which exists only while the target is mounted.
++A mounted ZFS target's pool is imported, and so answers
++.BR EBUSY :
++name a ZFS target with
++.B --device
++after its pool is exported.
++The same holds for
++.B --fsname
++and
++.BR --local .
+ .TP
+ .BI --fsname " FSNAME"
+ Read every MDT and OST of filesystem
+@@ -872,6 +899,13 @@ Also report the objects a target keeps for itself,
+ such as its OI and quota files,
+ which are otherwise left out.
+ One with no FID is printed as obj:ID, its object number on the target.
++.TP
++.BI --search " DIRS"
++Directories to search for a ZFS target's pool devices,
++colon-separated, at most 16 of them.
++The default is
++.IR /dev ;
++a pool on file vdevs cannot be found without this.
+ .PP
+ Only one of
+ .BR --device ,
+@@ -1009,6 +1043,15 @@ Lists the regular files over a gigabyte on an unmounted MDT, by FID:
+ .RE
+ .EE
+ .PP
++The same on a ZFS MDT whose pool is exported and whose vdevs are files
++under /tmp:
++.EX
++.RS
++.B # zpool export lustre-mdt1
++.B # lfs find --device lustre-mdt1/mdt1 --search /tmp --type f --size +1G
++.RE
++.EE
++.PP
+ Lists every object of project 1999 on this server's targets of testfs:
+ .EX
+ .RS
+diff --git a/Documentation/man3/llapi_find_device.3 b/Documentation/man3/llapi_find_device.3
+index 36953c678b..a18d2f2cf0 100644
+--- a/Documentation/man3/llapi_find_device.3
++++ b/Documentation/man3/llapi_find_device.3
+@@ -166,7 +166,28 @@ is among the fields above rather than a knob.
+ does not exist.
+ .TP 15
+ .B -ENOPKG
+-the backend refused the target.
++.I target
++is an ldiskfs target whose features this build's libext2fs refuses (it
++needs Lustre's e2fsprogs), or a ZFS pool with features this build's
++libzpool does not know.
++.TP 15
++.B -EMEDIUMTYPE
++.I target
++is a ZFS dataset that is not a ZPL filesystem.
++.TP 15
++.B -EBUSY
++.I target
++is a ZFS dataset whose pool is imported, or which already has an owner \(em
++a second scan of it in this process. A ZFS target is read from outside its
++server, so the pool has to be exported.
++.TP 15
++.B -ENODEV
++/dev/zfs is absent, so an exported pool cannot be told from one that does
++not exist. The zfs module is not loaded.
++.TP 15
++.B -E2BIG
++.I lfsp_search
++names more directories than the backend accepts.
+ .TP 15
+ .B -EIO
+ the target could not be read.
+diff --git a/Documentation/man3/llapi_scan_device.3 b/Documentation/man3/llapi_scan_device.3
+index bcb3c06589..7bc3a60825 100644
+--- a/Documentation/man3/llapi_scan_device.3
++++ b/Documentation/man3/llapi_scan_device.3
+@@ -1,4 +1,4 @@
+-.TH LLAPI_SCAN_DEVICE 3 2026-08-19 "Lustre User API" "Lustre Library Functions"
++.TH LLAPI_SCAN_DEVICE 3 2026-09-01 "Lustre User API" "Lustre Library Functions"
+ .SH NAME
+ llapi_scan_device \- scan a Lustre target's own objects, one record per object
+ .SH SYNOPSIS
+@@ -17,7 +17,16 @@ llapi_scan_device \- scan a Lustre target's own objects, one record per object
+ .B llapi_scan_device()
+ reads the objects of an MDT or OST directly from
+ .IR device ,
+-which may be a block device, a disk image or a snapshot, and calls
++which may be a block device, a disk image or a snapshot of an ldiskfs
++target, or a
++.B pool/dataset
++or
++.B pool/dataset@snapshot
++name of a ZFS one \(em a name that begins with
++.B /
++is read as the former and must exist; a relative name is read as the former
++only if it is a block device or a regular file, and anything else as the
++latter \(em and calls
+ .I cb
+ once for each of them with the same
+ .B struct llapi_scan_rec
+@@ -335,7 +344,12 @@ is answered from
+ for every backend, because the OSD keeps it there and not in the inode.
+ These are the same three
+ .BR llapi_scan_namespace (3)
+-gets from the client.
++gets from the client. The ZFS backend declares only
++.B STATX_ATTR_IMMUTABLE
++and
++.BR STATX_ATTR_APPEND :
++on ZFS both compression and encryption are dataset properties, not
++per-file ones, so no per-file answer exists to give.
+ .LP
+ On a target in service a scan also finds
+ objects caught mid-update, which are skipped rather than reported wrong and
+@@ -404,6 +418,15 @@ crash: they are counted in
+ Lustre's own open\-unlinked files are not among them \(em PENDING keeps a
+ link to each, so they are read and classified
+ .BR LLAPI_SCAN_CLS_ORPHAN .
++.SS Finding a target that is named by label
++A ZFS dataset name says which pool, not where its devices are. The pool is
++found by reading vdev labels under
++.IR /dev ;
++a pool whose vdevs live elsewhere \(em file vdevs in a test rig, say \(em
++needs
++.I lfsp_search
++set to the directories to look in, colon-separated, at most 16 of them.
++Backends that take a path, like ldiskfs, ignore it.
+ .SH RETURN VALUES
+ .B llapi_scan_device()
+ returns:
+@@ -442,6 +465,12 @@ holds no filesystem the backend recognises, or the target's label names
+ neither an MDT nor an OST. A filesystem that is not a Lustre target is
+ refused rather than scanned: no object on it carries an LMA, so a scan
+ would deliver nothing and succeed.
++.IP
++Also when more than one pool of that name was found under
++.IR lfsp_search :
++the backend cannot choose between them, and answering
++.B -ENOENT
++would send a caller looking for a spelling mistake that is not there.
+ .TP 15
+ .B -ENOTSUP
+ this build has no scanning backend for the target: none was compiled, or
+@@ -450,22 +479,81 @@ at.
+ .TP 15
+ .B -ENOPKG
+ the backend is here and refused the target: it uses on\-disk features the
+-installed libext2fs does not support. A Lustre MDT sets
++installed libext2fs or libzpool does not support. A Lustre MDT sets
+ .BR dirdata ,
+-which only the e2fsprogs distributed with Lustre lists as supported, so the
+-package to install is the answer. This and
++which only the e2fsprogs distributed with Lustre lists as supported, and a
++pool created or upgraded by a newer ZFS can have features an older libzpool
++does not know, so the package to install is the answer.
++.TP 15
++.B -EMEDIUMTYPE
++the backend is here and refused the target: the named ZFS dataset holds no
++ZPL objects \(em a zvol, or a snapshot of one.
++.LP
++These two and
+ .B -ENOTSUP
+-are deliberately distinct \(em a caller that skips its work where a build
++are deliberately distinct. A caller that skips its work where a build
+ cannot scan at all must not also skip it on a node that can, but whose
+-e2fsprogs is the stock one.
++e2fsprogs is the stock one or whose dataset was misnamed.
++.TP 15
++.B -EBUSY
++the ZFS target is in use. Either the pool holding the dataset is marked
++ACTIVE \(em imported by this or another host, or left dirty by a crash \(em
++in which case export it first, as a scan does not read a pool something
++else may be writing; or the dataset already has an owner, which is
++another
++.BR llapi_scan_device ()
++on it in this process. The pool is exported in that second case and
++exporting it again is not the answer.
++.IP
++These checks are made when this process imports the pool. The pool stays
++imported here while any scan in this process is open, and a new scan of it
++in that time is not checked again: if a server has imported the pool since,
++the new scan reads the pool as it was at the first import.
+ .TP 15
+ .B -ENOENT
+ .I device
+-does not exist.
++begins with a slash and no such path exists, or the ZFS device string
++carries no pool name, or no pool of that name was found under the search
++path. This is the answer for a name that does not exist, as distinct from
++.B -EBUSY
++for one that exists and is in use. A
++.I device
++beginning with a slash is passed to
++.BR stat (2)
++before any backend is chosen, so this reaches a build with no ZFS in it,
++and so do
++.BR -ENOTDIR ,
++.B -ELOOP
++and
++.B -EACCES
++from that same call.
++.TP 15
++.B -ENODEV
++the ZFS backend could not search for the pool because
++.B /dev/zfs
++is absent \(em the
++.B zfs
++module is not loaded. The label scan opens it for every candidate and
++abandons the search when that fails, so without this an exported pool
++sitting under the search path is indistinguishable from one that does not
++exist.
++.TP 15
++.B -E2BIG
++.I lfsp_search
++names more than 16 directories.
++.TP 15
++.B -ENAMETOOLONG
++the ZFS dataset name is
++.B ZFS_MAX_DATASET_NAME_LEN
++characters or longer,
++or the
++.BR stat (2)
++named above refused the path.
+ .TP 15
+ .B -EIO
+-a read of the target's inode table failed. An object that cannot be read
+-is skipped and counted in
++a read the scan cannot go on without failed \(em the inode table on
++ldiskfs, the attribute registry or a dnode block on ZFS. An object that
++cannot be read is skipped and counted in
+ .IR ss_skipped ;
+ this is the read that leaves the scan nowhere to go.
+ .TP 15
+@@ -484,9 +572,10 @@ deliver one twice.
+ has no effect here. A scan of a target skips an object it cannot read
+ rather than trusting it, and reports how many in
+ .IR ss_skipped ,
+-which is part of the answer and not a diagnostic. A read of the inode
+-table itself is the exception: nothing has advanced past it, so the scan
+-of that target ends with
++which is part of the answer and not a diagnostic. A read the scan cannot
++step over is the exception \(em the inode table itself on ldiskfs, a dnode
++block on ZFS: nothing has advanced past it, so the scan of that target
++ends with
+ .B -EIO
+ rather than reading the same block again. It is accepted so that one
+ .I lfsp_flags
+diff --git a/Documentation/man3/llapi_scan_namespace.3 b/Documentation/man3/llapi_scan_namespace.3
+index 62290331a7..5458edf790 100644
+--- a/Documentation/man3/llapi_scan_namespace.3
++++ b/Documentation/man3/llapi_scan_namespace.3
+@@ -64,6 +64,11 @@ or NULL when the caller does not want it. A walk counts an object as seen
+ once, then as filtered, skipped, or delivered and namespace-visible \(em
+ everything a walk reaches arrived through a directory entry, so the other
+ classes are ones only a scan of a target meets.
++.I lfsp_search
++is a list of directories
++.BR llapi_scan_device (3)
++looks in to turn a target's name into a device, described on that page. A
++namespace scan does not read it, being given a path rather than a target.
+ .LP
+ .I lfsp_want
+ is the demand mask: the
+diff --git a/config/lustre-build-zfs.m4 b/config/lustre-build-zfs.m4
+index 52785bc1cd..1b70470c3b 100644
+--- a/config/lustre-build-zfs.m4
++++ b/config/lustre-build-zfs.m4
+@@ -221,6 +221,93 @@ AC_DEFUN([LB_ZFS_USER], [
+ 	AC_SUBST(ZFS_LIBZFS_INCLUDE)
+ 	AC_SUBST(ZFS_LIBZFS_LDFLAGS)
+ 	AC_SUBST(ZFS_LIBZFS_LIBS)
++
++	#
++	# The scan backend needs the DMU headers, not just libzfs.h, and
++	# reaching them takes more than ZFS_LIBZFS_INCLUDE does.  libzpool is
++	# the kernel DMU compiled for userspace, so it wants the os/linux/zfs
++	# headers and LIB_ZPOOL_BUILD, exactly as OpenZFS builds libzpool
++	# itself -- and it must NOT see os/linux/spl, whose sys/types.h
++	# collides with libspl's.  Which of these sets exists depends on
++	# whether zfs came from source, from DKMS, or from a devel package,
++	# and a directory test cannot tell a usable set from an unusable one:
++	# compile something and see.
++	#
++	AC_MSG_CHECKING([zfs libzpool headers usable from userspace])
++	ZFS_LIBZPOOL_INCLUDE=""
++	enable_zfs_scan="no"
++	zpool_saved_CPPFLAGS="$CPPFLAGS"
++	zpool_src_set=""
++	AS_IF([test -n "${zfssrc}" && test -d "${zfssrc}/include/os/linux/zfs"], [
++		zpool_src_set="-DLIB_ZPOOL_BUILD -I $zfssrc/lib/libspl/include -I $zfssrc/lib/libspl/include/os/linux -I $zfssrc/include -I $zfssrc/include/os/linux/zfs"
++	])
++	# $zfsinc from --with-zfs-devel has no libzpool directory and no
++	# -DLIB_ZPOOL_BUILD, so it cannot pass on its own: the packaged layout
++	# is spelled out here, under $zfsdevel when there is one.
++	zpool_pkg_set="-DLIB_ZPOOL_BUILD -I${zfsdevel}/usr/include/libspl -I${zfsdevel}/usr/include/libzfs -I${zfsdevel}/usr/include/libzpool"
++	# ZFS 2.3's sys/abd.h needs sys/abd_os.h, which installs only into the
++	# kernel header tree that $zfssrc names -- not into the devel headers.
++	zpool_kern_set=""
++	AS_IF([test -n "${zfssrc}" && test -d "${zfssrc}/include/sys"], [
++		zpool_kern_set="${zpool_pkg_set} -I ${zfssrc}/include"
++	])
++	for zpoolinc in "${zpool_src_set}" "${zpool_pkg_set}" "${zpool_kern_set}"; do
++		AS_IF([test -z "$zpoolinc"], [continue])
++		AS_IF([test "x$enable_zfs_scan" = "xno"], [
++			# the macros lustre/utils/Makefile.am gives libscan_zfs.c
++			CPPFLAGS="-D_GNU_SOURCE -D_LARGEFILE64_SOURCE=1 -D_FILE_OFFSET_BITS=64 $zpoolinc"
++			AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
++				/* as libscan_zfs.c does: libzpool's headers
++				 * name these without declaring them */
++				struct page;
++				struct bio;
++				#include <sys/zfs_context.h>
++				#include <sys/spa.h>
++				#include <sys/spa_impl.h>
++				#include <sys/arc_impl.h>
++				#include <sys/dmu.h>
++				#include <sys/dsl_prop.h>
++				#include <sys/zap.h>
++				#include <sys/sa.h>
++				#include <sys/dnode.h>
++				#include <sys/zfs_acl.h>
++				#include <sys/zfs_sa.h>
++				#include <sys/zfs_znode.h>
++				#include <sys/nvpair.h>
++				#include <libzutil.h>
++			]],[[
++				/* and name the API it calls, so that a header
++				 * set which compiles the includes but not the
++				 * backend fails here and not in make */
++				libpc_handle_t lpch;
++				objset_t *os = NULL;
++				uint64_t obj = 0;
++
++				(void)&lpch;
++				(void)&libzpool_config_ops;
++				(void)zpool_find_config;
++				(void)spa_import;
++				(void)dsl_prop_get;
++				(void)sa_setup;
++				(void)dmu_bonus_hold_by_dnode;
++				(void)sa_handle_get_from_db;
++				(void)dmu_object_next(os, &obj, B_FALSE, 0);
++				(void)&spa_config_path;
++				(void)&zfs_arc_min;
++				(void)&zfs_arc_max;
++			]])],[
++				ZFS_LIBZPOOL_INCLUDE="$zpoolinc"
++				enable_zfs_scan="yes"
++			],[])
++		])
++	done
++	CPPFLAGS="$zpool_saved_CPPFLAGS"
++	AS_IF([test "x$enable_zfs_scan" = "xyes"], [
++		AC_MSG_RESULT([$ZFS_LIBZPOOL_INCLUDE])
++	], [
++		AC_MSG_RESULT([no: llapi_scan_device will have no zfs backend])
++	])
++	AC_SUBST(ZFS_LIBZPOOL_INCLUDE)
+ ]) # LB_ZFS_USER
+ 
+ AC_DEFUN([LZ_KABI_ZFS], [
+@@ -398,6 +485,8 @@ your distribution.
+ 		AC_SUBST(ENABLE_ZFS, no)
+ 	])
+ 	AM_CONDITIONAL(ZFS_ENABLED, [test "x$enable_zfs" = xyes])
++	AM_CONDITIONAL(ZFS_SCAN_ENABLED,
++		[test "x$enable_zfs" = xyes && test "x$enable_zfs_scan" = xyes])
+ 
+ 	#
+ 	# For all versions Lustre supports, SPL is bundled with ZFS.
+diff --git a/include/lustre/lustreapi.h b/include/lustre/lustreapi.h
+index 0b7b4c9f52..6e28948a24 100644
+--- a/include/lustre/lustreapi.h
++++ b/include/lustre/lustreapi.h
+@@ -492,14 +492,15 @@ struct find_param {
+ 	struct find_work_queue	*fp_queue;
+ 	void			*fp_cb_data; /* Callback data */
+ 	/*
+-	 * lfs find --device, --target and --fsname: a target read directly
+-	 * rather than a namespace walked.  Only lfs uses these: its parser
+-	 * returns everything it reads in this struct.  The library ignores
+-	 * them.
++	 * lfs find --device, --target, --fsname and --search: a target read
++	 * directly rather than a namespace walked.  Only lfs uses these: its
++	 * parser returns everything it reads in this struct.  The library
++	 * ignores them.
+ 	 */
+ 	char			*fp_device;
+ 	char			*fp_target;
+ 	char			*fp_fsname;
++	char			*fp_search;
+ };
+ 
+ /* Work unit for parallel directory processing */
+@@ -920,6 +921,11 @@ struct llapi_scan_param {
+ 	__u64			*lfsp_got;
+ 	/* filled in when the scan ends.  NULL: not wanted */
+ 	struct llapi_scan_stats	*lfsp_stats;
++	/* directories to search for a target found by label rather than by
++	 * path, colon-separated; NULL means the backend's default, /dev.
++	 * Today that is the ZFS backend, whose pool may sit on file vdevs.
++	 */
++	const char		*lfsp_search;
+ };
+ 
+ int llapi_scan_namespace(const char *path, const struct llapi_scan_param *sp,
+diff --git a/lustre.spec.in b/lustre.spec.in
+index 58fd6585a1..214946aea6 100644
+--- a/lustre.spec.in
++++ b/lustre.spec.in
+@@ -962,6 +962,25 @@ echo '%exclude %{_libdir}/lustre/tests/lcov-merge.sh*' >> lustre-tests.files
+ # with lustre_tests
+ %endif
+ 
++:> lustre-osd-zfs-mount.files
++%if %{with shared}
++%if %{with zfs}
++%if %{with lustre_utils}
++echo '%dir %{_libdir}/@PACKAGE@' >>lustre-osd-zfs-mount.files
++echo '%{_libdir}/@PACKAGE@/mount_osd_zfs.so' >>lustre-osd-zfs-mount.files
++echo '%{_sysconfdir}/zfs/zed.d/*' >>lustre-osd-zfs-mount.files
++# The scan backend is a plugin, and whether configure found headers to build
++# it is decided by the ./configure that %build runs, not by the host that
++# generated this spec.  A configure substitution here would freeze the answer
++# one build early, so a published srpm rebuilt elsewhere would either package
++# a file that was not built or leave one unpackaged, and both are fatal.
++if [ -f $RPM_BUILD_ROOT%{_libdir}/@PACKAGE@/scan_osd_zfs.so ]; then
++	echo '%{_libdir}/@PACKAGE@/scan_osd_zfs.so' >>lustre-osd-zfs-mount.files
++fi
++%endif
++%endif
++%endif
++
+ %if %{with coverage}
+ %files -n %{lustre_name}-coverage
+ %defattr(-,root,root)
+@@ -1069,11 +1088,8 @@ echo '%exclude %{_libdir}/lustre/tests/lcov-merge.sh*' >> lustre-tests.files
+ %if %{with shared}
+ %if %{with zfs}
+ %if %{with lustre_utils}
+-%files osd-zfs-mount
++%files osd-zfs-mount -f lustre-osd-zfs-mount.files
+ %defattr(-,root,root)
+-%dir %{_libdir}/@PACKAGE@
+-%{_libdir}/@PACKAGE@/mount_osd_zfs.so
+-%{_sysconfdir}/zfs/zed.d/*
+ %endif
+ %endif
+ %endif
+diff --git a/lustre/tests/Makefile.am b/lustre/tests/Makefile.am
+index c9192fec53..030e4aa9af 100644
+--- a/lustre/tests/Makefile.am
++++ b/lustre/tests/Makefile.am
+@@ -117,6 +117,19 @@ llapi_scan_test_LDADD = $(LIBLUSTREAPI) -lpthread
+ llapi_scan_device_test_SOURCES = llapi_scan_device_test.c llapi_test_utils.c \
+ 				 llapi_test_utils.h
+ llapi_scan_device_test_LDADD = $(LIBLUSTREAPI) -lpthread
++# conf-sanity 300 drives this as the oracle for a ZFS target, so it needs the
++# backend the library no longer carries.  With plugins it is dlopen'ed and
++# there is nothing to link.
++if PLUGINS
++else
++if ZFS_SCAN_ENABLED
++# -Wl,-u: the library's weak reference does not pull a member out of an
++# archive, so the backend has to be asked for by name.
++llapi_scan_device_test_LDFLAGS = -Wl,-u,scan_zfs_open
++llapi_scan_device_test_LDADD += $(top_builddir)/lustre/utils/libscan_zfs_in.la \
++				$(ZFS_LIBZFS_LDFLAGS) -lzpool -lnvpair
++endif # ZFS_SCAN_ENABLED
++endif # PLUGINS
+ group_lock_test_LDADD = $(LIBLUSTREAPI)
+ llapi_fid_test_LDADD = $(LIBLUSTREAPI)
+ llapi_root_test_LDADD = $(LIBLUSTREAPI) -lpthread
+diff --git a/lustre/tests/conf-sanity.sh b/lustre/tests/conf-sanity.sh
+index a96cb180ff..09f541c085 100755
+--- a/lustre/tests/conf-sanity.sh
++++ b/lustre/tests/conf-sanity.sh
+@@ -13304,8 +13304,24 @@ test_250() {
+ }
+ run_test 250 "verify lcfg_erase removes filesystem parameters"
+ 
++# ENOTSUP from a ZFS scan is a skip only where the build has no ZFS backend.
++# A scan_osd_zfs.so that is there but does not load is a failure.
++zfs_scan_unbuilt() {
++	local nl=$'\n'
++	local why
++
++	grep -q "Operation not supported" $1 || return 1
++	grep -q "device scan backend" $1 || return 0
++	why=$(grep -o "no zfs device scan backend: .*" $1) || return 1
++	why=${why#*backend: }
++	# one reason per dlopen() tried: every one must be a missing file
++	! grep -vq "scan_osd_zfs.so: cannot open shared object file" \
++		<<< "${why//; /$nl}"
++}
++
+ test_300() {
+-	[ "$mds1_FSTYPE" == ldiskfs ] || skip "ldiskfs only test"
++	[[ "$mds1_FSTYPE" == ldiskfs || "$mds1_FSTYPE" == zfs ]] ||
++		skip "$mds1_FSTYPE has no scan backend"
+ 	remote_mds_nodsh && skip "remote MDS with nodsh"
+ 	(( MDS1_VERSION >= $(version_code 2.17.58) )) ||
+ 		skip "Need MDS >= 2.17.58 for a target scan"
+@@ -13348,9 +13364,9 @@ test_300() {
+ 	[[ -n "$dirfid" ]] || error "no FID for $DIR/$tdir/subdir"
+ 
+ 	# a --local sweep with --ost or --mdt reads only targets of that type,
+-	# so where one node serves both it skips the other type.  ost1 must be
+-	# ldiskfs too: a ZFS pool in use is refused.
+-	if [[ "$ost1_FSTYPE" == ldiskfs ]] &&
++	# so where one node serves both it skips the other type.  ldiskfs
++	# only: a ZFS pool in use is refused.
++	if [[ "$mds1_FSTYPE" == ldiskfs && "$ost1_FSTYPE" == ldiskfs ]] &&
+ 	   [[ $(facet_active_host mds1) == $(facet_active_host ost1) ]]; then
+ 		local ostsvc=$(facet_svc ost1)
+ 		local mdtsvc=$(facet_svc mds1)
+@@ -13391,22 +13407,38 @@ test_300() {
+ 
+ 	# --target and --fsname while mds1 is up, which is where they are meant
+ 	# to answer; the sweep above runs only where mds1 and ost1 share a node.
+-	local mdt1svc=$(facet_svc mds1)
+-	local n
+-
+-	n=$(do_facet mds1 "$LFS find --target $mdt1svc --type f" \
+-		2> $scan_err | wc -l)
+-	(( n > 0 )) || {
+-		cat $scan_err
+-		error "lfs find --target $mdt1svc found no files"
+-	}
+-	n=$(do_facet mds1 \
+-		"$LFS find --fsname $FSNAME --mdt $mdt1svc --type f" \
+-		2> $scan_err | wc -l)
+-	(( n > 0 )) || {
+-		cat $scan_err
+-		error "--fsname $FSNAME --mdt $mdt1svc found no files"
+-	}
++	# ldiskfs only: a ZFS pool in use is refused.
++	if [[ "$mds1_FSTYPE" == ldiskfs ]]; then
++		local mdt1svc=$(facet_svc mds1)
++		local n
++
++		n=$(do_facet mds1 "$LFS find --target $mdt1svc --type f" \
++			2> $scan_err | wc -l)
++		(( n > 0 )) || {
++			cat $scan_err
++			error "lfs find --target $mdt1svc found no files"
++		}
++		n=$(do_facet mds1 \
++			"$LFS find --fsname $FSNAME --mdt $mdt1svc --type f" \
++			2> $scan_err | wc -l)
++		(( n > 0 )) || {
++			cat $scan_err
++			error "--fsname $FSNAME --mdt $mdt1svc found no files"
++		}
++	else
++		# a pool its server holds is refused, not read under the server
++		local mdt1svc=$(facet_svc mds1)
++
++		do_facet mds1 "$LFS find --target $mdt1svc --type f" \
++			> /dev/null 2> $scan_err &&
++			error "lfs find --target $mdt1svc read an imported pool"
++		if zfs_scan_unbuilt $scan_err; then
++			echo "lfs has no zfs scan backend in this build"
++		elif ! grep -q "in use: pool imported" $scan_err; then
++			cat $scan_err
++			error "--target $mdt1svc was not refused as in use"
++		fi
++	fi
+ 
+ 	# and now the same objects, read off the device with nothing mounted:
+ 	# an unmounted target has no journal to replay and nothing moving, so
+@@ -13414,26 +13446,61 @@ test_300() {
+ 	stopall
+ 	stack_trap setupall
+ 
+-	# an error, never a skip: an ldiskfs build needs libext2fs to configure
+-	# and packages the backend beside the osd plugin that mounted this MDT
+-	do_facet mds1 "$scanner -d $mdt1 -l" > $scan_fids.raw 2> $scan_err || {
++	# ZFS reads the pool from outside ZFS itself, so the server has to let
++	# go of it first: an imported pool is refused rather than read behind
++	# the kernel's back.  ldiskfs needs no equivalent -- the block device
++	# is readable whether or not anything has it mounted.  And the pool
++	# is found again by reading vdev labels, which for this suite's
++	# file-backed vdevs means saying where the files are.
++	local sdir=""
++
++	if [[ "$mds1_FSTYPE" == zfs ]]; then
++		export_zpool mds1
++		stack_trap "import_zpool mds1"
++		sdir=$(dirname $(facet_vdevice mds1))
++	fi
++
++	# An ldiskfs build needs libext2fs to configure and packages the backend
++	# beside the osd plugin that mounted this MDT, so ENOTSUP there is an
++	# error.  A ZFS build whose configure found no libzpool headers has no
++	# backend at all, which is not a failure of the scan.
++	do_facet mds1 "$scanner -d $mdt1 ${sdir:+-p $sdir} -l" \
++		> $scan_fids.raw 2> $scan_err || {
++		[[ "$mds1_FSTYPE" == zfs ]] && zfs_scan_unbuilt $scan_err &&
++			skip "no zfs scan backend in this build"
+ 		cat $scan_err
+ 		error "scanning $mdt1 failed"
+ 	}
+ 	tr -d '[]' < $scan_fids.raw | sort > $scan_fids
+-	do_facet mds1 "$scanner -d $mdt1" ||
++	do_facet mds1 "$scanner -d $mdt1 ${sdir:+-p $sdir}" ||
+ 		error "llapi_scan_device_test on $mdt1 failed"
+ 
+ 	# an OST has no namespace, so what it delivers by default is its data
+ 	# objects; a scan that returned nothing here would look like success
+-	if [[ "$ost1_FSTYPE" != ldiskfs ]] || remote_ost_nodsh ||
++	if [[ "$ost1_FSTYPE" != ldiskfs && "$ost1_FSTYPE" != zfs ]] ||
++	   remote_ost_nodsh ||
+ 	   (( OST1_VERSION < $(version_code 2.17.58) )); then
+ 		echo "not scanning ost1: $ost1_FSTYPE, no shell there, or too old"
+ 	else
++		local odir=""
++
+ 		do_facet ost1 "test -x $scanner" ||
+ 			error "$scanner is not on ost1"
+-		do_facet ost1 "$scanner -d $(ostdevname 1)" ||
+-			error "llapi_scan_device_test on $(ostdevname 1) failed"
++		if [[ "$ost1_FSTYPE" == zfs ]]; then
++			export_zpool ost1
++			stack_trap "import_zpool ost1"
++			odir=$(dirname $(facet_vdevice ost1))
++		fi
++		do_facet ost1 "$scanner -d $(ostdevname 1) ${odir:+-p $odir}" \
++			2> $scan_err || {
++			if [[ "$ost1_FSTYPE" == zfs ]] &&
++			   zfs_scan_unbuilt $scan_err; then
++				echo "not scanning ost1: no zfs scan backend"
++			else
++				cat $scan_err
++				error "scanning $(ostdevname 1) failed"
++			fi
++		}
+ 	fi
+ 
+ 	# misses are what matters: a scanner a cleanup tool acts on must not
+@@ -13449,9 +13516,16 @@ test_300() {
+ 		"found all $(wc -l < $client_fids) visible FIDs"
+ 
+ 	# lfs find runs the same predicates over that scan: every regular file
+-	# the client listed has to come back, and no directory with it
+-	do_facet mds1 "$LFS find --device $mdt1 --type f -printf '%LF\n'" \
+-		> $find_fids.raw || error "lfs find on $mdt1 failed"
++	# the client listed has to come back, and no directory with it.  lfs
++	# does not link the ZFS backend, so without plugins it has no ZFS scan.
++	do_facet mds1 "$LFS find --device $mdt1 ${sdir:+--search $sdir} \
++			--type f -printf '%LF\n'" \
++		> $find_fids.raw 2> $scan_err || {
++		[[ "$mds1_FSTYPE" == zfs ]] && zfs_scan_unbuilt $scan_err &&
++			skip "lfs has no zfs scan backend in this build"
++		cat $scan_err
++		error "lfs find on $mdt1 failed"
++	}
+ 	sort $find_fids.raw > $find_fids
+ 
+ 	missing=$(comm -23 $file_fids $find_fids)
+@@ -13482,8 +13556,9 @@ test_300() {
+ 			error "lfs find $mdt1 differs from --device $mdt1"
+ 	fi
+ 
+-	do_facet mds1 "$LFS find --device=$mdt1 --type f -printf '%LF\n'" \
+-		> $find_fids.out || error "lfs find --device=$mdt1 failed"
++	do_facet mds1 "$LFS find --device=$mdt1 ${sdir:+--search=$sdir} \
++			--type f -printf '%LF\n'" > $find_fids.out ||
++		error "lfs find --device=$mdt1 failed"
+ 	sort $find_fids.out > $find_fids.raw
+ 	cmp -s $find_fids $find_fids.raw ||
+ 		error "lfs find --device=$mdt1 answered differently"
+@@ -13498,10 +13573,10 @@ test_300() {
+ 	# --internal is the same scan without the class filter, so it can
+ 	# only add: an MDT's own objects -- O, oi.N, the d* buckets -- are
+ 	# what a cleanup tool must be able to see and must not act on
+-	do_facet mds1 "$LFS find --device $mdt1" \
++	do_facet mds1 "$LFS find --device $mdt1 ${sdir:+--search $sdir}" \
+ 		> $find_fids.out || error "lfs find on $mdt1 failed"
+ 	sort $find_fids.out > $find_fids.all
+-	do_facet mds1 "$LFS find --device $mdt1 \
++	do_facet mds1 "$LFS find --device $mdt1 ${sdir:+--search $sdir} \
+ 			--internal" > $find_fids.out ||
+ 		error "lfs find --internal on $mdt1 failed"
+ 	sort $find_fids.out > $find_fids.int
+diff --git a/lustre/tests/llapi_scan_device_test.c b/lustre/tests/llapi_scan_device_test.c
+index 157d69fc04..59c578f882 100644
+--- a/lustre/tests/llapi_scan_device_test.c
++++ b/lustre/tests/llapi_scan_device_test.c
+@@ -40,6 +40,7 @@
+ #endif
+ 
+ static char *device;
++static char *search;
+ 
+ /* Fields an object carries by itself, before an xattr has been read. */
+ #define SCAN_TIER0_MASK	(LLAPI_SCAN_INO | LLAPI_SCAN_MODE | LLAPI_SCAN_TYPE | \
+@@ -103,7 +104,8 @@ static int count_cb(const struct llapi_scan_rec *rec, void *data)
+ static void test0(void)
+ {
+ 	struct llapi_scan_stats stats = { .ss_size = sizeof(stats) };
+-	struct llapi_scan_param sp = { .lfsp_size = sizeof(sp) };
++	struct llapi_scan_param sp = { .lfsp_size = sizeof(sp),
++				       .lfsp_search = search };
+ 	__u64 classified = 0;
+ 	struct scan_result res;
+ 	unsigned int i;
+@@ -163,7 +165,7 @@ static void test1(void)
+ 
+ 	for (i = 0; i < ARRAY_SIZE(threads); i++) {
+ 		struct llapi_scan_param sp = {
+-			.lfsp_size = sizeof(sp),
++			.lfsp_size = sizeof(sp), .lfsp_search = search,
+ 			.lfsp_thread_count = threads[i],
+ 		};
+ 		struct scan_result res;
+@@ -196,7 +198,7 @@ static void test1(void)
+ static void test2(void)
+ {
+ 	struct llapi_scan_param sp = {
+-		.lfsp_size = sizeof(sp),
++		.lfsp_size = sizeof(sp), .lfsp_search = search,
+ 		.lfsp_want = LLAPI_SCAN_FID | LLAPI_SCAN_MODE,
+ 	};
+ 	__u64 mdt_only = LLAPI_SCAN_MDT_INDEX | LLAPI_SCAN_LINKEA |
+@@ -264,7 +266,7 @@ static void test3(void)
+ {
+ 	struct llapi_scan_stats stats = { .ss_size = sizeof(stats) };
+ 	struct llapi_scan_param sp = {
+-		.lfsp_size = sizeof(sp),
++		.lfsp_size = sizeof(sp), .lfsp_search = search,
+ 		.lfsp_filter = tier0_filter_cb,
+ 	};
+ 	struct scan_result res;
+@@ -294,7 +296,7 @@ static void test4(void)
+ 	for (i = 0; i < ARRAY_SIZE(threads); i++) {
+ 		struct llapi_scan_stats stats = { .ss_size = sizeof(stats) };
+ 		struct llapi_scan_param sp = {
+-			.lfsp_size = sizeof(sp),
++			.lfsp_size = sizeof(sp), .lfsp_search = search,
+ 			.lfsp_thread_count = threads[i],
+ 			.lfsp_stats = &stats,
+ 		};
+@@ -319,7 +321,8 @@ static void test4(void)
+ #define T5_DESC "the objects a namespace never shows are held back by default"
+ static void test5(void)
+ {
+-	struct llapi_scan_param sp = { .lfsp_size = sizeof(sp) };
++	struct llapi_scan_param sp = { .lfsp_size = sizeof(sp),
++				       .lfsp_search = search };
+ 	struct scan_result all;
+ 	struct scan_result visible;
+ 	int rc;
+@@ -346,7 +349,8 @@ static void test5(void)
+ #define T6_DESC "bad arguments are refused, not crashed on"
+ static void test6(void)
+ {
+-	struct llapi_scan_param sp = { .lfsp_size = sizeof(sp) };
++	struct llapi_scan_param sp = { .lfsp_size = sizeof(sp),
++				       .lfsp_search = search };
+ 	/* what a caller built against a later definition of the struct
+ 	 * passes: our fields, then bytes we know nothing about
+ 	 */
+@@ -373,6 +377,7 @@ static void test6(void)
+ 	 * once one of them is set.  The buffer really is that long, because
+ 	 * the library reads it.
+ 	 */
++	big.sp.lfsp_search = search;
+ 	result_init(&res);
+ 	rc = llapi_scan_device(device, &big.sp, count_cb, &res);
+ 	ASSERTF(rc == 0, "a longer lfsp_size with a zero tail returned %d", rc);
+@@ -399,7 +404,8 @@ static void test6(void)
+ 	llapi_msg_set_level(LLAPI_MSG_OFF);
+ 	rc = llapi_scan_device("/dev/does-not-exist", &sp, count_cb, &res);
+ 	llapi_msg_set_level(LLAPI_MSG_ERROR);
+-	ASSERTF(rc < 0, "a missing device returned %d, expected an error", rc);
++	ASSERTF(rc == -ENOENT, "a missing device returned %d, expected -ENOENT",
++		rc);
+ 	ASSERTF(res.res_count == 0, "a missing device delivered %u records",
+ 		res.res_count);
+ }
+@@ -425,7 +431,8 @@ static int fid_cb(const struct llapi_scan_rec *rec, void *data)
+ 
+ static int list_fids(void)
+ {
+-	struct llapi_scan_param sp = { .lfsp_size = sizeof(sp) };
++	struct llapi_scan_param sp = { .lfsp_size = sizeof(sp),
++				       .lfsp_search = search };
+ 	int rc;
+ 
+ 	rc = llapi_scan_device(device, &sp, fid_cb, NULL);
+@@ -438,11 +445,13 @@ static int list_fids(void)
+ static void usage(char *prog)
+ {
+ 	fprintf(stderr,
+-		"Usage: %s [-l] [-e <test>] [-o <test>] -d <device>\n"
++		"Usage: %s [-l] [-e <test>] [-o <test>] [-p <dirs>] -d <device>\n"
+ 		"       -d  the target to scan, read-only\n"
+ 		"       -l  list the FID of every object, one per line\n"
+ 		"       -e  tests to skip\n"
+-		"       -o  tests to run\n",
++		"       -o  tests to run\n"
++		"       -p  directories to search for pool devices,\n"
++		"           colon-separated (ZFS on file vdevs)\n",
+ 		prog);
+ 	exit(EXIT_FAILURE);
+ }
+@@ -452,7 +461,7 @@ int main(int argc, char *argv[])
+ 	bool list = false;
+ 	int c;
+ 
+-	while ((c = getopt(argc, argv, "d:e:lo:")) != -1) {
++	while ((c = getopt(argc, argv, "d:e:lo:p:")) != -1) {
+ 		switch (c) {
+ 		case 'd':
+ 			device = optarg;
+@@ -466,6 +475,9 @@ int main(int argc, char *argv[])
+ 		case 'o':
+ 			set_tests_to_run(optarg, test_tbl);
+ 			break;
++		case 'p':
++			search = optarg;
++			break;
+ 		default:
+ 			usage(argv[0]);
+ 		}
+diff --git a/lustre/utils/Makefile.am b/lustre/utils/Makefile.am
+index f3c70b5945..1f1e33ecad 100644
+--- a/lustre/utils/Makefile.am
++++ b/lustre/utils/Makefile.am
+@@ -55,6 +55,7 @@ endif # UTILS
+ 
+ lib_LIBRARIES =
+ noinst_LIBRARIES =
++noinst_LTLIBRARIES =
+ if LDISKFS_ENABLED
+ libiam_a_SOURCES = libiam.c
+ lib_LIBRARIES += libiam.a
+@@ -140,11 +141,21 @@ liblustreapi_la_LIBADD = $(top_builddir)/lib/libcfs/libcfs.la \
+ 			 $(LIBNL3_LIBS) -lpthread
+ 
+ #
+-# llapi_scan_device()'s backend.  With plugins -- the default -- it is a
+-# shared object beside mount_osd_ldiskfs.so, dlopen'ed on the first scan, so
+-# that this library never links libext2fs and a client build carries no trace
+-# of it.  Without them there is nowhere to dlopen from, and a build that has
+-# ldiskfs links the backend in, as mount.lustre does with its own.
++# llapi_scan_device()'s backend.  With plugins -- the default, and what
++# ships -- it is a shared object beside mount_osd_ldiskfs.so, dlopen'ed on
++# the first scan, so that this library never links libext2fs and a client
++# build carries no trace of it.  Without them there is nowhere to dlopen
++# from, and a build that has ldiskfs links the backend in, as mount.lustre
++# does with its own.
++#
++# The ZFS backend goes into the programs that scan instead of into the
++# library, which is what mkfs.lustre already does with -lzfs -lnvpair
++# -lzpool.  libzpool is the DMU built for userspace and it arrives with
++# libspl and libnvpair behind it; in liblustreapi those reach every program
++# that links it -- lfs, lctl and every test helper -- and not only the ones
++# that scan.  libext2fs is one ordinary library and does not, so it stays.
++# The library keeps -DHAVE_ZFS_SCAN and declares the backend's entry points
++# weak; a program without the backend links and answers -ENOTSUP.
+ #
+ if PLUGINS
+ liblustreapi_la_CFLAGS += -DPLUGIN_DIR=\"${pkglibdir}\"
+@@ -159,6 +170,16 @@ liblustreapi_la_SOURCES += libscan_ldiskfs.c
+ liblustreapi_la_CFLAGS += -DHAVE_LDISKFS_SCAN
+ liblustreapi_la_LIBADD += -lext2fs
+ endif # LDISKFS_ENABLED
++if ZFS_SCAN_ENABLED
++# Its own convenience library because the libzpool include paths shadow
++# <sys/stat.h> and must not reach the other sources.
++noinst_LTLIBRARIES += libscan_zfs_in.la
++libscan_zfs_in_la_SOURCES = libscan_zfs.c
++libscan_zfs_in_la_CPPFLAGS = -D_GNU_SOURCE $(ZFS_LIBZPOOL_INCLUDE)
++liblustreapi_la_CFLAGS += -DHAVE_ZFS_SCAN
++# lfs does not link it: clients install lfs, and a ZFS target read through
++# lfs find in a build without plugins answers -ENOTSUP.
++endif # ZFS_SCAN_ENABLED
+ endif # UTILS
+ endif # PLUGINS
+ 
+@@ -175,6 +196,9 @@ endif
+ if ZFS_ENABLED
+ LIB_TARGETS += mount_osd_zfs.so
+ endif
++if ZFS_SCAN_ENABLED
++LIB_TARGETS += scan_osd_zfs.so
++endif
+ if SERVER
+ LIB_TARGETS += mount_osd_wbcfs.so
+ endif
+@@ -268,6 +292,27 @@ libscan_ldiskfs.la : libscan_ldiskfs.a
+ endif # PLUGINS
+ endif # LDISKFS_ENABLED
+ 
++if ZFS_SCAN_ENABLED
++if PLUGINS
++noinst_LIBRARIES += libscan_zfs.a
++
++libscan_zfs_a_SOURCES = libscan_zfs.c
++libscan_zfs_a_CPPFLAGS := -fPIC -D_GNU_SOURCE $(ZFS_LIBZPOOL_INCLUDE)
++
++# -lzpool -lnvpair and NOT $(ZFS_LIBZFS_LIBS): libzfs carries its own copy
++# of the fletcher code, and with two copies in the lookup scope the one
++# kernel_init() initializes need not be the one the read path checks.
++# Nothing here needs libzfs -- zpool_find_config() is libzpool's.
++lib_LTLIBRARIES += libscan_zfs.la
++libscan_zfs.la : libscan_zfs.a
++	$(CC) $(LDFLAGS) $(MNTMODLDFLAGS) -shared -Wl,--export-dynamic \
++			 -pthread $(ZFS_LIBZFS_LDFLAGS) \
++			 -o scan_osd_zfs.so \
++			 `$(AR) -t libscan_zfs.a` \
++			 -lzpool -lnvpair
++endif # PLUGINS
++endif # ZFS_SCAN_ENABLED
++
+ if LDISKFS_ENABLED
+ noinst_LIBRARIES += libmount_utils_ldiskfs.a
+ 
+diff --git a/lustre/utils/lfs.c b/lustre/utils/lfs.c
+index a6c99ee8b6..bde131f3e0 100644
+--- a/lustre/utils/lfs.c
++++ b/lustre/utils/lfs.c
+@@ -479,7 +479,7 @@ command_t cmdlist[] = {
+ 	 "usage: find <directory|filename> ...\n"
+ 	 "       find {--device DEVICE|--target NAME|--fsname NAME|--local|\n"
+ 	 "             BLOCKDEV}\n"
+-	 "            [--internal] ...\n"
++	 "            [--internal] [--search DIRS] ...\n"
+ 	 "     [[!] --atime|-A [+-]N[smhdwy]] [[!] --btime|-B [+-]N[smhdwy]]\n"
+ 	 "     [[!] --ctime|-C [+-]N[smhdwy]] [[!] --mtime|-M [+-]N[smhdwy]]\n"
+ 	 "     [[!] --attrs=[^]ATTR[,...]]\n"
+@@ -6470,6 +6470,7 @@ static int lfs_find_device(char **argv, struct find_param *param,
+ 	}
+ 
+ 	sp.lfsp_flags = param->fp_scan_internal ? LLAPI_SCAN_F_INTERNAL : 0;
++	sp.lfsp_search = param->fp_search;
+ 
+ 	if (device != NULL) {
+ 		snprintf(one.lt_device, sizeof(one.lt_device), "%s", device);
+@@ -6576,10 +6577,11 @@ static int lfs_find(int argc, char **argv)
+ 		ret = lfs_find_device(argv, param, pathstart, pathend);
+ 		goto err;
+ 	}
+-	if (param->fp_scan_internal) {
++	if (param->fp_scan_internal || param->fp_search != NULL) {
+ 		fprintf(stderr,
+-			"error: %s: --internal needs a target: --device, --target, --fsname, --local or a block device\n",
+-			argv[0]);
++			"error: %s: --%s needs a target: --device, --target, --fsname, --local or a block device\n",
++			argv[0],
++			param->fp_scan_internal ? "internal" : "search");
+ 		ret = CMD_HELP;
+ 		goto err;
+ 	}
+diff --git a/lustre/utils/lfs_find_parse.c b/lustre/utils/lfs_find_parse.c
+index 539ab0db30..cd3ac90e9b 100644
+--- a/lustre/utils/lfs_find_parse.c
++++ b/lustre/utils/lfs_find_parse.c
+@@ -1024,6 +1024,8 @@ int lfs_find_parse(int argc, char **argv, struct find_param *param,
+ /* getstripe { .val = 'q', .name = "quiet",	.has_arg = no_argument }, */
+ /* getstripe { .val = 'r', .name = "recursive",	.has_arg = no_argument }, */
+ /* getstripe { .val = 'R', .name = "raw",	.has_arg = no_argument }, */
++	{ .val = LFS_SEARCH_OPT,
++			.name = "search",	.has_arg = required_argument },
+ 	{ .val = 's',	.name = "size",		.has_arg = required_argument },
+ 	{ .val = 'S',	.name = "stripe-size",	.has_arg = required_argument },
+ 	{ .val = 'S',	.name = "stripe_size",	.has_arg = required_argument },
+@@ -1749,19 +1751,23 @@ int lfs_find_parse(int argc, char **argv, struct find_param *param,
+ 			break;
+ 		case LFS_DEVICE_OPT:
+ 		case LFS_TARGET_OPT:
+-		case LFS_FSNAME_OPT: {
++		case LFS_FSNAME_OPT:
++		case LFS_SEARCH_OPT: {
+ 			char **store = c == LFS_DEVICE_OPT ? &param->fp_device :
+ 				       c == LFS_TARGET_OPT ? &param->fp_target :
+-				       &param->fp_fsname;
++				       c == LFS_FSNAME_OPT ? &param->fp_fsname :
++				       &param->fp_search;
+ 
+ 			/*
+ 			 * One target per invocation, and a repeat would
+ 			 * replace the first and scan something the caller did
+-			 * not name.
++			 * not name.  --search takes one colon-separated list.
+ 			 */
+ 			if (*store != NULL) {
+-				fprintf(stderr, "error: %s: --%s given twice\n",
+-					argv[0], long_opts[optidx].name);
++				fprintf(stderr, "error: %s: --%s given twice%s\n",
++					argv[0], long_opts[optidx].name,
++					c == LFS_SEARCH_OPT ?
++					", join its directories with ':'" : "");
+ 				ret = CMD_HELP;
+ 				goto out;
+ 			}
+diff --git a/lustre/utils/lfs_find_parse.h b/lustre/utils/lfs_find_parse.h
+index 3afc292fd3..9481e853eb 100644
+--- a/lustre/utils/lfs_find_parse.h
++++ b/lustre/utils/lfs_find_parse.h
+@@ -88,6 +88,7 @@ enum {
+ 	LFS_LOCAL_OPT,
+ 	LFS_INTERNAL_OPT,
+ 	LFS_FSNAME_OPT,
++	LFS_SEARCH_OPT,
+ };
+ 
+ /*
+diff --git a/lustre/utils/liblustreapi_pfind.c b/lustre/utils/liblustreapi_pfind.c
+index 2d70faf089..b8e6648da1 100644
+--- a/lustre/utils/liblustreapi_pfind.c
++++ b/lustre/utils/liblustreapi_pfind.c
+@@ -4328,7 +4328,7 @@ int llapi_find_device(const char *target, struct find_param *param,
+ 	 */
+ 	if (param->fp_obd_uuid != NULL || param->fp_mdt_uuid != NULL ||
+ 	    find_asks_layout(param)) {
+-		rc = scan_device_target(target, &tgt);
++		rc = scan_device_target(target, spl.lfsp_search, &tgt);
+ 		if (rc != 0)
+ 			goto out;
+ 	}
+diff --git a/lustre/utils/liblustreapi_scan_device.c b/lustre/utils/liblustreapi_scan_device.c
+index 9a536ef204..24d572dd0f 100644
+--- a/lustre/utils/liblustreapi_scan_device.c
++++ b/lustre/utils/liblustreapi_scan_device.c
+@@ -17,6 +17,7 @@
+ #include <pthread.h>
+ #include <stdlib.h>
+ #include <string.h>
++#include <sys/stat.h>
+ #include <unistd.h>
+ 
+ #include <asm/byteorder.h>
+@@ -994,9 +995,18 @@ static void scan_stats_merge(struct llapi_scan_stats *to,
+ }
+ 
+ /*
+- * The backend, loaded once: a plugin beside mount_osd_ldiskfs.so, found the
+- * same way, or linked in where plugins are disabled.
++ * A backend per target kind, loaded once: plugins beside
++ * mount_osd_ldiskfs.so, found the same way, or linked in where plugins are
++ * disabled.  scan_backend_kind() picks one from the string: a name that
++ * begins with '/', or a relative block device or regular file, is
++ * ldiskfs's; any other name is read as a ZFS dataset.
+  */
++enum scan_backend_kind {
++	SCAN_BACKEND_LDISKFS = 0,
++	SCAN_BACKEND_ZFS,
++	SCAN_BACKEND_MAX
++};
++
+ #ifndef PLUGIN_DIR
+ #ifdef HAVE_LDISKFS_SCAN
+ static struct llapi_scan_backend scan_backend_ldiskfs = {
+@@ -1007,39 +1017,63 @@ static struct llapi_scan_backend scan_backend_ldiskfs = {
+ 	.sb_scan_chunk	= scan_ldiskfs_scan_chunk,
+ };
+ #endif /* HAVE_LDISKFS_SCAN */
++#ifdef HAVE_ZFS_SCAN
++static struct llapi_scan_backend scan_backend_zfs = {
++	.sb_open	= scan_zfs_open,
++	.sb_close	= scan_zfs_close,
++	.sb_worker_init	= scan_zfs_worker_init,
++	.sb_worker_fini	= scan_zfs_worker_fini,
++	.sb_scan_chunk	= scan_zfs_scan_chunk,
++};
++#endif /* HAVE_ZFS_SCAN */
+ #endif /* !PLUGIN_DIR */
+ 
+-static pthread_once_t scan_backend_once = PTHREAD_ONCE_INIT;
+-static struct llapi_scan_backend *scan_backend;
++static pthread_once_t scan_backend_once[SCAN_BACKEND_MAX] = {
++	[SCAN_BACKEND_LDISKFS]	= PTHREAD_ONCE_INIT,
++	[SCAN_BACKEND_ZFS]	= PTHREAD_ONCE_INIT,
++};
++
++static struct llapi_scan_backend *scan_backend[SCAN_BACKEND_MAX];
+ 
+ #ifdef PLUGIN_DIR
+-#define SCAN_DLSYM(handle, ops, func)					\
+-	((ops)->sb_##func = (typeof((ops)->sb_##func))			\
+-			    dlsym(handle, "scan_ldiskfs_" #func))
++/* only the plugin path names a backend: it dlopen()s scan_osd_<name>.so */
++static const char *const scan_backend_name[SCAN_BACKEND_MAX] = {
++	[SCAN_BACKEND_LDISKFS]	= "ldiskfs",
++	[SCAN_BACKEND_ZFS]	= "zfs",
++};
+ 
+-static void scan_backend_load(void)
++static void scan_backend_load(enum scan_backend_kind kind)
+ {
++	const char *name = scan_backend_name[kind];
+ 	struct llapi_scan_backend *be;
+ 	char filename[PATH_MAX];
++	char why[2 * PATH_MAX] = "";
++	char symbol[64];
+ 	const char *dirname;
+ 	void *handle;
+ 
+-	snprintf(filename, sizeof(filename), PLUGIN_DIR"/scan_osd_ldiskfs.so");
++	snprintf(filename, sizeof(filename), PLUGIN_DIR"/scan_osd_%s.so", name);
+ 	handle = dlopen(filename, RTLD_NOW);
+ 
+ 	/* $LUSTRE is how test-framework points at a build tree */
+ 	if (handle == NULL) {
++		/* both failures: a broken plugin is not a missing one */
++		snprintf(why, sizeof(why), "%s", dlerror());
+ 		dirname = secure_getenv("LUSTRE");
+ 		if (dirname != NULL) {
+ 			snprintf(filename, sizeof(filename),
+-				 "%s/utils/scan_osd_ldiskfs.so", dirname);
++				 "%s/utils/scan_osd_%s.so", dirname, name);
+ 			handle = dlopen(filename, RTLD_NOW);
++			if (handle == NULL)
++				snprintf(why + strlen(why),
++					 sizeof(why) - strlen(why), "; %s",
++					 dlerror());
+ 		}
+ 	}
+ 	if (handle == NULL) {
+ 		/* worth saying out loud: the caller asked for a scan */
+ 		llapi_error(LLAPI_MSG_ERROR | LLAPI_MSG_NO_ERRNO, -ENOTSUP,
+-			    "no device scan backend: %s", dlerror());
++			    "no %s device scan backend: %s", name, why);
+ 		return;
+ 	}
+ 
+@@ -1049,21 +1083,29 @@ static void scan_backend_load(void)
+ 		return;
+ 	}
+ 
+-	SCAN_DLSYM(handle, be, open);
+-	SCAN_DLSYM(handle, be, close);
+-	SCAN_DLSYM(handle, be, worker_init);
+-	SCAN_DLSYM(handle, be, worker_fini);
+-	SCAN_DLSYM(handle, be, scan_chunk);
++	/*
++	 * Local to this function, and reads handle, name, symbol and be from
++	 * it: passing some in and not the others made the call sites read as
++	 * though the rest were not touched.
++	 */
++#define SCAN_DLSYM(func)						\
++	(snprintf(symbol, sizeof(symbol), "scan_%s_" #func, name),	\
++	 be->sb_##func = (typeof(be->sb_##func))dlsym(handle, symbol))
++	SCAN_DLSYM(open);
++	SCAN_DLSYM(close);
++	SCAN_DLSYM(worker_init);
++	SCAN_DLSYM(worker_fini);
++	SCAN_DLSYM(scan_chunk);
++#undef SCAN_DLSYM
+ 
+ 	/*
+ 	 * Every pointer, not dlerror(): glibc clears the pending error at the
+ 	 * start of each _dlerror_run(), so a dlsym() that succeeds wipes what
+ 	 * a failing one left behind and only the last of the five could be
+-	 * reported.  This library and the plugin ship in separate RPMs, and
++	 * reported.  This library and the plugins ship in separate RPMs, and
+ 	 * the $LUSTRE fallback above loads whatever a build tree has, so a
+-	 * scan_osd_ldiskfs.so out of step with this library is a real
+-	 * arrival -- and a symbol missing from it would be called through
+-	 * NULL.
++	 * scan_*.so out of step with this library is a real arrival -- and a
++	 * symbol missing from it would be called through NULL.
+ 	 */
+ 	if (be->sb_open == NULL || be->sb_close == NULL ||
+ 	    be->sb_worker_init == NULL || be->sb_worker_fini == NULL ||
+@@ -1075,24 +1117,122 @@ static void scan_backend_load(void)
+ 		return;
+ 	}
+ 
+-	scan_backend = be;
++	scan_backend[kind] = be;
++}
++
++static void scan_backend_load_ldiskfs(void)
++{
++	scan_backend_load(SCAN_BACKEND_LDISKFS);
++}
++
++static void scan_backend_load_zfs(void)
++{
++	scan_backend_load(SCAN_BACKEND_ZFS);
+ }
+ #else /* !PLUGIN_DIR */
+-static void scan_backend_load(void)
++static void scan_backend_load_ldiskfs(void)
+ {
+ #ifdef HAVE_LDISKFS_SCAN
+-	scan_backend = &scan_backend_ldiskfs;
++	scan_backend[SCAN_BACKEND_LDISKFS] = &scan_backend_ldiskfs;
++#endif
++}
++
++static void scan_backend_load_zfs(void)
++{
++#ifdef HAVE_ZFS_SCAN
++	/*
++	 * Weak: see lustreapi_scan_backend.h.  One test for the five, they
++	 * being one object -- either this program linked libscan_zfs_in.la
++	 * and has them all, or it has none and the answer is -ENOTSUP.
++	 */
++	if (scan_zfs_open == NULL)
++		return;
++
++	scan_backend[SCAN_BACKEND_ZFS] = &scan_backend_zfs;
+ #endif
+ }
+ #endif /* PLUGIN_DIR */
+ 
+-/* A Lustre target sets dirdata, which stock libext2fs refuses to open. */
+-static void scan_open_error(const char *device, int rc)
++static void (*const scan_backend_loader[SCAN_BACKEND_MAX])(void) = {
++	[SCAN_BACKEND_LDISKFS]	= scan_backend_load_ldiskfs,
++	[SCAN_BACKEND_ZFS]	= scan_backend_load_zfs,
++};
++
++/* A dataset name is not a path: if the string names a block device or a
++ * file, this is an ldiskfs device or image, and otherwise it can only be
++ * meant for ZFS.
++ */
++static enum scan_backend_kind scan_backend_kind(const char *device)
+ {
+-	if (rc == -ENOPKG)
++	struct stat st;
++
++	/*
++	 * The leading slash settles it, and before the stat: a ZFS pool name
++	 * cannot begin with one, so an absolute path is ldiskfs's whatever it
++	 * stats as.  Routing by type alone would send a directory to the ZFS
++	 * backend, which answers -ENOTSUP or, as it cuts the name at its
++	 * first slash, -ENOENT for a path that exists.
++	 */
++	if (device[0] == '/')
++		return SCAN_BACKEND_LDISKFS;
++
++	if (stat(device, &st) == 0)
++		return S_ISBLK(st.st_mode) || S_ISREG(st.st_mode) ?
++		       SCAN_BACKEND_LDISKFS : SCAN_BACKEND_ZFS;
++
++	/*
++	 * stat() failing is the ordinary case for a ZFS target: a dataset is
++	 * named "pool/dataset" and is not a path.  A name that begins with a
++	 * slash never reaches here: the test above sends it to ldiskfs.
++	 */
++	return SCAN_BACKEND_ZFS;
++}
++
++/*
++ * A pathname that is not there is not a target.
++ *
++ * scan_backend_kind() sends every name that begins with '/' to ldiskfs, so
++ * on a build with no ldiskfs backend a mistyped or torn-down device would
++ * come back as a missing backend, which sends the reader looking for a
++ * package rather than at the name they typed.  The real errno is answered
++ * first: -ENOENT, or -ENOTDIR, -ELOOP or -EACCES as stat() finds them.
++ */
++static int scan_device_exists(const char *device)
++{
++	struct stat st;
++
++	if (device[0] != '/' || stat(device, &st) == 0)
++		return 0;
++
++	return -errno;
++}
++
++/* The two backends' refusals mean different things worth spelling out:
++ * a Lustre target sets dirdata, which stock libext2fs refuses, and a ZFS
++ * target in service is not read from outside the server.  EBUSY has two
++ * sources there and the message names both: the pool is imported, or the
++ * dataset already has an owner, which is a second scan of it in this
++ * process.  Telling that caller to export the pool would be wrong -- it
++ * is exported.
++ */
++static void scan_open_error(const char *device, enum scan_backend_kind kind,
++			    int rc)
++{
++	if (rc == -ENOPKG && kind == SCAN_BACKEND_ZFS)
++		llapi_error(LLAPI_MSG_ERROR | LLAPI_MSG_NO_ERRNO, rc,
++			    "%s: unsupported pool features; needs newer libzpool",
++			    device);
++	else if (rc == -ENOPKG)
+ 		llapi_error(LLAPI_MSG_ERROR | LLAPI_MSG_NO_ERRNO, rc,
+ 			    "%s: unsupported features; needs Lustre's e2fsprogs",
+ 			    device);
++	else if (rc == -EMEDIUMTYPE)
++		llapi_error(LLAPI_MSG_ERROR | LLAPI_MSG_NO_ERRNO, rc,
++			    "%s: not a ZPL dataset", device);
++	else if (rc == -EBUSY && kind == SCAN_BACKEND_ZFS)
++		llapi_error(LLAPI_MSG_ERROR | LLAPI_MSG_NO_ERRNO, rc,
++			    "%s: in use: pool imported, or dataset held",
++			    device);
+ 	else
+ 		llapi_error(LLAPI_MSG_ERROR, rc, "cannot open %s", device);
+ }
+@@ -1108,27 +1248,35 @@ static void scan_open_error(const char *device, int rc)
+  *
+  * Return: 0 with @tgt filled, or a negative errno.
+  */
+-int scan_device_target(const char *device, struct llapi_scan_tgt *tgt)
++int scan_device_target(const char *device, const char *search,
++		       struct llapi_scan_tgt *tgt)
+ {
+-	struct llapi_scan_backend *be;
++	enum scan_backend_kind kind;
+ 	void *handle = NULL;
+ 	int rc;
+ 
+ 	if (device == NULL || tgt == NULL)
+ 		return -EINVAL;
+ 
+-	pthread_once(&scan_backend_once, scan_backend_load);
+-	be = scan_backend;
+-	if (be == NULL)
++	/* the same selection llapi_scan_device() makes, so the two agree */
++	rc = scan_device_exists(device);
++	if (rc < 0) {
++		llapi_error(LLAPI_MSG_ERROR, rc, "cannot scan '%s'", device);
++		return rc;
++	}
++
++	kind = scan_backend_kind(device);
++	pthread_once(&scan_backend_once[kind], scan_backend_loader[kind]);
++	if (scan_backend[kind] == NULL)
+ 		return -ENOTSUP;
+ 
+ 	memset(tgt, 0, sizeof(*tgt));
+-	rc = be->sb_open(device, &handle, tgt);
++	rc = scan_backend[kind]->sb_open(device, search, &handle, tgt);
+ 	if (rc < 0) {
+-		scan_open_error(device, rc);
++		scan_open_error(device, kind, rc);
+ 		return rc;
+ 	}
+-	be->sb_close(handle);
++	scan_backend[kind]->sb_close(handle);
+ 
+ 	return 0;
+ }
+@@ -1149,10 +1297,12 @@ int scan_device_target(const char *device, struct llapi_scan_tgt *tgt)
+  * thread-safety included.
+  *
+  * Return: 0 on success, or a negative errno.  -ENOTSUP means this build
+- * has no backend for the target; -ENOPKG means the backend is here and
+- * refused the target, which is a different thing to tell a user and a
+- * different thing for a test to skip on.  A callback returning non-zero
+- * stops the scan, and its value is returned unchanged.
++ * has no backend for the target; a backend that is here and refused the
++ * target answers for itself instead, -ENOPKG for a target this libext2fs or
++ * libzpool will not open and -EMEDIUMTYPE for a dataset holding no ZPL
++ * objects.  That is a different thing to tell a user and a different thing
++ * for a test to skip on.  A callback returning non-zero stops the scan,
++ * and its value is returned unchanged.
+  */
+ int llapi_scan_device(const char *device, const struct llapi_scan_param *sp,
+ 		      llapi_scan_cb_t cb, void *data)
+@@ -1161,6 +1311,7 @@ int llapi_scan_device(const char *device, const struct llapi_scan_param *sp,
+ 	struct llapi_scan_stats stats = { 0 };
+ 	struct scan_worker *workers;
+ 	struct scan_dev dev = { 0 };
++	enum scan_backend_kind kind;
+ 	unsigned int nworkers;
+ 	unsigned int started;
+ 	unsigned int i;
+@@ -1181,11 +1332,18 @@ int llapi_scan_device(const char *device, const struct llapi_scan_param *sp,
+ 			return -EINVAL;
+ 	}
+ 
+-	pthread_once(&scan_backend_once, scan_backend_load);
+-	if (scan_backend == NULL)
++	rc = scan_device_exists(device);
++	if (rc < 0) {
++		llapi_error(LLAPI_MSG_ERROR, rc, "cannot scan '%s'", device);
++		return rc;
++	}
++
++	kind = scan_backend_kind(device);
++	pthread_once(&scan_backend_once[kind], scan_backend_loader[kind]);
++	if (scan_backend[kind] == NULL)
+ 		return -ENOTSUP;
+ 
+-	dev.sd_be = scan_backend;
++	dev.sd_be = scan_backend[kind];
+ 	dev.sd_cb = cb;
+ 	dev.sd_data = data;
+ 	dev.sd_filter = sp != NULL ? sp->lfsp_filter : NULL;
+@@ -1197,9 +1355,10 @@ int llapi_scan_device(const char *device, const struct llapi_scan_param *sp,
+ 				      sp->lfsp_want : ~0ULL);
+ 	dev.sd_want_xattr = scan_want_xattr(dev.sd_want);
+ 
+-	rc = dev.sd_be->sb_open(device, &dev.sd_tgt, &dev.sd_tgt_info);
++	rc = dev.sd_be->sb_open(device, sp != NULL ? sp->lfsp_search : NULL,
++				&dev.sd_tgt, &dev.sd_tgt_info);
+ 	if (rc < 0) {
+-		scan_open_error(device, rc);
++		scan_open_error(device, kind, rc);
+ 		return rc;
+ 	}
+ 
+@@ -1210,8 +1369,8 @@ int llapi_scan_device(const char *device, const struct llapi_scan_param *sp,
+ 	 * object has an LMA, every one of them classifies as CLS_NO_LMA, and
+ 	 * a scan that delivered nothing would return 0 and read as an empty
+ 	 * target.  Neither ENOTSUP, the answer for a build with no backend,
+-	 * nor ENOPKG, the answer for a target the backend refused: a
+-	 * caller keys its own behaviour off all three.
++	 * nor a backend's own refusal of a target it could not use: a
++	 * caller keys its own behaviour off the difference.
+ 	 */
+ 	if (!(dev.sd_tgt_info.tt_flags &
+ 	      (LLAPI_SCAN_TGT_MDT | LLAPI_SCAN_TGT_OST))) {
+diff --git a/lustre/utils/libscan_ldiskfs.c b/lustre/utils/libscan_ldiskfs.c
+index 032591fe93..f7e7fbbcd7 100644
+--- a/lustre/utils/libscan_ldiskfs.c
++++ b/lustre/utils/libscan_ldiskfs.c
+@@ -151,7 +151,7 @@ static int scan_errcode(errcode_t err)
+ 	return -EIO;
+ }
+ 
+-int scan_ldiskfs_open(const char *device, void **tgtp,
++int scan_ldiskfs_open(const char *device, const char *search, void **tgtp,
+ 		      struct llapi_scan_tgt *tgt)
+ {
+ 	struct scan_ldiskfs_tgt *t;
+diff --git a/lustre/utils/libscan_zfs.c b/lustre/utils/libscan_zfs.c
+new file mode 100644
+index 0000000000..a0bac74526
+--- /dev/null
++++ b/lustre/utils/libscan_zfs.c
+@@ -0,0 +1,897 @@
++// SPDX-License-Identifier: LGPL-2.1+
++
++/*
++ * Copyright (c) 2026, The Lustre Collective.
++ */
++
++/*
++ * The ZFS backend of llapi_scan_device(): an MDT's or OST's objects read
++ * out of the dataset with libzpool, the way zdb reads it, without the
++ * server.  The pool is held read-only; there is no write path here.
++ *
++ * What this file knows is the DMU and the ZPL's SA layout.  What an LMA
++ * means is liblustreapi's, on the other side of struct llapi_scan_sink.
++ *
++ * Author: Hiroshi Nishida <hnishida@thelustrecollective.com>
++ */
++
++/*
++ * A --with-zfs build defines _KERNEL in config.h for the kABI checks, and
++ * config.h is force-included ahead of this file.  The DMU headers switch on
++ * it, and this is userspace: libzpool provides the kernel emulation itself.
++ */
++#undef _KERNEL
++
++/*
++ * libzpool's abd_os.h names these in prototypes without declaring them, which
++ * this tree's -Werror will not have.  Declaring the tags first costs nothing
++ * and keeps -Werror on for our own code.
++ */
++struct page;
++struct bio;
++
++#include <sys/zfs_context.h>
++#include <sys/spa.h>
++#include <sys/spa_impl.h>
++#include <sys/arc_impl.h>
++#include <sys/dmu.h>
++#include <sys/dsl_prop.h>
++#include <sys/zap.h>
++#include <sys/sa.h>
++#include <sys/dnode.h>
++#include <sys/zfs_acl.h>
++#include <sys/zfs_sa.h>
++#include <sys/zfs_znode.h>
++#include <sys/nvpair.h>
++#include <libzutil.h>
++
++#include <ctype.h>
++#include <errno.h>
++#include <pthread.h>
++#include <stdio.h>
++#include <stdlib.h>
++#include <string.h>
++#include <sys/stat.h>
++#include <unistd.h>
++
++#include <linux/limits.h>
++#include <linux/stat.h>
++#include <linux/lustre/lustre_idl.h>
++
++#include "lustreapi_scan_backend.h"
++
++/* libzpool's FTAG expands to __func__, so an own and a disown in different
++ * functions would mismatch; one tag for everything here.
++ */
++static const char *scan_zfs_tag = "scan_zfs";
++
++/* Object ids per unit of work.  dnode allocation is sparse and clustered,
++ * so equal slices imbalance badly; chunks off a shared cursor do not.
++ */
++#define SCAN_CHUNK_OBJS		(64ULL * 1024)
++
++/* The whole id space, as <sys/dnode.h> defines it.  A worker that finds
++ * nothing at or beyond its chunk ends the scan for everyone, so this is a
++ * ceiling and not a count.
++ */
++#define SCAN_CHUNKS_MAX		(DN_MAX_OBJECT / SCAN_CHUNK_OBJS)
++
++static const char *const scan_zfs_xattr_name[LLAPI_SCAN_XA_MAX] = {
++	[LLAPI_SCAN_XA_LMA]	= XATTR_NAME_LMA,
++	[LLAPI_SCAN_XA_LOV]	= XATTR_NAME_LOV,
++	[LLAPI_SCAN_XA_LMV]	= XATTR_NAME_LMV,
++	[LLAPI_SCAN_XA_SOM]	= XATTR_NAME_SOM,
++	[LLAPI_SCAN_XA_LINK]	= XATTR_NAME_LINK,
++	[LLAPI_SCAN_XA_HSM]	= XATTR_NAME_HSM,
++};
++
++/* kernel_init() is process-global; scans may nest or repeat. */
++static pthread_mutex_t scan_zfs_lock = PTHREAD_MUTEX_INITIALIZER;
++static int scan_zfs_users;
++
++/* libzpool's, created by every kernel_init() and never deleted */
++extern uint_t rrw_tsd_key;
++
++/*
++ * kernel_fini(), and the thread-specific key kernel_init() created: left
++ * alone, each scan uses up one of the process's PTHREAD_KEYS_MAX, and a
++ * sweep of many ZFS targets runs out.  Called under scan_zfs_lock.
++ */
++static void scan_zfs_fini(void)
++{
++	kernel_fini();
++	pthread_key_delete((pthread_key_t)rrw_tsd_key);
++}
++
++struct scan_zfs_tgt {
++	objset_t	*zt_os;
++	sa_attr_type_t	*zt_atable;	/* per-dataset SA slots, never fixed */
++	uint64_t	 zt_unlinked;	/* ZFS_UNLINKED_SET zap, 0 if none */
++	char		 zt_pool[ZFS_MAX_DATASET_NAME_LEN];
++};
++
++struct scan_zfs_worker {
++	struct scan_zfs_tgt	*zw_tgt;
++	nvlist_t		*zw_nv;		/* this object's DXATTR */
++	void			*zw_bufs[LLAPI_SCAN_XA_MAX];
++	size_t			 zw_buflen[LLAPI_SCAN_XA_MAX];
++};
++
++/*
++ * Find the pool by reading vdev labels and import it into this process.
++ * Lustre creates its pools with cachefile=none, so the config cache that
++ * kernel_init() loads knows nothing and dmu_objset_own() says ENOENT; the
++ * pool has to be found the way zpool import and zdb -e find it.
++ *
++ * multihost=on is skipped (SPA_MODE_READ holds no write claim), which also
++ * skips ZFS's "someone else has this pool" guard -- so make that check here
++ * from the label, and refuse an ACTIVE pool.  Whether a quiesced imported
++ * pool can be read safely is exactly the open question on the ticket; until
++ * it is answered the honest response is EBUSY, not a wrong scan.
++ */
++#define SCAN_ZFS_SEARCH_MAX	16
++
++static int scan_zfs_import(struct scan_zfs_tgt *t, const char *search)
++{
++	libpc_handle_t lpch = {
++		.lpc_lib_handle = NULL,
++		.lpc_ops = &libzpool_config_ops,
++		.lpc_printerr = B_FALSE,
++	};
++	char dev_dir[] = "/dev";	/* importargs_t wants it writable */
++	char *dev_path = dev_dir;
++	char *dirs[SCAN_ZFS_SEARCH_MAX];
++	importargs_t args = {
++		.path = &dev_path,
++		.paths = 1,
++	};
++	uint64_t state;
++	nvlist_t *cfg = NULL;
++	char *dup = NULL;
++	int err;
++
++	/* a pool on file vdevs is not under /dev; the caller says where */
++	if (search != NULL) {
++		char *dir, *save = NULL;
++		int n = 0;
++
++		dup = strdup(search);
++		if (dup == NULL)
++			return -ENOMEM;
++		for (dir = strtok_r(dup, ":", &save); dir != NULL;
++		     dir = strtok_r(NULL, ":", &save)) {
++			if (n == SCAN_ZFS_SEARCH_MAX) {
++				/*
++				 * Dropping the rest silently would then look
++				 * like ENOENT, which this call documents as
++				 * "no pool of that name under the search
++				 * path" -- a wrong answer to a right name.
++				 */
++				free(dup);
++				return -E2BIG;
++			}
++			dirs[n++] = dir;
++		}
++		if (n > 0) {
++			args.path = dirs;
++			args.paths = n;
++		}
++	}
++
++	err = zpool_find_config(&lpch, t->zt_pool, &cfg, &args);
++	free(dup);
++	if (err != 0 || cfg == NULL) {
++		char kstat[ZFS_MAX_DATASET_NAME_LEN + 32];
++		struct stat st;
++
++		/*
++		 * A pool this kernel holds is skipped by the label scan, so
++		 * "in service right here" would otherwise read as "does not
++		 * exist".  The kstat directory says which it is.
++		 */
++		snprintf(kstat, sizeof(kstat), "/proc/spl/kstat/zfs/%s",
++			 t->zt_pool);
++		/*
++		 * A directory, not merely something of that name: the ~20
++		 * global kstats live in the same place as regular files, so
++		 * an exported pool called zil or fm would otherwise read as
++		 * one this kernel holds.
++		 */
++		if (stat(kstat, &st) == 0 && S_ISDIR(st.st_mode))
++			return -EBUSY;
++
++		/*
++		 * Two more that are not "no pool of that name", and saying
++		 * ENOENT for either sends the caller looking for a spelling
++		 * mistake that is not there.
++		 *
++		 * zpool_find_config() answers EINVAL when the search path
++		 * held more than one pool of this name: it cannot choose
++		 * between them and neither can this.
++		 */
++		if (err == EINVAL)
++			return -EINVAL;
++
++		/*
++		 * And the label scan needs /dev/zfs -- zutil_pool_active()
++		 * opens it for each candidate and get_configs() abandons the
++		 * whole search when that fails -- so with the module not
++		 * loaded an exported pool sitting right there is
++		 * indistinguishable from one that does not exist.  The
++		 * device's own absence is what tells them apart.
++		 */
++		if (access(ZFS_DEV, F_OK) != 0)
++			return -ENODEV;
++
++		return -ENOENT;
++	}
++
++	if (nvlist_lookup_uint64(cfg, ZPOOL_CONFIG_POOL_STATE, &state) == 0 &&
++	    state == POOL_STATE_ACTIVE) {
++		nvlist_free(cfg);
++		return -EBUSY;
++	}
++
++	err = spa_import(t->zt_pool, cfg, NULL,
++			 ZFS_IMPORT_MISSING_LOG | ZFS_IMPORT_SKIP_MMP);
++	nvlist_free(cfg);
++	/* another thread of this process imported it first */
++	if (err == EEXIST)
++		err = 0;
++	/* a pool feature this libzpool lacks, as ENOPKG is for libext2fs */
++	if (err == ENOTSUP)
++		return -ENOPKG;
++	if (err != 0)
++		return err > 0 ? -err : -EIO;
++
++	return 0;
++}
++
++/*
++ * A target's label: what mkfs.lustre stored as the lustre:svname dataset
++ * property, fsname-MDT0000.  Same parse as the ldiskfs backend's, and the
++ * same four separators: zfs_set_prop_str() writes ldd_svname through
++ * unchanged, so a target that has never been mounted carries ':', '=' or
++ * '+' here exactly as it does on ldiskfs.
++ */
++static void scan_zfs_label(const char *dsname, struct llapi_scan_tgt *tgt)
++{
++	char name[sizeof(tgt->tt_label)] = "";
++	const char *sep;
++	size_t len;
++	char *end;
++	long idx;
++
++	if (dsl_prop_get(dsname, "lustre:svname", 1, sizeof(name),
++			 name, NULL) != 0)
++		return;
++
++	memcpy(tgt->tt_label, name, sizeof(name));
++	tgt->tt_label[sizeof(tgt->tt_label) - 1] = '\0';
++
++	len = strlen(tgt->tt_label);
++	if (len < 8)
++		return;
++	sep = tgt->tt_label + len - 8;
++	/* the four separators mount_lustre.c reads, as libscan_ldiskfs.c */
++	if (sep[0] != '-' && sep[0] != ':' && sep[0] != '=' && sep[0] != '+')
++		return;
++
++	idx = strtol(sep + 4, &end, 16);
++	if (end != sep + 8 || idx < 0)
++		return;
++
++	if (strncmp(sep + 1, "OST", 3) == 0)
++		tgt->tt_flags |= LLAPI_SCAN_TGT_OST;
++	else if (strncmp(sep + 1, "MDT", 3) == 0)
++		tgt->tt_flags |= LLAPI_SCAN_TGT_MDT;
++	else
++		return;
++
++	/* INDEX_UNASSIGNED: a target, but not one with a number yet */
++	if (idx == 0xffff)
++		return;
++
++	tgt->tt_index = (__u32)idx;
++	tgt->tt_flags |= LLAPI_SCAN_TGT_INDEX;
++}
++
++int scan_zfs_open(const char *device, const char *search, void **tgtp,
++		  struct llapi_scan_tgt *tgt)
++{
++	struct scan_zfs_tgt *t;
++	uint64_t sa_obj = 0;
++	char *sep;
++	int rc;
++
++	t = calloc(1, sizeof(*t));
++	if (t == NULL)
++		return -ENOMEM;
++
++	/* the device here is a dataset: pool/dataset or pool/dataset@snap */
++	if (strlen(device) >= sizeof(t->zt_pool)) {
++		free(t);
++		return -ENAMETOOLONG;
++	}
++	snprintf(t->zt_pool, sizeof(t->zt_pool), "%s", device);
++	sep = strpbrk(t->zt_pool, "/@");
++	if (sep != NULL)
++		*sep = '\0';
++	/*
++	 * An empty name or "@snap" has no pool, and neither do "." and "..":
++	 * a pool name has to start with an alphanumeric.  All three would
++	 * reach the kstat probe below as a directory that exists whenever
++	 * the module is loaded -- "/proc/spl/kstat/zfs/", and for ".." its
++	 * parent -- and be answered "in use", telling the caller to export a
++	 * pool that was never named.  "lfs find --device .." is the way in:
++	 * scan_backend_kind() sends a relative name that stats as a
++	 * directory here.
++	 */
++	if (!isalnum((unsigned char)t->zt_pool[0])) {
++		free(t);
++		return -ENOENT;
++	}
++
++	pthread_mutex_lock(&scan_zfs_lock);
++	if (scan_zfs_users++ == 0) {
++		/*
++		 * Load no zpool.cache.  A pool listed there would be opened
++		 * even while the kernel holds it, before the EBUSY checks in
++		 * scan_zfs_import().
++		 */
++		spa_config_path = (char *)"";
++		/* a scan reads each block once: cap the ARC as zdb does */
++		zfs_arc_min = 2ULL << SPA_MAXBLOCKSHIFT;
++		zfs_arc_max = 256ULL << 20;
++		kernel_init(SPA_MODE_READ);
++	}
++	pthread_mutex_unlock(&scan_zfs_lock);
++
++	rc = dmu_objset_own(device, DMU_OST_ANY, B_TRUE, B_FALSE,
++			    scan_zfs_tag, &t->zt_os);
++	if (rc == ENOENT) {
++		rc = scan_zfs_import(t, search);
++		if (rc == 0)
++			rc = dmu_objset_own(device, DMU_OST_ANY, B_TRUE,
++					    B_FALSE, scan_zfs_tag, &t->zt_os);
++	}
++	if (rc != 0) {
++		rc = rc > 0 ? -rc : rc;
++		goto out;
++	}
++
++	/*
++	 * A zvol or a snapshot of one holds no ZPL objects to scan.  That is
++	 * this backend refusing this dataset, not the ENOTSUP the library
++	 * returns when it has no backend to ask -- a caller that skips its
++	 * work on the second must not skip it on the first.
++	 */
++	if (dmu_objset_type(t->zt_os) != DMU_OST_ZFS) {
++		rc = -EMEDIUMTYPE;
++		goto out_disown;
++	}
++
++	/* This dataset's SA registry; slot numbers are per-dataset, and
++	 * assuming fixed offsets is the silent-wrong-attributes bug.
++	 */
++	rc = zap_lookup(t->zt_os, MASTER_NODE_OBJ, ZFS_SA_ATTRS, 8, 1,
++			&sa_obj);
++	if (rc == 0)
++		rc = sa_setup(t->zt_os, sa_obj, zfs_attr_table, ZPL_END,
++			      &t->zt_atable);
++	if (rc != 0) {
++		rc = -EIO;
++		goto out_disown;
++	}
++
++	/*
++	 * osd_destroy()'s OSD_DESTROY_ASYNC branch leaves the dnode allocated
++	 * and records its id here; the commit callback frees it moments
++	 * later, but after a crash nothing has -- osd_unlinked_drain() runs
++	 * at the next mount, and a failover partner's copy has not had one.
++	 * Such an object keeps its SA and its trusted.lma, so the walk would
++	 * report a destroyed object as a live one.  ldiskfs gates every
++	 * object on the inode bitmap for the same reason.
++	 */
++	if (zap_lookup(t->zt_os, MASTER_NODE_OBJ, ZFS_UNLINKED_SET, 8, 1,
++		       &t->zt_unlinked) != 0)
++		t->zt_unlinked = 0;
++	/* empty once drained, as on a clean stop: skip the per-object lookup */
++	if (t->zt_unlinked != 0) {
++		uint64_t n;
++
++		if (zap_count(t->zt_os, t->zt_unlinked, &n) == 0 && n == 0)
++			t->zt_unlinked = 0;
++	}
++
++	memset(tgt, 0, sizeof(*tgt));
++	scan_zfs_label(device, tgt);
++	tgt->tt_chunks = SCAN_CHUNKS_MAX;
++
++	*tgtp = t;
++	return 0;
++
++out_disown:
++	dmu_objset_disown(t->zt_os, B_FALSE, scan_zfs_tag);
++out:
++	/* our import lasts until kernel_fini(): no export in read mode */
++	pthread_mutex_lock(&scan_zfs_lock);
++	if (--scan_zfs_users == 0)
++		scan_zfs_fini();
++	pthread_mutex_unlock(&scan_zfs_lock);
++	free(t);
++	return rc;
++}
++
++void scan_zfs_close(void *tgt)
++{
++	struct scan_zfs_tgt *t = tgt;
++
++	if (t == NULL)
++		return;
++	if (t->zt_atable != NULL)
++		sa_tear_down(t->zt_os);
++	dmu_objset_disown(t->zt_os, B_FALSE, scan_zfs_tag);
++	pthread_mutex_lock(&scan_zfs_lock);
++	if (--scan_zfs_users == 0)
++		scan_zfs_fini();
++	pthread_mutex_unlock(&scan_zfs_lock);
++	free(t);
++}
++
++/* The DMU handle is thread-safe: workers share the objset. */
++int scan_zfs_worker_init(void *tgt, void **wctxp)
++{
++	struct scan_zfs_worker *wk;
++
++	wk = calloc(1, sizeof(*wk));
++	if (wk == NULL)
++		return -ENOMEM;
++	wk->zw_tgt = tgt;
++	*wctxp = wk;
++	return 0;
++}
++
++void scan_zfs_worker_fini(void *tgt, void *wctx)
++{
++	struct scan_zfs_worker *wk = wctx;
++	int x;
++
++	if (wk == NULL)
++		return;
++	for (x = 0; x < LLAPI_SCAN_XA_MAX; x++)
++		free(wk->zw_bufs[x]);
++	free(wk);
++}
++
++/* Both answer in sa_lookup()'s currency: 0, or a positive errno. */
++static int scan_zfs_sa_get_u64(sa_handle_t *hdl, sa_attr_type_t attr,
++			       uint64_t *out)
++{
++	return sa_lookup(hdl, attr, out, sizeof(*out));
++}
++
++static int scan_zfs_sa_get_time(sa_handle_t *hdl, sa_attr_type_t attr,
++				__s64 *out)
++{
++	uint64_t tm[2];
++	int rc;
++
++	rc = sa_lookup(hdl, attr, tm, sizeof(tm));
++	if (rc != 0) {
++		*out = 0;
++		return rc;
++	}
++	*out = (__s64)tm[0];
++	return 0;
++}
++
++/* z_pflags bits are ZFS's own; IMMUTABLE and APPEND are the two a namespace
++ * scan also reports.  ZFS_NODUMP is left out for the reason
++ * libscan_ldiskfs.c gives.  Per-file compressed or encrypted does not exist
++ * on ZFS -- both are dataset properties.
++ */
++static __u32 scan_zfs_attrs(uint64_t pflags)
++{
++	return ((pflags & ZFS_IMMUTABLE) ? STATX_ATTR_IMMUTABLE : 0) |
++	       ((pflags & ZFS_APPENDONLY) ? STATX_ATTR_APPEND : 0);
++}
++
++/*
++ * One wanted xattr that DXATTR did not carry, out of the xattr directory:
++ * the name resolves through the directory ZAP to a znode whose content is
++ * the value.  This is where osd-zfs spills an EA too large for the SA, a
++ * wide layout being the usual case.
++ */
++static int scan_zfs_spill(struct scan_zfs_worker *wk, uint64_t xattr_obj,
++			  enum llapi_scan_xattr x, struct llapi_scan_obj *obj)
++{
++	struct scan_zfs_tgt *t = wk->zw_tgt;
++	sa_handle_t *hdl = NULL;
++	dmu_buf_t *db = NULL;
++	uint64_t xobj = 0;
++	uint64_t size = 0;
++	void *buf;
++	int rc;
++
++	rc = zap_lookup(t->zt_os, xattr_obj, scan_zfs_xattr_name[x], 8, 1,
++			&xobj);
++	if (rc == ENOENT)
++		return 0;	/* absent, which is normal */
++	if (rc != 0)
++		return -1;
++
++	/*
++	 * Spelled out rather than sa_handle_get(): that takes the bonus
++	 * buffer itself and, when sa_handle_get_from_db() then fails --
++	 * sa_build_index() returns EIO for an SA header whose magic is
++	 * neither SA_MAGIC nor its byte-swapped form -- returns the error
++	 * with the hold still taken.  A leaked bonus hold pins the dnode
++	 * until the process exits, which dmu_objset_disown() meets at close.
++	 */
++	rc = dmu_bonus_hold(t->zt_os, xobj, NULL, &db);
++	if (rc != 0)
++		return -1;
++	rc = sa_handle_get_from_db(t->zt_os, db, NULL, SA_HDL_PRIVATE, &hdl);
++	if (rc != 0) {
++		/*
++		 * *handlepp is assigned before sa_build_index()'s error is
++		 * returned, so hdl here can be a live cache handle whose
++		 * sa_bonus is this db.  Destroying it releases the bonus, so
++		 * the db must not be released again; releasing only the db
++		 * would leave the handle itself in the sa_cache.
++		 * scan_zfs_read_obj() takes the same two branches.
++		 */
++		if (hdl != NULL)
++			sa_handle_destroy(hdl);
++		else
++			dmu_buf_rele(db, NULL);
++		return -1;
++	}
++	rc = scan_zfs_sa_get_u64(hdl, t->zt_atable[ZPL_SIZE], &size);
++	sa_handle_destroy(hdl);
++	/* osd-zfs writes no xattr above OBD_MAX_EA_SIZE (XATTR_SIZE_MAX) */
++	if (rc != 0 || size > XATTR_SIZE_MAX)
++		return -1;
++	if (size == 0) {
++		static const char empty;
++
++		/* an empty value, as the SA-resident path delivers it */
++		obj->so_xattr[x].sv_buf = &empty;
++		obj->so_xattr[x].sv_len = 0;
++		obj->so_xa_valid |= LLAPI_SCAN_XA_BIT(x);
++		return 0;
++	}
++
++	if (size > wk->zw_buflen[x]) {
++		buf = realloc(wk->zw_bufs[x], size);
++		if (buf == NULL)
++			return -1;
++		wk->zw_bufs[x] = buf;
++		wk->zw_buflen[x] = size;
++	}
++
++	rc = dmu_read(t->zt_os, xobj, 0, size, wk->zw_bufs[x],
++		      DMU_READ_PREFETCH);
++	if (rc != 0)
++		return -1;
++
++	obj->so_xattr[x].sv_buf = wk->zw_bufs[x];
++	obj->so_xattr[x].sv_len = size;
++	obj->so_xa_valid |= LLAPI_SCAN_XA_BIT(x);
++	return 0;
++}
++
++/*
++ * The demanded xattrs.  One DXATTR unpack yields all the SA-resident ones,
++ * which is the common case and the reason tier 1 costs what tier 0 costs on
++ * this backend; anything missing is looked for in the spill directory.
++ *
++ * A failure means the object's Lustre state is unreadable: the caller must
++ * skip and count the object, not use it.
++ */
++static int scan_zfs_read_xattrs(struct scan_zfs_worker *wk, sa_handle_t *hdl,
++				__u32 want, struct llapi_scan_obj *obj)
++{
++	struct scan_zfs_tgt *t = wk->zw_tgt;
++	uint64_t xattr_obj = 0;
++	__u32 missing;
++	int have_dir;
++	int x;
++	int sz;
++	int rc;
++
++	rc = sa_size(hdl, t->zt_atable[ZPL_DXATTR], &sz);
++	if (rc == 0 && sz > 0) {
++		char *buf;
++
++		buf = malloc(sz);
++		if (buf == NULL)
++			return -1;
++		rc = sa_lookup(hdl, t->zt_atable[ZPL_DXATTR], buf, sz);
++		if (rc == 0)
++			rc = nvlist_unpack(buf, sz, &wk->zw_nv, 0);
++		free(buf);
++		if (rc != 0)
++			return -1;
++
++		for (x = 0; x < LLAPI_SCAN_XA_MAX; x++) {
++			uchar_t *val = NULL;
++			uint_t vlen = 0;
++
++			if (!(want & LLAPI_SCAN_XA_BIT(x)))
++				continue;
++			if (nvlist_lookup_byte_array(wk->zw_nv,
++					scan_zfs_xattr_name[x],
++					&val, &vlen) != 0)
++				continue;
++			obj->so_xattr[x].sv_buf = val;
++			obj->so_xattr[x].sv_len = vlen;
++			obj->so_xa_valid |= LLAPI_SCAN_XA_BIT(x);
++		}
++	} else if (rc != 0 && rc != ENOENT) {
++		return -1;
++	}
++
++	missing = want & ~obj->so_xa_valid;
++	have_dir = scan_zfs_sa_get_u64(hdl, t->zt_atable[ZPL_XATTR],
++				       &xattr_obj) == 0 && xattr_obj != 0;
++	if (missing == 0 || !have_dir)
++		return 0;
++
++	for (x = 0; x < LLAPI_SCAN_XA_MAX; x++) {
++		if (!(missing & LLAPI_SCAN_XA_BIT(x)))
++			continue;
++		if (scan_zfs_spill(wk, xattr_obj, x, obj) < 0)
++			return -1;
++	}
++	return 0;
++}
++
++static void scan_zfs_obj_done(struct scan_zfs_worker *wk)
++{
++	if (wk->zw_nv != NULL) {
++		nvlist_free(wk->zw_nv);
++		wk->zw_nv = NULL;
++	}
++}
++
++/* a value object from __osd_xattr_set(): no attributes but its size */
++static bool scan_zfs_is_xattr_value(sa_handle_t *hdl, const sa_attr_type_t *a,
++				    const dmu_object_info_t *doi)
++{
++	uint64_t v;
++
++	if (doi->doi_type != DMU_OT_PLAIN_FILE_CONTENTS &&
++	    doi->doi_type != DMU_OTN_UINT8_METADATA)
++		return false;
++
++	return sa_lookup(hdl, a[ZPL_SIZE], &v, sizeof(v)) == 0 &&
++	       sa_lookup(hdl, a[ZPL_LINKS], &v, sizeof(v)) == ENOENT &&
++	       sa_lookup(hdl, a[ZPL_PARENT], &v, sizeof(v)) == ENOENT &&
++	       sa_lookup(hdl, a[ZPL_GEN], &v, sizeof(v)) == ENOENT;
++}
++
++/*
++ * One object.  Held once: the obvious spelling, dmu_object_info() then
++ * sa_handle_get(), takes two independent dnode holds per object, and
++ * profiling put the pair at 40% of the scan; the by-dnode entry points
++ * halve that.
++ */
++static int scan_zfs_read_obj(struct scan_zfs_worker *wk, uint64_t id,
++			     const struct llapi_scan_sink *sink)
++{
++	struct scan_zfs_tgt *t = wk->zw_tgt;
++	struct llapi_scan_obj obj;
++	dmu_object_info_t doi;
++	sa_attr_type_t *a = t->zt_atable;
++	sa_handle_t *hdl = NULL;
++	dmu_buf_t *db = NULL;
++	dnode_t *dn = NULL;
++	uint64_t v;
++	int rc;
++
++	/*
++	 * Destroyed, and waiting for a drain that a crashed or failed-over
++	 * target has not run: allocated, with its SA and trusted.lma intact,
++	 * so nothing further down would tell it from a live object.
++	 */
++	if (t->zt_unlinked != 0 &&
++	    zap_lookup_int(t->zt_os, t->zt_unlinked, id) == 0)
++		return 0;
++
++	rc = dnode_hold(t->zt_os, id, scan_zfs_tag, &dn);
++	if (rc != 0) {
++		sink->sk_skip(sink->sk_ctx, LLAPI_SCAN_SKIP_IO);
++		return 0;
++	}
++
++	dmu_object_info_from_dnode(dn, &doi);
++
++	/* No SA bonus, so nothing a scan can describe: the ZPL master node,
++	 * the SA registry, the delete queue.  osd-zfs ZAPs are not excluded
++	 * here -- osd_zap_create_flags() gives them a DMU_OT_SA bonus, which
++	 * is how a directory, an OI file or an index reaches the sink.
++	 */
++	if (doi.doi_bonus_type != DMU_OT_SA) {
++		dnode_rele(dn, scan_zfs_tag);
++		return 0;
++	}
++
++	/* NULL tag: sa_handle_destroy() releases the bonus with one */
++	rc = dmu_bonus_hold_by_dnode(dn, NULL, &db, 0);
++	if (rc != 0) {
++		dnode_rele(dn, scan_zfs_tag);
++		sink->sk_skip(sink->sk_ctx, LLAPI_SCAN_SKIP_IO);
++		return 0;
++	}
++	/*
++	 * An xattr directory from __osd_xattr_set(): its SA is never
++	 * written, so the header is still zero.  Like an ldiskfs ea_inode,
++	 * it holds another object's xattrs and is not counted.
++	 */
++	if (doi.doi_type == DMU_OT_DIRECTORY_CONTENTS &&
++	    db->db_size >= sizeof(uint32_t) &&
++	    *(uint32_t *)db->db_data == 0) {
++		dmu_buf_rele(db, NULL);
++		dnode_rele(dn, scan_zfs_tag);
++		return 0;
++	}
++	rc = sa_handle_get_from_db(t->zt_os, db, NULL, SA_HDL_PRIVATE, &hdl);
++	if (rc != 0) {
++		/*
++		 * *handlepp is assigned before sa_build_index()'s error is
++		 * returned, so on this path hdl is a live cache handle whose
++		 * sa_bonus is this db.  Destroying it releases the bonus, so
++		 * the db must not be released again here.
++		 */
++		if (hdl != NULL)
++			sa_handle_destroy(hdl);
++		else
++			dmu_buf_rele(db, NULL);
++		dnode_rele(dn, scan_zfs_tag);
++		sink->sk_skip(sink->sk_ctx, LLAPI_SCAN_SKIP_INVALID);
++		return 0;
++	}
++
++	memset(&obj, 0, sizeof(obj));
++	obj.so_id = id;
++
++	if (scan_zfs_sa_get_u64(hdl, a[ZPL_MODE], &v) != 0) {
++		/*
++		 * A value spilled into that directory: its SA holds only
++		 * ZPL_SIZE.  Anything else without a mode is damage.
++		 */
++		if (!scan_zfs_is_xattr_value(hdl, a, &doi))
++			sink->sk_skip(sink->sk_ctx, LLAPI_SCAN_SKIP_INVALID);
++		rc = 0;
++		goto out;
++	}
++	obj.so_mode = (__u32)v;
++
++	/*
++	 * links == 0 is not "deleted" here: osd-zfs's own object hierarchy
++	 * carries zero links while live, so unlike the ldiskfs backend this
++	 * one delivers such objects and lets the LMA say what they are.
++	 */
++	if (scan_zfs_sa_get_u64(hdl, a[ZPL_LINKS], &v) == 0)
++		obj.so_nlink = (__u32)v;
++	if (scan_zfs_sa_get_u64(hdl, a[ZPL_UID], &v) == 0)
++		obj.so_uid = (__u32)v;
++	if (scan_zfs_sa_get_u64(hdl, a[ZPL_GID], &v) == 0)
++		obj.so_gid = (__u32)v;
++	/* osd-zfs keeps la_rdev in ZPL_RDEV as it was given */
++	if ((S_ISCHR(obj.so_mode) || S_ISBLK(obj.so_mode)) &&
++	    scan_zfs_sa_get_u64(hdl, a[ZPL_RDEV], &v) == 0)
++		obj.so_rdev = (__u32)v;
++	if (scan_zfs_sa_get_u64(hdl, a[ZPL_SIZE], &v) == 0)
++		obj.so_size = v;
++	/* osd-zfs keeps no size for a directory ZAP: report what a client
++	 * sees, the ZAP's length (osd_attr_get(), LU-15842)
++	 */
++	if (S_ISDIR(obj.so_mode))
++		obj.so_size = doi.doi_max_offset;
++	/*
++	 * ZPL_GEN is not reported.  LLAPI_SCAN_SO_GEN means "this object has
++	 * an IGIF", and a dnode id is wider than the 32 bits one holds: two
++	 * dnodes 2^32 apart with the same generation would be given the same
++	 * FID.  An object with no LMA is named by lfsr_ino here, which is
++	 * what llapi_scan_device.3 says of this backend.
++	 */
++	/*
++	 * Only when the flags were actually read: an object whose ZPL_FLAGS
++	 * is unreadable is one this scan cannot answer for, and declaring
++	 * the mask beside a zero so_flags would say "not immutable" instead.
++	 * Compressed and encrypted are dataset properties on ZFS, so they
++	 * are not in the set and scan_zfs_attrs() never returns them.
++	 */
++	if (scan_zfs_sa_get_u64(hdl, a[ZPL_FLAGS], &v) == 0) {
++		obj.so_flags = scan_zfs_attrs(v);
++		obj.so_attrs_mask = STATX_ATTR_IMMUTABLE | STATX_ATTR_APPEND;
++	}
++	/*
++	 * ZPL_PROJID is a feature, and a dataset without it says ENOENT:
++	 * projid 0 is then the answer, not a gap.  Any other failure is a
++	 * spill block that could not be read, and claiming 0 for that would
++	 * be inventing one -- so only these two set the bit.
++	 */
++	rc = scan_zfs_sa_get_u64(hdl, a[ZPL_PROJID], &v);
++	if (rc == 0)
++		obj.so_projid = (__u32)v;
++	if (rc == 0 || rc == ENOENT)
++		obj.so_valid |= LLAPI_SCAN_SO_PROJID;
++	scan_zfs_sa_get_time(hdl, a[ZPL_ATIME], &obj.so_atime);
++	scan_zfs_sa_get_time(hdl, a[ZPL_MTIME], &obj.so_mtime);
++	scan_zfs_sa_get_time(hdl, a[ZPL_CTIME], &obj.so_ctime);
++	/* zero is a legal birth time; only a present one is an answer */
++	if (scan_zfs_sa_get_time(hdl, a[ZPL_CRTIME], &obj.so_btime) == 0)
++		obj.so_valid |= LLAPI_SCAN_SO_BTIME;
++
++	/* dnode accounting, 512-byte units.  Post-compression physical: a
++	 * blocks test differs from ldiskfs semantics for compressible data.
++	 * Plus the dnode's own slots, as sa_object_size() gives osd_attr_get().
++	 */
++	obj.so_blocks = doi.doi_physical_blocks_512 + dn->dn_num_slots;
++
++	/* the cheap stage: no xattr has been unpacked yet */
++	rc = sink->sk_prefilter(sink->sk_ctx, &obj);
++	if (rc > 0) {
++		rc = 0;
++		goto out;
++	}
++	if (rc < 0)
++		goto out;
++
++	if (scan_zfs_read_xattrs(wk, hdl, sink->sk_want_xattr, &obj) < 0) {
++		sink->sk_skip(sink->sk_ctx, LLAPI_SCAN_SKIP_XATTR);
++		rc = 0;
++		goto out;
++	}
++
++	rc = sink->sk_object(sink->sk_ctx, &obj);
++	if (rc > 0)
++		rc = 0;
++out:
++	scan_zfs_obj_done(wk);
++	sa_handle_destroy(hdl);	/* releases the bonus buffer */
++	dnode_rele(dn, scan_zfs_tag);
++	return rc;
++}
++
++int scan_zfs_scan_chunk(void *tgt, void *wctx, __u64 idx,
++			const struct llapi_scan_sink *sink, int *done)
++{
++	struct scan_zfs_tgt *t = tgt;
++	struct scan_zfs_worker *wk = wctx;
++	uint64_t start = idx * SCAN_CHUNK_OBJS;
++	uint64_t end = start + SCAN_CHUNK_OBJS;
++	uint64_t id = start != 0 ? start - 1 : 0;
++
++	for (;;) {
++		int rc;
++
++		rc = dmu_object_next(t->zt_os, &id, B_FALSE, 0);
++		if (rc == ESRCH) {
++			/* the walk is global-forward: nothing at or beyond
++			 * this chunk means nothing beyond it at all
++			 */
++			*done = 1;
++			return 0;
++		}
++		/*
++		 * Anything else is a read that failed -- dnode_next_offset()
++		 * passes up dbuf_read()'s errors -- and reporting it as the
++		 * end would tell every other worker the target is finished
++		 * and return 0, so a truncated object set would look like a
++		 * complete one.
++		 */
++		if (rc != 0)
++			return -EIO;
++		if (id >= end)
++			return 0;
++
++		rc = scan_zfs_read_obj(wk, id, sink);
++		if (rc < 0)
++			return rc;
++	}
++}
+diff --git a/lustre/utils/lustreapi_internal.h b/lustre/utils/lustreapi_internal.h
+index 72b220adda..afa5b1dd12 100644
+--- a/lustre/utils/lustreapi_internal.h
++++ b/lustre/utils/lustreapi_internal.h
+@@ -368,9 +368,9 @@ static inline __u32 scan_param_whole(__u32 size)
+ 		SCAN_PF_END(lfsp_want), SCAN_PF_END(lfsp_filter),
+ 		SCAN_PF_END(lfsp_thread_count), SCAN_PF_END(lfsp_padding),
+ 		SCAN_PF_END(lfsp_got),
+-		SCAN_PF_END(lfsp_stats),
++		SCAN_PF_END(lfsp_stats), SCAN_PF_END(lfsp_search),
+ 	};
+-	static_assert(SCAN_PF_END(lfsp_stats) ==
++	static_assert(SCAN_PF_END(lfsp_search) ==
+ 		      sizeof(struct llapi_scan_param),
+ 		      "a field was added without a row in ends[]");
+ #undef SCAN_PF_END
+@@ -574,7 +574,8 @@ int scan_linkea_next(const void *buf, size_t len, size_t *offp,
+ 		     char *name, size_t namesize, struct lu_fid *parent);
+ /* liblustreapi_scan_device.c: the target's label and index, without a scan */
+ struct llapi_scan_tgt;
+-int scan_device_target(const char *device, struct llapi_scan_tgt *tgt);
++int scan_device_target(const char *device, const char *search,
++		       struct llapi_scan_tgt *tgt);
+ int common_param_init(struct find_param *param, char *path);
+ void find_param_fini(struct find_param *param);
+ int parallel_find(char *path, llapi_find_cb_t cb_init, llapi_find_cb_t cb_fini,
+diff --git a/lustre/utils/lustreapi_scan_backend.h b/lustre/utils/lustreapi_scan_backend.h
+index 4bf85034ef..b3c535bd7e 100644
+--- a/lustre/utils/lustreapi_scan_backend.h
++++ b/lustre/utils/lustreapi_scan_backend.h
+@@ -137,10 +137,14 @@ struct llapi_scan_sink {
+  * core knowing what a chunk is.  It says "no chunk after this one", not
+  * "this chunk is empty": the chunk carrying the tail of the target still
+  * delivers its objects, and the core keeps it inside the range.
++ *
++ * sb_open()'s search is lfsp_search: where to look for a target the name
++ * alone does not locate, which is ZFS's vdev directories.  A backend that
++ * takes a path, like ldiskfs, ignores it.
+  */
+ struct llapi_scan_backend {
+-	int	(*sb_open)(const char *device, void **tgtp,
+-			   struct llapi_scan_tgt *tgt);
++	int	(*sb_open)(const char *device, const char *search,
++			   void **tgtp, struct llapi_scan_tgt *tgt);
+ 	void	(*sb_close)(void *tgt);
+ 	int	(*sb_worker_init)(void *tgt, void **wctxp);
+ 	void	(*sb_worker_fini)(void *tgt, void *wctx);
+@@ -148,8 +152,8 @@ struct llapi_scan_backend {
+ 				 const struct llapi_scan_sink *sink, int *done);
+ };
+ 
+-/* The ldiskfs entry points, for the build that links them in. */
+-int scan_ldiskfs_open(const char *device, void **tgtp,
++/* The backend entry points, for the builds that link them in. */
++int scan_ldiskfs_open(const char *device, const char *search, void **tgtp,
+ 		      struct llapi_scan_tgt *tgt);
+ void scan_ldiskfs_close(void *tgt);
+ int scan_ldiskfs_worker_init(void *tgt, void **wctxp);
+@@ -157,4 +161,31 @@ void scan_ldiskfs_worker_fini(void *tgt, void *wctx);
+ int scan_ldiskfs_scan_chunk(void *tgt, void *wctx, __u64 idx,
+ 			    const struct llapi_scan_sink *sink, int *done);
+ 
++/*
++ * The ZFS backend is linked into llapi_scan_device_test rather than into
++ * liblustreapi, so that libzpool does not reach every program that links the
++ * library -- lfs among them, which answers -ENOTSUP for a ZFS target in a
++ * build without plugins.  A caller that does not carry it must still link, so
++ * these are weak where they are called and the slot is left NULL.
++ *
++ * HAVE_ZFS_SCAN is liblustreapi's own flag, which is what makes that
++ * one-sided: libscan_zfs.c compiles without it and so defines these
++ * strongly, and with plugins nothing is linked at all and the symbols come
++ * from dlsym().
++ */
++#if defined(HAVE_ZFS_SCAN) && !defined(PLUGIN_DIR)
++#define LLAPI_SCAN_ZFS_WEAK	__attribute__((weak))
++#else
++#define LLAPI_SCAN_ZFS_WEAK
++#endif
++
++int scan_zfs_open(const char *device, const char *search, void **tgtp,
++		  struct llapi_scan_tgt *tgt) LLAPI_SCAN_ZFS_WEAK;
++void scan_zfs_close(void *tgt) LLAPI_SCAN_ZFS_WEAK;
++int scan_zfs_worker_init(void *tgt, void **wctxp) LLAPI_SCAN_ZFS_WEAK;
++void scan_zfs_worker_fini(void *tgt, void *wctx) LLAPI_SCAN_ZFS_WEAK;
++int scan_zfs_scan_chunk(void *tgt, void *wctx, __u64 idx,
++			const struct llapi_scan_sink *sink,
++			int *done) LLAPI_SCAN_ZFS_WEAK;
++
+ #endif /* _LUSTREAPI_SCAN_BACKEND_H_ */
+-- 
+2.43.0
+

@@ -1,0 +1,2711 @@
+From f42d20f6399109f2f2b5ec281c584168a2e24f66 Mon Sep 17 00:00:00 2001
+From: Hiroshi Nishida <hnishida@thelustrecollective.com>
+Date: Mon, 24 Aug 2026 09:48:44 -0700
+Subject: [PATCH 02/17] LU-20603 llapi: add llapi_scan_namespace()
+
+Add llapi_scan_namespace(). It walks a mounted filesystem and gives
+the caller one record per object, instead of a formatted line.
+
+The parameter block and the record can grow later:
+- lfsp_size says how much of the parameter block the caller knows.
+  Bytes past this library's definition must be zero, up to 4096
+  bytes. Only whole fields are
+  copied, so a size that ends inside a field drops that field.
+- lfsp_want says which fields the caller needs, so it pays only for
+  those. A bit this library does not know is dropped, not refused,
+  and lfsp_got reports what the scan can answer.
+- lfsr_valid says which fields were filled. A field the scanner could
+  not get has its bit clear, so it is not mistaken for zero.
+- An unknown lfsp_flags bit, or reserved bytes that are not zero, are
+  refused. Otherwise a newer caller's flag would be ignored silently.
+
+The record starts with a struct statx, so a consumer can cast it to
+one and read the Lustre fields after it. Static asserts check the
+offset and the size. lfsr_padding names a hole the compiler left.
+The prefixes are lfsr_ and lfsp_, because sp_ is already used in the
+tree.
+
+Fixes in the shared helpers, so that they can be shared safely:
+- The two callers that have no FID clear the record up to lmd_lmm
+  before the conversion. lmd_fid held a FID made from the file name,
+  stx_mask kept bits from the V1 lmd_st or the name, which could set
+  STATX_BTIME with no btime behind it, and lmd_lmmsize is the length
+  llapi_get_lum_file_fd() copies by. convert_lmd_statx() clears
+  nothing, because cb_find_init() has real values there. This takes
+  in LU-20643, which was change 68340.
+
+In the new code: llapi_scan_get_lmv() clears lum_pool_name, so it
+never keeps the previous directory's value, and leaves a foreign
+directory's LMV alone, since its type is where the MDT index would be
+written. STATX_INO is in LLAPI_SCAN_MDT_MASK, because only the ioctl
+answers it. LLAPI_SCAN_LMV_FOREIGN asked for alone fetches the LMV.
+
+get_projid() is no longer static, so the gather can use it. Its
+per-object messages are now LLAPI_MSG_DEBUG, so a caller can silence
+them with llapi_msg_set_level().
+
+llapi_scan_namespace.3 says how long each part of a record stays
+valid. Some parts end when the callback returns, and the layout and
+LMV buffers stay until the next object is gathered.
+
+lustre/tests/llapi_scan_test.c is new, and sanity test_157c runs it.
+Tests 0-9 cover every object once at any thread count, the depth
+limit, a consumer stopping the scan, the demand mask, the filter, bad
+arguments, the project id, the HSM state and the layout. test10 scans
+a tree that is not Lustre: the stat fields are set, and FID, layout,
+LMV, MDT index and HSM are clear. It skips itself when the tree is on
+Lustre.
+
+Fixes: 11aa7f8704c4 ("LU-11367 som: integrate LSOM with lfs find")
+Signed-off-by: Hiroshi Nishida <hnishida@thelustrecollective.com>
+Assisted-by: ClaudeCode:Opus-5 llm_code_and_review_tools
+Change-Id: I0939ae4ea94e094f93c738027c9c6662e6a4f780
+---
+ Documentation/man3/Makefile.am            |   1 +
+ Documentation/man3/llapi_scan_namespace.3 | 501 ++++++++++++++
+ Documentation/man7/lustreapi.7            |   4 +
+ include/lustre/lustreapi.h                | 252 +++++++
+ lustre/tests/.gitignore                   |   1 +
+ lustre/tests/Makefile.am                  |   3 +
+ lustre/tests/llapi_scan_test.c            | 808 ++++++++++++++++++++++
+ lustre/tests/sanity.sh                    |  15 +
+ lustre/utils/Makefile.am                  |   1 +
+ lustre/utils/liblustreapi_pfind.c         |  49 +-
+ lustre/utils/liblustreapi_scan.c          | 603 ++++++++++++++++
+ lustre/utils/lustreapi_internal.h         | 214 ++++++
+ 12 files changed, 2443 insertions(+), 9 deletions(-)
+ create mode 100644 Documentation/man3/llapi_scan_namespace.3
+ create mode 100644 lustre/tests/llapi_scan_test.c
+ create mode 100644 lustre/utils/liblustreapi_scan.c
+
+diff --git a/Documentation/man3/Makefile.am b/Documentation/man3/Makefile.am
+index 76a2eb0517..759798b367 100644
+--- a/Documentation/man3/Makefile.am
++++ b/Documentation/man3/Makefile.am
+@@ -133,6 +133,7 @@ LIBMAN = 					\
+ 	llapi_quotactl.3			\
+ 	llapi_rmfid.3				\
+ 	llapi_rmfid_at.3			\
++	llapi_scan_namespace.3			\
+ 	llapi_search_mdt.3			\
+ 	llapi_search_ost.3			\
+ 	llapi_search_tgt.3			\
+diff --git a/Documentation/man3/llapi_scan_namespace.3 b/Documentation/man3/llapi_scan_namespace.3
+new file mode 100644
+index 0000000000..3ef2792a6f
+--- /dev/null
++++ b/Documentation/man3/llapi_scan_namespace.3
+@@ -0,0 +1,501 @@
++.TH LLAPI_SCAN_NAMESPACE 3 2026-08-18 "Lustre User API" "Lustre Library Functions"
++.SH NAME
++llapi_scan_namespace \- scan a Lustre namespace, one record per object
++.SH SYNOPSIS
++.nf
++.B #include <lustre/lustreapi.h>
++.PP
++.BI "typedef int (*llapi_scan_cb_t)(const struct llapi_scan_rec *" rec ,
++.BI "                               void *" data ");"
++.PP
++.BI "int llapi_scan_namespace(const char *" path ,
++.BI "                         const struct llapi_scan_param *" sp ,
++.BI "                         llapi_scan_cb_t " cb ", void *" data ");"
++.PP
++.fi
++.SH DESCRIPTION
++.B llapi_scan_namespace()
++walks the namespace below
++.I path
++and calls
++.I cb
++once for each object found, passing it a
++.B struct llapi_scan_rec
++describing that object and the caller's
++.I data
++unchanged.
++.LP
++.I sp
++may be NULL for the defaults. Otherwise its
++.I lfsp_size
++field must be set to
++.BR "sizeof(struct llapi_scan_param)" .
++The caller must own that many bytes, because the library reads them.
++A caller built against an older, shorter definition of the structure is
++accepted and the fields it did not set read as zero. A longer one is
++accepted too, up to 4096 bytes, as long as every byte past the end of this
++library's definition is zero \(em which is the caller saying it set no field
++this library could not honour \(em and is refused with \-EINVAL otherwise.
++The size is therefore not a version number: an application built against a
++newer header runs against an older library for as long as it asks only for
++what that library has.
++.I lfsp_max_depth
++limits the descent, counted as
++.BR find (1)
++counts it: 1 is the start point and its children, 2 their children in
++turn, and 0 is unlimited.
++.I lfsp_thread_count
++sets the number of scan threads (0 or 1 scans in the calling thread), and
++.I lfsp_flags
++takes
++.B LLAPI_SCAN_F_STOP_ON_ERROR
++to abandon the scan when an object cannot be read rather than skipping it.
++.I lfsp_padding
++must be zero: those bytes are already counted in
++.IR lfsp_size ,
++so a field carved out of them later can only be refused here, never
++noticed.
++.LP
++.I lfsp_want
++is the demand mask: the
++.B LLAPI_SCAN_*
++fields the consumer will read, or 0 for everything except
++.BR LLAPI_SCAN_MDT_INDEX ,
++.B LLAPI_SCAN_PROJID
++and
++.BR LLAPI_SCAN_HSM ,
++which each cost an ioctl or an open per object and are gathered only when
++named.
++.B LLAPI_SCAN_LMV
++is not one of them: it costs a second ioctl, but only on a directory,
++which is the one place it means anything.
++A scan wanting nothing outside
++.B LLAPI_SCAN_DIRENT_MASK
++performs no ioctl per object, which is what makes a name-only search cheap.
++A field not asked for may still be delivered.
++.LP
++A bit of
++.I lfsp_want
++this library does not know, or knows but this scan cannot answer for, is
++not an error: it is dropped, and
++.I lfsp_got
++reports what is left. If
++.I lfsp_got
++is not NULL it is filled, before the first record, with the subset of
++.I lfsp_want
++this scan will answer for \(em a property of the scan rather than of the
++library, since what a scan can answer for depends on the entry point and,
++for a scan of a target, on what the target turns out to be. Where
++.I lfsp_want
++is 0 it reports what the scanner's default came to. A bit in
++.I lfsp_got
++says the scan may fill the field, not that any one object has it: an object
++with no project id still leaves
++.B LLAPI_SCAN_PROJID
++clear in
++.IR lfsr_valid .
++So an application can ask an older library for everything it might want and
++decide once whether the subset it is offered will do, rather than learning
++field by field that a bit never arrives.
++.LP
++.I lfsp_filter
++is an optional pre-filter, called before any I/O on the object with a record
++carrying only
++.IR lfsr_path ,
++.I lfsr_name
++and, when the directory entry knew the object type,
++.BR LLAPI_SCAN_TYPE .
++It returns 0 to gather and deliver the object, 1 to skip it without
++gathering (descent into a directory is unaffected), or a negative value to
++stop the scan.
++.LP
++Each field of the record has a bit, one of the
++.B LLAPI_SCAN_*
++constants, which is set only when the scanner could answer for that field.
++A consumer must test the bit rather than compare against zero: a scanner
++that cannot answer and a scanner that answers zero mean different things.
++.LP
++Two masks report those bits, each owning the half of the record it
++describes. The fields of
++.I lfsr_stx
++are reported by
++.IR lfsr_stx.stx_mask ,
++and the low
++.B LLAPI_SCAN_*
++constants are the kernel's
++.B STATX_*
++values, so the two are the same bits under either name. Everything else is
++reported by
++.IR lfsr_valid ,
++whose own low half is reserved and always zero.
++.I lfsp_want
++takes either half.
++.LP
++.I lfsr_size
++holds the size of the record the scanner filled, so a consumer built against
++an older definition of the structure continues to work; fields are only ever
++appended.
++.LP
++.I lfsr_stx
++begins the record, so a
++.B struct llapi_scan_rec *
++may be cast to a
++.B struct statx *
++and handed to anything that takes one \(em
++.BI & rec ->lfsr_stx
++says the same thing and costs no more. Every other field therefore sits at an
++offset
++.BR "sizeof(struct statx)" ,
++which the library asserts at build time is still the 256 bytes it has been
++since Linux 4.11: a statx that grew would move them under a consumer already
++built against the old ones, and
++.I lfsr_size
++reports how much of a record was filled, never that a field moved.
++.LP
++For a regular file,
++.B LLAPI_SCAN_SIZE
++and
++.B LLAPI_SCAN_BLOCKS
++are set only when the MDT can answer authoritatively. The file data lives on
++OSTs, so in the general case the size is not the MDT's to give, and the record
++says so rather than reporting zero. When the MDT holds a lazy size-on-MDT
++value instead,
++.B LLAPI_SCAN_LAZY_SIZE
++(and
++.BR LLAPI_SCAN_LAZY_BLOCKS )
++says so and the value is in
++.IR lfsr_stx.stx_size .
++.B STATX_SIZE
++stays clear for it, as it does in llite when the MDT's answer is not
++authoritative.
++A consumer that needs a strict size for every regular file must stat it, which
++is what
++.BR lfs-find (1)
++does for
++.BR --size ;
++.I lfsr_parent_fd
++and
++.I lfsr_name
++are there so it can do so with
++.BR fstatat (2).
++.I lfsr_parent_fd
++is the parent's descriptor only while
++.I lfsp_thread_count
++is 1: above that each subdirectory is a work unit of its own and the walk
++enters it with no parent open, so a directory's record carries \-1. A
++consumer that needs the parent above one thread opens
++.I lfsr_path
++itself.
++.LP
++The layout is delivered raw, as
++.I lfsr_lmm
++and
++.IR lfsr_lmmsize ,
++for the caller to decode with
++.BR llapi_layout_get_by_xattr (3).
++That call takes a non-const buffer and byte-swaps it in place, so a
++consumer copies
++.I lfsr_lmmsize
++bytes and decodes the copy:
++.I lfsr_lmm
++points into the scan's own buffer, which the walk reuses for the next
++object.
++A directory's stripe arrives likewise as
++.I lfsr_lmv
++and
++.IR lfsr_lmvsize ,
++under
++.BR LLAPI_SCAN_LMV ,
++which is set only for a directory that has one.
++.LP
++.B LLAPI_SCAN_HSM
++fills
++.I lfsr_hsm_states
++from
++.B enum hsm_states
++and
++.IR lfsr_hsm_archive_id ,
++for a regular file that has them. State 0 with the bit set means the scan
++asked and the file has no HSM state, which is not the same as the bit being
++clear.
++.SS The record's fields and their bits
++Each field is set only when its bit is set, in
++.I lfsr_stx.stx_mask
++for the fields of
++.I lfsr_stx
++and in
++.I lfsr_valid
++for the rest.
++.TP 22
++.B LLAPI_SCAN_FID
++.I lfsr_fid
++\(em the object's FID.
++.TP
++.B LLAPI_SCAN_TYPE
++the
++.B S_IFMT
++part of
++.IR lfsr_stx.stx_mode ,
++from the directory entry, with no I/O behind it.
++.TP
++.B LLAPI_SCAN_MODE
++.I lfsr_stx.stx_mode
++in full.
++.TP
++.B LLAPI_SCAN_NLINK
++.IR lfsr_stx.stx_nlink .
++.TP
++.B LLAPI_SCAN_UID
++.RB / LLAPI_SCAN_GID
++.I lfsr_stx.stx_uid
++and
++.IR lfsr_stx.stx_gid .
++.TP
++.B LLAPI_SCAN_PROJID
++.IR lfsr_projid .
++.TP
++.B LLAPI_SCAN_SIZE
++.RB / LLAPI_SCAN_BLOCKS
++.I lfsr_stx.stx_size
++and
++.IR lfsr_stx.stx_blocks ,
++authoritatively; the
++.B LAZY_
++pair says the value is a size-on-MDT one instead.
++.TP
++.B LLAPI_SCAN_ATIME
++.RB / MTIME / CTIME / BTIME
++.IR lfsr_stx.stx_atime ,
++.IR lfsr_stx.stx_mtime ,
++.I lfsr_stx.stx_ctime
++and
++.IR lfsr_stx.stx_btime ,
++each a whole
++.BR "struct statx_timestamp" .
++The MDT reports whole seconds today, so
++.I tv_nsec
++is 0; the field is there for when it reports more.
++.TP
++.B LLAPI_SCAN_ATTRS
++.IR lfsr_stx.stx_attributes ,
++set when the object's flags were answered \(em
++.B OBD_MD_FLFLAGS
++in the MDT's reply, which it sets only when it filled them. The value is
++masked down to the
++.B STATX_ATTR_*
++bits named in
++.IR lfsr_stx.stx_attributes_mask ,
++which is the scanner's own declaration of what it can represent; flags
++outside it are masked off rather than reported. This bit is in
++.I lfsr_valid
++because statx has no mask bit of its own for
++.IR stx_attributes .
++.TP
++.B LLAPI_SCAN_LAYOUT
++.I lfsr_lmm
++and
++.IR lfsr_lmmsize .
++.TP
++.B LLAPI_SCAN_LMV
++.I lfsr_lmv
++and
++.IR lfsr_lmvsize ,
++with
++.B LLAPI_SCAN_LMV_FOREIGN
++set beside it when the buffer is a
++.B struct lmv_foreign_md
++(declared in
++.BR <linux/lustre/lustre_idl.h> )
++rather than an
++.BR lmv_user_md .
++Naming
++.B LLAPI_SCAN_LMV_FOREIGN
++in
++.I lfsp_want
++asks for
++.B LLAPI_SCAN_LMV
++too, and
++.I lfsp_got
++reports both.
++.TP
++.B LLAPI_SCAN_MDT_INDEX
++.IR lfsr_mdt_index .
++.TP
++.B LLAPI_SCAN_HSM
++.I lfsr_hsm_states
++and
++.IR lfsr_hsm_archive_id .
++.LP
++.I lfsr_path
++and
++.I lfsr_name
++are always set.
++.I lfsr_parent_fd
++is an open descriptor on the parent directory and
++.I lfsr_fd
++one on the object, or \-1 when the scan holds none; neither is the
++consumer's to close, and both are valid only for the duration of the
++callback.
++.SS A target that is not Lustre
++.I path
++does not have to name a Lustre filesystem, and a walk that crosses onto one
++that is not \(em a bind mount, a local disk below the mount point \(em does
++not stop there. Attributes then come from
++.BR stat (2)
++instead of the MDT, and the record says so: a field that source cannot answer
++leaves its bit clear rather than reading as zero. In particular a
++.B stat
++has no FID, so
++.B LLAPI_SCAN_FID
++is clear and
++.I lfsr_fid
++must not be read; the same holds for
++.BR LLAPI_SCAN_LAYOUT ,
++.BR LLAPI_SCAN_LMV ,
++.B LLAPI_SCAN_MDT_INDEX
++and
++.BR LLAPI_SCAN_HSM .
++.LP
++What such an object does carry is what a
++.B stat
++answers \(em type, mode, link count, owner, size, blocks and the three times
++\(em plus
++.B LLAPI_SCAN_PROJID
++where
++.I lfsp_want
++names it and the filesystem supports project quotas. It is the same walk with
++.BR stat (2)
++as the attribute source, not a second scanner.
++.SH RETURN VALUES
++.B llapi_scan_namespace()
++returns:
++.TP
++0
++on success.
++.TP
++<0
++a negative errno on failure, or the negative value
++.I cb
++or
++.I lfsp_filter
++returned to stop the scan, passed back unchanged. The two are not
++distinguishable here: a filter stops only by returning a negative, its
++positive values meaning skip. A consumer that must tell them apart should
++stop from
++.I cb
++instead, whose positive values come back under
++.B >0
++below, or pick a value this page's ERRORS does not list.
++.TP
++>0
++the value a callback returned to stop the scan, unchanged.
++.SH ERRORS
++.TP 15
++.B -EINVAL
++.I path
++or
++.I cb
++is NULL, or
++.I lfsp_size
++is smaller than the fields up to and including
++.IR lfsp_want ,
++or is larger than 4096 bytes, or is larger than the library's definition of
++the parameter structure and a byte past the end of it is not zero, or
++.I lfsp_flags
++sets a bit this library does not define, or
++.I lfsp_padding
++is not zero. Neither changes
++.IR lfsp_size ,
++so refusing them is what gives flags and the reserved bytes the same
++guarantee fields already have: a caller never has one silently ignored.
++.TP 15
++.B -ENAMETOOLONG
++.I path
++is longer than PATH_MAX.
++.SH NOTES
++With
++.I lfsp_thread_count
++greater than 1 the callback is invoked concurrently from several threads and
++must be thread-safe. The record passed to each call is private to that call;
++.I data
++is shared between them.
++.SS Lifetimes
++The record is valid only for the duration of the callback, and so is
++everything it points at. A consumer that keeps any part of either must copy
++it. What follows says when each part stops being the object's, because the
++answers differ and two of them are shorter than the rule above suggests.
++.LP
++The record itself is a local of the scan's own traversal callback, so the
++fields held by value \(em
++.IR lfsr_stx ,
++.IR lfsr_fid ,
++.I lfsr_projid
++and the rest \(em are gone when the callback returns. Copying the structure
++is enough for those, and enough for nothing else.
++.LP
++.I lfsr_path
++is the traversal's path buffer, rewritten as the walk moves on. For a
++directory that is its own descent: the buffer has the first child appended to
++it before any callback below it runs, so a directory's path does not last
++even until its next sibling.
++.I lfsr_name
++points into that buffer rather than beside it, and does not outlive it.
++.LP
++.I lfsr_lmm
++and
++.I lfsr_lmv
++are the buffers the MDT's answer arrives in, reused from one object to the
++next rather than one per object. Within the callback the record is honest about
++them: an object with no layout leaves
++.I lfsr_lmm
++NULL rather than pointing at the last object's bytes. The buffer itself is
++rewritten by the
++.B next
++object's gather, though, which is later than the callback returns \(em so a
++pointer kept past that describes whichever object was gathered most recently,
++and the gather clears the layout's magic without clearing the body behind it.
++With
++.I lfsp_thread_count
++above 1 a kept pointer can be freed memory instead:
++each subdirectory is walked with buffers of its own,
++released when that subdirectory is done.
++Treat either as an accident of the implementation and not as room.
++.LP
++.I lfsr_fd
++is the shortest-lived. For a directory it is the traversal's own descriptor
++and lasts while the subtree is walked. For anything else it is a descriptor
++the gather opened only because
++.I lfsp_want
++asked for a field an ioctl answers, and it is closed as soon as the callback
++returns \(em so a kept copy names a closed descriptor whose number the scan
++is about to reuse.
++.I lfsr_parent_fd
++is the parent directory's and lasts while that directory is walked. Neither
++is the consumer's to close.
++.SH EXAMPLES
++To count the regular files under a directory, testing the validity mask
++before reading a field:
++.EX
++        static int count_cb(const struct llapi_scan_rec *rec, void *data)
++        {
++                __u64 *n = data;
++\&
++                if ((rec->lfsr_stx.stx_mask & STATX_TYPE) &&
++                    S_ISREG(rec->lfsr_stx.stx_mode))
++                        (*n)++;
++                return 0;
++        }
++\&
++        __u64 n = 0;
++        int rc = llapi_scan_namespace("/mnt/lustre", NULL, count_cb, &n);
++.EE
++.SH AVAILABILITY
++.B llapi_scan_namespace()
++is part of the
++.BR lustre (7)
++user application interface library since release 2.18.0.
++.\" Added in commit v2_17_57-xxx-gxxxxxxxxx
++.SH SEE ALSO
++.BR lfs-find (1),
++.BR llapi_layout_get_by_xattr (3),
++.BR lustreapi (7)
+diff --git a/Documentation/man7/lustreapi.7 b/Documentation/man7/lustreapi.7
+index 50efab83b3..d3ff9fa0de 100644
+--- a/Documentation/man7/lustreapi.7
++++ b/Documentation/man7/lustreapi.7
+@@ -129,6 +129,10 @@ Functions for HSM copytool operations and archive management.
+ .BR llapi_hsm_data_version_set (3),
+ .BR llapi_hsm_state_get (3),
+ .BR llapi_hsm_state_set (3)
++.SS Namespace Scanning
++Functions for walking a filesystem and reporting a record per object.
++.PP
++.BR llapi_scan_namespace (3)
+ .SS Persistent Client Cache (PCC)
+ Functions for managing Persistent Client Cache operations.
+ .PP
+diff --git a/include/lustre/lustreapi.h b/include/lustre/lustreapi.h
+index 8166efe20f..8aa4b742a9 100644
+--- a/include/lustre/lustreapi.h
++++ b/include/lustre/lustreapi.h
+@@ -560,6 +560,258 @@ int llapi_find_with_cb(char *path, struct find_param *param,
+ struct find_param *llapi_find_param_alloc(void);
+ void llapi_find_param_free(struct find_param *param);
+ 
++/*
++ * Namespace scanning: one record per object, to a consumer callback.
++ *
++ * This is the client-side Input Scanner of the Lustre Find Utility.  The
++ * record below is an in-memory structure with a validity mask, not a
++ * serialization: a consumer reads the fields it needs and copies anything
++ * it keeps.  Fields are only ever appended, and lfsr_size says how many of
++ * them the scanner filled, so a consumer built against an older definition
++ * keeps working.
++ */
++
++/*
++ * Which fields of struct llapi_scan_rec are set.
++ *
++ * The low 32 bits name fields of lfsr_stx and are the kernel's STATX_*
++ * values, aliased rather than copied so that the two cannot drift.  Their
++ * answer is lfsr_stx.stx_mask, where the MDT already put it; lfsr_valid's own
++ * low half is reserved and always zero.  So one vocabulary asks for a
++ * field and two masks report, each owning the half of the record it
++ * describes rather than both describing the same field twice.
++ */
++#define LLAPI_SCAN_TYPE		((__u64)STATX_TYPE)  /* S_IFMT of stx_mode */
++#define LLAPI_SCAN_MODE		((__u64)STATX_MODE)
++#define LLAPI_SCAN_NLINK	((__u64)STATX_NLINK)
++#define LLAPI_SCAN_UID		((__u64)STATX_UID)
++#define LLAPI_SCAN_GID		((__u64)STATX_GID)
++#define LLAPI_SCAN_ATIME	((__u64)STATX_ATIME)
++#define LLAPI_SCAN_MTIME	((__u64)STATX_MTIME)
++#define LLAPI_SCAN_CTIME	((__u64)STATX_CTIME)
++#define LLAPI_SCAN_SIZE		((__u64)STATX_SIZE)
++#define LLAPI_SCAN_BLOCKS	((__u64)STATX_BLOCKS)
++#define LLAPI_SCAN_BTIME	((__u64)STATX_BTIME)
++/* The whole of that half, whether this API has a name for the bit or not. */
++#define LLAPI_SCAN_STATX_MASK	0x00000000ffffffffULL
++
++/* The high half is this API's own, and is what lfsr_valid reports. */
++#define LLAPI_SCAN_FID		0x0000000100000000ULL
++/* stx_attributes, masked by stx_attributes_mask; statx has no bit for it */
++#define LLAPI_SCAN_ATTRS	0x0000000200000000ULL
++/*
++ * lfsr_lmm.  For a directory this is the *default* layout new files under
++ * it inherit, never a layout of its own -- and where the directory has none,
++ * what the filesystem root's default is, which may describe nothing about
++ * this directory at all.  It carries no objects either way.
++ */
++#define LLAPI_SCAN_LAYOUT	0x0000000400000000ULL
++/* costs an open per regular file: gathered only when named in lfsp_want */
++#define LLAPI_SCAN_MDT_INDEX	0x0000000800000000ULL
++/* the directory stripe, lfsr_lmv */
++#define LLAPI_SCAN_LMV		0x0000001000000000ULL
++/*
++ * lfsr_lmv is a struct lmv_foreign_md, not an lmv_user_md.  Set only with
++ * LLAPI_SCAN_LMV, and asking for it asks for that too.  A consumer that
++ * reads lum_stripe_count or lum_stripe_offset without checking it gets
++ * lfm_length and lfm_type.
++ */
++#define LLAPI_SCAN_LMV_FOREIGN	0x0000002000000000ULL
++/*
++ * lfsr_stx.stx_size/stx_blocks hold a lazy SOM value, which is why stx_mask
++ * does not claim the field: the number is there and it is the MDT's
++ * approximation, not a glimpse.
++ */
++#define LLAPI_SCAN_LAZY_SIZE	0x0000004000000000ULL
++#define LLAPI_SCAN_LAZY_BLOCKS	0x0000008000000000ULL
++/* costs an open per object on a namespace scan: named in lfsp_want or not
++ * gathered, as for LLAPI_SCAN_MDT_INDEX.  A scanner reading a target's
++ * inodes directly answers it for free, which is what the demand mask is
++ * for: the same field is not the same cost to every scanner.
++ */
++#define LLAPI_SCAN_PROJID	0x0000010000000000ULL
++/* lfsr_hsm_states and lfsr_hsm_archive_id.  A namespace scan pays an ioctl per
++ * object for these; a scan of a target reads them from trusted.hsm.
++ */
++#define LLAPI_SCAN_HSM		0x0000020000000000ULL
++
++/* Fields the scanner can answer without touching the MDT. */
++#define LLAPI_SCAN_DIRENT_MASK	LLAPI_SCAN_TYPE
++
++/**
++ * struct llapi_scan_rec - one scanned object
++ *
++ * Valid only for the duration of the callback it is passed to.  lfsr_path,
++ * lfsr_name, lfsr_lmm and lfsr_lmv point into scanner-owned memory and must
++ * be copied by a consumer that keeps them.
++ *
++ * This is an in-process record and not a serialization.  It holds pointers
++ * into scanner-owned memory and open descriptors, so it cannot be written to
++ * a file, sent over a network or passed across the kernel boundary: the
++ * Object Stream, which can, is a separate flat encoding of the same
++ * information and not this structure.
++ *
++ * Fields are only ever appended, and one a scanner cannot answer for leaves
++ * its bit clear rather than reading as zero, so the record grows without
++ * breaking a consumer built against an older definition of it.  An object
++ * that is a mirror of another, which LMR (LU-16742, LU-17820) will make
++ * possible, is not distinguishable here yet; when there is a flag for it, it
++ * arrives that way too.
++ */
++struct llapi_scan_rec {
++	/*
++	 * What stat(2) answers for, in the form the MDT already uses.
++	 * stx_mask says which of its fields are set, except stx_attributes,
++	 * which statx gives no mask bit and LLAPI_SCAN_ATTRS covers.
++	 *
++	 * Embedded rather than unpacked into fields of our own: the MDT
++	 * ioctl fills a statx already and lfs find's predicates read one, so
++	 * a record between them that is neither costs a conversion each way
++	 * and loses what it cannot carry -- the timestamps here are whole
++	 * struct statx_timestamp, though tv_nsec is 0 until the MDT reports
++	 * nanoseconds.
++	 *
++	 * First, so that a record is a struct statx to anything that takes
++	 * one and &rec->lfsr_stx is not the only way to say so.  That puts
++	 * every field below at an offset sizeof(struct statx) decides, which
++	 * is why liblustreapi_scan.c asserts both that this field starts the
++	 * record and that the statx is still the 256 bytes it has been since
++	 * Linux 4.11: a statx that grew would move the rest of this struct
++	 * under a consumer already built against it, and lfsr_size cannot
++	 * report that a field moved.
++	 */
++	lstatx_t		 lfsr_stx;
++	__u32			 lfsr_size;	/* sizeof(*rec) */
++	__u32			 lfsr_lmmsize;	/* bytes at lfsr_lmm */
++	/* the LLAPI_SCAN_* bits above LLAPI_SCAN_STATX_MASK; the rest of
++	 * the answer is lfsr_stx.stx_mask
++	 */
++	__u64			 lfsr_valid;
++	struct lu_fid		 lfsr_fid;
++	const char		*lfsr_path;	/* path as walked */
++	const char		*lfsr_name;	/* basename within lfsr_path */
++	__u32			 lfsr_projid;
++	__u32			 lfsr_mdt_index;
++	__u32			 lfsr_lmvsize;	/* bytes at lfsr_lmv */
++	/*
++	 * Three __u32 precede the pointer below, so name the fourth rather
++	 * than leave the compiler's hole unnamed: these bytes are already
++	 * inside lfsr_size, and a field carved out of them later can only be
++	 * used if a consumer could not have been reading something else
++	 * there.  Zero until then.
++	 */
++	__u32			 lfsr_padding;
++	const struct lov_user_md *lfsr_lmm;	/* raw layout, or NULL */
++	/*
++	 * The directory stripe, in the lmv_user_md form unless
++	 * LLAPI_SCAN_LMV_FOREIGN says otherwise: a device scan converts the
++	 * on-disk lmv_mds_md_v1 it reads, so the field means one thing
++	 * whichever scanner filled it.  A foreign LMV has no such form and
++	 * is delivered as the struct lmv_foreign_md it is, which is what
++	 * that bit is for.  A device scan does not carry the shard FIDs --
++	 * naming a stripe needs an MDT index, which is an FLD lookup it has
++	 * no client to make.
++	 */
++	const struct lmv_user_md *lfsr_lmv;	/* dir stripe, or NULL */
++	/* open parent dir, or -1 */
++	__s32			 lfsr_parent_fd;
++	/* an open fd on the object if the scan holds one, else -1 */
++	__s32			 lfsr_fd;
++	/* enum hsm_states, HS_* */
++	__u32			 lfsr_hsm_states;
++	__u32			 lfsr_hsm_archive_id;
++};
++
++/* struct llapi_scan_param flags (lfsp_flags). */
++#define LLAPI_SCAN_F_STOP_ON_ERROR	0x00000001ULL
++
++/**
++ * llapi_scan_cb_t - consumer callback
++ *
++ * Called once per object.  Return 0 to continue the scan; any other value
++ * stops it and is returned to the caller of llapi_scan_namespace().  With
++ * more than one scan thread this is called concurrently and must be
++ * thread-safe.
++ *
++ * As lfsp_filter it is called before any I/O on the object, with a record
++ * carrying only lfsr_path, lfsr_name and, when the directory entry knew it,
++ * LLAPI_SCAN_TYPE -- which a subdirectory does not carry once there is
++ * more than one scan thread.  There the return values are 0 to gather
++ * and deliver the object, 1 to skip it without gathering (descent into
++ * a directory is unaffected), and negative to stop the scan.
++ */
++typedef int (*llapi_scan_cb_t)(const struct llapi_scan_rec *rec, void *data);
++
++/**
++ * struct llapi_scan_param - how to scan
++ *
++ * lfsp_size must be set to sizeof(struct llapi_scan_param), and the caller
++ * must own that many bytes, because the library reads them.  A caller
++ * built against an older, shorter definition of the structure works: the
++ * fields it did not know about read as zero.  A longer one works too, as
++ * long as the bytes past the end of this library's definition are zero --
++ * which is the caller saying it set no field this library could not
++ * honour -- and is refused with -EINVAL when any of them is not.
++ *
++ * So the size is not a version number.  An application built against a
++ * newer header runs against an older library for as long as it asks only
++ * for what that library has, and a field appended here does not break the
++ * applications that do not use it.
++ *
++ * An lfsp_flags bit this library does not define is refused with -EINVAL:
++ * setting a flag does not change lfsp_size, so this is what keeps a newer
++ * caller's flag from being silently ignored.  lfsp_want is the other case
++ * and is not refused -- a field is asked for, not commanded, and what is
++ * answered comes back through lfsp_got.
++ * lfsp_padding must be zero, which is what lets a field be carved out of
++ * it later: those bytes are already counted in lfsp_size, so a caller
++ * setting one would otherwise be ignored without a word.
++ *
++ * lfsp_filter is a callback, which is what an in-process consumer needs.  A
++ * filter that has to cross a process, network or kernel boundary has to be
++ * data rather than a function, and is expected to arrive as a field beside
++ * this one rather than as a change to it.
++ *
++ * lfsp_want is the demand mask: which LLAPI_SCAN_* fields the consumer will
++ * read.  0 asks for everything except LLAPI_SCAN_MDT_INDEX,
++ * LLAPI_SCAN_PROJID and LLAPI_SCAN_HSM, which each cost an ioctl or an open
++ * per object and have to be named.  LLAPI_SCAN_LMV is not one of them:
++ * it costs a second ioctl, but only on a directory, which is the one
++ * place it means anything.  A scan wanting nothing
++ * outside LLAPI_SCAN_DIRENT_MASK performs no ioctl per object, which is
++ * what makes a name-only search cheap.  A field not asked for may still
++ * arrive.
++ */
++struct llapi_scan_param {
++	__u32			 lfsp_size;
++	/*
++	 * How far below the start point to walk, as find(1) counts: 1 is
++	 * the start point and its children, 2 their children in turn.  0
++	 * is unlimited, so a walk of the start point alone is not asked
++	 * for here.
++	 */
++	__u32			 lfsp_max_depth;
++	__u64			 lfsp_flags;	/* LLAPI_SCAN_F_* */
++	__u64			 lfsp_want;	/* LLAPI_SCAN_*; 0: all */
++	llapi_scan_cb_t		 lfsp_filter;	/* pre-I/O filter, or NULL */
++	/* 0 or 1: the caller's own thread */
++	__u8			 lfsp_thread_count;
++	__u8			 lfsp_padding[7];	/* must be zero */
++	/*
++	 * Where the scan reports what lfsp_want actually came to, or NULL
++	 * when the caller does not want to know.  A bit this library does
++	 * not define, or defines but this scan cannot answer for, is
++	 * dropped rather than refused, so a caller built against a newer
++	 * header may ask for more than it gets.  Where lfsp_want is 0,
++	 * meaning the scanner's own default, this reports what that
++	 * default came to.
++	 */
++	__u64			*lfsp_got;
++};
++
++int llapi_scan_namespace(const char *path, const struct llapi_scan_param *sp,
++			 llapi_scan_cb_t cb, void *data);
++
+ int llapi_file_fget_mdtidx(int fd, int *mdtidx);
+ int llapi_dir_set_default_lmv(const char *name,
+ 			      const struct llapi_stripe_param *param);
+diff --git a/lustre/tests/.gitignore b/lustre/tests/.gitignore
+index dd7bfabd68..b47eb8ba48 100644
+--- a/lustre/tests/.gitignore
++++ b/lustre/tests/.gitignore
+@@ -20,6 +20,7 @@
+ /llapi_hsm_test
+ /llapi_layout_test
+ /llapi_root_test
++/llapi_scan_test
+ /llapi_pool_test
+ /createdestroy
+ /createmany
+diff --git a/lustre/tests/Makefile.am b/lustre/tests/Makefile.am
+index 8f91e9227c..72abd86407 100644
+--- a/lustre/tests/Makefile.am
++++ b/lustre/tests/Makefile.am
+@@ -74,6 +74,7 @@ THETESTS += create_foreign_dir parse_foreign_dir
+ THETESTS += check_fallocate splice-test lseek_test expand_truncate_test
+ THETESTS += foreign_symlink_striping lov_getstripe_old io_uring_probe
+ THETESTS += fadvise_dontneed_helper llapi_root_test llapi_pool_test aheadmany
++THETESTS += llapi_scan_test
+ THETESTS += monitor_lustrefs test_parity_read
+ 
+ if LIBAIO
+@@ -111,6 +112,8 @@ llapi_hsm_test_SOURCES = llapi_hsm_test.c llapi_test_utils.c llapi_test_utils.h
+ llapi_hsm_test_LDADD = $(LIBLUSTREAPI)
+ llapi_pool_test_SOURCES = llapi_pool_test.c llapi_test_utils.c llapi_test_utils.h
+ llapi_pool_test_LDADD = $(LIBLUSTREAPI)
++llapi_scan_test_SOURCES = llapi_scan_test.c llapi_test_utils.c llapi_test_utils.h
++llapi_scan_test_LDADD = $(LIBLUSTREAPI) -lpthread
+ group_lock_test_LDADD = $(LIBLUSTREAPI)
+ llapi_fid_test_LDADD = $(LIBLUSTREAPI)
+ llapi_root_test_LDADD = $(LIBLUSTREAPI) -lpthread
+diff --git a/lustre/tests/llapi_scan_test.c b/lustre/tests/llapi_scan_test.c
+new file mode 100644
+index 0000000000..1904f58154
+--- /dev/null
++++ b/lustre/tests/llapi_scan_test.c
+@@ -0,0 +1,808 @@
++// SPDX-License-Identifier: GPL-2.0
++
++/*
++ * Tests for llapi_scan_namespace(), the client-side namespace scanner.
++ *
++ * These exercise the parts of its contract that only a real filesystem
++ * can settle: that every object is delivered exactly once, that the
++ * validity mask says what the scanner could answer for rather than
++ * leaving a consumer to guess at zeroes, that the demand mask and the
++ * pre-filter keep an object's attributes unfetched, that a consumer can
++ * stop the scan and hear its own value back, and that none of it depends
++ * on how many scan threads are running.
++ */
++
++#include <errno.h>
++#include <fcntl.h>
++#include <ftw.h>
++#include <fnmatch.h>
++#include <getopt.h>
++#include <assert.h>
++#include <limits.h>
++#include <pthread.h>
++#include <stdbool.h>
++#include <stddef.h>
++#include <stdio.h>
++#include <stdlib.h>
++#include <string.h>
++#include <sys/mman.h>
++#include <sys/stat.h>
++#include <sys/types.h>
++#include <unistd.h>
++
++#include <lustre/lustreapi.h>
++
++#include "llapi_test_utils.h"
++
++#ifndef ARRAY_SIZE
++#define ARRAY_SIZE(a) ((sizeof(a)) / (sizeof((a)[0])))
++#endif
++
++/* what lustreapi.h promises a consumer, checked from a consumer */
++static_assert(offsetof(struct llapi_scan_rec, lfsr_stx) == 0,
++	      "a record must cast to its statx");
++
++static char lustre_dir[PATH_MAX - 5];
++/* where the POSIX case builds its tree; -p, or P_tmpdir */
++static char posix_dir[PATH_MAX / 2];
++
++static void usage(char *prog)
++{
++	printf("Usage: %s -d LUSTRE_DIR [-p POSIX_DIR] [-s SKIP[,SKIP...]] [-t ONLY[,ONLY...]]\n",
++	       prog);
++	printf("  -p  a directory on a filesystem that is NOT Lustre, for the\n"
++	       "      POSIX case; defaults to %s\n", P_tmpdir);
++	exit(0);
++}
++
++/* The tree every test scans: 2 directories and 3 files below testdir. */
++#define TREE_DIRS	3	/* testdir, testdir/sub, testdir/sub/deep */
++#define TREE_FILES	3
++#define TREE_OBJECTS	(TREE_DIRS + TREE_FILES)
++
++/* bounded well below PATH_MAX so a subpath cannot truncate */
++static char testdir[PATH_MAX / 2];
++
++static void build_path(char *buf, size_t bufsize, const char *name)
++{
++	int rc;
++
++	rc = snprintf(buf, bufsize, "%s/%s", lustre_dir, name);
++	ASSERTF(rc > 0 && (size_t)rc < bufsize, "invalid path for '%s'", name);
++}
++
++static void create_file(const char *dir, const char *name)
++{
++	char path[PATH_MAX];
++	int fd;
++	int rc;
++
++	rc = snprintf(path, sizeof(path), "%s/%s", dir, name);
++	ASSERTF(rc > 0 && (size_t)rc < sizeof(path), "path too long: %s/%s",
++		dir, name);
++	fd = creat(path, 0600);
++	ASSERTF(fd >= 0, "creat(%s) failed: %s", path, strerror(errno));
++	close(fd);
++}
++
++static int unlink_cb(const char *path, const struct stat *sb, int type,
++		     struct FTW *ftw)
++{
++	int rc = remove(path);
++
++	ASSERTF(rc == 0 || errno == ENOENT, "cannot remove %s: %s", path,
++		strerror(errno));
++	return 0;
++}
++
++static void make_tree(void)
++{
++	char path[PATH_MAX];
++	int rc;
++
++	build_path(testdir, sizeof(testdir), "llapi_scan_test");
++
++	rc = nftw(testdir, unlink_cb, 8, FTW_DEPTH | FTW_PHYS);
++	ASSERTF(rc == 0 || errno == ENOENT, "cannot clean %s: %s", testdir,
++		strerror(errno));
++
++	rc = mkdir(testdir, 0700);
++	ASSERTF(rc == 0, "mkdir(%s) failed: %s", testdir, strerror(errno));
++
++	rc = snprintf(path, sizeof(path), "%s/sub", testdir);
++	ASSERTF(rc > 0 && (size_t)rc < sizeof(path), "path too long");
++	rc = mkdir(path, 0700);
++	ASSERTF(rc == 0, "mkdir(%s) failed: %s", path, strerror(errno));
++
++	create_file(testdir, "one.txt");
++	create_file(testdir, "two.dat");
++	create_file(path, "three.txt");
++
++	rc = snprintf(path, sizeof(path), "%s/sub/deep", testdir);
++	ASSERTF(rc > 0 && (size_t)rc < sizeof(path), "path too long");
++	rc = mkdir(path, 0700);
++	ASSERTF(rc == 0, "mkdir(%s) failed: %s", path, strerror(errno));
++}
++
++/* What a test collects from the records it is given. */
++struct scan_result {
++	pthread_mutex_t	 res_lock;
++	unsigned int	 res_count;
++	unsigned int	 res_dirs;
++	unsigned int	 res_files;
++	unsigned int	 res_no_fid;	/* records without LLAPI_SCAN_FID */
++	unsigned int	 res_gathered;	/* records with anything but TYPE */
++	unsigned int	 res_stop_after;	/* 0: never stop */
++	/* union of every lfsr_valid seen */
++	__u64		 res_seen_valid;
++	int		 res_bad_size;	/* records whose lfsr_size was wrong */
++	unsigned int	 res_layouts;	/* records carrying LLAPI_SCAN_LAYOUT */
++	unsigned int	 res_striped;	/* of those, ones that decoded */
++	/* lfsr_lmm that would not decode */
++	int		 res_bad_layout;
++};
++
++static void result_init(struct scan_result *res)
++{
++	memset(res, 0, sizeof(*res));
++	pthread_mutex_init(&res->res_lock, NULL);
++}
++
++/* Everything the record claims to have answered for, both masks at once. */
++static __u64 scan_rec_valid(const struct llapi_scan_rec *rec)
++{
++	return rec->lfsr_valid | rec->lfsr_stx.stx_mask;
++}
++
++static int count_cb(const struct llapi_scan_rec *rec, void *data)
++{
++	struct scan_result *res = data;
++	unsigned int n;
++
++	pthread_mutex_lock(&res->res_lock);
++	n = ++res->res_count;
++	/*
++	 * Both masks, in the one vocabulary lfsp_want is written in: the
++	 * statx fields report through lfsr_stx.stx_mask and the rest through
++	 * lfsr_valid, and the bits are the same bits.
++	 */
++	res->res_seen_valid |= scan_rec_valid(rec);
++	if (rec->lfsr_size != sizeof(*rec))
++		res->res_bad_size++;
++	if (!(rec->lfsr_valid & LLAPI_SCAN_FID))
++		res->res_no_fid++;
++	if (scan_rec_valid(rec) & ~LLAPI_SCAN_TYPE)
++		res->res_gathered++;
++	if (rec->lfsr_stx.stx_mask & STATX_MODE) {
++		if (S_ISDIR(rec->lfsr_stx.stx_mode))
++			res->res_dirs++;
++		else if (S_ISREG(rec->lfsr_stx.stx_mode))
++			res->res_files++;
++	}
++	pthread_mutex_unlock(&res->res_lock);
++
++	if (res->res_stop_after != 0 && n >= res->res_stop_after)
++		return 42;	/* must come back out of the scan */
++	return 0;
++}
++
++#define T0_DESC "llapi_scan_namespace delivers every object once"
++static void test0(void)
++{
++	struct llapi_scan_param sp = { .lfsp_size = sizeof(sp) };
++	struct scan_result res;
++	int rc;
++
++	make_tree();
++	result_init(&res);
++
++	rc = llapi_scan_namespace(testdir, &sp, count_cb, &res);
++	ASSERTF(rc == 0, "llapi_scan_namespace failed: %s", strerror(-rc));
++	ASSERTF(res.res_count == TREE_OBJECTS,
++		"scanned %u objects, expected %d", res.res_count, TREE_OBJECTS);
++	ASSERTF(res.res_dirs == TREE_DIRS && res.res_files == TREE_FILES,
++		"saw %u dirs and %u files, expected %d and %d",
++		res.res_dirs, res.res_files, TREE_DIRS, TREE_FILES);
++	ASSERTF(res.res_bad_size == 0,
++		"%u records did not carry sizeof(struct llapi_scan_rec)",
++		res.res_bad_size);
++	ASSERTF(res.res_no_fid == 0, "%u records arrived without a FID",
++		res.res_no_fid);
++
++	/* the mask has to be a real answer, not a constant */
++	ASSERTF(res.res_seen_valid & LLAPI_SCAN_MODE,
++		"no record reported a mode");
++	ASSERTF(res.res_seen_valid & LLAPI_SCAN_UID,
++		"no record reported a uid");
++}
++
++#define T1_DESC "llapi_scan_namespace is the same answer at any thread count"
++static void test1(void)
++{
++	const __u8 threads[] = { 1, 2, 4, 8 };
++	unsigned int first = 0;
++	unsigned int i;
++
++	make_tree();
++
++	for (i = 0; i < ARRAY_SIZE(threads); i++) {
++		struct llapi_scan_param sp = {
++			.lfsp_size = sizeof(sp),
++			.lfsp_thread_count = threads[i],
++		};
++		struct scan_result res;
++		int rc;
++
++		result_init(&res);
++		rc = llapi_scan_namespace(testdir, &sp, count_cb, &res);
++		ASSERTF(rc == 0, "scan with %u threads failed: %s",
++			threads[i], strerror(-rc));
++		if (i == 0)
++			first = res.res_count;
++		ASSERTF(res.res_count == first,
++			"scan with %u threads saw %u objects, %u threads saw %u",
++			threads[i], res.res_count, threads[0], first);
++		ASSERTF(res.res_count == TREE_OBJECTS,
++			"scan with %u threads saw %u objects, expected %d",
++			threads[i], res.res_count, TREE_OBJECTS);
++	}
++}
++
++#define T2_DESC "lfsp_max_depth limits the descent"
++static void test2(void)
++{
++	struct llapi_scan_param sp = { .lfsp_size = sizeof(sp) };
++	struct scan_result deep;
++	struct scan_result shallow;
++	int rc;
++
++	make_tree();
++
++	result_init(&shallow);
++	sp.lfsp_max_depth = 1;
++	rc = llapi_scan_namespace(testdir, &sp, count_cb, &shallow);
++	ASSERTF(rc == 0, "depth-1 scan failed: %s", strerror(-rc));
++
++	result_init(&deep);
++	sp.lfsp_max_depth = 0;	/* unlimited */
++	rc = llapi_scan_namespace(testdir, &sp, count_cb, &deep);
++	ASSERTF(rc == 0, "unlimited scan failed: %s", strerror(-rc));
++
++	ASSERTF(shallow.res_count < deep.res_count,
++		"depth 1 saw %u objects, unlimited saw %u; expected fewer",
++		shallow.res_count, deep.res_count);
++	ASSERTF(deep.res_count == TREE_OBJECTS,
++		"unlimited scan saw %u objects, expected %d",
++		deep.res_count, TREE_OBJECTS);
++}
++
++#define T3_DESC "a consumer can stop the scan and hear its own value back"
++static void test3(void)
++{
++	const __u8 threads[] = { 1, 4 };
++	unsigned int i;
++
++	make_tree();
++
++	for (i = 0; i < ARRAY_SIZE(threads); i++) {
++		struct llapi_scan_param sp = {
++			.lfsp_size = sizeof(sp),
++			.lfsp_thread_count = threads[i],
++		};
++		struct scan_result res;
++		int rc;
++
++		result_init(&res);
++		res.res_stop_after = 1;
++
++		rc = llapi_scan_namespace(testdir, &sp, count_cb, &res);
++		ASSERTF(rc == 42,
++			"scan with %u threads returned %d, not the callback's 42",
++			threads[i], rc);
++		/*
++		 * The stop is enforced by the scanner, not by the traversal,
++		 * which would otherwise note the value and walk on.  Allow
++		 * one callback already in flight per thread.
++		 */
++		ASSERTF(res.res_count <= 1 + threads[i],
++			"scan with %u threads delivered %u records after being stopped at 1",
++			threads[i], res.res_count);
++	}
++}
++
++#define T4_DESC "lfsp_want holds back what the consumer did not ask for"
++static void test4(void)
++{
++	struct llapi_scan_param sp = {
++		.lfsp_size = sizeof(sp),
++		.lfsp_want = LLAPI_SCAN_TYPE,
++	};
++	struct scan_result res;
++	char path[PATH_MAX];
++	__u64 both = LLAPI_SCAN_LMV | LLAPI_SCAN_LMV_FOREIGN;
++	__u64 got = 0;
++	int rc;
++
++	make_tree();
++	result_init(&res);
++
++	rc = llapi_scan_namespace(testdir, &sp, count_cb, &res);
++	ASSERTF(rc == 0, "TYPE-only scan failed: %s", strerror(-rc));
++	ASSERTF(res.res_count == TREE_OBJECTS,
++		"TYPE-only scan saw %u objects, expected %d",
++		res.res_count, TREE_OBJECTS);
++	ASSERTF(res.res_no_fid == res.res_count,
++		"%u of %u records carried a FID the consumer never asked for",
++		res.res_count - res.res_no_fid, res.res_count);
++	ASSERTF((res.res_seen_valid & ~LLAPI_SCAN_TYPE) == 0,
++		"a TYPE-only scan reported fields 0x%llx",
++		(unsigned long long)(res.res_seen_valid & ~LLAPI_SCAN_TYPE));
++
++	/*
++	 * LLAPI_SCAN_LMV_FOREIGN describes lfsr_lmv: asked for alone it has
++	 * to fetch the stripe, or no foreign directory can ever carry it.
++	 */
++	rc = snprintf(path, sizeof(path), "%s/foreign", testdir);
++	ASSERTF(rc > 0 && (size_t)rc < sizeof(path), "path too long");
++	rc = llapi_dir_create_foreign(path, 0700, LU_FOREIGN_TYPE_POSIX, 0,
++				      "llapi_scan_test@lfu");
++	ASSERTF(rc == 0, "cannot create foreign %s: %s", path, strerror(-rc));
++
++	result_init(&res);
++	sp.lfsp_want = LLAPI_SCAN_TYPE | LLAPI_SCAN_LMV_FOREIGN;
++	sp.lfsp_got = &got;
++	rc = llapi_scan_namespace(testdir, &sp, count_cb, &res);
++	ASSERTF(rmdir(path) == 0, "rmdir(%s) failed: %s", path,
++		strerror(errno));
++	ASSERTF(rc == 0, "LMV_FOREIGN scan failed: %s", strerror(-rc));
++	ASSERTF((got & both) == both,
++		"LMV_FOREIGN alone got 0x%llx, expected LMV with it",
++		(unsigned long long)got);
++	ASSERTF(res.res_seen_valid & LLAPI_SCAN_LMV_FOREIGN,
++		"no record carried LLAPI_SCAN_LMV_FOREIGN for %s", path);
++}
++
++/* lfsp_filter: runs before any I/O, so it must see nothing but the dirent */
++static int name_filter_cb(const struct llapi_scan_rec *rec, void *data)
++{
++	struct scan_result *res = data;
++
++	if (scan_rec_valid(rec) & ~LLAPI_SCAN_TYPE) {
++		pthread_mutex_lock(&res->res_lock);
++		res->res_gathered++;
++		pthread_mutex_unlock(&res->res_lock);
++		return -EIO;
++	}
++	if (fnmatch("*.txt", rec->lfsr_name, 0) == 0)
++		return 0;
++	return 1;	/* skip, without gathering */
++}
++
++#define T5_DESC "lfsp_filter rejects an object before its attributes are read"
++static void test5(void)
++{
++	struct llapi_scan_param sp = {
++		.lfsp_size = sizeof(sp),
++		.lfsp_filter = name_filter_cb,
++	};
++	struct scan_result res;
++	int rc;
++
++	make_tree();
++	result_init(&res);
++
++	rc = llapi_scan_namespace(testdir, &sp, count_cb, &res);
++	ASSERTF(rc == 0, "filtered scan failed: %s", strerror(-rc));
++	/* one.txt and sub/three.txt, and nothing else */
++	ASSERTF(res.res_count == 2,
++		"filtered scan delivered %u objects, expected 2",
++		res.res_count);
++	/* each delivered record passed the filter, and was gathered after */
++	ASSERTF(res.res_gathered == res.res_count,
++		"%u of %u delivered records were not gathered",
++		res.res_count - res.res_gathered, res.res_count);
++	ASSERTF(res.res_no_fid == 0,
++		"%u delivered records arrived without a FID", res.res_no_fid);
++}
++
++#define T6_DESC "bad arguments are refused, not crashed on"
++static void test6(void)
++{
++	struct llapi_scan_param sp = { .lfsp_size = sizeof(sp) };
++	/* what a caller built against a later definition of the struct
++	 * passes: our fields, then bytes we know nothing about
++	 */
++	union {
++		struct llapi_scan_param sp;
++		unsigned char buf[sizeof(struct llapi_scan_param) + 8];
++	} big = { .sp = { .lfsp_size = sizeof(big) } };
++	struct scan_result res;
++	char path[PATH_MAX];
++	void *map;
++	long pg;
++	int rc;
++
++	make_tree();
++	result_init(&res);
++
++	rc = llapi_scan_namespace(NULL, &sp, count_cb, &res);
++	ASSERTF(rc == -EINVAL, "NULL path returned %d, expected -EINVAL", rc);
++
++	rc = llapi_scan_namespace(testdir, &sp, NULL, &res);
++	ASSERTF(rc == -EINVAL, "NULL callback returned %d, expected -EINVAL",
++		rc);
++
++	/*
++	 * A caller built against a longer struct than this library's: taken
++	 * while the bytes past the end of our definition are zero, which is
++	 * that caller saying it set no field we could not honour, and
++	 * refused once one of them is set.  The buffer really is that long,
++	 * because the library reads it.
++	 */
++	result_init(&res);
++	rc = llapi_scan_namespace(testdir, &big.sp, count_cb, &res);
++	ASSERTF(rc == 0, "a longer lfsp_size with a zero tail returned %d", rc);
++	ASSERTF(res.res_count == TREE_OBJECTS,
++		"a longer lfsp_size scanned %u objects, expected %d",
++		res.res_count, TREE_OBJECTS);
++
++	big.buf[sizeof(struct llapi_scan_param) + 3] = 1;
++	rc = llapi_scan_namespace(testdir, &big.sp, count_cb, &res);
++	ASSERTF(rc == -EINVAL,
++		"a longer lfsp_size with a field set returned %d, expected -EINVAL",
++		rc);
++
++	/*
++	 * A size no definition of the struct will reach is refused before a
++	 * byte past ours is read: zeros up to a guard page, and a size that
++	 * runs into it.
++	 */
++	pg = sysconf(_SC_PAGESIZE);
++	map = mmap(NULL, 2 * pg, PROT_READ | PROT_WRITE,
++		   MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
++	ASSERTF(map != MAP_FAILED, "mmap failed: %s", strerror(errno));
++	ASSERTF(mprotect((char *)map + pg, pg, PROT_NONE) == 0,
++		"mprotect failed: %s", strerror(errno));
++	((struct llapi_scan_param *)map)->lfsp_size = 2 * pg;
++	rc = llapi_scan_namespace(testdir, map, count_cb, &res);
++	ASSERTF(rc == -EINVAL,
++		"an lfsp_size of %ld returned %d, expected -EINVAL",
++		2 * pg, rc);
++	munmap(map, 2 * pg);
++
++	/* one built against a shorter one must still work, the fields it
++	 * did not know about reading as zero
++	 */
++	result_init(&res);
++	sp.lfsp_size = offsetof(struct llapi_scan_param, lfsp_want) +
++		     sizeof(sp.lfsp_want);
++	rc = llapi_scan_namespace(testdir, &sp, count_cb, &res);
++	ASSERTF(rc == 0, "a short lfsp_size returned %d, expected success", rc);
++	ASSERTF(res.res_count == TREE_OBJECTS,
++		"a short lfsp_size scanned %u objects, expected %d",
++		res.res_count, TREE_OBJECTS);
++	sp.lfsp_size = sizeof(sp);
++
++	/* the reserved bytes are must-be-zero, for the same reason a flag
++	 * this library does not define is refused: neither changes lfsp_size
++	 */
++	sp.lfsp_padding[3] = 1;
++	rc = llapi_scan_namespace(testdir, &sp, count_cb, &res);
++	ASSERTF(rc == -EINVAL,
++		"a set lfsp_padding returned %d, expected -EINVAL", rc);
++	sp.lfsp_padding[3] = 0;
++
++	/* and the third of the same family: a flag this library does not
++	 * define, which the man page's ERRORS names beside the other two
++	 */
++	sp.lfsp_flags = LLAPI_SCAN_F_STOP_ON_ERROR << 1;
++	rc = llapi_scan_namespace(testdir, &sp, count_cb, &res);
++	ASSERTF(rc == -EINVAL,
++		"an undefined lfsp_flags returned %d, expected -EINVAL", rc);
++	sp.lfsp_flags = 0;
++
++	/* the scan above delivered records: start the next check from zero */
++	result_init(&res);
++	rc = snprintf(path, sizeof(path), "%s/does-not-exist", testdir);
++	ASSERTF(rc > 0 && (size_t)rc < sizeof(path), "path too long");
++	rc = llapi_scan_namespace(path, &sp, count_cb, &res);
++	ASSERTF(rc < 0, "a missing path returned %d, expected an error", rc);
++	ASSERTF(res.res_count == 0, "a missing path delivered %u records",
++		res.res_count);
++}
++
++#define T7_DESC "a project id is gathered only when it is asked for"
++static void test7(void)
++{
++	struct llapi_scan_param sp = { .lfsp_size = sizeof(sp) };
++	struct scan_result res;
++	int rc;
++
++	make_tree();
++
++	/* an open and an ioctl per object, like the MDT index */
++	result_init(&res);
++	rc = llapi_scan_namespace(testdir, &sp, count_cb, &res);
++	ASSERTF(rc == 0, "default scan failed: %s", strerror(-rc));
++	ASSERTF(!(res.res_seen_valid & LLAPI_SCAN_PROJID),
++		"a scan that asked for nothing in particular gathered a project id");
++
++	result_init(&res);
++	sp.lfsp_want = LLAPI_SCAN_MODE | LLAPI_SCAN_PROJID;
++	rc = llapi_scan_namespace(testdir, &sp, count_cb, &res);
++	ASSERTF(rc == 0, "projid scan failed: %s", strerror(-rc));
++	ASSERTF(res.res_count == TREE_OBJECTS,
++		"projid scan saw %u objects, expected %d",
++		res.res_count, TREE_OBJECTS);
++	ASSERTF(res.res_seen_valid & LLAPI_SCAN_PROJID,
++		"no record reported a project id the consumer asked for");
++}
++
++#define T8_DESC "HSM state is gathered only when it is asked for"
++static void test8(void)
++{
++	struct llapi_scan_param sp = { .lfsp_size = sizeof(sp) };
++	struct scan_result res;
++	int rc;
++
++	make_tree();
++
++	/* an ioctl per object, so not part of an unqualified scan */
++	result_init(&res);
++	rc = llapi_scan_namespace(testdir, &sp, count_cb, &res);
++	ASSERTF(rc == 0, "default scan failed: %s", strerror(-rc));
++	ASSERTF(!(res.res_seen_valid & LLAPI_SCAN_HSM),
++		"a scan that asked for nothing in particular gathered HSM state");
++
++	/*
++	 * Asked for, it arrives for regular files.  A file with no archive
++	 * has state 0, which is an answer: the bit says the scan looked.
++	 */
++	result_init(&res);
++	sp.lfsp_want = LLAPI_SCAN_MODE | LLAPI_SCAN_HSM;
++	rc = llapi_scan_namespace(testdir, &sp, count_cb, &res);
++	ASSERTF(rc == 0, "HSM scan failed: %s", strerror(-rc));
++	ASSERTF(res.res_count == TREE_OBJECTS,
++		"HSM scan saw %u objects, expected %d",
++		res.res_count, TREE_OBJECTS);
++	ASSERTF(res.res_seen_valid & LLAPI_SCAN_HSM,
++		"no record reported HSM state the consumer asked for");
++}
++
++/*
++ * Decode lfsr_lmm the way a consumer is meant to.  The buffer is copied first:
++ * the record contract says lfsr_lmm points into scanner-owned memory, and
++ * llapi_layout_get_by_xattr() takes a non-const pointer because it may swab
++ * in place -- which on the scanner's own buffer would corrupt the walk.
++ */
++static int layout_cb(const struct llapi_scan_rec *rec, void *data)
++{
++	struct scan_result *res = data;
++	struct llapi_layout *layout;
++	uint64_t stripes = 0;
++	void *copy;
++	int rc;
++
++	pthread_mutex_lock(&res->res_lock);
++	res->res_count++;
++	res->res_seen_valid |= scan_rec_valid(rec);
++	pthread_mutex_unlock(&res->res_lock);
++
++	if (!(rec->lfsr_valid & LLAPI_SCAN_LAYOUT))
++		return 0;
++	if ((rec->lfsr_stx.stx_mask & STATX_MODE) &&
++	    !S_ISREG(rec->lfsr_stx.stx_mode))
++		return 0;
++
++	pthread_mutex_lock(&res->res_lock);
++	res->res_layouts++;
++	pthread_mutex_unlock(&res->res_lock);
++
++	if (rec->lfsr_lmm == NULL ||
++	    rec->lfsr_lmmsize < sizeof(*rec->lfsr_lmm)) {
++		pthread_mutex_lock(&res->res_lock);
++		res->res_bad_layout++;
++		pthread_mutex_unlock(&res->res_lock);
++		return 0;
++	}
++
++	copy = malloc(rec->lfsr_lmmsize);
++	if (copy == NULL)
++		return -ENOMEM;
++	memcpy(copy, rec->lfsr_lmm, rec->lfsr_lmmsize);
++
++	layout = llapi_layout_get_by_xattr(copy, rec->lfsr_lmmsize, 0);
++	if (layout == NULL) {
++		free(copy);
++		pthread_mutex_lock(&res->res_lock);
++		res->res_bad_layout++;
++		pthread_mutex_unlock(&res->res_lock);
++		return 0;
++	}
++
++	/*
++	 * Only that the count can be read, not what it is: these files are
++	 * created empty, and whether that means OST objects, a DoM component
++	 * or nothing yet is the filesystem's default layout's business.
++	 */
++	rc = llapi_layout_stripe_count_get(layout, &stripes);
++	llapi_layout_free(layout);
++	free(copy);
++
++	pthread_mutex_lock(&res->res_lock);
++	if (rc != 0)
++		res->res_bad_layout++;
++	else
++		res->res_striped++;
++	pthread_mutex_unlock(&res->res_lock);
++
++	return 0;
++}
++
++#define T9_DESC "lfsr_lmm decodes to a layout a consumer can read"
++static void test9(void)
++{
++	struct llapi_scan_param sp = { .lfsp_size = sizeof(sp) };
++	struct scan_result res;
++	int rc;
++
++	make_tree();
++
++	result_init(&res);
++	sp.lfsp_want = LLAPI_SCAN_MODE | LLAPI_SCAN_LAYOUT;
++	rc = llapi_scan_namespace(testdir, &sp, layout_cb, &res);
++	ASSERTF(rc == 0, "layout scan failed: %s", strerror(-rc));
++	ASSERTF(res.res_count == TREE_OBJECTS,
++		"layout scan saw %u objects, expected %d",
++		res.res_count, TREE_OBJECTS);
++	ASSERTF(res.res_seen_valid & LLAPI_SCAN_LAYOUT,
++		"no record reported a layout the consumer asked for");
++	ASSERTF(res.res_layouts == TREE_FILES,
++		"%u regular files carried a layout, expected %d",
++		res.res_layouts, TREE_FILES);
++	ASSERTF(res.res_bad_layout == 0,
++		"%d records had an lfsr_lmm that would not decode",
++		res.res_bad_layout);
++	ASSERTF(res.res_striped == TREE_FILES,
++		"%u layouts yielded a readable stripe count, expected %d",
++		res.res_striped, TREE_FILES);
++}
++
++#define T10_DESC "a record off Lustre carries what a stat answers, and no FID"
++static void test10(void)
++{
++	struct llapi_scan_param sp = { .lfsp_size = sizeof(sp) };
++	char root[PATH_MAX / 2];
++	char mnt[PATH_MAX];
++	char fsname[PATH_MAX];
++	char sub[PATH_MAX];
++	struct scan_result res;
++	int rc;
++
++	/*
++	 * The POSIX Input Scanner is this scanner with a different attribute
++	 * source, so what it owes a consumer is not to invent the fields that
++	 * source cannot answer.  A stat has no FID, and the buffer the ioctl
++	 * would have filled holds the name the caller wrote there for it --
++	 * which reads as a plausible IGIF, so nothing downstream catches it.
++	 */
++	rc = snprintf(root, sizeof(root), "%s/llapi_scan_posix.%u",
++		      posix_dir[0] != '\0' ? posix_dir : P_tmpdir,
++		      (unsigned int)getpid());
++	ASSERTF(rc > 0 && (size_t)rc < sizeof(root), "path too long");
++
++	/*
++	 * On Lustre the FID and the layout would be present for a good
++	 * reason, so the two assertions that matter would fail -- the other
++	 * three bits are clear there too, MDT_INDEX, PROJID and HSM being
++	 * outside the default demand mask and these mkdir()s unstriped.
++	 * Skipped rather than failed: the tree is only a source of
++	 * non-Lustre objects, and a site whose TMP sits on Lustre has not
++	 * broken anything.
++	 */
++	if (llapi_search_mounts(posix_dir[0] != '\0' ? posix_dir : P_tmpdir,
++				0, mnt, fsname) == 0) {
++		printf("%s is Lustre: skipping, give -p DIR on a filesystem that is not\n",
++		       posix_dir[0] != '\0' ? posix_dir : P_tmpdir);
++		return;
++	}
++
++	rc = nftw(root, unlink_cb, 8, FTW_DEPTH | FTW_PHYS);
++	ASSERTF(rc == 0 || errno == ENOENT, "cannot clean %s: %s", root,
++		strerror(errno));
++	rc = mkdir(root, 0700);
++	ASSERTF(rc == 0, "mkdir(%s) failed: %s", root, strerror(errno));
++
++	rc = snprintf(sub, sizeof(sub), "%s/sub", root);
++	ASSERTF(rc > 0 && (size_t)rc < sizeof(sub), "path too long");
++	rc = mkdir(sub, 0700);
++	ASSERTF(rc == 0, "mkdir(%s) failed: %s", sub, strerror(errno));
++	create_file(root, "one.txt");
++	create_file(sub, "two.dat");
++
++	result_init(&res);
++	rc = llapi_scan_namespace(root, &sp, count_cb, &res);
++	ASSERTF(rc == 0, "llapi_scan_namespace(%s) failed: %s", root,
++		strerror(-rc));
++	ASSERTF(res.res_count == 4, "scanned %u objects, expected 4",
++		res.res_count);
++	ASSERTF(res.res_dirs == 2 && res.res_files == 2,
++		"saw %u dirs and %u files, expected 2 and 2",
++		res.res_dirs, res.res_files);
++
++	/* the whole point of the case */
++	ASSERTF(!(res.res_seen_valid & LLAPI_SCAN_FID),
++		"a record off Lustre carried a FID: valid=%#llx",
++		(unsigned long long)res.res_seen_valid);
++	ASSERTF(res.res_no_fid == res.res_count,
++		"%u of %u records claimed a FID",
++		res.res_count - res.res_no_fid, res.res_count);
++
++	/* what a stat does answer, so the absence above is not silence */
++	ASSERTF(res.res_seen_valid & LLAPI_SCAN_MODE, "no record had a mode");
++	ASSERTF(res.res_seen_valid & LLAPI_SCAN_UID, "no record had a uid");
++	ASSERTF(res.res_seen_valid & LLAPI_SCAN_SIZE, "no record had a size");
++	ASSERTF(res.res_seen_valid & LLAPI_SCAN_MTIME,
++		"no record had an mtime");
++
++	/* and what only Lustre has */
++	ASSERTF(!(res.res_seen_valid & (LLAPI_SCAN_LAYOUT | LLAPI_SCAN_LMV |
++				       LLAPI_SCAN_MDT_INDEX | LLAPI_SCAN_HSM)),
++		"a record off Lustre carried a Lustre-only field: valid=%#llx",
++		(unsigned long long)res.res_seen_valid);
++
++	rc = nftw(root, unlink_cb, 8, FTW_DEPTH | FTW_PHYS);
++	ASSERTF(rc == 0, "cannot clean %s: %s", root, strerror(errno));
++}
++
++static struct test_tbl_entry test_tbl[] = {
++	TEST_REGISTER(0),
++	TEST_REGISTER(1),
++	TEST_REGISTER(2),
++	TEST_REGISTER(3),
++	TEST_REGISTER(4),
++	TEST_REGISTER(5),
++	TEST_REGISTER(6),
++	TEST_REGISTER(7),
++	TEST_REGISTER(8),
++	TEST_REGISTER(9),
++	TEST_REGISTER(10),
++	TEST_REGISTER_END
++};
++
++static void process_args(int argc, char *argv[])
++{
++	int c;
++
++	while ((c = getopt(argc, argv, "d:p:s:t:")) != -1) {
++		switch (c) {
++		case 'd':
++			if (snprintf(lustre_dir, sizeof(lustre_dir), "%s",
++				     optarg) >= sizeof(lustre_dir))
++				DIE("Error: test directory name too long\n");
++			break;
++		case 'p':
++			if (snprintf(posix_dir, sizeof(posix_dir), "%s",
++				     optarg) >= sizeof(posix_dir))
++				DIE("Error: POSIX directory name too long\n");
++			break;
++		case 's':
++			set_tests_to_skip(optarg, test_tbl);
++			break;
++		case 't':
++			set_tests_to_run(optarg, test_tbl);
++			break;
++		case '?':
++		default:
++			fprintf(stderr, "Unknown option '%c'\n", optopt);
++			usage(argv[0]);
++		}
++	}
++}
++
++int main(int argc, char *argv[])
++{
++	process_args(argc, argv);
++
++	return run_tests(lustre_dir, test_tbl);
++}
+diff --git a/lustre/tests/sanity.sh b/lustre/tests/sanity.sh
+index 8f48dbae3c..55cf04d6f8 100755
+--- a/lustre/tests/sanity.sh
++++ b/lustre/tests/sanity.sh
+@@ -21189,6 +21189,21 @@ test_157b()
+ }
+ run_test 157b "lustre.pin inheritance on create"
+ 
++test_157c()
++{
++	(( CLIENT_VERSION >= $(version_code 2.17.58) )) ||
++		skip "Need client >= 2.17.58 for llapi_scan_namespace()"
++
++	# any MDT: nothing here depends on which one holds the tree
++	$LFS mkdir -i $((RANDOM % MDSCOUNT)) $DIR/$tdir ||
++		error "mkdir $tdir failed"
++	# -p is a directory that is NOT Lustre: one case scans one, to check
++	# that a record off Lustre carries no field a stat cannot answer
++	llapi_scan_test -d $DIR/$tdir -p $TMP ||
++		error "llapi_scan_test failed"
++}
++run_test 157c "llapi namespace scanner API tests"
++
+ test_160a() {
+ 	[ $PARALLEL == "yes" ] && skip "skip parallel run"
+ 	remote_mds_nodsh && skip "remote MDS with nodsh"
+diff --git a/lustre/utils/Makefile.am b/lustre/utils/Makefile.am
+index 782dc823fe..7ff7ad2c82 100644
+--- a/lustre/utils/Makefile.am
++++ b/lustre/utils/Makefile.am
+@@ -120,6 +120,7 @@ liblustreapi_la_SOURCES = libhsm_scanner.c \
+ 			  liblustreapi_pfind.c \
+ 			  liblustreapi_project.c \
+ 			  liblustreapi_root.c \
++			  liblustreapi_scan.c \
+ 			  liblustreapi_swap.c \
+ 			  liblustreapi_util.c \
+ 			  erasurecode/ec_base.c \
+diff --git a/lustre/utils/liblustreapi_pfind.c b/lustre/utils/liblustreapi_pfind.c
+index d06a7def66..7a51724a3a 100644
+--- a/lustre/utils/liblustreapi_pfind.c
++++ b/lustre/utils/liblustreapi_pfind.c
+@@ -305,9 +305,13 @@ static int convert_lmdbuf_v1v2(void *lmdbuf, int lmdlen)
+ 	st = lmd_v1->lmd_st;
+ 	memmove(&lmd_v2->lmd_lmm, &lmd_v1->lmd_lmm,
+ 		lmdlen - (&lmd_v2->lmd_lmm - &lmd_v1->lmd_lmm));
++	/*
++	 * Everything up to lmd_lmm is still the V1 lmd_st: lmd_fid would read
++	 * as an IGIF and stx_mask would keep st_nlink's bits, and
++	 * convert_lmd_statx() writes only the fields lstat has.
++	 */
++	memset(lmd_v2, 0, offsetof(typeof(*lmd_v2), lmd_lmm));
+ 	convert_lmd_statx(lmd_v2, &st, false);
+-	lmd_v2->lmd_lmmsize = 0;
+-	lmd_v2->lmd_padding = 0;
+ 
+ 	return 0;
+ }
+@@ -429,6 +433,18 @@ retry_getfileinfo:
+ 					    __func__, path);
+ 			}
+ 
++			/*
++			 * A stat answers for an object the ioctl could not,
++			 * and the buffer holds the name written in for that
++			 * ioctl or the previous object: lmd_fid would read as
++			 * an IGIF, stx_mask would keep the name's bits, and
++			 * llapi_get_lum_file_fd() copies by lmd_lmmsize.
++			 * Cleared here rather than in convert_lmd_statx(),
++			 * whose third caller -- cb_find_init() under
++			 * gather_all -- runs after the V2 ioctl has put real
++			 * values there.
++			 */
++			memset(lmd, 0, offsetof(typeof(*lmd), lmd_lmm));
+ 			convert_lmd_statx(lmd, &st, true);
+ 			/*
+ 			 * It may be wrong to set use_old_ioctl with true as
+@@ -2183,7 +2199,7 @@ static void printf_format_string(struct find_param *param, char *path,
+  *			is a regular file/dir or if it's a special file type.
+  * @param[out]	projid	A reference to where to store the projid of the file/dir
+  */
+-static int get_projid(const char *path, int *fd, mode_t mode, __u32 *projid)
++int get_projid(const char *path, int *fd, mode_t mode, __u32 *projid)
+ {
+ 	struct fsxattr fsx = { 0 };
+ 	struct lu_project lu_project = { 0 };
+@@ -2198,8 +2214,23 @@ static int get_projid(const char *path, int *fd, mode_t mode, __u32 *projid)
+ 			 */
+ 			*fd = open(path, O_RDONLY | O_NOCTTY | O_NDELAY);
+ 			if (*fd <= 0) {
+-				llapi_error(LLAPI_MSG_ERROR, -ENOENT,
+-					    "warning: %s: unable to open file \"%s\"to get project id",
++				/*
++				 * LLAPI_MSG_DEBUG marks this diagnostic
++				 * rather than an error: failing to open is
++				 * an ordinary outcome for an object the
++				 * caller cannot open, and scan_rec_gather()
++				 * answers it by leaving LLAPI_SCAN_PROJID
++				 * clear rather than by reporting.
++				 *
++				 * The level does not quiet it by itself.
++				 * llapi_msg_level starts at LLAPI_MSG_MAX
++				 * and neither lfs nor lfind lowers it, so
++				 * the line still prints; what the level
++				 * buys is a caller able to silence it with
++				 * llapi_msg_set_level().
++				 */
++				llapi_error(LLAPI_MSG_DEBUG, -ENOENT,
++					    "%s: unable to open file \"%s\" to get project id",
+ 					    __func__, path);
+ 				return -ENOENT;
+ 			}
+@@ -2224,8 +2255,8 @@ static int get_projid(const char *path, int *fd, mode_t mode, __u32 *projid)
+ 		int dir_fd = open(dir_name, O_RDONLY | O_NOCTTY | O_NDELAY);
+ 
+ 		if (dir_fd < 0) {
+-			llapi_error(LLAPI_MSG_ERROR, -ENOENT,
+-				    "warning: %s: unable to open dir \"%s\"to get project id",
++			llapi_error(LLAPI_MSG_DEBUG, -ENOENT,
++				    "%s: unable to open dir \"%s\" to get project id",
+ 				    __func__, path);
+ 			return -errno;
+ 		}
+@@ -2236,8 +2267,8 @@ static int get_projid(const char *path, int *fd, mode_t mode, __u32 *projid)
+ 		ret = ioctl(dir_fd, LL_IOC_PROJECT, &lu_project);
+ 		close(dir_fd);
+ 		if (ret) {
+-			llapi_error(LLAPI_MSG_ERROR, -ENOENT,
+-				    "warning: %s: failed to get xattr for '%s': %s",
++			llapi_error(LLAPI_MSG_DEBUG, -ENOENT,
++				    "%s: failed to get xattr for '%s': %s",
+ 				    __func__, path, strerror(errno));
+ 			return -errno;
+ 		}
+diff --git a/lustre/utils/liblustreapi_scan.c b/lustre/utils/liblustreapi_scan.c
+new file mode 100644
+index 0000000000..651d2ba7fa
+--- /dev/null
++++ b/lustre/utils/liblustreapi_scan.c
+@@ -0,0 +1,603 @@
++// SPDX-License-Identifier: LGPL-2.1+
++/*
++ * Copyright (c) 2026, The Lustre Collective
++ */
++/*
++ * This file is part of Lustre, http://www.lustre.org/
++ *
++ * lustreapi library for scanning a Lustre namespace and delivering one
++ * record per object to a consumer callback.
++ *
++ * The traversal itself is not new: llapi_find_with_cb() already walks the
++ * namespace with a thread pool, fetching attributes through
++ * LL_IOC_MDC_GETINFO_V2 and falling back to lstat() off Lustre.  What this
++ * adds is a consumer contract - a versioned, self-describing record with a
++ * validity mask - so that a tool consuming the scan does not have to know
++ * how find_param works, and so that scanners other than this one can supply
++ * the same record later.
++ *
++ * The record is an in-memory structure and deliberately not a serialization.
++ * It is valid only for the duration of one callback.
++ */
++
++#ifndef _GNU_SOURCE
++#define _GNU_SOURCE
++#endif
++
++#include <assert.h>
++#include <errno.h>
++#include <fcntl.h>
++#include <stddef.h>
++#include <stdlib.h>
++#include <string.h>
++#include <sys/stat.h>
++#include <sys/types.h>
++
++#include <linux/lustre/lustre_fid.h>
++#include <lustre/lustreapi.h>
++
++#include "lustreapi_internal.h"
++
++/*
++ * struct llapi_scan_rec begins with its statx so that a record is one to
++ * anything that takes a struct statx.  Both halves of that are asserted
++ * here rather than trusted: the first says the cast is what lustreapi.h
++ * says it is, and the second is why the first is safe to promise.
++ *
++ * A statx that grew past 256 bytes would move every field of the record
++ * below it, under consumers already built against the old offsets, and
++ * lfsr_size reports how much of a record was filled and never that a field
++ * moved.  So the day the platform's statx changes size, this build stops
++ * rather than that.
++ */
++static_assert(offsetof(struct llapi_scan_rec, lfsr_stx) == 0,
++	      "llapi_scan_rec must begin with its statx");
++static_assert(sizeof(lstatx_t) == 256,
++	      "struct statx is no longer 256 bytes: every llapi_scan_rec field after lfsr_stx has moved");
++
++/* Per-scan state, reachable from the traversal callback via fp_cb_data. */
++struct llapi_scan_state {
++	llapi_scan_cb_t		 ss_cb;
++	llapi_scan_cb_t		 ss_filter;
++	void			*ss_data;
++	__u64			 ss_want;	/* 0 already widened to "all" */
++	/* the first value that stopped the scan: non-zero from ss_cb, or
++	 * negative from ss_filter
++	 */
++	int			 ss_stop_rc;
++};
++
++/*
++ * The part of the record that costs nothing: path, name, and the object
++ * type if the directory entry carried one.  This is what lfsp_filter sees,
++ * and what lfs find's own pre-filters run against.
++ */
++void scan_rec_dirent(struct llapi_scan_rec *rec, const char *path,
++		     int p, int d, const struct dirent64 *de)
++{
++	const char *name;
++
++	memset(rec, 0, sizeof(*rec));
++	rec->lfsr_size = sizeof(*rec);
++	rec->lfsr_path = path;
++	/*
++	 * The basename, except for "/", whose own name is "/" -- as
++	 * basename(3) answers it.  The loop that trimmed the start point
++	 * kept that slash so lfsp_filter would have a name to test, and
++	 * strrchr() would otherwise leave lfsr_name on the terminating NUL.
++	 */
++	name = strrchr(path, '/');
++	rec->lfsr_name = (name != NULL && name[1] != '\0') ? name + 1 : path;
++	rec->lfsr_parent_fd = p;
++	rec->lfsr_fd = d;
++
++	if (de != NULL && de->d_type != DT_UNKNOWN) {
++		rec->lfsr_stx.stx_mode = DTTOIF(de->d_type);
++		rec->lfsr_stx.stx_mask |= STATX_TYPE;
++	}
++}
++
++/*
++ * Bytes of a layout, from its own header, for the V1-ioctl fallback.
++ *
++ * Not lov_comp_md_size(): the two disagree on a foreign layout, where that
++ * one returns lfm_length alone.  lfm_length is the length of lfm_value, so
++ * the header has to be added -- which is what lov_foreign_md_size() does
++ * and what the tree's own lov_foreign_size() macro does.  The other is
++ * used to bound a copy in convert_lmdbuf_v1v2(), where under-reporting
++ * only weakens the guard, but it is not a size to build a record on.
++ */
++static __u32 llapi_scan_lmm_size(const struct lov_user_md *lmm, mode_t mode)
++{
++	switch (lmm->lmm_magic) {
++	case LOV_USER_MAGIC_V1:
++	case LOV_USER_MAGIC_V3:
++		/* a directory's default layout is a template: no objects */
++		return lov_user_md_size(S_ISDIR(mode) ? 0 :
++					lmm->lmm_stripe_count, lmm->lmm_magic);
++	case LOV_USER_MAGIC_COMP_V1:
++		return ((const struct lov_comp_md_v1 *)lmm)->lcm_size;
++	case LOV_USER_MAGIC_FOREIGN: {
++		const struct lov_foreign_md *lfm =
++			(const struct lov_foreign_md *)lmm;
++
++		return lov_foreign_md_size(lfm->lfm_length);
++	}
++	default:
++		return 0;
++	}
++}
++
++/*
++ * Bytes of a directory stripe as LL_IOC_LMV_GETSTRIPE returned it: the
++ * header plus one lmv_user_mds_data per stripe, whatever the magic says
++ * (cb_get_dirstripe() sizes its buffer the same way), or a foreign LMV's
++ * own length.
++ */
++static __u32 llapi_scan_lmv_size(const struct lmv_user_md *lmv)
++{
++	if (lmv_is_foreign(lmv->lum_magic)) {
++		/* lmv_user_md is packed; read the foreign header by copy */
++		struct lmv_foreign_md lfm;
++
++		memcpy(&lfm, lmv, offsetof(struct lmv_foreign_md, lfm_value));
++		return lfm.lfm_length + offsetof(struct lmv_foreign_md,
++						 lfm_value);
++	}
++	return lmv_user_md_size(lmv->lum_stripe_count,
++				LMV_USER_MAGIC_SPECIFIC);
++}
++
++/*
++ * Fill the rest from what the traversal fetched.
++ *
++ * Every field is guarded by a bit rather than by a sentinel value, because
++ * a scanner that cannot answer for a field and a scanner that answers zero
++ * are different things, and a consumer counting bytes or ages has to be
++ * able to tell them apart.  For lfsr_stx that bit is stx_mask's, which is why
++ * the whole statx is taken rather than copied field by field: the MDT has
++ * already said what it filled.
++ *
++ * lov_user_mds_data_v2 is packed, so lmd_stx is read through the struct
++ * rather than through a pointer to it.
++ */
++static void scan_rec_mdt(struct llapi_scan_rec *rec,
++			 const struct lov_user_mds_data *lmd,
++			 const struct find_param *param, bool have_lmv)
++{
++	__u64 flags = lmd->lmd_flags;
++
++	rec->lfsr_fid = lmd->lmd_fid;
++	if (fid_is_sane(&rec->lfsr_fid))
++		rec->lfsr_valid |= LLAPI_SCAN_FID;
++
++	rec->lfsr_stx = lmd->lmd_stx;
++
++	/*
++	 * llite clears STATX_SIZE/BLOCKS from the mask when the MDT's answer
++	 * is not authoritative, and OBD_MD_FLLAZYSIZE says the value it left
++	 * in stx_size is the lazy SOM one.  Both are reported as what they
++	 * are; a consumer that wants a strict size for every file has to
++	 * glimpse, as lfs find does.
++	 */
++	if (!(rec->lfsr_stx.stx_mask & STATX_SIZE) && flags & OBD_MD_FLLAZYSIZE)
++		rec->lfsr_valid |= LLAPI_SCAN_LAZY_SIZE;
++	if (!(rec->lfsr_stx.stx_mask & STATX_BLOCKS) &&
++	    flags & OBD_MD_FLLAZYBLOCKS)
++		rec->lfsr_valid |= LLAPI_SCAN_LAZY_BLOCKS;
++
++	/*
++	 * stx_attributes has no bit of its own in stx_mask, so what says the
++	 * flags were answered is OBD_MD_FLFLAGS: mdt_pack_attr2body() sets
++	 * it only for LA_FLAGS, and ll_dir_ioctl() reads mbo_flags only
++	 * under it.  stx_attributes_mask is not that answer -- llite fills
++	 * it with a build-time constant, the STATX_ATTR_* bits the client
++	 * can represent -- so gating on it would set this bit for every
++	 * object whether or not the MDT reported flags at all.
++	 *
++	 * Masked down to that declaration all the same, because the MDT ORs
++	 * the raw inode flags in and only the bits it names are STATX_ATTR_*
++	 * values -- FS_INDEX_FL would otherwise read as STATX_ATTR_AUTOMOUNT.
++	 */
++	if (flags & OBD_MD_FLFLAGS) {
++		rec->lfsr_stx.stx_attributes &=
++			rec->lfsr_stx.stx_attributes_mask;
++		rec->lfsr_valid |= LLAPI_SCAN_ATTRS;
++	}
++
++	/*
++	 * Layouts are handed over raw.  Decoding them means composite,
++	 * foreign and pool-carrying layouts, all of which
++	 * llapi_layout_get_by_xattr() already does properly; a partial copy
++	 * of that in the record would be a second, worse answer that
++	 * consumers would come to depend on.
++	 */
++	if (lmd->lmd_lmm.lmm_magic != 0) {
++		__u32 size = lmd->lmd_lmmsize;
++
++		/*
++		 * The V1 ioctl fallback for old client modules leaves
++		 * lmd_lmmsize 0, so size the layout from its own header.
++		 */
++		if (size == 0)
++			size = llapi_scan_lmm_size(&lmd->lmd_lmm,
++						   lmd->lmd_stx.stx_mode);
++		if (size != 0) {
++			rec->lfsr_lmm = &lmd->lmd_lmm;
++			rec->lfsr_lmmsize = size;
++			rec->lfsr_valid |= LLAPI_SCAN_LAYOUT;
++		}
++	}
++	if (have_lmv) {
++		rec->lfsr_lmv = param->fp_lmv_md;
++		rec->lfsr_lmvsize = llapi_scan_lmv_size(param->fp_lmv_md);
++		rec->lfsr_valid |= LLAPI_SCAN_LMV;
++		/*
++		 * LL_IOC_LMV_GETSTRIPE answers for a foreign directory with a
++		 * struct lmv_foreign_md, which has none of lmv_user_md's
++		 * fields where a consumer would look for them.
++		 */
++		if (lmv_is_foreign(param->fp_lmv_md->lum_magic))
++			rec->lfsr_valid |= LLAPI_SCAN_LMV_FOREIGN;
++	}
++	if (param->fp_file_mdt_index != OBD_NOT_FOUND) {
++		rec->lfsr_mdt_index = param->fp_file_mdt_index;
++		rec->lfsr_valid |= LLAPI_SCAN_MDT_INDEX;
++	}
++}
++
++/*
++ * The directory stripe, for a directory the scan holds open.  An unstriped
++ * directory answers ENODATA: fp_lmv_md is filled in as the one-stripe shape
++ * lfs find has always used, but the record does not point at it, because
++ * "no stripe" is an answer and not a stripe.
++ *
++ * Return: 1 if the directory has a stripe, 0 if it has none, negative errno.
++ */
++static int llapi_scan_get_lmv(char *path, int d, struct find_param *param)
++{
++	struct lmv_user_md *lmv;
++	int rc;
++
++	rc = cb_get_dirstripe(path, d, param);
++	/* only now: the E2BIG retry reallocates fp_lmv_md */
++	lmv = param->fp_lmv_md;
++	if (rc == 0)
++		return 1;
++	/* an ioctl failure comes back as -1 with errno; its own as -errno */
++	if (rc == -1)
++		rc = -errno;
++	/*
++	 * ENOTTY is not a Lustre directory at all -- cb_get_dirstripe() has
++	 * already retried with O_NOFOLLOW by now.  Like ENODATA that is an
++	 * answer and not a failure, and the object keeps its record: the
++	 * lstat() fallback in get_lmd_info_fd() is there for exactly this.
++	 */
++	if (rc != -ENODATA && rc != -ENOTTY)
++		return rc;
++
++	lmv->lum_magic = LMV_MAGIC_V1;
++	/* 0 until the MDT index is known, see scan_rec_gather() */
++	lmv->lum_stripe_offset = 0;
++	lmv->lum_stripe_count = 0;
++	lmv->lum_hash_type = 0;
++	/* the buffer is reused across objects: an unset field must not read
++	 * as the previous directory's
++	 */
++	lmv->lum_pool_name[0] = '\0';
++	return 0;
++}
++
++/*
++ * Phase two of the record: what the MDT answers for, as much of it as
++ * @want asks for, into @param's scratch buffers and from there into @rec.
++ *
++ * Written to be the one place that decides how an object's attributes are
++ * fetched; lfs find is moved onto it by LU-20605, which is why it is here
++ * rather than static to the scanner.  @want is taken
++ * literally here -- 0 means nothing, and the public entry point is what
++ * widens 0 to "everything".
++ *
++ * LLAPI_SCAN_MDT_INDEX for a regular file costs an open, which is why the
++ * public default leaves it out; a special file is taken to live on its
++ * parent's MDT, as lfs find has always assumed.  If an fd is opened for
++ * it, it is left in *@fdp (and rec->lfsr_fd) for the caller to close, so a
++ * caller that goes on to need one does not open twice.
++ *
++ * Return: 0 with @rec filled, or the negative errno of the fetch that
++ * failed -- the caller decides what ENOENT, ESTALE and ENOTTY mean to it.
++ */
++int scan_rec_gather(struct find_param *param, char *path, int p,
++		    int d, int *fdp, __u64 want,
++		    struct llapi_scan_rec *rec)
++{
++	struct lov_user_mds_data *lmd = param->fp_lmd;
++	bool have_lmv = false;
++	int rc;
++
++	if (!(want & LLAPI_SCAN_MDT_MASK))
++		return 0;
++
++	lmd->lmd_lmm.lmm_magic = 0;
++	/*
++	 * fp_lmd is one buffer for the whole scan.  get_lmd_info_fd() fills
++	 * or clears lmd_stx on every path it takes; this is the cheap
++	 * guarantee that nothing of the previous object's is left if a later
++	 * change adds one that does not.
++	 */
++	memset(&lmd->lmd_stx, 0, sizeof(lmd->lmd_stx));
++	param->fp_file_mdt_index = OBD_NOT_FOUND;
++	param->fp_get_lmv = 0;
++
++	if ((want & LLAPI_SCAN_LMV) && d != -1) {
++		param->fp_get_lmv = 1;
++		rc = llapi_scan_get_lmv(path, d, param);
++		if (rc < 0)
++			return rc;
++		have_lmv = rc == 1;
++	}
++
++	rc = get_lmd_info_fd(path, p, d, lmd, param->fp_lum_size,
++			     GET_LMD_INFO);
++	if (rc < 0)
++		return rc;
++
++	if (want & LLAPI_SCAN_MDT_INDEX) {
++		if (d != -1) {
++			rc = llapi_file_fget_mdtidx(d,
++						    &param->fp_file_mdt_index);
++			/*
++			 * An unstriped directory's offset is its MDT.  Not a
++			 * foreign one: LL_IOC_LMV_GETSTRIPE answers 0 with a
++			 * struct lmv_foreign_md in the same buffer, so
++			 * fp_get_lmv is set, and lum_stripe_offset and
++			 * lfm_type are both at offset 8 -- the store would
++			 * land on the foreign type.  The record publishes
++			 * this buffer as lfsr_lmv with LLAPI_SCAN_LMV_FOREIGN
++			 * set, so a consumer reading what that bit promises
++			 * would get an MDT index where the type belongs.
++			 */
++			if (rc == 0 && param->fp_get_lmv &&
++			    !lmv_is_foreign(param->fp_lmv_md->lum_magic))
++				param->fp_lmv_md->lum_stripe_offset =
++					param->fp_file_mdt_index;
++		} else if (S_ISREG(lmd->lmd_stx.stx_mode)) {
++			/*
++			 * FIXME: we could get the MDT index from the file's
++			 * FID in lmd->lmd_lmm.lmm_oi without opening the
++			 * file, once we are sure that LFSCK2 (2.6) has fixed
++			 * up pre-2.0 LOV EAs.  That would still be an
++			 * ioctl() to map the FID to the MDT, but not an
++			 * open RPC.
++			 */
++			if (*fdp < 0)
++				*fdp = open(path, O_RDONLY);
++			if (*fdp < 0)
++				rc = -errno;
++			else
++				rc = llapi_file_fget_mdtidx(*fdp,
++						&param->fp_file_mdt_index);
++		} else {
++			rc = llapi_file_fget_mdtidx(p,
++						    &param->fp_file_mdt_index);
++		}
++		/*
++		 * An object the caller cannot open leaves the bit clear, as
++		 * the project id and the HSM state do below: the index is one
++		 * field of a record, and losing it is not losing the object.
++		 * fp_file_mdt_index is still OBD_NOT_FOUND, so scan_rec_mdt()
++		 * leaves LLAPI_SCAN_MDT_INDEX unset.
++		 */
++		if (rc < 0) {
++			param->fp_file_mdt_index = OBD_NOT_FOUND;
++			rc = 0;
++		}
++	}
++
++	/*
++	 * Not from the ioctl: FS_IOC_FSGETXATTR on the object itself, or
++	 * LL_IOC_PROJECT on its parent for a special file.  That is an open
++	 * per object, so it happens only when the demand mask asks.
++	 */
++	if (want & LLAPI_SCAN_PROJID) {
++		__u32 projid = 0;
++
++		/* an object the caller cannot open leaves the bit clear */
++		if (get_projid(path, d != -1 ? &d : fdp,
++			       lmd->lmd_stx.stx_mode, &projid) == 0) {
++			rec->lfsr_projid = projid;
++			rec->lfsr_valid |= LLAPI_SCAN_PROJID;
++		}
++	}
++
++	/*
++	 * Also not from the ioctl, and only for a regular file: HSM state is
++	 * an ioctl of its own, so it waits for the demand mask too.
++	 */
++	if ((want & LLAPI_SCAN_HSM) && S_ISREG(lmd->lmd_stx.stx_mode)) {
++		struct hsm_user_state hus = { 0 };
++
++		if (d == -1 && *fdp < 0)
++			*fdp = open(path, O_RDONLY | O_NONBLOCK);
++		if (*fdp >= 0 &&
++		    llapi_hsm_state_get_fd(*fdp, &hus) == 0) {
++			rec->lfsr_hsm_states = hus.hus_states;
++			rec->lfsr_hsm_archive_id = hus.hus_archive_id;
++			rec->lfsr_valid |= LLAPI_SCAN_HSM;
++		}
++	}
++
++	if (d == -1 && *fdp >= 0)
++		rec->lfsr_fd = *fdp;
++	scan_rec_mdt(rec, lmd, param, have_lmv);
++	return 0;
++}
++
++/*
++ * Traversal callback: the pre-filter first, then only as much gathering as
++ * the demand mask asks for, then the record to the consumer.
++ *
++ * Returns the llapi_find_cb_t convention: 0 to continue, 1 to skip
++ * descending, -1 to stop, or a negative errno.
++ */
++static int llapi_scan_cb_init(char *path, int p, int *dp,
++			      struct find_param *param, struct dirent64 *de)
++{
++	struct llapi_scan_state *st = param->fp_cb_data;
++	struct llapi_scan_rec rec;
++	int d = dp == NULL ? -1 : *dp;
++	int fd = -1;
++	int rc;
++
++	if (p == -1 && d == -1)
++		return -EINVAL;
++
++	/*
++	 * A consumer has stopped the scan.  The traversal only abandons a
++	 * walk on a negative return when fp_stop_on_error is set; otherwise
++	 * it notes the value and carries on to the next entry, and with
++	 * several threads the other workers know nothing about it.  So the
++	 * stop is enforced here: nothing more is gathered, no directory is
++	 * descended, and the consumer is not called again.
++	 */
++	if (__atomic_load_n(&st->ss_stop_rc, __ATOMIC_ACQUIRE) != 0)
++		return -1;
++
++	scan_rec_dirent(&rec, path, p, d, de);
++
++	if (st->ss_filter != NULL) {
++		rc = st->ss_filter(&rec, st->ss_data);
++		if (rc > 0)
++			goto out;		/* skip, but still descend */
++		if (rc < 0)
++			goto stop;
++	}
++
++	rc = scan_rec_gather(param, path, p, d, &fd, st->ss_want,
++			     &rec);
++	if (rc == -ENOENT || rc == -ESTALE)
++		/* unlinked between readdir and here: not an error */
++		goto out;
++	if (rc < 0) {
++		if (param->fp_stop_on_error)
++			goto err;
++		goto out;
++	}
++
++	rc = st->ss_cb(&rec, st->ss_data);
++	if (rc != 0)
++		goto stop;
++out:
++	if (fd >= 0)
++		close(fd);
++	/*
++	 * The depth bookkeeping is the traversal's, not ours: returning 1 at
++	 * the limit is what stops the descent, and cb_common_fini() undoes
++	 * the increment on the way back up.
++	 */
++	if (param->fp_depth == param->fp_max_depth)
++		return 1;
++
++	param->fp_depth++;
++	return 0;
++
++stop:
++	/*
++	 * The traversal's own convention gives 1 and -1 meanings of its own
++	 * and clamps anything positive to 0 on the way out, so the consumer's
++	 * value is carried out of band.  First stopper wins: with several
++	 * scan threads more than one can decide to stop at once.
++	 */
++	{
++		int zero = 0;
++
++		__atomic_compare_exchange_n(&st->ss_stop_rc, &zero, rc, false,
++					    __ATOMIC_ACQ_REL, __ATOMIC_ACQUIRE);
++	}
++	rc = -1;
++err:
++	if (fd >= 0)
++		close(fd);
++	return rc;
++}
++
++/**
++ * llapi_scan_namespace() - walk a namespace, one record per object
++ * @path:	directory to walk
++ * @sp:		scan parameters, or NULL for the defaults
++ * @cb:		called once per object
++ * @data:	passed to @cb and to sp->lfsp_filter untouched
++ *
++ * The callback sees each object exactly once.  With lfsp_thread_count above 1
++ * it is called from several threads at once and must be thread-safe; the
++ * record it is given is private to that call, but @data is shared.
++ *
++ * The record is valid only for the duration of the call.  A consumer that
++ * needs a field afterwards must copy it, including anything lfsr_path,
++ * lfsr_name, lfsr_lmm or lfsr_lmv point at.  lfsr_parent_fd and lfsr_fd are the
++ * scan's descriptors and are closed when it moves on.
++ *
++ * Return: 0 on success, or a negative errno.  A callback returning non-zero
++ * stops the walk, and its value is returned unchanged.
++ */
++int llapi_scan_namespace(const char *path, const struct llapi_scan_param *sp,
++			 llapi_scan_cb_t cb, void *data)
++{
++	struct llapi_scan_param spl = { 0 };
++	struct llapi_scan_state st;
++	struct find_param param = { 0 };
++	char buf[PATH_MAX + 1];
++	int rc;
++
++	if (path == NULL || cb == NULL)
++		return -EINVAL;
++
++	/*
++	 * Take a private copy of the parameter struct, whichever definition
++	 * of it the caller was built against: shorter than ours reads as
++	 * zero from where it stops, longer is accepted when the bytes past
++	 * ours are zero.
++	 */
++	if (sp != NULL) {
++		rc = scan_param_copyin(&spl, sp, LLAPI_SCAN_F_KNOWN_NS);
++		if (rc != 0)
++			return rc;
++		sp = &spl;
++	}
++
++	rc = snprintf(buf, sizeof(buf), "%s", path);
++	if (rc < 0 || rc >= (int)sizeof(buf))
++		return -ENAMETOOLONG;
++
++	/*
++	 * A trailing slash would leave the root record's lfsr_name on the
++	 * terminating NUL, and lfsp_filter is meant for name tests.  "/" is
++	 * itself a name and keeps its slash.
++	 */
++	while (rc > 1 && buf[rc - 1] == '/')
++		buf[--rc] = '\0';
++
++	st.ss_cb = cb;
++	st.ss_filter = sp ? sp->lfsp_filter : NULL;
++	st.ss_data = data;
++	/* everything, except what costs an ioctl or an open per object */
++	st.ss_want = scan_want_widen(sp && sp->lfsp_want ? sp->lfsp_want :
++					 LLAPI_SCAN_WANT_DEFAULT);
++	scan_param_report_got(sp, st.ss_want, LLAPI_SCAN_WANT_KNOWN_NS);
++	st.ss_stop_rc = 0;
++
++	/* -1 is "unlimited", as lfs find sets it */
++	param.fp_max_depth = (unsigned int)-1;
++	if (sp != NULL && sp->lfsp_max_depth != 0)
++		param.fp_max_depth = sp->lfsp_max_depth;
++	param.fp_thread_count = sp ? sp->lfsp_thread_count : 0;
++	param.fp_stop_on_error = sp &&
++				 (sp->lfsp_flags & LLAPI_SCAN_F_STOP_ON_ERROR);
++	param.fp_cb_data = &st;
++
++	rc = llapi_find_with_cb(buf, &param, llapi_scan_cb_init,
++				cb_common_fini);
++
++	/* a consumer that stopped the scan hears its own value back */
++	return st.ss_stop_rc != 0 ? st.ss_stop_rc : rc;
++}
+diff --git a/lustre/utils/lustreapi_internal.h b/lustre/utils/lustreapi_internal.h
+index 87489a995b..98febf1d8f 100644
+--- a/lustre/utils/lustreapi_internal.h
++++ b/lustre/utils/lustreapi_internal.h
+@@ -17,8 +17,10 @@
+ #ifndef _LUSTREAPI_INTERNAL_H_
+ #define _LUSTREAPI_INTERNAL_H_
+ 
++#include <assert.h>
+ #include <dirent.h>
+ #include <limits.h>
++#include <stddef.h>
+ #include <stdint.h>
+ #include <time.h>
+ 
+@@ -28,6 +30,8 @@
+ #include <linux/lustre/lustre_idl.h>
+ #include <linux/lustre/lustre_kernelcomm.h>
+ 
++#include "lstddef.h"		/* ARRAY_SIZE */
++
+ #include <lustre/lustreapi.h>
+ 
+ struct cYAML;
+@@ -270,6 +274,216 @@ int cb_common_fini(char *path, int p, int *dp, struct find_param *param,
+ 		   struct dirent64 *de);
+ /* @d keeps its number, but the ENOTTY retry may reopen what it names */
+ int cb_get_dirstripe(char *path, int d, struct find_param *param);
++int get_projid(const char *path, int *fd, mode_t mode, __u32 *projid);
++
++/* liblustreapi_scan.c: the record front-end lfs find shares with the scanner */
++struct llapi_scan_rec;
++/* the shortest struct llapi_scan_param a scan will act on: everything up to
++ * and including the demand mask.  Anything after it may be missing, and is
++ * read as zero.
++ */
++#define LLAPI_SCAN_PARAM_MIN_SIZE					\
++	((__u32)(offsetof(struct llapi_scan_param, lfsp_want) +		\
++		 sizeof(((struct llapi_scan_param *)0)->lfsp_want)))
++/* and the longest: no definition of the struct will reach a page, so a size
++ * past it is a caller's mistake, refused before its tail is read
++ */
++#define LLAPI_SCAN_PARAM_MAX_SIZE	4096
++/* every lfsp_flags bit a namespace scan knows.  One mask per scanner, so that
++ * a flag only one of them can act on cannot be quietly accepted by the other.
++ * Deliberately not public: a caller that built against an "all flags" value
++ * would mean a different set of bits by it than the library it is linked
++ * against.
++ */
++#define LLAPI_SCAN_F_KNOWN_NS	(LLAPI_SCAN_F_STOP_ON_ERROR)
++/*
++ * What a namespace scan has to reach the MDT for.  The rest of what it can
++ * answer for comes from the directory entry and is LLAPI_SCAN_DIRENT_MASK,
++ * which is public because lfsp_filter runs against it.  Enumerated rather
++ * than derived from "every bit up to the last one defined", so that a
++ * field added for a scanner reading a device directly does not silently
++ * become a field this one claims to fill.
++ *
++ * LLAPI_SCAN_LMV_FOREIGN is here because the gather sets it, and a mask
++ * that did not name it would have scan_param_report_got() promise less
++ * than the scan delivers.  Asked for alone it brings LLAPI_SCAN_LMV with
++ * it: see scan_want_widen().
++ *
++ * STATX_INO is named here rather than through an alias: the ioctl fills
++ * stx_ino, and nothing else does, so a demand mask of STATX_INO alone has
++ * to reach the MDT.  LLAPI_SCAN_STATX_MASK promises the whole low half,
++ * named or not, so asking for it alone is legal.
++ */
++#define LLAPI_SCAN_MDT_MASK	(LLAPI_SCAN_FID | LLAPI_SCAN_MODE |	\
++				 ((__u64)STATX_INO) |			\
++				 LLAPI_SCAN_NLINK | LLAPI_SCAN_UID |	\
++				 LLAPI_SCAN_GID | LLAPI_SCAN_SIZE |	\
++				 LLAPI_SCAN_BLOCKS | LLAPI_SCAN_ATIME |	\
++				 LLAPI_SCAN_MTIME | LLAPI_SCAN_CTIME |	\
++				 LLAPI_SCAN_BTIME | LLAPI_SCAN_ATTRS |	\
++				 LLAPI_SCAN_LAYOUT | LLAPI_SCAN_LMV |	\
++				 LLAPI_SCAN_LMV_FOREIGN |		\
++				 LLAPI_SCAN_MDT_INDEX |			\
++				 LLAPI_SCAN_PROJID |			\
++				 LLAPI_SCAN_HSM |			\
++				 LLAPI_SCAN_LAZY_SIZE |			\
++				 LLAPI_SCAN_LAZY_BLOCKS)
++/*
++ * Which lfsp_want bits llapi_scan_namespace() can answer for, and not
++ * public: a caller that built against an "everything" value would mean a
++ * different set of bits by it than the library it is linked against.
++ *
++ * A bit outside it is dropped rather than refused -- see lfsp_got in
++ * lustreapi.h -- so this is what the scanner may fill and nothing more.
++ * Enumerated from the fields the gather actually sets.
++ */
++#define LLAPI_SCAN_WANT_KNOWN_NS	(LLAPI_SCAN_DIRENT_MASK |	\
++					 LLAPI_SCAN_MDT_MASK)
++
++/*
++ * How much of the caller's struct to copy: whole fields only.
++ *
++ * lfsp_size is the caller's, and a size that stops inside a field leaves it
++ * neither the caller's value nor zero.  lfsp_filter is where that bites: it
++ * is a function pointer the scan then calls, and the range test alone does
++ * not catch it, lfsp_filter ending at 32 where the minimum is 24, so 25..31
++ * passes.  Every pointer this struct gains later is the same case.
++ *
++ * Rounded down rather than refused, because a short size is already how a
++ * caller says "this field is missing" -- one that stops mid-field is the
++ * same statement made imprecisely, and the field it stops in is exactly the
++ * one to drop.
++ */
++static inline __u32 scan_param_whole(__u32 size)
++{
++#define SCAN_PF_END(f)							\
++	((__u32)(offsetof(struct llapi_scan_param, f) +			\
++		 sizeof(((struct llapi_scan_param *)0)->f)))
++	static const __u32 ends[] = {
++		SCAN_PF_END(lfsp_want), SCAN_PF_END(lfsp_filter),
++		SCAN_PF_END(lfsp_thread_count), SCAN_PF_END(lfsp_padding),
++		SCAN_PF_END(lfsp_got),
++	};
++	static_assert(SCAN_PF_END(lfsp_got) ==
++		      sizeof(struct llapi_scan_param),
++		      "a field was added without a row in ends[]");
++#undef SCAN_PF_END
++	__u32 whole = ends[0];
++	unsigned int i;
++
++	for (i = 0; i < ARRAY_SIZE(ends); i++)
++		if (ends[i] <= size)
++			whole = ends[i];
++
++	return whole;
++}
++
++/*
++ * The reserved bytes are documented must-be-zero, so that a field carved
++ * out of them later cannot be set by a newer caller and silently ignored
++ * here: they are already inside lfsp_size, which is what catches an
++ * appended field.
++ */
++static inline bool scan_param_padding_ok(const struct llapi_scan_param *sp)
++{
++	unsigned int i;
++
++	for (i = 0; i < sizeof(sp->lfsp_padding); i++)
++		if (sp->lfsp_padding[i] != 0)
++			return false;
++
++	return true;
++}
++
++/*
++ * Take the caller's parameter block, whatever version of the struct it was
++ * built against, and say whether this library can act on it.
++ *
++ * A shorter block than ours is the easy half: the fields it stops before
++ * read as zero, which is what a caller built against an older header means
++ * by not having them.  A longer one is the interoperability case -- an
++ * application built against a newer header, running against this library --
++ * and it is accepted as long as every byte past the end of our definition
++ * is zero.  That is the caller demonstrating it set no field we could not
++ * honour; one that did set such a field is refused, which is the same
++ * answer an undefined lfsp_flags bit gets and for the same reason.
++ *
++ * Reading those bytes takes the caller at its word that lfsp_size describes
++ * memory it owns, as every size-carrying interface does, up to
++ * LLAPI_SCAN_PARAM_MAX_SIZE.
++ *
++ * The demand mask is not policed here.  A want bit this library does not
++ * know is not an error -- it is dropped, and lfsp_got reports the rest --
++ * because a field is asked for, where a flag is commanded.
++ */
++static inline int scan_param_copyin(struct llapi_scan_param *dst,
++				    const struct llapi_scan_param *src,
++				    __u64 known_flags)
++{
++	const unsigned char *tail;
++	__u32 i;
++
++	memset(dst, 0, sizeof(*dst));
++
++	if (src->lfsp_size < LLAPI_SCAN_PARAM_MIN_SIZE ||
++	    src->lfsp_size > LLAPI_SCAN_PARAM_MAX_SIZE)
++		return -EINVAL;
++	if (src->lfsp_flags & ~known_flags)
++		return -EINVAL;
++
++	if (src->lfsp_size > (__u32)sizeof(*dst)) {
++		tail = (const unsigned char *)src + sizeof(*dst);
++		for (i = 0; i < src->lfsp_size - (__u32)sizeof(*dst); i++)
++			if (tail[i] != 0)
++				return -EINVAL;
++		memcpy(dst, src, sizeof(*dst));
++	} else {
++		memcpy(dst, src, scan_param_whole(src->lfsp_size));
++	}
++	/* ours from here on, whatever the caller's was */
++	dst->lfsp_size = sizeof(*dst);
++
++	if (!scan_param_padding_ok(dst))
++		return -EINVAL;
++
++	return 0;
++}
++
++/*
++ * What a scan will answer for, reported to the caller before the first
++ * record.  @known is the entry point's mask, already narrowed to the
++ * target where the scan knows it.  A bit here says the scan may fill the
++ * field, not that any one object has it: an object with no project id
++ * still leaves LLAPI_SCAN_PROJID clear in lfsr_valid.
++ */
++/* LLAPI_SCAN_LMV_FOREIGN describes lfsr_lmv, so asking for it asks for that */
++static inline __u64 scan_want_widen(__u64 want)
++{
++	if (want & LLAPI_SCAN_LMV_FOREIGN)
++		want |= LLAPI_SCAN_LMV;
++	return want;
++}
++
++static inline void scan_param_report_got(const struct llapi_scan_param *sp,
++					 __u64 want, __u64 known)
++{
++	if (sp != NULL && sp->lfsp_got != NULL)
++		*sp->lfsp_got = want & known;
++}
++
++/* what llapi_scan_namespace() gathers when lfsp_want is 0: everything,
++ * except the fields that cost an ioctl or an open per object and have to
++ * be named.
++ */
++#define LLAPI_SCAN_WANT_DEFAULT						\
++	(~0ULL & ~(LLAPI_SCAN_MDT_INDEX | LLAPI_SCAN_PROJID |		\
++		   LLAPI_SCAN_HSM))
++
++void scan_rec_dirent(struct llapi_scan_rec *rec, const char *path,
++		     int p, int d, const struct dirent64 *de);
++int scan_rec_gather(struct find_param *param, char *path, int p,
++		    int d, int *fdp, __u64 want,
++		    struct llapi_scan_rec *rec);
+ int common_param_init(struct find_param *param, char *path);
+ void find_param_fini(struct find_param *param);
+ int parallel_find(char *path, llapi_find_cb_t cb_init, llapi_find_cb_t cb_fini,
+-- 
+2.43.0
+

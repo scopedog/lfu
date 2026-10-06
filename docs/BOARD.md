@@ -23,6 +23,17 @@ the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
   sees every record in order. Writer race (N+1 before N at the tail) is
   separate and stays documented.
 - Next: polling for the AI round and Maloo on the new patchsets.
+- **Follow-up BUILT (local, unpushed):** branch lu-20650-stale-window in
+  ~/lfs-fix-1005, **bd44314a52** "LU-20650 lfs: find --since-cookie, check
+  each MDT when read" (Change-Id Ibf3e4ecf...), on a1005-pushed. Re-reads
+  each later MDT's oldest record just before its scan; -ESTALE, cookie
+  kept. lreview x2 (docs/rounds/a-1005/lreview-stale/): v1 used the
+  filter's first index -- WRONG under COALESCE (one record per object,
+  latest index) and with index gaps; replaced. v2's 6 wording findings
+  fixed. GCP A/B (tests/lab-stale, deleted): old exit 0, 40/50 MDT0001
+  files, cookie advanced; new ESTALE, cookie kept, next run refused; B2
+  no false refusal. Owed in 68419's next round: its filter_cb comment says
+  sc_filter sees every record in order -- false under COALESCE.
 
 ## 2026-10-05 evening: lreview (2) on the fixed tip, fixed locally
 

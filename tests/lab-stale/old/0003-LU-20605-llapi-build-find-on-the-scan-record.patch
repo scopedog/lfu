@@ -1,0 +1,858 @@
+From d2a385f08fd74c116d2be7b6d1f23dc5e7b99b27 Mon Sep 17 00:00:00 2001
+From: Hiroshi Nishida <hnishida@thelustrecollective.com>
+Date: Mon, 24 Aug 2026 09:48:44 -0700
+Subject: [PATCH 03/16] LU-20605 llapi: build find on the scan record
+
+Rebuild the first half of cb_find_init() on the code that
+llapi_scan_namespace() uses, so lfs find and the scanner share one
+gather path and one record:
+- scan_rec_dirent() fills what the directory entry says.
+- find_prefilter() rejects what the entry is enough to reject. It
+  returns a bool, because it cannot fail.
+- find_want() turns the search into a demand mask.
+- scan_rec_gather() asks the MDT for the fields in the mask. lfs find
+  calls its two steps itself, scan_rec_gather_begin() and
+  scan_rec_gather_finish(), so the directory stripe checks still reject
+  a directory before the stat RPC.
+
+Behaviour changes:
+- With -printf, the unstriped --foreign case prints this object's
+  attributes, not the previous object's.
+- An MDT index that cannot be fetched no longer fails the object.
+  With --mdt, such an object is left out: it matches neither --mdt
+  nor ! --mdt.
+- A directory that is not on Lustre answers ENOTTY. This is now an
+  answer, not an error, so the walk goes into the directory instead of
+  losing the subtree. This bug was reachable with -printf, and with
+  --links, --mdt-count, --mdt-hash, --hash-flags and --foreign since
+  they were added.
+- -printf %LF and the layout fetch no longer report an error for an
+  object that is not on Lustre: ENOTTY for the layout, and ENODATA,
+  ENOTSUP or ENOTTY for the FID. Making llapi_fd2fid() return ENOTTY
+  would be cleaner, but it changes a public call, so it belongs in its
+  own patch.
+- For an object with no project id, --projid N does not match,
+  ! --projid N matches, and -printf %LP prints 0. Before, the walk
+  failed. get_projid() no longer logs ENOTTY.
+- -printf %Li on a foreign directory prints the directory's own MDT
+  index, or nothing when it could not be fetched. Before, it printed
+  lfm_type: lmv_foreign_md aliases lum_stripe_offset, so the code read
+  the foreign type as a stripe offset.
+- -name now tests lfsr_name, which is the whole path when the path ends
+  in '/'. So --name '*lustre*' now matches a start point written as
+  /mnt/lustre/. What the name should be in that case is left for a
+  separate patch.
+
+sanity 56El mounts a tmpfs under the Lustre mount. It checks that the
+walk finds the objects below it with --links, so that each directory
+there has its LMV fetched, and that -printf %LF and %Lc print
+nothing on stderr for them. sanity 56* has the same results before and
+after this patch.
+
+Fixes: 6b8e97b76c47 ("LU-10378 utils: add formatted printf to lfs find")
+Fixes: c99a393125bc ("LU-7502 utils: add --mdt-count & --mdt-hash options")
+Fixes: 3dad616e09fc ("LU-4017 quota: add project id support to lfs find")
+Fixes: 501e5b2c8a47 ("LU-18027 lfs: lfs find handling special files")
+Signed-off-by: Hiroshi Nishida <hnishida@thelustrecollective.com>
+Assisted-by: ClaudeCode:Opus-5 llm_code_and_review_tools
+Change-Id: Ica2b5a8bd7a55f8ee00bd55c5b7771bb09a208fc
+---
+ lustre/tests/sanity.sh            |  72 +++++
+ lustre/utils/liblustreapi_pfind.c | 469 +++++++++++++++++++-----------
+ lustre/utils/liblustreapi_scan.c  |  80 +++--
+ lustre/utils/lustreapi_internal.h |   5 +
+ 4 files changed, 435 insertions(+), 191 deletions(-)
+
+diff --git a/lustre/tests/sanity.sh b/lustre/tests/sanity.sh
+index 55cf04d6f8..124897979e 100755
+--- a/lustre/tests/sanity.sh
++++ b/lustre/tests/sanity.sh
+@@ -10574,6 +10574,78 @@ test_56Ek() {
+ }
+ run_test 56Ek "Test lfs find error handling with LLAPI_FAIL_LOC"
+ 
++test_56El() {
++	local dir=$DIR/$tdir
++	local tmp=$dir/notlustre
++	local errf=$TMP/$tfile.err
++	local found
++
++	test_mkdir $dir || error "mkdir $dir failed"
++	# under $dir on purpose, and not in $TMP: the case is a walk that
++	# starts on Lustre and crosses off it, so the subtree has to be
++	# reachable from a Lustre path.  A tmpfs is the cheapest filesystem
++	# that is certainly not Lustre and needs no device.
++	mkdir $tmp || error "mkdir $tmp failed"
++	mount -t tmpfs none $tmp || skip_env "cannot mount tmpfs on $tmp"
++	stack_trap "umount $tmp || umount -l $tmp"
++	stack_trap "rm -f $errf"
++
++	touch $tmp/f1 $tmp/f2 || error "touch under tmpfs failed"
++	mkdir $tmp/d1 || error "mkdir under tmpfs failed"
++	touch $tmp/d1/f3 || error "touch in tmpfs subdir failed"
++	# a special file too: the project-id fetch takes its other arm for one,
++	# asking LL_IOC_PROJECT of the parent, which off Lustre answers ENOTTY
++	# on every kernel -- where the regular-file arm only does so on a
++	# client older than v6.0, which is why this needs its own object
++	ln -s f1 $tmp/l1 || error "symlink under tmpfs failed"
++
++	# the walk descends into a subtree that is not on Lustre, where each
++	# object's stat and, for --links, each directory's LMV answer ENOTTY.
++	# No -type: d_type would reject the directories before the LMV fetch.
++	local raw
++
++	raw=$($LFS find $dir --links 1) ||
++		error "lfs find failed on $dir"
++	found=$(wc -l <<< "$raw")
++	# f1, f2, f3 and l1; every directory has more than one link
++	(( found == 4 )) ||
++		error "lfs find found $found objects under $dir, expected 4"
++
++	# any -printf reads a project id for every object; off Lustre there is
++	# none to read, and that must not fail the search
++	$LFS find $dir -printf '%LP %p\n' > /dev/null 2> $errf || {
++		cat $errf
++		error "lfs find -printf %LP failed on $dir"
++	}
++	if [[ -s $errf ]]; then
++		cat $errf
++		error "lfs find -printf %LP wrote errors off Lustre"
++	fi
++
++	# l1 has no project id at all: --projid N cannot match it and
++	# ! --projid N does, for N 0 too, which the -printf stand-in equals
++	raw=$($LFS find $dir -type l --projid 0) ||
++		error "lfs find --projid 0 failed on $dir"
++	[[ -z "$raw" ]] || error "--projid 0 matched '$raw', which has none"
++	raw=$($LFS find $dir -type l ! --projid 0) ||
++		error "lfs find ! --projid 0 failed on $dir"
++	[[ "$raw" == "$tmp/l1" ]] ||
++		error "! --projid 0 printed '$raw', expected $tmp/l1"
++
++	# and an object there has no FID and no layout, which is what it is
++	# rather than an error to report: stderr must stay empty
++	# on failure the stderr is the whole diagnosis, so print it either way
++	$LFS find $dir -printf '%LF %Lc %p\n' > /dev/null 2> $errf || {
++		cat $errf
++		error "lfs find -printf failed on $dir"
++	}
++	if [[ -s $errf ]]; then
++		cat $errf
++		error "lfs find -printf wrote errors for a subtree off Lustre"
++	fi
++}
++run_test 56El "lfs find -printf over a subtree that is not on Lustre"
++
+ test_57a() {
+ 	[ $PARALLEL == "yes" ] && skip "skip parallel run"
+ 	# note test will not do anything if MDS is not local
+diff --git a/lustre/utils/liblustreapi_pfind.c b/lustre/utils/liblustreapi_pfind.c
+index 7a51724a3a..9f8941532e 100644
+--- a/lustre/utils/liblustreapi_pfind.c
++++ b/lustre/utils/liblustreapi_pfind.c
+@@ -1676,8 +1676,23 @@ static int printf_format_lustre(char *seq, char *buffer, size_t size,
+ 	case 'F':
+ 		err = llapi_path2fid(path, &fid);
+ 		if (err) {
+-			llapi_error(LLAPI_MSG_ERROR, err,
+-				    "error: cannot get fid\n");
++			/*
++			 * A walk descends a directory that is not on Lustre
++			 * -- cb_find_init() treats the stripe ioctl's ENOTTY
++			 * as "no stripe" rather than an error -- so the
++			 * objects under it reach here.  Having no FID is what
++			 * such an object is, not a failure to report: the
++			 * directive stays empty and nothing is said.
++			 *
++			 * Unlike the layout fetch below, llapi_path2fid()
++			 * does not follow the ENOTTY convention: an object
++			 * off Lustre answers ENODATA, or ENOTSUP where the
++			 * library is built without server support.
++			 */
++			if (err != -ENOTTY && err != -ENODATA &&
++			    err != -ENOTSUP)
++				llapi_error(LLAPI_MSG_ERROR, err,
++					    "error: cannot get fid\n");
+ 			goto format_done;
+ 		}
+ 		*wrote = snprintf(buffer, size, DFID_NOBRACE, PFID(&fid));
+@@ -1693,8 +1708,12 @@ static int printf_format_lustre(char *seq, char *buffer, size_t size,
+ 		//				   param->fp_lum_size, 0);
+ 		layout = llapi_layout_get_by_path(path, 0);
+ 		if (layout == NULL) {
+-			llapi_error(LLAPI_MSG_ERROR, errno,
+-				    "error: cannot get file layout\n");
++			/* not on Lustre: see the note on %LF above.  This is
++			 * the one fetch %Lc, %Li, %Lo, %Lp and %LS share.
++			 */
++			if (errno != ENOTTY)
++				llapi_error(LLAPI_MSG_ERROR, errno,
++					    "error: cannot get file layout\n");
+ 			goto format_done;
+ 		}
+ 
+@@ -1780,6 +1799,19 @@ static int printf_format_lustre(char *seq, char *buffer, size_t size,
+ 						  hash_type);
+ 			break;
+ 		case 'i':	/* starting index */
++			/*
++			 * A foreign LMV has no stripe offset: lfm_type is
++			 * at that offset, so the directory's own MDT index
++			 * is printed instead, from where the gather left
++			 * it.
++			 */
++			if (lmv_is_foreign(lum->lum_magic)) {
++				if (param->fp_file_mdt_index == OBD_NOT_FOUND)
++					goto format_done;
++				*wrote = snprintf(buffer, size, "%d",
++						  param->fp_file_mdt_index);
++				break;
++			}
+ 			*wrote = snprintf(buffer, size, "%d",
+ 					  lum->lum_stripe_offset);
+ 			break;
+@@ -2204,6 +2236,7 @@ int get_projid(const char *path, int *fd, mode_t mode, __u32 *projid)
+ 	struct fsxattr fsx = { 0 };
+ 	struct lu_project lu_project = { 0 };
+ 	int ret = 0;
++	int rc;
+ 
+ 	/* Check the mode of the file */
+ 	if (S_ISREG(mode) || S_ISDIR(mode)) {
+@@ -2265,12 +2298,25 @@ int get_projid(const char *path, int *fd, mode_t mode, __u32 *projid)
+ 			strncpy(lu_project.project_name, base_name, NAME_MAX);
+ 
+ 		ret = ioctl(dir_fd, LL_IOC_PROJECT, &lu_project);
++		/*
++		 * Kept before the close(): a close() that fails -- EINTR, or
++		 * EIO from a flush -- sets errno of its own, and this errno
++		 * picks the branch below.
++		 */
++		rc = -errno;
+ 		close(dir_fd);
+ 		if (ret) {
+-			llapi_error(LLAPI_MSG_DEBUG, -ENOENT,
+-				    "%s: failed to get xattr for '%s': %s",
+-				    __func__, path, strerror(errno));
+-			return -errno;
++			/*
++			 * LL_IOC_PROJECT is Lustre's own number, so a parent
++			 * that is not on Lustre answers ENOTTY.  Having no
++			 * project id is what an object there is rather than a
++			 * failure to report, as with its FID and its layout.
++			 */
++			if (rc != -ENOTTY)
++				llapi_error(LLAPI_MSG_DEBUG, rc,
++					    "%s: failed to get xattr for '%s'",
++					    __func__, path);
++			return rc;
+ 		}
+ 		*projid = lu_project.project_id;
+ 	}
+@@ -2464,69 +2510,73 @@ static int setup_target_indexes(int d, char *path, struct find_param *param)
+ 	return ret;
+ }
+ 
+-int cb_find_init(char *path, int p, int *dp, struct find_param *param,
+-		 struct dirent64 *de)
++/*
++ * The pre-filters: what lfs find can decide from the directory entry alone,
++ * before any I/O on the object.  --name against the entry name, -type
++ * against d_type when the filesystem supplied one, and the directory-stripe
++ * options against it too -- --mdt-count and --mdt-hash can only match a
++ * directory, so anything else is rejected here rather than gathered for.
++ *
++ * *@checked_type says whether -type was settled here; if not, it is settled
++ * against the MDT's mode later.
++ *
++ * Note the sense: true is a rejection, which is the opposite of the
++ * `decision` cb_find_init() carries and of what find_check_layout() and
++ * find_value_cmp() return.  Those answer "does this predicate accept the
++ * object"; this answers "is the object settled already", and false is the
++ * case that goes on to the MDT, so the two cannot share one convention.
++ * bool rather than int for that reason: nothing here can fail, so there is
++ * no errno to return, and a caller cannot mistake this answer for one.
++ *
++ * Return: true to reject the object here, false to go on and gather.
++ */
++static bool find_prefilter(const struct llapi_scan_rec *rec,
++			   struct find_param *param, int *checked_type)
+ {
+-	struct lov_user_mds_data *lmd = param->fp_lmd;
+-	int d = dp == NULL ? -1 : *dp;
+-	int decision = 1; /* 1 is accepted; -1 is rejected. */
+-	int lustre_fs = 1;
+-	int checked_type = 0;
+-	int ret = 0;
+-	__u32 stripe_count = 0;
+-	__u64 flags;
+-	int fd = -2;
+-	__u32 projid = DEFAULT_PROJID;
+-	bool gather_all = false;
+-
+-	if (p == -1 && d == -1)
+-		return -EINVAL;
+-	/* if below minimum depth do not process further */
+-	if (param->fp_depth < param->fp_min_depth)
+-		goto decided;
+-
+-	/* Reset this value between invocations */
+-	param->fp_get_lmv = 0;
+-
+-	/* Gather all file/dir info, not just what's needed for search params */
+-	if (param->fp_format_printf_str)
+-		gather_all = true;
+-
+-	/* If a regular expression is presented, make the initial decision */
+ 	if (param->fp_pattern != NULL) {
+-		char *fname = strrchr(path, '/');
++		int rc = fnmatch(param->fp_pattern, rec->lfsr_name, 0);
+ 
+-		fname = (fname == NULL ? path : fname + 1);
+-		ret = fnmatch(param->fp_pattern, fname, 0);
+-		if ((ret == FNM_NOMATCH && !param->fp_exclude_pattern) ||
+-		    (ret == 0 && param->fp_exclude_pattern))
+-			goto decided;
++		if ((rc == FNM_NOMATCH && !param->fp_exclude_pattern) ||
++		    (rc == 0 && param->fp_exclude_pattern))
++			return true;
+ 	}
+ 
+-	/* See if we can check the file type from the dirent. */
+-	if (de != NULL && de->d_type != DT_UNKNOWN) {
+-		if (param->fp_type != 0) {
+-			checked_type = 1;
++	if (rec->lfsr_stx.stx_mask & STATX_TYPE) {
++		mode_t type = rec->lfsr_stx.stx_mode & S_IFMT;
+ 
+-			if (DTTOIF(de->d_type) == param->fp_type) {
++		if (param->fp_type != 0) {
++			*checked_type = 1;
++			if (type == param->fp_type) {
+ 				if (param->fp_exclude_type)
+-					goto decided;
++					return true;
+ 			} else {
+ 				if (!param->fp_exclude_type)
+-					goto decided;
++					return true;
+ 			}
+ 		}
+ 		if ((param->fp_check_mdt_count || param->fp_hash_type ||
+-		     param->fp_check_hash_flag) && de->d_type != DT_DIR)
+-			goto decided;
++		     param->fp_check_hash_flag) && type != S_IFDIR)
++			return true;
+ 	}
+ 
+-	ret = 0;
++	return false;
++}
++
++/*
++ * The demand mask: which of the record's fields lfs find will need for
++ * this search, in the LLAPI_SCAN_* bits llapi_scan_namespace() takes --
++ * but not with its convention for 0, which there means "the scanner's
++ * default" and here means "nothing, so do not gather at all".  A caller
++ * passing this to lfsp_want has to widen 0 itself, or turn the cheapest
++ * search there is into the most expensive one.  This is the same test
++ * cb_find_init() has always made before deciding whether to ask the MDT
++ * at all; it now says what to ask for as well.
++ */
++static __u64 find_want(struct find_param *param, int checked_type,
++		       bool gather_all)
++{
++	__u64 want = 0;
+ 
+-	/*
+-	 * Request MDS for the stat info if some of these parameters need
+-	 * to be compared.
+-	 */
+ 	if (param->fp_obd_uuid || param->fp_mdt_uuid ||
+ 	    param->fp_check_uid || param->fp_check_gid ||
+ 	    param->fp_newerxy || param->fp_btime ||
+@@ -2537,92 +2587,162 @@ int cb_find_init(char *path, int p, int *dp, struct find_param *param,
+ 	    param->fp_check_hash_flag || param->fp_perm_sign ||
+ 	    param->fp_nlink || param->fp_attrs || param->fp_neg_attrs ||
+ 	    gather_all)
+-		decision = 0;
++		want = LLAPI_SCAN_MDT_MASK;
+ 
+ 	if (param->fp_type != 0 && checked_type == 0)
+-		decision = 0;
++		want = LLAPI_SCAN_MDT_MASK;
+ 
+-	if (decision == 0) {
+-		if (d != -1 &&
+-		    (param->fp_check_mdt_count || param->fp_hash_type ||
+-		     param->fp_check_hash_flag || param->fp_check_foreign ||
+-		     /*
+-		      * cb_get_dirstripe is needed when checking nlink because
+-		      * nlink is handled differently for multi-stripe directory
+-		      * vs. single-stripe directory
+-		      */
+-		     param->fp_nlink || gather_all)) {
+-			struct lmv_user_md *lmv;
+-
+-			param->fp_get_lmv = 1;
+-			ret = cb_get_dirstripe(path, d, param);
+-			lmv = param->fp_lmv_md;
+-			if (ret != 0) {
+-				if (errno == ENODATA) {
+-					/* Fill in struct for unstriped dir */
+-					ret = 0;
+-					lmv->lum_magic = LMV_MAGIC_V1;
+-					/* Use 0 until we find actual offset */
+-					lmv->lum_stripe_offset = 0;
+-					lmv->lum_stripe_count = 0;
+-					lmv->lum_hash_type = 0;
+-
+-					if (param->fp_check_foreign) {
+-						if (param->fp_exclude_foreign)
+-							goto print;
+-						goto decided;
+-					}
+-				} else {
+-					return ret;
+-				}
+-			}
++	if (want == 0)
++		return 0;
+ 
+-			if (param->fp_check_mdt_count) {
+-				if (lmv_is_foreign(lmv->lum_magic))
+-					goto decided;
+-
+-				decision = find_value_cmp(lmv->lum_stripe_count,
+-						param->fp_mdt_count,
+-						param->fp_mdt_count_sign,
+-						param->fp_exclude_mdt_count,
+-						1, 0);
+-				if (decision == -1)
+-					goto decided;
+-			}
++	/*
++	 * cb_get_dirstripe is needed when checking nlink because nlink is
++	 * handled differently for multi-stripe directory vs. single-stripe
++	 * directory.
++	 */
++	if (!(param->fp_check_mdt_count || param->fp_hash_type ||
++	      param->fp_check_hash_flag || param->fp_check_foreign ||
++	      param->fp_nlink || gather_all))
++		want &= ~(LLAPI_SCAN_LMV | LLAPI_SCAN_LMV_FOREIGN);
++	if (!(param->fp_mdt_uuid != NULL || gather_all))
++		want &= ~LLAPI_SCAN_MDT_INDEX;
++	/* both cost an open: projid is fetched on demand, HSM is unused */
++	want &= ~(LLAPI_SCAN_PROJID | LLAPI_SCAN_HSM);
++
++	return want;
++}
++
++/*
++ * `! --foreign` on a directory with no stripe of its own: accepted on the
++ * LMV alone.  Nothing between here and the print reads what the getattr
++ * fetches, so it is not asked for -- as it was not before this became a
++ * record.  -printf is the exception: those attributes are what it prints.
++ *
++ * True of the path actually taken, and only because it is a shortcut: the
++ * predicates that would read the getattr -- -uid, -type, -perm, --projid,
++ * the time checks -- are jumped over with it, so
++ * `lfs find $DIR ! --foreign --uid 0` prints an unstriped directory
++ * whatever its owner.  That is upstream's own `goto print` and not new
++ * here, though this patch widens what reaches it: llapi_scan_get_lmv()
++ * now lets ENOTTY through, so a directory off Lustre takes the shortcut
++ * too.  Fixing the skip belongs in a patch of its own.
++ */
++static bool find_foreign_accepts(const struct find_param *param,
++				 bool have_lmv, bool gather_all)
++{
++	return param->fp_get_lmv && !have_lmv && !gather_all &&
++	       param->fp_check_foreign && param->fp_exclude_foreign;
++}
+ 
+-			if (param->fp_hash_type) {
+-				__u32 found;
+-				__u32 type = lmv->lum_hash_type &
+-					LMV_HASH_TYPE_MASK;
++/*
++ * The checks that need only the directory's LMV.  Run before the stat RPC,
++ * so a directory they reject costs no more than the LMV fetch.
++ *
++ * Return: true if the object is rejected.
++ */
++static bool find_lmv_rejects(const struct find_param *param, bool have_lmv)
++{
++	struct lmv_user_md *lmv = param->fp_lmv_md;
+ 
+-				if (lmv_is_foreign(lmv->lum_magic))
+-					goto decided;
++	if (!param->fp_get_lmv)
++		return false;
+ 
+-				found = (1 << type) & param->fp_hash_type;
+-				if ((found && param->fp_exclude_hash_type) ||
+-				    (!found && !param->fp_exclude_hash_type))
+-					goto decided;
+-			}
++	/* no stripe of its own: rejected unless --foreign is negated */
++	if (!have_lmv && param->fp_check_foreign)
++		return !param->fp_exclude_foreign;
+ 
+-			if (param->fp_check_hash_flag) {
+-				__u32 flags = lmv->lum_hash_type &
+-					~LMV_HASH_TYPE_MASK;
++	if (param->fp_check_mdt_count) {
++		if (lmv_is_foreign(lmv->lum_magic))
++			return true;
+ 
+-				if (lmv_is_foreign(lmv->lum_magic))
+-					goto decided;
++		if (find_value_cmp(lmv->lum_stripe_count,
++				   param->fp_mdt_count,
++				   param->fp_mdt_count_sign,
++				   param->fp_exclude_mdt_count, 1, 0) == -1)
++			return true;
++	}
+ 
+-				if (!(flags & param->fp_hash_inflags) ||
+-				    (flags & param->fp_hash_exflags))
+-					goto decided;
+-			}
+-		}
++	if (param->fp_hash_type) {
++		__u32 type = lmv->lum_hash_type & LMV_HASH_TYPE_MASK;
++		__u32 found;
++
++		if (lmv_is_foreign(lmv->lum_magic))
++			return true;
++
++		found = (1 << type) & param->fp_hash_type;
++		if ((found && param->fp_exclude_hash_type) ||
++		    (!found && !param->fp_exclude_hash_type))
++			return true;
++	}
++
++	if (param->fp_check_hash_flag) {
++		__u32 flags = lmv->lum_hash_type & ~LMV_HASH_TYPE_MASK;
++
++		if (lmv_is_foreign(lmv->lum_magic))
++			return true;
++
++		if (!(flags & param->fp_hash_inflags) ||
++		    (flags & param->fp_hash_exflags))
++			return true;
++	}
++
++	return false;
++}
++
++int cb_find_init(char *path, int p, int *dp, struct find_param *param,
++		 struct dirent64 *de)
++{
++	struct lov_user_mds_data *lmd = param->fp_lmd;
++	struct llapi_scan_rec rec;
++	int d = dp == NULL ? -1 : *dp;
++	int decision = 1; /* 1 is accepted; -1 is rejected. */
++	int lustre_fs = 1;
++	int checked_type = 0;
++	int ret = 0;
++	__u32 stripe_count = 0;
++	__u64 flags;
++	__u64 want;
++	int fd = -2;
++	__u32 projid = DEFAULT_PROJID;
++	bool no_projid = false;	/* the object has none, not one that is 0 */
++	bool gather_all = false;
+ 
+-		param->fp_lmd->lmd_lmm.lmm_magic = 0;
+-		ret = get_lmd_info_fd(path, p, d, param->fp_lmd,
+-				      param->fp_lum_size, GET_LMD_INFO);
+-		if (ret == 0 && param->fp_lmd->lmd_lmm.lmm_magic == 0 &&
++	if (p == -1 && d == -1)
++		return -EINVAL;
++	/* if below minimum depth do not process further */
++	if (param->fp_depth < param->fp_min_depth)
++		goto decided;
++
++	/* Reset this value between invocations */
++	param->fp_get_lmv = 0;
++
++	/* Gather all file/dir info, not just what's needed for search params */
++	if (param->fp_format_printf_str)
++		gather_all = true;
++
++	/* What the directory entry alone can settle. */
++	scan_rec_dirent(&rec, path, p, d, de);
++	if (find_prefilter(&rec, param, &checked_type))
++		goto decided;
++
++	/* Then only as much of the MDT's answer as this search needs. */
++	want = find_want(param, checked_type, gather_all);
++	if (want != 0) {
++		bool have_lmv = false;
++
++		/* the LMV first: its checks can reject before the stat RPC */
++		ret = scan_rec_gather_begin(param, path, d, want, &have_lmv);
++		if (ret == 0 && find_lmv_rejects(param, have_lmv))
++			goto decided;
++		if (ret == 0 &&
++		    find_foreign_accepts(param, have_lmv, gather_all))
++			goto print;
++		if (ret == 0)
++			ret = scan_rec_gather_finish(param, path, p, d, &fd,
++						     want, have_lmv, &rec);
++		if (ret == 0 && lmd->lmd_lmm.lmm_magic == 0 &&
+ 		    find_check_lmm_info(param)) {
+-			struct lov_user_md *lmm = &param->fp_lmd->lmd_lmm;
++			struct lov_user_md *lmm = &lmd->lmd_lmm;
+ 
+ 			/*
+ 			 * We need to "fake" the "use the default" values
+@@ -2637,42 +2757,6 @@ int cb_find_init(char *path, int p, int *dp, struct find_param *param,
+ 			lmm->lmm_stripe_count = 0;
+ 			lmm->lmm_stripe_offset = -1;
+ 		}
+-		if (ret == 0 && (param->fp_mdt_uuid != NULL || gather_all)) {
+-			if (d != -1) {
+-				ret = llapi_file_fget_mdtidx(d,
+-						     &param->fp_file_mdt_index);
+-				/*
+-				 *  Make sure lum_stripe_offset matches
+-				 *  mdt_index even for unstriped directories.
+-				 */
+-				if (ret == 0 && param->fp_get_lmv)
+-					param->fp_lmv_md->lum_stripe_offset =
+-						param->fp_file_mdt_index;
+-			} else if (S_ISREG(lmd->lmd_stx.stx_mode)) {
+-				/*
+-				 * FIXME: we could get the MDT index from the
+-				 * file's FID in lmd->lmd_lmm.lmm_oi without
+-				 * opening the file, once we are sure that
+-				 * LFSCK2 (2.6) has fixed up pre-2.0 LOV EAs.
+-				 * That would still be an ioctl() to map the
+-				 * FID to the MDT, but not an open RPC.
+-				 */
+-				fd = open(path, O_RDONLY);
+-				if (fd > 0) {
+-					ret = llapi_file_fget_mdtidx(fd,
+-						     &param->fp_file_mdt_index);
+-				} else {
+-					ret = -errno;
+-				}
+-			} else {
+-				/*
+-				 * For a special file, we assume it resides on
+-				 * the same MDT as the parent directory.
+-				 */
+-				ret = llapi_file_fget_mdtidx(p,
+-						     &param->fp_file_mdt_index);
+-			}
+-		}
+ 		if (ret != 0) {
+ 			if (ret == -ENOTTY)
+ 				lustre_fs = 0;
+@@ -2683,6 +2767,20 @@ int cb_find_init(char *path, int p, int *dp, struct find_param *param,
+ 		} else {
+ 			stripe_count = find_get_stripe_count(param);
+ 		}
++
++		/* --mdt cannot be answered without the index: leave it out */
++		if (param->fp_mdt_uuid != NULL &&
++		    !(rec.lfsr_valid & LLAPI_SCAN_MDT_INDEX))
++			goto decided;
++
++		/*
++		 * An unstriped directory answered ENODATA, or one off Lustre
++		 * answered ENOTTY: no stripe of its own either way.
++		 */
++		if (param->fp_get_lmv && param->fp_check_foreign &&
++		    param->fp_exclude_foreign &&
++		    !(rec.lfsr_valid & LLAPI_SCAN_LMV))
++			goto print;
+ 	}
+ 
+ 	/* Check the file permissions from the stat info */
+@@ -2822,13 +2920,50 @@ obd_matches:
+ 	/* Retrieve project id from file/dir */
+ 	if (param->fp_check_projid || gather_all) {
+ 		ret = get_projid(path, &fd, lmd->lmd_stx.stx_mode, &projid);
++		/*
++		 * An object off Lustre has none, and both arms of the fetch
++		 * say so with ENOTTY: the special-file arm asks
++		 * LL_IOC_PROJECT of a parent that does not have it, and the
++		 * regular arm asks FS_IOC_FSGETXATTR of a tmpfs, which only
++		 * answers it from Linux v6.0.  A search that asked for a
++		 * project id cannot be answered for such an object, so
++		 * --projid N does not match; ! --projid N does, and one that
++		 * only prints it prints DEFAULT_PROJID.
++		 *
++		 * Reachable because -printf sets gather_all: left as an
++		 * error, the walk would exit non-zero on the first symlink
++		 * under the subtree, and on a pre-v6.0 client on the first
++		 * regular file.
++		 */
++		if (ret == -ENOTTY) {
++			/*
++			 * --projid N cannot be answered for an object that
++			 * has no project id at all, so it does not match.
++			 * ! --projid N can be: whatever the object's is, it
++			 * is not N.  Dropping it from the negated form too
++			 * made this disagree with -printf, which already
++			 * prints DEFAULT_PROJID for the same object.
++			 */
++			if (param->fp_check_projid &&
++			    !param->fp_exclude_projid)
++				goto decided;
++			projid = 0;
++			no_projid = true;
++			ret = 0;
++		}
+ 		if (ret) {
+ 			llapi_error(LLAPI_MSG_ERROR, -ENOENT,
+ 				    "warning: %s: failed to get project id from file \"%s\"",
+ 				    __func__, path);
+ 			goto out;
+ 		}
+-		if (param->fp_check_projid) {
++		/*
++		 * An object with no project id has nothing to compare, so
++		 * only the negated form answers for it: its projid is not N
++		 * because it has none.  The 0 above is -printf's stand-in and
++		 * is never compared.
++		 */
++		if (param->fp_check_projid && !no_projid) {
+ 			/* Conditionally filter this result based on --projid
+ 			 * param, and whether or not we're including or
+ 			 * excluding matching results.
+diff --git a/lustre/utils/liblustreapi_scan.c b/lustre/utils/liblustreapi_scan.c
+index 651d2ba7fa..4b0cc983ba 100644
+--- a/lustre/utils/liblustreapi_scan.c
++++ b/lustre/utils/liblustreapi_scan.c
+@@ -289,35 +289,19 @@ static int llapi_scan_get_lmv(char *path, int d, struct find_param *param)
+ }
+ 
+ /*
+- * Phase two of the record: what the MDT answers for, as much of it as
+- * @want asks for, into @param's scratch buffers and from there into @rec.
+- *
+- * Written to be the one place that decides how an object's attributes are
+- * fetched; lfs find is moved onto it by LU-20605, which is why it is here
+- * rather than static to the scanner.  @want is taken
+- * literally here -- 0 means nothing, and the public entry point is what
+- * widens 0 to "everything".
++ * The first step of scan_rec_gather(): clear the scratch buffers and fetch
++ * the LMV.  lfs find runs the two steps itself, so that its LMV checks can
++ * reject a directory before the stat RPC.
+  *
+- * LLAPI_SCAN_MDT_INDEX for a regular file costs an open, which is why the
+- * public default leaves it out; a special file is taken to live on its
+- * parent's MDT, as lfs find has always assumed.  If an fd is opened for
+- * it, it is left in *@fdp (and rec->lfsr_fd) for the caller to close, so a
+- * caller that goes on to need one does not open twice.
+- *
+- * Return: 0 with @rec filled, or the negative errno of the fetch that
+- * failed -- the caller decides what ENOENT, ESTALE and ENOTTY mean to it.
++ * Return: 0 with *@have_lmv set, or a negative errno.
+  */
+-int scan_rec_gather(struct find_param *param, char *path, int p,
+-		    int d, int *fdp, __u64 want,
+-		    struct llapi_scan_rec *rec)
++int scan_rec_gather_begin(struct find_param *param, char *path, int d,
++			  __u64 want, bool *have_lmv)
+ {
+ 	struct lov_user_mds_data *lmd = param->fp_lmd;
+-	bool have_lmv = false;
+ 	int rc;
+ 
+-	if (!(want & LLAPI_SCAN_MDT_MASK))
+-		return 0;
+-
++	*have_lmv = false;
+ 	lmd->lmd_lmm.lmm_magic = 0;
+ 	/*
+ 	 * fp_lmd is one buffer for the whole scan.  get_lmd_info_fd() fills
+@@ -334,9 +318,20 @@ int scan_rec_gather(struct find_param *param, char *path, int p,
+ 		rc = llapi_scan_get_lmv(path, d, param);
+ 		if (rc < 0)
+ 			return rc;
+-		have_lmv = rc == 1;
++		*have_lmv = rc == 1;
+ 	}
+ 
++	return 0;
++}
++
++/* The second step of scan_rec_gather(), after scan_rec_gather_begin(). */
++int scan_rec_gather_finish(struct find_param *param, char *path, int p,
++			   int d, int *fdp, __u64 want, bool have_lmv,
++			   struct llapi_scan_rec *rec)
++{
++	struct lov_user_mds_data *lmd = param->fp_lmd;
++	int rc;
++
+ 	rc = get_lmd_info_fd(path, p, d, lmd, param->fp_lum_size,
+ 			     GET_LMD_INFO);
+ 	if (rc < 0)
+@@ -433,6 +428,43 @@ int scan_rec_gather(struct find_param *param, char *path, int p,
+ 	return 0;
+ }
+ 
++/*
++ * Phase two of the record: what the MDT answers for, as much of it as
++ * @want asks for, into @param's scratch buffers and from there into @rec.
++ *
++ * Written to be the one place that decides how an object's attributes are
++ * fetched; lfs find is moved onto it by LU-20605, which is why it is here
++ * rather than static to the scanner.  @want is taken
++ * literally here -- 0 means nothing, and the public entry point is what
++ * widens 0 to "everything".
++ *
++ * LLAPI_SCAN_MDT_INDEX for a regular file costs an open, which is why the
++ * public default leaves it out; a special file is taken to live on its
++ * parent's MDT, as lfs find has always assumed.  If an fd is opened for
++ * it, it is left in *@fdp (and rec->lfsr_fd) for the caller to close, so a
++ * caller that goes on to need one does not open twice.
++ *
++ * Return: 0 with @rec filled, or the negative errno of the fetch that
++ * failed -- the caller decides what ENOENT, ESTALE and ENOTTY mean to it.
++ */
++int scan_rec_gather(struct find_param *param, char *path, int p,
++		    int d, int *fdp, __u64 want,
++		    struct llapi_scan_rec *rec)
++{
++	bool have_lmv;
++	int rc;
++
++	if (!(want & LLAPI_SCAN_MDT_MASK))
++		return 0;
++
++	rc = scan_rec_gather_begin(param, path, d, want, &have_lmv);
++	if (rc < 0)
++		return rc;
++
++	return scan_rec_gather_finish(param, path, p, d, fdp, want, have_lmv,
++				      rec);
++}
++
+ /*
+  * Traversal callback: the pre-filter first, then only as much gathering as
+  * the demand mask asks for, then the record to the consumer.
+diff --git a/lustre/utils/lustreapi_internal.h b/lustre/utils/lustreapi_internal.h
+index 98febf1d8f..d7718d4aac 100644
+--- a/lustre/utils/lustreapi_internal.h
++++ b/lustre/utils/lustreapi_internal.h
+@@ -481,6 +481,11 @@ static inline void scan_param_report_got(const struct llapi_scan_param *sp,
+ 
+ void scan_rec_dirent(struct llapi_scan_rec *rec, const char *path,
+ 		     int p, int d, const struct dirent64 *de);
++int scan_rec_gather_begin(struct find_param *param, char *path, int d,
++			  __u64 want, bool *have_lmv);
++int scan_rec_gather_finish(struct find_param *param, char *path, int p,
++			   int d, int *fdp, __u64 want, bool have_lmv,
++			   struct llapi_scan_rec *rec);
+ int scan_rec_gather(struct find_param *param, char *path, int p,
+ 		    int d, int *fdp, __u64 want,
+ 		    struct llapi_scan_rec *rec);
+-- 
+2.43.0
+

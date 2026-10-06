@@ -1,0 +1,162 @@
+From b7b1332a42a6959375c296f7a28564dcb90b2763 Mon Sep 17 00:00:00 2001
+From: Hiroshi Nishida <hnishida@thelustrecollective.com>
+Date: Mon, 24 Aug 2026 09:48:44 -0700
+Subject: [PATCH 01/16] LU-20624 utils: fix stale fd in cb_get_dirstripe
+
+cb_get_dirstripe() closed the descriptor it was given and stored an
+O_NOFOLLOW reopen through its argument on the ENOTTY retry, which
+fires for a foreign file or directory and for any directory not on
+Lustre.  cb_find_init() and cb_getstripe() pass the address of a local
+copy, so llapi_semantic_traverse() kept a number that had been closed:
+it closed that number a second time on the way out and leaked the
+reopen.  The second close is the dangerous one, since with lfs find
+--threads the number may by then belong to another worker.
+
+Keep the reopen on the descriptor the caller already holds, with
+dup2(), rather than asking every caller to notice that its copy was
+replaced.
+
+The number no longer changes, so the parameter is read only and the
+signature now says so: int rather than int *.  The pointer advertised
+exactly the swap that caused this, and an assignment added back
+through it would break the same callers in the same way without any
+of them having to change.
+
+Not fixed here: for a directory off Lustre the retried ioctl answers
+ENOTTY as well and cb_find_init() returns that error, so the subtree
+is lost to the error return rather than to the descriptor.  Measured
+with strace on the main process: lfs getdirstripe -r goes from one
+EBADF close to none.
+
+Fixes: 15d44e787e17 ("LU-12682 llite: fake symlink type of foreign file/dir")
+Signed-off-by: Hiroshi Nishida <hnishida@thelustrecollective.com>
+Assisted-by: ClaudeCode:Opus-5 llm_code_and_review_tools
+Change-Id: I19a3d62d231e9a932fba12a4d56fbbe691912cc9
+---
+ lustre/utils/liblustreapi.c       |  4 ++--
+ lustre/utils/liblustreapi_pfind.c | 37 ++++++++++++++++++++++---------
+ lustre/utils/lustreapi_internal.h |  3 ++-
+ 3 files changed, 31 insertions(+), 13 deletions(-)
+
+diff --git a/lustre/utils/liblustreapi.c b/lustre/utils/liblustreapi.c
+index 0662c18120..081683b2bb 100644
+--- a/lustre/utils/liblustreapi.c
++++ b/lustre/utils/liblustreapi.c
+@@ -3566,7 +3566,7 @@ static int cb_getstripe(char *path, int p, int *dp, struct find_param *param,
+ 		d = fd = open(path, O_RDONLY | O_DIRECTORY);
+ 
+ 	if (d != -1 && (param->fp_get_lmv || param->fp_get_default_lmv))
+-		ret = cb_get_dirstripe(path, &d, param);
++		ret = cb_get_dirstripe(path, d, param);
+ 	else if (d != -1)
+ 		ret = get_lmd_info_fd(path, p, d, &param->fp_lmd->lmd_lmm,
+ 				      param->fp_lum_size, GET_LMD_STRIPE);
+@@ -3592,7 +3592,7 @@ static int cb_getstripe(char *path, int p, int *dp, struct find_param *param,
+ 		/* clear O_NONBLOCK for non-PIPEs */
+ 		if (!S_ISFIFO(st.st_mode))
+ 			fcntl(fd, F_SETFL, fcntl(fd, F_GETFL) & ~O_NONBLOCK);
+-		ret = cb_get_dirstripe(path, &fd, param);
++		ret = cb_get_dirstripe(path, fd, param);
+ 		if (ret == 0)
+ 			llapi_lov_dump_user_lmm(param, path, LDF_IS_DIR);
+ 		close(fd);
+diff --git a/lustre/utils/liblustreapi_pfind.c b/lustre/utils/liblustreapi_pfind.c
+index bf63152897..d06a7def66 100644
+--- a/lustre/utils/liblustreapi_pfind.c
++++ b/lustre/utils/liblustreapi_pfind.c
+@@ -123,12 +123,19 @@ int cb_common_fini(char *path, int p, int *dp, struct find_param *param,
+ 	return 0;
+ }
+ 
+-int cb_get_dirstripe(char *path, int *d, struct find_param *param)
++/*
++ * @d keeps its number but may not keep its open file description: the
++ * ENOTTY retry below reopens the path without O_DIRECTORY and dup2()s the
++ * result onto it.  A caller that wants a DIR stream on @d has to build it
++ * after this returns, as llapi_semantic_traverse() does -- fdopendir()
++ * first would leave the stream on a description this replaced.
++ */
++int cb_get_dirstripe(char *path, int d, struct find_param *param)
+ {
+ 	int ret;
+ 	bool did_nofollow = false;
+ 
+-	if (!d || *d < 0)
++	if (d < 0)
+ 		return -ENOTDIR;
+ again:
+ 	param->fp_lmv_md->lum_stripe_count = param->fp_lmv_stripe_count;
+@@ -139,11 +146,11 @@ again:
+ 		/* open() may not fetch LOOKUP lock, statx() to ensure dir depth
+ 		 * is set.
+ 		 */
+-		statx(*d, "", AT_EMPTY_PATH, STATX_MODE, &stx);
++		statx(d, "", AT_EMPTY_PATH, STATX_MODE, &stx);
+ #else
+ 		struct stat st;
+ 
+-		fstat(*d, &st);
++		fstat(d, &st);
+ #endif
+ 		param->fp_lmv_md->lum_magic = LMV_USER_MAGIC;
+ 	} else {
+@@ -152,7 +159,7 @@ again:
+ 	if (param->fp_raw)
+ 		param->fp_lmv_md->lum_type = LMV_TYPE_RAW;
+ 
+-	ret = ioctl(*d, LL_IOC_LMV_GETSTRIPE, param->fp_lmv_md);
++	ret = ioctl(d, LL_IOC_LMV_GETSTRIPE, param->fp_lmv_md);
+ 
+ 	/* if ENOTTY likely to be a fake symlink, so try again after
+ 	 * new open() with O_NOFOLLOW, but only once to prevent any
+@@ -176,10 +183,20 @@ again:
+ 		}
+ 		if (!S_ISFIFO(st.st_mode))
+ 			fcntl(fd, F_SETFL, fcntl(fd, F_GETFL) & ~O_NONBLOCK);
+-		/* close original fd and set new */
+-		close(*d);
+-		*d = fd;
+-		ret2 = ioctl(fd, LL_IOC_LMV_GETSTRIPE, param->fp_lmv_md);
++		/*
++		 * Move the reopen onto the number the caller already holds,
++		 * rather than handing back a different one: every caller keeps
++		 * a copy, and the old number must never be free for another
++		 * thread to claim while those copies are still live.
++		 */
++		if (dup2(fd, d) < 0) {
++			close(fd);
++			/* restore original errno */
++			errno = ENOTTY;
++			return ret;
++		}
++		close(fd);
++		ret2 = ioctl(d, LL_IOC_LMV_GETSTRIPE, param->fp_lmv_md);
+ 		if (ret2 < 0 && errno != E2BIG) {
+ 			/* restore original errno */
+ 			errno = ENOTTY;
+@@ -2507,7 +2524,7 @@ int cb_find_init(char *path, int p, int *dp, struct find_param *param,
+ 			struct lmv_user_md *lmv;
+ 
+ 			param->fp_get_lmv = 1;
+-			ret = cb_get_dirstripe(path, &d, param);
++			ret = cb_get_dirstripe(path, d, param);
+ 			lmv = param->fp_lmv_md;
+ 			if (ret != 0) {
+ 				if (errno == ENODATA) {
+diff --git a/lustre/utils/lustreapi_internal.h b/lustre/utils/lustreapi_internal.h
+index 1fa46bff0b..87489a995b 100644
+--- a/lustre/utils/lustreapi_internal.h
++++ b/lustre/utils/lustreapi_internal.h
+@@ -268,7 +268,8 @@ int cb_find_init(char *path, int p, int *dp, struct find_param *param,
+ 		 struct dirent64 *de);
+ int cb_common_fini(char *path, int p, int *dp, struct find_param *param,
+ 		   struct dirent64 *de);
+-int cb_get_dirstripe(char *path, int *d, struct find_param *param);
++/* @d keeps its number, but the ENOTTY retry may reopen what it names */
++int cb_get_dirstripe(char *path, int d, struct find_param *param);
+ int common_param_init(struct find_param *param, char *path);
+ void find_param_fini(struct find_param *param);
+ int parallel_find(char *path, llapi_find_cb_t cb_init, llapi_find_cb_t cb_fini,
+-- 
+2.43.0
+

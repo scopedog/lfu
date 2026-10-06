@@ -1,0 +1,27 @@
+=== lustre-release: 80e3d22ded LU-20650 lfs: find --since-cookie, check each MDT when read
+17
+lustre-release: build took 109s
+=== lustre-old: d9f6cc375e LU-20650 tests: sanity cases for find's changelog flags
+16
+lustre-old: build took 107s
+1
+STAGE2 OK
+---
+B2 old rc=0 lines=2
+B2 new rc=0 lines=2
+PASS B2: no false refusal
+PASS B2: same answer
+PASS B2: answer has both new files
+  MDT0001 log: 103 records
+  cleared MDT0001 to 23 (anchor 3)
+B1 old rc=0 took=17.6s d0=90000 d1=40
+  old: cookie rewritten
+  MDT0001 log: 103 records
+  cleared MDT0001 to 23 (anchor 3)
+B1 new rc=116 took=17.7s d0=90000 d1=0
+  purged past the cookie during this run: it starts at 24, but '/tmp/ck.new' records 3, so the records in between are gone; '/tmp/ck.new' is left where 
+  new: cookie unchanged
+FAIL B1 control: old did not show the silent loss -- timing?
+PASS B1: new refuses and leaves the cookie
+PASS B1: the next run is refused the same way
+STALE ARMS HAVE FAILURES

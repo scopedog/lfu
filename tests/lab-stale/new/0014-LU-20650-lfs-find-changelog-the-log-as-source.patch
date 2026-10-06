@@ -1,0 +1,1676 @@
+From f8691197ca14ace3797ee9d1f2990b2482bea059 Mon Sep 17 00:00:00 2001
+From: Hiroshi Nishida <hnishida@thelustrecollective.com>
+Date: Wed, 26 Aug 2026 08:27:15 -0700
+Subject: [PATCH 14/17] LU-20650 lfs: find --changelog, the log as source
+
+--since treats the changelog as a candidate set and verifies each hit
+against the live object, so it answers as it is now.  --changelog
+replaces the source: it reads the log and nothing else, and answers as
+it was recorded.  That is why -name here matches the name in the event
+rather than the object's current one, and why an object unlinked since
+the event is in this answer and cannot be in --since's.
+
+It takes an MDT name or "all", required rather than optional because
+getopt_long() accepts an optional argument only as --changelog=VALUE.
+One named MDT is also what makes a bare --since index unambiguous, the
+index being paired with the log it came from.
+
+Every predicate a record cannot answer is refused naming itself,
+rather than answered from a zero.  Without --resolve that is -size,
+-blocks, -perm, -links, --attrs, --xattr, the layout options, -projid,
+-printf, --mdt-count and --mdt-hash; --xattr was the loud one,
+reaching llistxattr(NULL, ...) once per object, and the rest were
+quiet and worse, "--perm 644" matching nothing and its negation
+everything.  -uid and -gid are refused for a different reason and at
+every setting short of --resolve: a changelog records who caused an
+event, from the acting client's credentials, which is not who owns the
+object.  An object time is refused without --resolve, a record
+carrying an event time and the two being different questions; the
+message says --since 1d is how to ask.  Only --mdt, --maxdepth and
+--mindepth are refused at every setting -- they describe a walk, or
+need something a per-MDT log does not have.  --ost is refused without
+--resolve too, the lookup supplying it.
+
+-type is the one field with a third answer.  A record says what kind
+of object was created and only for four record types, so an object
+whose event does not carry one is counted undecided rather than
+compared against a mode of zero, which reads as "not a file" and "not
+a directory" at once.
+
+Output is a pathname where the FID still resolves to one and the FID
+where it does not, which is the whole point of asking: an object
+unlinked since its event is the case --changelog exists for, and
+counting it as "no pathname" the way a target scan counts its own
+objects would drop exactly that case in silence.  The count of those
+is reported at the end, so a caller knows some lines are FIDs.
+
+The path argument names the filesystem, not a subtree, a changelog
+knowing nothing about where an object sits; a path below the mount is
+refused unless --resolve makes a pathname to match against.
+
+--resolve looks each object up through the mount and hands
+find_decide() what it found -- the path, the parent descriptor and the
+object's own -- so -size glimpses the OSTs, -projid opens through a
+descriptor of ours, and -printf gathers as a walk gathers.  It fills
+what the stream lacks and never restates what it has: the merge starts
+from the looked-up record and puts every field the event answered for
+back over it, taking only the type bits of the mode, so -perm reads
+the live one.  The subtree is tested on that pathname, over every name
+the object has rather than the one linkno 0 answered with.
+
+An object that has gone between its event and the lookup keeps the
+answer honest in the other direction.  It is still in this answer --
+resolution fills and never removes -- but only where the record can
+carry the question: where the search asks something only a lookup
+supplies, or names a subtree the object can no longer be placed in, it
+is counted undecided instead.
+
+find_device_supported() refuses --changelog for the same reason it
+refuses --since: lfs find parses it for a target scan too, and
+llapi_find_device() never reads it -- `lfs find --device DEV
+--changelog all` would otherwise have run the target scan, printed
+everything the other predicates kept, and exited 0.
+
+-name joins -type as a predicate the record cannot always answer.
+cr_namelen is 0 for an event on a FID whose name the log never held,
+so CL_CLOSE, CL_SETATTR, CL_TRUNC and CL_LAYOUT all
+arrive nameless -- a file created before the window and written inside
+it is the ordinary case.  Matching those against "" decided them both
+ways and said nothing about it, and is not even reliably a non-match,
+fnmatch("*", "") succeeding.  They are counted undecided instead.
+
+The first resolve failure that is not "this object has no name"
+decides the exit status, as it already does for a target scan, so a
+run that could resolve nothing cannot report itself complete.
+
+fc_d is set only for a directory, as find_since_rec_cb() already had
+it.  printf_format_lustre() reads d == -1 as "not a directory", and
+sr_fd is not always -1 for a regular file: under -printf the gather
+widens, scan_rec_gather() opens the object for the MDT index and
+leaves that descriptor in sr_fd.  Passing it through sent every
+striped file down the directory branch and onto an lmv buffer
+find_rec_to_lmv() had just zeroed, so %Lc and %Li printed 0, %Lo
+[0] and %Lp nothing.
+
+-name is answered against the recorded name under --changelog.
+find_since_pick() walks the object's other links to place it in the
+subtree, and was substituting each link's basename into the record
+before testing: right for --since, which asks what the object is now,
+and wrong here, where the record is the answer.  The alternate path
+still settles the subtree; only the name stays as recorded.
+
+The pathname a match prints goes through the caller's spelling
+whichever way it was composed.  Without --resolve it comes from
+llapi_scan_rec_path(), which builds an absolute name from the mount,
+so "lfs find ." answered /mnt/lustre/sub/f there and ./sub/f
+everywhere else.  find_since_respell() splits into a find_respell()
+taking the two roots, and the print site uses it.
+
+The demand mask -printf widens is the one handed to llapi_scan_fid():
+find_want() builds fss_want with the -printf flag set and the resolve
+passes it as sp_want.  llapi_scan_changelog()'s own sc_want is a
+separate literal and does not depend on -printf.  What the two sources
+share is fss_want, which is why --since and --changelog widen
+together.
+The comment above it claimed %s, %b and %LP as the reason; those come
+from find_decide()'s own stat and find_get_projid(), gated on
+fc_gather_all, and find_want() clears LLAPI_SCAN_PROJID on its way
+out regardless.  What the widening actually buys is LLAPI_SCAN_LMV,
+for %Lc and its neighbours on a directory.
+
+The cookie is not mentioned any more.  fp_since_cookie arrives with
+--since-cookie in the next patch, and this one documented it in
+llapi_find_since()'s Return: block and in llapi_find_since.3 --
+an -EINVAL for giving both an anchor and a cookie, and an -ESTALE,
+neither of which exists here.  -ENOTSUP does exist and was missing
+from both.
+
+A CL_MARK is dropped rather than delivered.
+mdd_changelog_write_header() writes the marker flags into the union
+with cr_tfid, so cr_tfid.f_seq would read back as CLM_ON|CLM_START,
+0x10001, which fid_seq_is_igif() accepts.  llapi_scan_changelog()
+already clears LLAPI_SCAN_FID for a mark, so the FID gate drops it;
+the type test is defence in depth over that.
+
+No such record can arrive today, so this is a guard and not a fix for
+an observed answer: CHANGELOG_MINMASK is BIT(CL_MARK) and
+mdd_changelog_mask_seq_write() hands it to cfs_str2mask() as the
+floor, so CL_MARK cannot be masked out -- and
+mdd_changelog_write_header() returns early whenever CL_MARK is in the
+current mask, so no marker record is ever written.  Asking for "creat
+mkdir" gives back "MARK CREAT MKDIR", and deregistering every user and
+re-registering leaves an empty log.  The guard costs one test per
+record and stops the flags being read as a FID if that ever changes.
+
+It sits at the top of find_since_cand_cb(), above the FID gate.  The
+anchor is not taken there but in find_since_filter_cb(), which runs
+first on every record the log delivered, marks included: it has to see
+them, or it lags the end of the log by whatever trailing run of them
+the scan finished on.
+
+-printf's widening now reaches --since.  find_want() clears
+LLAPI_SCAN_PROJID on its way out and find_decide() gates
+find_get_projid() and the OST glimpse on fc_gather_all rather than on
+the demand mask, so a flag this patch sets for --changelog and not for
+--since meant "--since -printf %LP" answered DEFAULT_PROJID for every
+object where a walk answered the real one, and %s/%b answered from the
+MDT instead of a glimpse.
+
+The comment on the nameless case said cr_namelen is 0 for a MARK.  It
+is not: mdd_changelog_write_header() sets it to strlen(obd->obd_name)
+and copies the device name in, so a mark arrives named "lustre-
+MDT0000" -- which is also why "-name 'lustre-MDT*'" matched one before
+the record was dropped above.  A data event on a FID whose name the
+log never held is the real case, and the sentence now says only that.
+
+The undecided warning names no cause.  find_since_cand_cb() counts an
+object undecided when its record cannot answer, and also when it has
+gone and the search needed a lookup or named a subtree, where the
+record did answer and the object is what is missing.
+
+LLAPI_SCAN_CL_F_ONCE is set for --since and not for --changelog.  Once
+means once per scan, which is what "as it is now" wants; a source
+answering as it was recorded has a second burst to report, so an
+object touched in two of them prints twice.  The man page says so.
+
+The dropped-objects warning names what the count is of -- "%llu of
+%llu changed objects could not be read" -- rather than leaving a bare
+number beside the errno it belongs to.
+
+Test-Parameters: testlist=sanity env=ONLY=56
+Signed-off-by: Hiroshi Nishida <hnishida@thelustrecollective.com>
+Assisted-by: ClaudeCode:Opus-5 llm_code_and_review_tools
+Change-Id: If9ead118b5fc1dee86cfac6646106e982841d8e2
+---
+ Documentation/man1/lfs-find.1         | 122 ++++
+ Documentation/man3/llapi_find_since.3 | 125 +++-
+ include/lustre/lustreapi.h            |  18 +-
+ lustre/utils/lfs.c                    |   8 +-
+ lustre/utils/lfs_find_parse.c         |  30 +
+ lustre/utils/lfs_find_parse.h         |   2 +
+ lustre/utils/liblustreapi_pfind.c     | 783 +++++++++++++++++++++++---
+ 7 files changed, 993 insertions(+), 95 deletions(-)
+
+diff --git a/Documentation/man1/lfs-find.1 b/Documentation/man1/lfs-find.1
+index ab9f970414..7df839fe2a 100644
+--- a/Documentation/man1/lfs-find.1
++++ b/Documentation/man1/lfs-find.1
+@@ -135,6 +135,11 @@ lfs-find \- Lustre utility to list files with specific attributes
+ .RB [ --since
+ .IR TIME | INDEX ]
+ .br
++.RB [ --changelog
++.I MDTNAME\c
++.RB | all
++.RB [ --resolve ]]
++.br
+ .RB [[ ! ]
+ .BR --size | -s
+ .RB [ -+ ]\c
+@@ -752,6 +757,105 @@ and
+ alike. See
+ .BR lfs-changelog (1).
+ .TP
++.BI --changelog " MDTNAME" "\fR|\fBall\fR"
++Search the changelog and nothing else, rather than using it to narrow an
++ordinary search.
++.B --since
++then says where in it to start.
++.IP
++This answers
++.I as it was recorded
++where
++.B --since
++answers
++.IR "as it is now" ,
++which is why
++.B --name
++here matches the name in the event rather than the object's current name, and
++why an object unlinked since its event appears here and cannot under
++.BR --since .
++An option the changelog cannot answer is refused naming itself rather than
++approximated. At every setting:
++.BR --mdt ", " --maxdepth " and " --mindepth .
++And without
++.B --resolve
++also
++.BR --ost ", " -size ", " -blocks ", " -projid ", " -printf ,
++.BR --ls ", " -perm ,
++.BR -links ", " -uid ", " -user ", " -gid ", " -group ,
++.BR --xattr ", " --attrs ", " --mdt-count ", " --mdt-hash ,
++the object times and the layout options.
++.B -uid
++and
++.B -gid
++are refused for their own reason: a changelog records the uid and gid of
++whoever caused an event, taken from the acting client's credentials, which is
++not the object's owner, and only a lookup can answer that.
++.IP
++Two predicates are neither refused nor always answerable.
++.B -type
++is answered from the event, and only an event that implies a type answers
++for it \(em the three creations
++.RB ( CL_CREATE ", " CL_MKDIR " and " CL_SOFTLINK ),
++and
++.BR CL_RMDIR ,
++whose target is a directory by definition
++\(em so a file created before the window and only written inside it arrives
++with no type, and is counted as undecided rather than reported as neither a
++file nor a directory.
++.B -name
++is the same case: an event on a FID whose name the log never held \(em a
++.BR CL_CLOSE ", " CL_SETATTR ", " CL_TRUNC " or " CL_LAYOUT
++\(em carries no name to match. Both are answerable under
++.BR --resolve .
++The undecided count is reported once at the end.
++.IP
++An object touched in two separate bursts is delivered twice and printed
++twice: coalescing collapses events only within the window a burst spans, and
++a second burst is a second event.
++.B --since
++asks what is true now and prints such an object once.
++.IP
++The name a match is tested against is the one the object's
++.B latest
++event carried, the log having been coalesced to one record per object before
++the search sees it. An object the log named more than once \(em a file
++created as
++.I f
++and then hardlinked as
++.I g
++\(em is therefore matched by
++.B -name g
++alone, and the pathname printed for it is the one
++.BR llapi_fid2path (3)
++answers with, which is its first name and not the one that matched. A plain
++walk meets each name in turn and matches all of them, so this is one of the
++ways
++.B --changelog
++answers a different question from a search of the tree.
++.IP
++The path argument names the filesystem rather than a subtree unless
++.B --resolve
++is given, which restricts the answer to it. Output is a pathname where the FID
++still resolves to one and the FID where it does not.
++.TP
++.B --resolve
++Under
++.BR --changelog ,
++look each object up so that options needing its state
++.RB ( -size ", " -blocks ", " -projid ", " -printf ", " --ls ", " -perm ,
++.BR -links ", " -uid ", " -user ", " -gid ", " -group ", " --xattr ,
++.BR --attrs ,
++.BR --mdt-count ", " --mdt-hash ", " --ost ,
++the object times and the layout options)
++can be answered. Resolution fills what the changelog lacks and never restates
++what it has, so the acting uid the event recorded stays as recorded while the
++owner comes from the lookup. An object unlinked between its event and the
++lookup keeps its place where the record alone settles the search, and where
++it does not \(em the search asks something only the lookup could supply, or
++names a subtree the object can no longer be placed in \(em the object is
++counted as undecided rather than answered from the record's zeroes.
++.TP
+ .BR -s ", " --size
+ File size is
+ .I N
+@@ -1274,6 +1378,23 @@ similar to 'ls -l':
+ .B # lfs find /mnt/lustre --ls
+ .RE
+ .EE
++.PP
++List what changed anywhere in the filesystem in the last hour, as the
++changelog recorded it:
++.EX
++.RS
++.B # lfs find /mnt/lustre --changelog all --since 1h
++.RE
++.EE
++.PP
++The same, but answering options the log does not carry, and only under one
++subtree:
++.EX
++.RS
++.B # lfs find /mnt/lustre/project --changelog all \e
++.B "    --since 1h --resolve -size +1G"
++.RE
++.EE
+ .SH AVAILABILITY
+ .B lfs find
+ is part of the
+@@ -1282,6 +1403,7 @@ filesystem package since release 0.10.0
+ .\" Added in commit 0.9.1
+ .SH SEE ALSO
+ .BR lfs (1),
++.BR lfs-changelog (1),
+ .BR lfs-fid2path (1),
+ .BR lfs-getdirstripe (1),
+ .BR lfs-getstripe (1),
+diff --git a/Documentation/man3/llapi_find_since.3 b/Documentation/man3/llapi_find_since.3
+index fd3d20214c..2deb53e7be 100644
+--- a/Documentation/man3/llapi_find_since.3
++++ b/Documentation/man3/llapi_find_since.3
+@@ -34,6 +34,24 @@ and is reported once, under the first of them that matches. A walk reaches
+ such a file once per directory entry and prints it once per link, so the
+ objects answered for are a subset of the same search without an anchor while
+ the lines printed are not a subset of its lines.
++.LP
++All of that describes the anchored form. Setting
++.I fp_changelog_mdt
++\(em to
++.B all
++or to one MDT's name,
++.IR fsname \-MDT nnnn
++\(em instead answers from the Changelog record itself and none of it holds: the
++object is not verified through the mount, so one unlinked since its event is
++still in the answer and the result is not a subset of the plain search;
++.I path
++must name the filesystem rather than a subtree unless
++.I fp_resolve
++is set, there being no pathname to bound it with; and a predicate the record
++cannot answer is counted undecided and reported once at the end rather than
++guessed at. See
++.BR lfs-find (1)
++for which predicates those are.
+ .SS Where to start
+ .I fp_since_kind
+ says what the anchor is, and the two are not interchangeable:
+@@ -50,12 +68,19 @@ is a
+ to resume from. An index belongs to one MDT, so this is refused with
+ .B -EINVAL
+ on a filesystem with more than one rather than answered from MDT0000 alone,
+-which would be a short answer with nothing to say so.
++which would be a short answer with nothing to say so \(em unless
++.I fp_changelog_mdt
++names the one MDT it belongs to.
+ .TP
+ .B LLAPI_SINCE_NONE
+-no anchor, which is refused: there is nothing to search since.
++no anchor. Refused for the anchored form \(em there is nothing to search
++since \(em but it is the ordinary setting when
++.I fp_changelog_mdt
++selects the search instead.
+ .SS What it needs
+-Every MDT of the filesystem is read in turn. Reading a changelog needs no
++Every MDT of the filesystem is read in turn, or only the one
++.I fp_changelog_mdt
++names. Reading a changelog needs no
+ registered user, but having anything to read does: an MDT with no user
+ records nothing at all \(em
+ .B mdd_changelog_off()
+@@ -103,22 +128,31 @@ or
+ is NULL,
+ .I fp_since_kind
+ is
+-.BR LLAPI_SINCE_NONE ,
+-or it is
++.B LLAPI_SINCE_NONE
++with
++.I fp_changelog_mdt
++unset, or it is
+ .B LLAPI_SINCE_INDEX
+ on a filesystem with more than one MDT.
+-.TP 15
+-.B -ENOTSUP
+-.I fp_thread_count
+-is above 1. This source is single-threaded, and the count is tested as soon
+-as the arguments are well formed \(em before
++.IP
++Two more belong to
++.I fp_changelog_mdt
++in particular:
++.I fp_resolve
++set without it, which fills nothing because
++.B --since
++already reads the object; and a
+ .I path
+-is resolved or any MDT is read \(em so a
+-.B find_param
+-that a walk left a thread count in is refused rather than run on one thread.
++below the mount without
++.IR fp_resolve ,
++which is refused rather than widened \(em a Changelog record carries no
++pathname to test a subtree against, so the call fails rather than quietly
++answering for the whole filesystem.
+ .TP 15
+ .B -ENODEV
+-no MDT of that filesystem is visible from this client, or
++.I fp_changelog_mdt
++names no MDT of this filesystem; no MDT of that filesystem is visible from
++this client; or
+ .I path
+ names no Lustre mount \(em
+ .BR llapi_search_fsname (3)
+@@ -126,6 +160,42 @@ and
+ .BR llapi_search_mounts (3)
+ both end in the same lookup, which answers this.
+ .TP 15
++.B -ENOTSUP
++the search uses a predicate the source cannot answer. With
++.I fp_changelog_mdt
++that is
++.B --mdt
++or a depth bound; and without
++.I fp_resolve
++also
++.BR --ost ,
++a time predicate,
++.BR -uid / -gid ,
++.BR -size / -blocks ,
++.BR -projid ,
++the layout options,
++.BR --mdt-count / --mdt-hash ,
++.BR -printf ,
++.BR --xattr ,
++.BR -perm ,
++.B -links
++and
++.BR --attrs .
++Refused before the search runs rather than answered from a record that
++cannot settle it.
++The predicates are named by their
++.BR lfs-find (1)
++options; each is a
++.B find_param
++field. Also
++.I fp_thread_count
++above 1. This source is single-threaded, and the count is tested as soon
++as the arguments are well formed \(em before
++.I path
++is resolved or any MDT is read \(em so a
++.B find_param
++that a walk left a thread count in is refused rather than run on one thread.
++.TP 15
+ .B -ENOENT
+ .I path
+ does not resolve: this is
+@@ -157,6 +227,33 @@ Every regular file changed in the last two hours, under
+ \&
+         rc = llapi_find_since("/mnt/lustre/data", &param);
+ .EE
++.PP
++The same predicate answered from one MDT's Changelog instead, which
++reports what each event recorded rather than what is true now \(em so an
++object unlinked since its event is still in the answer, named by FID.
++Not the same answer:
++.I fp_type
++is the predicate this source can least often settle, because
++the Changelog record carries a type only for the four record types that imply
++one
++.RB ( CL_CREATE ", " CL_MKDIR ", " CL_RMDIR " and " CL_SOFTLINK ),
++so a file created before the window and written inside it \(em the
++ordinary case \(em is counted undecided rather than printed, and the run
++says how many:
++.EX
++        struct find_param param = { 0 };
++        int rc;
++\&
++        param.fp_max_depth      = (unsigned int)-1;
++        param.fp_type           = S_IFREG;
++        param.fp_changelog_mdt  = "lustre-MDT0000";
++\&
++        /* the mount, not a subtree: a record carries no pathname.
++         * Set param.fp_resolve to search below it, at one lookup
++         * per object.
++         */
++        rc = llapi_find_since("/mnt/lustre", &param);
++.EE
+ .SH AVAILABILITY
+ .B llapi_find_since()
+ is part of the
+diff --git a/include/lustre/lustreapi.h b/include/lustre/lustreapi.h
+index 81be78c822..4ff0a17aab 100644
+--- a/include/lustre/lustreapi.h
++++ b/include/lustre/lustreapi.h
+@@ -485,10 +485,16 @@ struct find_param {
+ 				  * on the MDT.
+ 				  */
+ 				 fp_paths:1,
+-				 fp_unused_bit2:1,  /* once used, we must add */
+-				 fp_unused_bit3:1,  /* a separate flag field  */
+-				 fp_unused_bit4:1,  /* at                     */
+-				 fp_unused_bits2:22; /* the end of this struct */
++				 /*
++				  * lfs find --resolve: look the object up
++				  * through a client mount, so that a
++				  * predicate the changelog record cannot
++				  * answer is answered by the object itself.
++				  */
++				 fp_resolve:1,
++				 fp_unused_bit3:1,  /* once used, we must add */
++				 fp_unused_bit4:1,  /* a flag field at the */
++				 fp_unused_bits2:22; /* end of this struct */
+ 
+ 	long long		 fp_compr_lvl_sign:2,
+ 				 fp_compr_chunk_sign:2,
+@@ -522,6 +528,10 @@ struct find_param {
+ 	unsigned char		 fp_since_kind;	/* LLAPI_SINCE_* */
+ 	__u64			 fp_since_index;
+ 	time_t			 fp_since_time;
++	/* lfs find --changelog: an MDT name, or "all".  NULL: not given, and
++	 * the changelog is at most an accelerator rather than the source.
++	 */
++	const char		*fp_changelog_mdt;
+ };
+ 
+ /* fp_since_kind */
+diff --git a/lustre/utils/lfs.c b/lustre/utils/lfs.c
+index 8143088ace..064089980d 100644
+--- a/lustre/utils/lfs.c
++++ b/lustre/utils/lfs.c
+@@ -484,7 +484,8 @@ command_t cmdlist[] = {
+ 	 "     [[!] --atime|-A [+-]N[smhdwy]] [[!] --btime|-B [+-]N[smhdwy]]\n"
+ 	 "     [[!] --ctime|-C [+-]N[smhdwy]] [[!] --mtime|-M [+-]N[smhdwy]]\n"
+ 	 "     [[!] --attrs=[^]ATTR[,...]]\n"
+-	 "     [[!] --blocks|-b N] [[!] --component-count [+-]<comp_cnt>]\n"
++	 "     [[!] --blocks|-b N] [--changelog MDT|all]\n"
++	 "     [[!] --component-count [+-]<comp_cnt>]\n"
+ 	 "     [[!] --component-start [+-]N[kMGTPE]]\n"
+ 	 "     [[!] --component-end|-E [+-]N[kMGTPE]]\n"
+ 	 "     [[!] --component-flags {init,stale,prefer,prefrd,prefwr,offline,nosync,extension}]\n"
+@@ -501,7 +502,7 @@ command_t cmdlist[] = {
+ 	 "     [[!] --name|-n <pattern>] [[!] --newer[XY] <reference>]\n"
+ 	 "     [[!] --ost|-O <uuid|index,...>] [[!] --perm [/-]mode]\n"
+ 	 "     [[!] --pool <pool>] [--print|-P] [--print0|-0] [--printf <format>]\n"
+-	 "     [[!] --projid <projid>] [--since TIME|INDEX]\n"
++	 "     [[!] --projid <projid>] [--resolve] [--since TIME|INDEX]\n"
+ 	 "     [[!] --size|-s [+-]N[bkMGTPE]]\n"
+ 	 "     [--skip|-k PERCENT] [[!] --stripe-count|-c [+-]<stripes>]\n"
+ 	 "     [[!] --stripe-index|-i <index,...>]\n"
+@@ -6637,7 +6638,8 @@ static int lfs_find(int argc, char **argv)
+ 	}
+ 
+ 	do {
+-		if (param->fp_since_kind != LLAPI_SINCE_NONE) {
++		if (param->fp_since_kind != LLAPI_SINCE_NONE ||
++		    param->fp_changelog_mdt != NULL) {
+ 			rc = llapi_find_since(argv[pathstart], param);
+ 		} else {
+ 			/*
+diff --git a/lustre/utils/lfs_find_parse.c b/lustre/utils/lfs_find_parse.c
+index a970c17b9c..b06c1e0529 100644
+--- a/lustre/utils/lfs_find_parse.c
++++ b/lustre/utils/lfs_find_parse.c
+@@ -1022,6 +1022,8 @@ int lfs_find_parse(int argc, char **argv, struct find_param *param,
+ 	{ .val = 'B',	.name = "btime",	.has_arg = required_argument },
+ 	{ .val = 'B',	.name = "Btime",	.has_arg = required_argument },
+ 	{ .val = 'B',	.name = "crtime",	.has_arg = required_argument },
++	{ .val = LFS_CHANGELOG_OPT,
++			.name = "changelog",	.has_arg = required_argument },
+ 	{ .val = LFS_COMP_COUNT_OPT,
+ 			.name = "comp-count",	.has_arg = required_argument },
+ 	{ .val = LFS_COMP_COUNT_OPT,
+@@ -1156,6 +1158,8 @@ int lfs_find_parse(int argc, char **argv, struct find_param *param,
+ /* getstripe { .val = 'R', .name = "raw",	.has_arg = no_argument }, */
+ 	{ .val = LFS_SEARCH_OPT,
+ 			.name = "search",	.has_arg = required_argument },
++	{ .val = LFS_RESOLVE_OPT,
++			.name = "resolve",	.has_arg = no_argument },
+ 	{ .val = LFS_SINCE_OPT,
+ 			.name = "since",	.has_arg = required_argument },
+ 	{ .val = 's',	.name = "size",		.has_arg = required_argument },
+@@ -1294,6 +1298,17 @@ int lfs_find_parse(int argc, char **argv, struct find_param *param,
+ 			if (ret)
+ 				goto out;
+ 			break;
++		case LFS_CHANGELOG_OPT:
++			/*
++			 * Required rather than optional: getopt_long() takes
++			 * an optional argument only as --changelog=VALUE, and
++			 * a required one accepts both spellings.
++			 */
++			param->fp_changelog_mdt = optarg;
++			break;
++		case LFS_RESOLVE_OPT:
++			param->fp_resolve = 1;
++			break;
+ 		case LFS_ATTRS_OPT:
+ 			ret = name2attrs(optarg, &param->fp_attrs,
+ 					 &param->fp_neg_attrs);
+@@ -2113,6 +2128,21 @@ int lfs_find_parse(int argc, char **argv, struct find_param *param,
+ 	if (!param->fp_verbose)
+ 		param->fp_verbose = VERBOSE_DEFAULT;
+ 
++	/*
++	 * --resolve only means something to a changelog: lfs find sends the
++	 * search to llapi_find_since() only when --since or --changelog is
++	 * given, so on its own the flag was parsed and never looked at.  A flag
++	 * accepted and quietly ignored is the thing find_changelog_supported()
++	 * was written to avoid.
++	 */
++	if (param->fp_resolve && param->fp_changelog_mdt == NULL) {
++		fprintf(stderr,
++			"%s: --resolve fills in what a changelog lacks; it needs --changelog\n",
++			progname);
++		ret = CMD_HELP;
++		goto out;
++	}
++
+ 	*pathstartp = pathstart;
+ 	*pathendp = pathend;
+ 
+diff --git a/lustre/utils/lfs_find_parse.h b/lustre/utils/lfs_find_parse.h
+index 8b6e3e737d..465523efcb 100644
+--- a/lustre/utils/lfs_find_parse.h
++++ b/lustre/utils/lfs_find_parse.h
+@@ -92,6 +92,8 @@ enum {
+ 	LFS_FID2PATH_OPT,
+ 	LFS_PATHS_OPT,
+ 	LFS_SINCE_OPT,
++	LFS_CHANGELOG_OPT,
++	LFS_RESOLVE_OPT,
+ };
+ 
+ /*
+diff --git a/lustre/utils/liblustreapi_pfind.c b/lustre/utils/liblustreapi_pfind.c
+index 23310a0b17..eace5fb0ae 100644
+--- a/lustre/utils/liblustreapi_pfind.c
++++ b/lustre/utils/liblustreapi_pfind.c
+@@ -2785,11 +2785,15 @@ static bool find_prefilter(const struct llapi_scan_rec *rec,
+ 	 * object carries no linkea, and neither do the CLS_INTERNAL,
+ 	 * CLS_NO_LMA and CLS_AGENT records LLAPI_SCAN_F_INTERNAL delivers,
+ 	 * so find_device_prefilter() asks the other predicates and counts
+-	 * the object undecided rather than deciding it here.  Matching
+-	 * against "" would have answered both -name and ! -name wrongly and
+-	 * said nothing about it; it is not even reliably a non-match,
+-	 * fnmatch("*", "") succeeding.  fnmatch() does not take a NULL of
+-	 * its own: glibc dereferences it.
++	 * the object undecided rather than deciding it here.  A changelog
++	 * record is the same case: cr_namelen is 0 for an event on a FID
++	 * whose name the log never held, so CL_CLOSE, CL_SETATTR, CL_TRUNC
++	 * and CL_LAYOUT all arrive nameless, and find_changelog_rec_cb()
++	 * counts those undecided too.  Matching against "" would have
++	 * answered both -name and ! -name wrongly and said nothing about
++	 * it; it is not even reliably a non-match, fnmatch("*", "")
++	 * succeeding.  fnmatch() does not take a NULL of its own: glibc
++	 * dereferences it.
+ 	 *
+ 	 * A walk always has a name, from the directory entry.
+ 	 */
+@@ -2975,10 +2979,54 @@ struct find_ctx {
+ 	 * nothing is asked of the target being scanned
+ 	 */
+ 	const struct scan_dirmap *fc_dirmap;
++	/* the search root as resolved and as the caller spelled it, so a
++	 * composed pathname prints the way a walk's does; NULL for a walk,
++	 * which already has the caller's spelling in fc_path
++	 */
++	const char		*fc_root;
++	const char		*fc_spelled;
+ 	__u64			*fc_unresolved;	/* out: FIDs with no pathname */
+ 	int			*fc_path_rc;	/* out: first resolve failure */
++	/* print the FID of an object whose pathname is gone, rather than
++	 * counting it: the answer a source that reports what was recorded
++	 * owes, and not one a target scan can give
++	 */
++	bool			 fc_fid_when_lost;
+ };
+ 
++/*
++ * A walk prints a path as the caller spelled it: param_callback() copies the
++ * argument into a buffer and llapi_semantic_traverse() appends to it, so
++ * "lfs find ." answers ./sub/f.  A path composed from a FID is instead the
++ * mount plus what fid2path returned, which is absolute, and would otherwise
++ * be a different answer from the same find for anything downstream that
++ * strips or compares the prefix.  So the spelling goes back on.
++ *
++ * Returns @abs unchanged when there is nothing to put back, which is the
++ * ordinary case of a caller who gave an already-canonical absolute path.
++ */
++static const char *find_respell(const char *root, const char *spelled,
++				const char *abs, char *buf, size_t buflen)
++{
++	size_t rootlen = strlen(root);
++	int rc;
++
++	if (abs == NULL || strcmp(spelled, root) == 0)
++		return abs;
++	if (strncmp(abs, root, rootlen) != 0)
++		return abs;
++	if (abs[rootlen] == '\0')
++		return spelled;
++	if (abs[rootlen] != '/')
++		return abs;
++
++	rc = snprintf(buf, buflen, "%s%s", spelled, abs + rootlen);
++	if (rc < 0 || rc >= (int)buflen)
++		return abs;
++
++	return buf;
++}
++
+ /*
+  * The project id: an open and an ioctl for a walk, free for a scan.
+  *
+@@ -3604,9 +3652,24 @@ print:
+ 				looked_up = true;
+ 			}
+ 		}
+-		if (prc == 0)
+-			llapi_printf(LLAPI_MSG_NORMAL, "%s%c", pbuf,
++		if (prc == 0) {
++			const char *out = pbuf;
++			char rebuf[PATH_MAX + 1];
++
++			/*
++			 * llapi_scan_rec_path() composes an absolute name
++			 * from the mount, where a walk prints the caller's
++			 * spelling.  Put it back, as the resolved path
++			 * already does, so "lfs find ." answers ./sub/f
++			 * whichever source found it.
++			 */
++			if (fc->fc_root != NULL)
++				out = find_respell(fc->fc_root,
++						   fc->fc_spelled, pbuf,
++						   rebuf, sizeof(rebuf));
++			llapi_printf(LLAPI_MSG_NORMAL, "%s%c", out,
+ 				     param->fp_zero_end ? '\0' : '\n');
++		}
+ 		/*
+ 		 * -EINVAL is the third answer that means "no name", not a
+ 		 * broken search: mdt_fid2path() and ofd_fid2path() give it
+@@ -3614,6 +3677,22 @@ print:
+ 		 * O/<seq>/LAST_ID is, and every OST has one.
+ 		 */
+ 		else if (prc == -ENOENT || prc == -ENODATA || prc == -EINVAL) {
++			/*
++			 * The object had a name and no longer has one.  Under
++			 * --changelog the record is the answer, so its FID is
++			 * what names it now; a target scan counts it instead,
++			 * its internal objects never having had a name at all.
++			 *
++			 * Counted either way: the count is what the closing
++			 * "named by FID" warning reads, and it is the only
++			 * thing telling a caller that some of these lines
++			 * are FIDs and not pathnames.
++			 */
++			if (fc->fc_fid_when_lost &&
++			    (fc->fc_rec->lfsr_valid & LLAPI_SCAN_FID))
++				llapi_printf(LLAPI_MSG_NORMAL, DFID"%c",
++					     PFID(&fc->fc_rec->lfsr_fid),
++					     param->fp_zero_end ? '\0' : '\n');
+ 			if (fc->fc_unresolved != NULL)
+ 				(*fc->fc_unresolved)++;
+ 		} else if (fc->fc_path_rc != NULL) {
+@@ -3778,13 +3857,18 @@ static int find_device_supported(const struct find_param *param)
+ 	}
+ 
+ 	/*
+-	 * lfs find parses --since for a target scan as well, and
+-	 * llapi_find_device() never reads fp_since_kind: the scan would have
+-	 * printed every object the other predicates kept.
++	 * lfs find parses --since and --changelog for a target scan as well,
++	 * and llapi_find_device() reads neither: the scan would have printed
++	 * every object the other predicates kept and exited 0.
+ 	 */
+-	if (param->fp_since_kind != LLAPI_SINCE_NONE) {
++	if (param->fp_since_kind != LLAPI_SINCE_NONE)
++		what = "--since";
++	else if (param->fp_changelog_mdt != NULL)
++		what = "--changelog";
++	if (what != NULL) {
+ 		llapi_error(LLAPI_MSG_ERROR | LLAPI_MSG_NO_ERRNO, -ENOTSUP,
+-			    "--since needs a changelog, which a target scan has not");
++			    "%s needs a changelog, which a target scan has not",
++			    what);
+ 		return -ENOTSUP;
+ 	}
+ 
+@@ -4647,7 +4731,13 @@ struct find_since_state {
+ 	 * per-object failure would be counted as an object that has gone.
+ 	 */
+ 	bool			 fss_cb_called;
++	/* --changelog: the record is the answer, not a candidate */
++	bool			 fss_as_recorded;
++	/* this record carried no name, so its name is a live link's */
++	bool			 fss_live_name;
+ 	__u64			 fss_undecided;	/* nothing settled them */
++	__u64			 fss_unresolved;/* no pathname; FID printed */
++	int			 fss_path_rc;
+ 	__u64			 fss_want;
+ 	time_t			 fss_since;	/* 0: the anchor is an index */
+ 	__u64			 fss_cand;	/* candidates seen */
+@@ -4666,6 +4756,127 @@ struct find_since_state {
+ 	bool			 fss_multi_mdt;
+ };
+ 
++/*
++ * What a changelog cannot answer, refused rather than approximated.  Same
++ * shape as find_device_supported(), and for the same reason: a flag accepted
++ * and quietly ignored is worse than one that says it does not apply here.
++ */
++static int find_changelog_supported(struct find_param *param)
++{
++	const char *what = NULL;
++
++	if (param->fp_mdt_uuid != NULL) {
++		/*
++		 * Never, with or without --resolve: check_mdt_match() reads
++		 * fp_file_mdt_index, and scan_rec_gather() sets that on the
++		 * find_param llapi_scan_fid() carries, not on this one.  The
++		 * changelog an event arrived in is not always the object's
++		 * MDT either, so --mdt has two readings here and the source
++		 * selector already spells one of them.
++		 */
++		llapi_error(LLAPI_MSG_ERROR | LLAPI_MSG_NO_ERRNO, -ENOTSUP,
++			    "--mdt cannot mean one thing under --changelog; --since answers it against the live filesystem");
++		return -ENOTSUP;
++	}
++	if (param->fp_obd_uuid != NULL && !param->fp_resolve) {
++		/*
++		 * --ost means here exactly what it means on a walk, and the
++		 * lookup can answer it: check_obd_match() reads only
++		 * fp_lmd->lmd_lmm, which find_rec_to_lmd() fills from the
++		 * record the resolve found.  Refused only without one,
++		 * where there is no layout to match against.
++		 */
++		llapi_error(LLAPI_MSG_ERROR | LLAPI_MSG_NO_ERRNO, -ENOTSUP,
++			    "--ost needs the object's layout, which a changelog record does not carry; add --resolve to look it up");
++		return -ENOTSUP;
++	}
++
++	/* 0 too, as find_device_supported(): llapi_find_param_alloc() */
++	if ((param->fp_max_depth != (unsigned int)-1 &&
++	     param->fp_max_depth != 0) || param->fp_min_depth != 0) {
++		llapi_error(LLAPI_MSG_ERROR | LLAPI_MSG_NO_ERRNO, -ENOTSUP,
++			    "--maxdepth and --mindepth describe a walk, which --changelog is not; --since honours them");
++		return -ENOTSUP;
++	}
++
++	/* the rest is object state, which only a lookup can supply */
++	if (param->fp_resolve)
++		return 0;
++
++	/*
++	 * An object time, which the record does not carry -- but the lookup
++	 * above does, exactly as it supplies a size or a mode, so this is
++	 * refused only without --resolve.  find_want() already asks for the
++	 * times whenever one of these is set, and
++	 * find_changelog_needs_lookup() names them so an object that has
++	 * gone counts undecided rather than being judged from a zero.
++	 */
++	if (param->fp_atime != 0 || param->fp_mtime != 0 ||
++	    param->fp_ctime != 0 || param->fp_btime != 0 ||
++	    param->fp_newerxy) {
++		llapi_error(LLAPI_MSG_ERROR | LLAPI_MSG_NO_ERRNO, -ENOTSUP,
++			    "a changelog records an event time, not an object time; add --resolve to look it up, or say --since 1d for \"changed in the last day\"");
++		return -ENOTSUP;
++	}
++
++	/*
++	 * A changelog records who caused an event, not who owns the object:
++	 * the MDT fills its uidgid extension from the acting client's
++	 * credentials, which arrives as lfsr_event_uid and is a different fact
++	 * from lfsr_stx.stx_uid.  Answering -uid from it would report alice's
++	 * file under whoever last touched it.
++	 */
++	if (param->fp_check_uid || param->fp_check_gid)
++		what = "-uid, -user, -gid and -group";
++	else if (param->fp_check_size || param->fp_check_blocks)
++		what = "-size and -blocks";
++	/* before find_check_lmm_info(), which ends with fp_check_projid and
++	 * would otherwise answer for it under the layout's name
++	 */
++	else if (param->fp_check_projid)
++		what = "-projid";
++	else if (find_check_lmm_info(param))
++		what = "the layout options";
++	/*
++	 * A record off the changelog carries no LLAPI_SCAN_MODE -- an event
++	 * says what kind of object was created, and only for four record
++	 * types -- so fp_get_lmv is never set and find_decide()'s whole
++	 * stripe block is skipped.  These three live in it, and were
++	 * accepted and never evaluated.
++	 */
++	else if (param->fp_check_mdt_count || param->fp_hash_type ||
++		 param->fp_check_hash_flag)
++		what = "--mdt-count and --mdt-hash";
++	else if (param->fp_format_printf_str != NULL)
++		what = "-printf and --ls";
++	/*
++	 * These four were accepted and then answered from a record that
++	 * cannot carry them.  --xattr was the loud one: find_check_xattrs()
++	 * reaches llistxattr(NULL, ...) and prints an error per object.  The
++	 * other three are quieter and worse -- find_rec_to_lmd() leaves the
++	 * fields zero, so "--perm 644" matched nothing and its negation
++	 * matched everything, which is the approximation this refusal exists
++	 * to prevent.
++	 */
++	else if (param->fp_xattr_match_info != NULL)
++		what = "--xattr";
++	else if (param->fp_perm_sign != 0)
++		what = "-perm";
++	else if (param->fp_nlink != 0)
++		what = "-links";
++	else if (param->fp_attrs != 0 || param->fp_neg_attrs != 0)
++		what = "--attrs";
++
++	if (what != NULL) {
++		llapi_error(LLAPI_MSG_ERROR | LLAPI_MSG_NO_ERRNO, -ENOTSUP,
++			    "%s needs the object, which a changelog does not carry; add --resolve to look it up",
++			    what);
++		return -ENOTSUP;
++	}
++
++	return 0;
++}
++
+ /*
+  * Is @path inside the subtree the search was rooted at, and within the depth
+  * it asked for?  A walk gets both from the traversal; a changelog has neither,
+@@ -4727,13 +4938,15 @@ static bool find_since_hardlinked(const struct llapi_scan_rec *rec)
+  * Only a file that has another name pays for that: the resolved one is
+  * tried first, and the link count says whether there is anywhere else to
+  * look.  @out is the record to go on with -- @rec itself, or a copy naming
+- * the link that answered.  A record with no pathname cannot be placed in
+- * the subtree at all, and --since has no answer without one.
++ * the link that answered.  @path_required is what a NULL lfsr_path means:
++ * --since has no answer without a pathname, --changelog answers as it was
++ * recorded and only tests a subtree when --resolve found one.
+  */
+ static bool find_since_pick(struct find_since_state *st,
+ 			    const struct llapi_scan_rec *rec,
+ 			    struct llapi_scan_rec *out, char *buf,
+-			    size_t buflen, int *checked_type)
++			    size_t buflen, bool path_required,
++			    int *checked_type)
+ {
+ 	struct find_param *param = st->fss_param;
+ 	char rel[PATH_MAX];
+@@ -4742,11 +4955,16 @@ static bool find_since_pick(struct find_since_state *st,
+ 	*out = *rec;
+ 
+ 	if (rec->lfsr_path == NULL)
+-		return false;
++		return !path_required &&
++		       !find_prefilter(rec, param, checked_type);
+ 
+-	if (find_since_under(st, rec->lfsr_path) &&
+-	    !find_prefilter(rec, param, checked_type))
+-		return true;
++	if (find_since_under(st, rec->lfsr_path)) {
++		if (!find_prefilter(rec, param, checked_type))
++			return true;
++		/* a recorded name is the same under every link */
++		if (st->fss_as_recorded && !st->fss_live_name)
++			return false;
++	}
+ 
+ 	if (!find_since_hardlinked(rec) || !(rec->lfsr_valid & LLAPI_SCAN_FID))
+ 		return false;
+@@ -4778,9 +4996,23 @@ static bool find_since_pick(struct find_since_state *st,
+ 			rp++;
+ 		rc = snprintf(buf, buflen, "%s/%s", st->fss_mnt_path, rp);
+ 		if (rc > 0 && rc < (int)buflen && find_since_under(st, buf)) {
+-			name = strrchr(buf, '/');
+ 			out->lfsr_path = buf;
+-			out->lfsr_name = name != NULL ? name + 1 : buf;
++			/*
++			 * --since asks what the object is now, so a link is
++			 * a name like any other and -name tests it.
++			 * --changelog answers from the record, where the
++			 * name is the one the event carried: substituting a
++			 * current name here would answer -name against
++			 * something the record never said, and add objects
++			 * to the answer rather than only place them.  The
++			 * alternate path still settles the subtree.  A
++			 * record that carried no name has no name to keep,
++			 * so each link's own is tested, as under --since.
++			 */
++			if (!st->fss_as_recorded || st->fss_live_name) {
++				name = strrchr(buf, '/');
++				out->lfsr_name = name != NULL ? name + 1 : buf;
++			}
+ 			if (!find_prefilter(out, param, checked_type))
+ 				return true;
+ 		}
+@@ -4790,37 +5022,11 @@ static bool find_since_pick(struct find_since_state *st,
+ 	}
+ }
+ 
+-/*
+- * A walk prints a path as the caller spelled it: param_callback() copies the
+- * argument into a buffer and llapi_semantic_traverse() appends to it, so
+- * "lfs find ." answers ./sub/f.  Every name here is instead mnt_path plus
+- * what fid2path returned, which is absolute, and --since would otherwise be
+- * a different answer from the same find without it for anything downstream
+- * that strips or compares the prefix.  So the spelling goes back on.
+- *
+- * Returns @abs unchanged when there is nothing to put back, which is the
+- * ordinary case of a caller who gave an already-canonical absolute path.
+- */
++/* find_respell() against the search's own root, for the two record callbacks */
+ static const char *find_since_respell(struct find_since_state *st,
+ 				      const char *abs, char *buf, size_t buflen)
+ {
+-	size_t rootlen = strlen(st->fss_root);
+-	int rc;
+-
+-	if (abs == NULL || strcmp(st->fss_spelled, st->fss_root) == 0)
+-		return abs;
+-	if (strncmp(abs, st->fss_root, rootlen) != 0)
+-		return abs;
+-	if (abs[rootlen] == '\0')
+-		return st->fss_spelled;
+-	if (abs[rootlen] != '/')
+-		return abs;
+-
+-	rc = snprintf(buf, buflen, "%s%s", st->fss_spelled, abs + rootlen);
+-	if (rc < 0 || rc >= (int)buflen)
+-		return abs;
+-
+-	return buf;
++	return find_respell(st->fss_root, st->fss_spelled, abs, buf, buflen);
+ }
+ 
+ /* Stage 5, on a record llapi_scan_fid() filled: the ordinary predicates. */
+@@ -4850,7 +5056,7 @@ static int find_since_rec_cb(const struct llapi_scan_rec *rec, void *data)
+ 	 * different set from the same find without it.  That is the one thing
+ 	 * this option promises not to do.
+ 	 */
+-	if (!find_since_pick(st, rec, &named, alt, sizeof(alt),
++	if (!find_since_pick(st, rec, &named, alt, sizeof(alt), true,
+ 			     &checked_type))
+ 		return 0;
+ 	rec = &named;
+@@ -4885,6 +5091,16 @@ static int find_since_rec_cb(const struct llapi_scan_rec *rec, void *data)
+ 	fc.fc_p = rec->lfsr_parent_fd;
+ 	fc.fc_d = isdir ? rec->lfsr_fd : -1;
+ 	fc.fc_fdp = &fd;
++	/*
++	 * As find_changelog_rec_cb() sets it.  -printf reads fields no
++	 * predicate asked for, and %LP and %s/%b are not among what the
++	 * demand mask can widen to: find_want() clears LLAPI_SCAN_PROJID on
++	 * its way out, and find_decide() gates find_get_projid() and the OST
++	 * glimpse on this flag rather than on the mask.  Unset, --since
++	 * answered %LP with DEFAULT_PROJID for every object where a walk
++	 * answered the real one.
++	 */
++	fc.fc_gather_all = param->fp_format_printf_str != NULL;
+ 	fc.fc_stripe_count = find_get_stripe_count(param);
+ 	fc.fc_lustre_fs = 1;
+ 	/* what find_since_pick() already settled, as the other two callbacks
+@@ -4901,6 +5117,261 @@ static int find_since_rec_cb(const struct llapi_scan_rec *rec, void *data)
+ 	return rc;
+ }
+ 
++/*
++ * Stage 5 on a changelog record itself: --changelog answers as it was
++ * recorded, so the record is the answer and not a candidate.  fc_path is
++ * whatever --resolve looked up, and NULL without it -- there was no walk --
++ * and fc_mnt_fd is set either way, so find_decide() prints a pathname where
++ * the FID still resolves to one and the FID where it does not.
++ */
++static int find_changelog_rec_cb(const struct llapi_scan_rec *rec, void *data)
++{
++	struct find_since_state *st = data;
++	struct find_param *param = st->fss_param;
++	struct llapi_scan_rec named;
++	char alt[PATH_MAX + 1];
++	char spelled[PATH_MAX + 1];
++	struct find_ctx fc = { 0 };
++	bool isdir;
++	int checked_type = 0;
++	int fd = -1;
++	int rc;
++
++	/*
++	 * The same pre-filter the other two sources run, and for the same
++	 * reason: a name that cannot match should not reach anything that
++	 * costs.  It also settles -type where the record answers it, which
++	 * under --changelog is a creation and nothing else.
++	 *
++	 * And the same subtree test, on the same terms: a path argument
++	 * below the mount means a subtree, --resolve is what the refusal
++	 * tells the caller to add to get one, and only the lookup can say
++	 * where an object is.  Without --resolve there is no path to test
++	 * and the record answers as it was recorded.
++	 */
++	if (!find_since_pick(st, rec, &named, alt, sizeof(alt), false,
++			     &checked_type))
++		return 0;
++	rec = &named;
++
++	/*
++	 * scan_cl_mode() answers a type for four record types, so a file
++	 * created before the window and written inside it arrives without
++	 * one.  find_decide() would compare -type against a mode of zero and
++	 * answer "not a file" and "not a directory" both; undecided is what
++	 * the record actually says.
++	 */
++	if (param->fp_type != 0 && checked_type == 0 &&
++	    !(rec->lfsr_stx.stx_mask & STATX_MODE)) {
++		st->fss_undecided++;
++		return 0;
++	}
++
++	/*
++	 * Same shape for -name: the record has no name, and --resolve did not
++	 * supply one.  find_prefilter() leaves it alone for this reason.
++	 */
++	if (param->fp_pattern != NULL && rec->lfsr_name == NULL) {
++		st->fss_undecided++;
++		return 0;
++	}
++
++	/* -printf here always has a path, and reads the layout through it */
++	if (find_rec_layout(rec, param, false)) {
++		st->fss_undecided++;
++		return 0;
++	}
++	/* -ENOMEM with the header already zeroed: no answer to give */
++	rc = find_rec_to_lmv(rec, param);
++	if (rc < 0)
++		return rc;
++	isdir = (rec->lfsr_stx.stx_mask & STATX_MODE) &&
++		S_ISDIR(rec->lfsr_stx.stx_mode);
++	param->fp_get_lmv = isdir && find_needs_lmv(param);
++
++	fc.fc_rec = rec;
++	/*
++	 * Whatever --resolve looked up.  Dropping these left find_decide()
++	 * with no path and no descriptor, so -size, -blocks, -projid and
++	 * -printf were undecidable for every object even though --resolve is
++	 * documented as the way to make them answerable: the size a striped
++	 * file has lives on the OSTs, and only a stat through the path
++	 * glimpses it.  Without --resolve they stay unset and those options
++	 * are refused before reaching here.
++	 */
++	/* read only, as elsewhere; the caller's spelling of the root, as a
++	 * walk prints it
++	 */
++	fc.fc_path = (char *)find_since_respell(st, rec->lfsr_path, spelled,
++						sizeof(spelled));
++	fc.fc_p = rec->lfsr_parent_fd;
++	/*
++	 * Only for a directory, as find_since_rec_cb() has it: fc_d reaches
++	 * printf_format_lustre(), which reads d == -1 as "not a directory".
++	 * lfsr_fd is not always -1 for a regular file -- under -printf the
++	 * gather is widened, scan_rec_gather() opens the object for the MDT
++	 * index and leaves that descriptor in lfsr_fd -- so passing it through
++	 * sent every striped file down the directory branch, onto an lmv
++	 * buffer find_rec_to_lmv() had just zeroed.
++	 */
++	fc.fc_d = isdir ? rec->lfsr_fd : -1;
++	/*
++	 * A descriptor of our own, as find_since_rec_cb() keeps: without one
++	 * find_get_projid() answers -ENOTSUP for every object, since the
++	 * demand mask handed to llapi_scan_fid() does not carry
++	 * LLAPI_SCAN_PROJID, and with a path in hand find_decide() reads
++	 * that as an error rather than as undecided.
++	 */
++	fc.fc_fdp = &fd;
++	/* -printf reads fields no predicate asked for */
++	fc.fc_gather_all = param->fp_format_printf_str != NULL;
++	/* a resolved object sits on the mount; a bare record has no OST */
++	fc.fc_lustre_fs = rec->lfsr_path != NULL;
++	fc.fc_checked_type = checked_type;
++	fc.fc_stripe_count = find_get_stripe_count(param);
++	fc.fc_mnt_fd = st->fss_mnt_fd;
++	fc.fc_mnt_path = st->fss_mnt_path;
++	/* a pathname llapi_scan_rec_path() composes prints the caller's
++	 * spelling, as the resolved one already does
++	 */
++	fc.fc_root = st->fss_root;
++	fc.fc_spelled = st->fss_spelled;
++	fc.fc_unresolved = &st->fss_unresolved;
++	/* an object unlinked since its event is in this answer, by FID */
++	fc.fc_fid_when_lost = true;
++	fc.fc_path_rc = &st->fss_path_rc;
++
++	rc = find_decide(&fc, param);
++	if (fd >= 0)
++		close(fd);
++	if (rc < 0)
++		return rc;
++
++	if (fc.fc_undecided)
++		st->fss_undecided++;
++
++	return 0;
++}
++
++/*
++ * --changelog --resolve: the lookup fills what the stream lacks, and never
++ * restates what it has.  So the merge starts from the live record and puts
++ * every field the event answered for back over it -- which is what keeps
++ * --changelog answering as recorded even while it is being filled in.
++ */
++struct find_cl_merge {
++	struct find_since_state		*fcm_st;
++	const struct llapi_scan_rec	*fcm_cl;	/* as recorded */
++};
++
++static int find_cl_merge_cb(const struct llapi_scan_rec *live, void *data)
++{
++	struct find_cl_merge *m = data;
++	const struct llapi_scan_rec *cl = m->fcm_cl;
++	struct llapi_scan_rec rec = *live;
++	int rc;
++
++	m->fcm_st->fss_cb_called = true;
++
++	/*
++	 * Not lfsr_stx.stx_uid: the changelog's uidgid extension records who
++	 * acted, and that arrives as lfsr_event_uid, so the owner the lookup
++	 * found is the one -uid matches and nothing here overwrites it.
++	 */
++	if (cl->lfsr_valid & LLAPI_SCAN_EVENT_UID) {
++		rec.lfsr_event_uid = cl->lfsr_event_uid;
++		rec.lfsr_event_gid = cl->lfsr_event_gid;
++	}
++	/*
++	 * Only the type bits: an event records what kind of object was
++	 * created, never its permissions, so -perm still reads the live mode.
++	 */
++	if (cl->lfsr_stx.stx_mask & STATX_TYPE)
++		rec.lfsr_stx.stx_mode =
++			(rec.lfsr_stx.stx_mode & ~(mode_t)S_IFMT) |
++				      (cl->lfsr_stx.stx_mode & (mode_t)S_IFMT);
++	if (cl->lfsr_name != NULL)
++		rec.lfsr_name = cl->lfsr_name;
++	/*
++	 * lfsr_valid is OR'd below, so the parent has to come with its bit or
++	 * the merged record claims a parent and carries [0x0:0x0:0x0] --
++	 * "the answer is zero" where the truth is "cannot answer".
++	 * llapi_scan_fid() never fills it.
++	 */
++	if (cl->lfsr_valid & LLAPI_SCAN_PARENT)
++		rec.lfsr_parent_fid = cl->lfsr_parent_fid;
++
++	/* the event is the stream's alone; a lookup has nothing to say */
++	rec.lfsr_event_type = cl->lfsr_event_type;
++	rec.lfsr_event_flags = cl->lfsr_event_flags;
++	rec.lfsr_event_time = cl->lfsr_event_time;
++	rec.lfsr_event_index = cl->lfsr_event_index;
++	rec.lfsr_event_prev = cl->lfsr_event_prev;
++	rec.lfsr_src_fid = cl->lfsr_src_fid;
++	rec.lfsr_src_parent_fid = cl->lfsr_src_parent_fid;
++	rec.lfsr_src_name = cl->lfsr_src_name;
++	rec.lfsr_jobid = cl->lfsr_jobid;
++	rec.lfsr_valid |= cl->lfsr_valid;
++
++	/*
++	 * A record with no name (a CL_CLOSE, say) has the live name of link
++	 * 0, so find_since_pick() tests each link's own name instead.
++	 */
++	m->fcm_st->fss_live_name = cl->lfsr_name == NULL;
++	rc = find_changelog_rec_cb(&rec, m->fcm_st);
++	m->fcm_st->fss_live_name = false;
++	return rc;
++}
++
++/*
++ * Does this search have a question only a lookup can answer?  --resolve is
++ * what lets these past find_changelog_supported(), because the lookup
++ * supplies them; a record whose object has since gone carries none of them,
++ * and find_rec_to_lmd() would answer every one from a zero.
++ */
++static bool find_changelog_needs_lookup(struct find_param *param)
++{
++	return param->fp_check_size || param->fp_check_blocks ||
++	       param->fp_perm_sign || param->fp_nlink ||
++	       param->fp_attrs || param->fp_neg_attrs ||
++	       /*
++		* The object's own times, which only the lookup carries: a
++		* record has an event time and that is a different fact.
++		*/
++	       param->fp_atime || param->fp_mtime || param->fp_ctime ||
++	       param->fp_btime || param->fp_newerxy ||
++	       param->fp_xattr_match_info != NULL ||
++	       param->fp_format_printf_str != NULL ||
++	       /*
++		* The event's uid is the acting client's, not the owner's,
++		* which is why find_changelog_supported() refuses -uid
++		* without --resolve.  With it and no lookup behind the
++		* record, find_rec_to_lmd() leaves stx_uid 0 with STATX_UID
++		* clear and find_decide() compares it anyway, so "-uid 0"
++		* kept every gone object and "! -uid 1000" kept them too.
++		*/
++	       param->fp_check_uid || param->fp_check_gid ||
++	       /*
++		* And these are not answered from a zero but never evaluated:
++		* a bare record carries no LLAPI_SCAN_MODE, so fp_get_lmv
++		* stays 0 and find_decide() skips the whole stripe block --
++		* the object prints whatever --mdt-count asked for.
++		*/
++	       param->fp_check_mdt_count || param->fp_hash_type ||
++	       param->fp_check_hash_flag ||
++	       /*
++		* --ost is answered from the layout the lookup fetches, and
++		* setup_target_indexes() runs only for an object that has a
++		* path: a record with no lookup behind it left fp_obd_index
++		* at OBD_NOT_FOUND, so find_decide() dropped the object
++		* without counting it -- and cleared fp_got_uuids on the way,
++		* so the next object that did resolve looked the OSTs up
++		* again.
++		*/
++	       param->fp_obd_uuid != NULL ||
++	       find_check_lmm_info(param);
++}
++
+ /*
+  * What the stream is asked before a record becomes a candidate: whether the
+  * record is inside the window at all.
+@@ -4982,12 +5453,27 @@ static int find_since_cand_cb(const struct llapi_scan_rec *rec, void *data)
+ {
+ 	struct find_since_state *st = data;
+ 	struct llapi_scan_param sp = { .lfsp_size = sizeof(sp) };
++	struct find_cl_merge m = { .fcm_st = st, .fcm_cl = rec };
+ 	int rc;
+ 
++	/*
++	 * A CL_MARK is the log saying something about itself, not an object.
++	 * mdd_changelog_write_header() writes its flags into the union with
++	 * cr_tfid, so cr_tfid.f_seq reads back as CLM_ON|CLM_START (0x10001) --
++	 * which fid_seq_is_igif() accepts, the IGIF range being [12,
++	 * 0xffffffff].  llapi_scan_changelog() clears LLAPI_SCAN_FID for a
++	 * mark rather than passing that value off as a FID, so the gate below
++	 * drops it too; testing the type here keeps that from resting on the
++	 * library alone.
++	 */
++	if ((rec->lfsr_valid & LLAPI_SCAN_EVENT) &&
++	    rec->lfsr_event_type == CL_MARK)
++		return 0;
++
+ 	if (!(rec->lfsr_valid & LLAPI_SCAN_FID))
+ 		return 0;
+ 
+-	if (st->fss_multi_mdt) {
++	if (st->fss_multi_mdt && !st->fss_as_recorded) {
+ 		rc = find_since_seen(st, &rec->lfsr_fid);
+ 		if (rc != 0)
+ 			return rc < 0 ? rc : 0;
+@@ -4995,11 +5481,26 @@ static int find_since_cand_cb(const struct llapi_scan_rec *rec, void *data)
+ 
+ 	/* the window cut is find_since_filter_cb()'s, before this */
+ 	st->fss_cand++;
++
++	/*
++	 * --changelog: the record is the answer.  --resolve fills what the
++	 * stream lacks, and the merge stays here rather than in
++	 * llapi_scan_fid(), so that a field the event recorded is never
++	 * restated by the lookup.
++	 */
++	if (st->fss_as_recorded && !st->fss_param->fp_resolve)
++		return find_changelog_rec_cb(rec, st);
++
+ 	sp.lfsp_want = st->fss_want;
+ 
+ 	st->fss_cb_called = false;
+-	rc = llapi_scan_fid(st->fss_mnt_fd, st->fss_mnt_path, &rec->lfsr_fid,
+-			    &sp, find_since_rec_cb, st);
++	if (st->fss_as_recorded) {
++		rc = llapi_scan_fid(st->fss_mnt_fd, st->fss_mnt_path,
++				    &rec->lfsr_fid, &sp, find_cl_merge_cb, &m);
++	} else {
++		rc = llapi_scan_fid(st->fss_mnt_fd, st->fss_mnt_path,
++				    &rec->lfsr_fid, &sp, find_since_rec_cb, st);
++	}
+ 	/*
+ 	 * Unlinked between the event and now.  --since answers as it is now,
+ 	 * so an object that cannot be verified is not in the answer -- which
+@@ -5007,7 +5508,32 @@ static int find_since_cand_cb(const struct llapi_scan_rec *rec, void *data)
+ 	 */
+ 	if ((rc == -ENOENT || rc == -ESTALE) && !st->fss_cb_called) {
+ 		st->fss_gone++;
+-		return 0;
++		/*
++		 * --changelog reports what happened, so an object that has
++		 * since gone is still in the answer -- resolution fills, and
++		 * never removes.  --since cannot verify it, so it is not.
++		 */
++		if (!st->fss_as_recorded)
++			return 0;
++		/*
++		 * Except where the answer would be invented.  --resolve let
++		 * -size, -perm, -links, --attrs, the layout options and
++		 * -printf past the refusal because a lookup supplies them,
++		 * and this record has no lookup behind it: find_rec_to_lmd()
++		 * leaves those fields zero and find_lmm_set_default()
++		 * substitutes the filesystem default, so "! -c 4" would keep
++		 * every gone object whatever its stripe count.  The subtree
++		 * is the same case -- nothing can place a gone object in one,
++		 * and emitting it as though it were in one is the
++		 * whole-filesystem answer --resolve was required to avoid.
++		 * Undecided is what the record actually says.
++		 */
++		if (find_changelog_needs_lookup(st->fss_param) ||
++		    strcmp(st->fss_root, st->fss_mnt_path) != 0) {
++			st->fss_undecided++;
++			return 0;
++		}
++		return find_changelog_rec_cb(rec, st);
+ 	}
+ 
+ 	/*
+@@ -5040,18 +5566,33 @@ static int find_since_cand_cb(const struct llapi_scan_rec *rec, void *data)
+ /**
+  * llapi_find_since() - lfs find over the objects a changelog says changed
+  * @path:	a path in the filesystem to search
+- * @param:	the search, with fp_since_kind set
++ * @param:	the search, selected by fp_since_kind or fp_changelog_mdt
++ *
++ * Candidates come from every MDT's changelog, or the one fp_changelog_mdt
++ * names.  What happens next depends on
++ * the source.
+  *
+- * Candidates come from every MDT's changelog, each is verified through the
+- * mount, and the predicates that judge it are a walk's -- so this is a
+- * subset of the plain search and never a different set.  @path bounds it: a
+- * changelog is filesystem-wide, so the subtree is enforced against each
+- * object's resolved pathname, and an object with more than one link is in
+- * the answer if any of its names is under @path.
++ * --since verifies each candidate through the mount and judges it with a
++ * walk's predicates, so its answer is a subset of the plain search and never
++ * a different set.  @path bounds it against each object's resolved pathname,
++ * and an object with more than one link is in the answer if any of its names
++ * is under @path.
+  *
+- * Return: 0 on success, or a negative errno.  -EINVAL if there is no
+- * anchor, or if the anchor is an index on a filesystem with more than one
+- * MDT, an index belonging to one of them.
++ * --changelog (fp_changelog_mdt) answers from the record instead: the object
++ * is not verified through the mount, so one unlinked since its event is in
++ * the answer and the result is not a subset of anything.  @path must name
++ * the filesystem rather than a subtree unless --resolve is given -- a record
++ * carries no pathname to bound one with -- and a subtree without it is
++ * refused rather than widened.  A predicate the record cannot answer
++ * is counted undecided and reported at the end rather than guessed at.
++ *
++ * Return: 0 on success, or a negative errno.  -EINVAL if neither selector is
++ * set, if the anchor is an index on a filesystem with more than one MDT, an
++ * index belonging to one of them, if --resolve is given without --changelog,
++ * or if @path is below the mount under --changelog without --resolve.
++ * -ENODEV for a --changelog MDT name
++ * that names no MDT of this filesystem.  -ENOTSUP for a predicate the source
++ * cannot answer, which find_changelog_supported() lists.
+  */
+ int llapi_find_since(const char *path, struct find_param *param)
+ {
+@@ -5071,7 +5612,9 @@ int llapi_find_since(const char *path, struct find_param *param)
+ 
+ 	if (path == NULL || param == NULL)
+ 		return -EINVAL;
+-	if (param->fp_since_kind == LLAPI_SINCE_NONE)
++	/* one of the two has to have selected this path */
++	if (param->fp_since_kind == LLAPI_SINCE_NONE &&
++	    param->fp_changelog_mdt == NULL)
+ 		return -EINVAL;
+ 
+ 	/*
+@@ -5082,10 +5625,16 @@ int llapi_find_since(const char *path, struct find_param *param)
+ 	 */
+ 	if (param->fp_thread_count > 1) {
+ 		llapi_error(LLAPI_MSG_ERROR | LLAPI_MSG_NO_ERRNO, -ENOTSUP,
+-			    "--threads describes a walk; --since reads one changelog per MDT in turn");
++			    "--threads describes a walk; --since and --changelog read one changelog per MDT in turn");
+ 		return -ENOTSUP;
+ 	}
+ 
++	if (param->fp_resolve && param->fp_changelog_mdt == NULL) {
++		llapi_error(LLAPI_MSG_ERROR | LLAPI_MSG_NO_ERRNO, -EINVAL,
++			    "--resolve fills what a changelog lacks; --since already reads the object");
++		return -EINVAL;
++	}
++
+ 	/* 0 is a descriptor: nothing here may close it by accident */
+ 	st.fss_mnt_fd = -1;
+ 
+@@ -5119,6 +5668,13 @@ int llapi_find_since(const char *path, struct find_param *param)
+ 		spelledbuf[--spelledlen] = '\0';
+ 	st.fss_spelled = spelledbuf;
+ 
++	st.fss_as_recorded = param->fp_changelog_mdt != NULL;
++	if (st.fss_as_recorded) {
++		rc = find_changelog_supported(param);
++		if (rc < 0)
++			return rc;
++	}
++
+ 	rc = llapi_search_fsname(path, fsname);
+ 	if (rc < 0) {
+ 		llapi_error(LLAPI_MSG_ERROR, rc,
+@@ -5143,6 +5699,20 @@ int llapi_find_since(const char *path, struct find_param *param)
+ 		return rc;
+ 	}
+ 
++	/*
++	 * Rule 2: a changelog is per-MDT and knows nothing about where an
++	 * object sits, so under --changelog the path names the filesystem
++	 * rather than a subtree.  A path below the mount is refused unless
++	 * --resolve, which is what makes a pathname to prefix-match.
++	 */
++	if (st.fss_as_recorded && !param->fp_resolve &&
++	    strcmp(rootbuf, mnt_path) != 0) {
++		llapi_error(LLAPI_MSG_ERROR | LLAPI_MSG_NO_ERRNO, -EINVAL,
++			    "under --changelog '%s' names the filesystem, not a subtree; give '%s', or add --resolve to search below it",
++			    path, mnt_path);
++		return -EINVAL;
++	}
++
+ 	/*
+ 	 * LL_IOC_GETOBDCOUNT answers with the size of the LMV's target array,
+ 	 * not the number of MDTs that exist -- a single-MDT filesystem
+@@ -5171,6 +5741,34 @@ int llapi_find_since(const char *path, struct find_param *param)
+ 			mdts[mdt_count++] = i;
+ 	}
+ 
++	/*
++	 * --changelog names one MDT or "all".  One named MDT is also what
++	 * makes a bare --since index unambiguous, since the index is then
++	 * paired with the log it came from.
++	 */
++	if (st.fss_as_recorded && strcmp(param->fp_changelog_mdt, "all") != 0) {
++		int only = -1;
++
++		for (i = 0; i < mdt_count; i++) {
++			snprintf(mdtname, sizeof(mdtname), "%s-MDT%04x",
++				 fsname, mdts[i]);
++			if (strcmp(mdtname, param->fp_changelog_mdt) == 0) {
++				only = mdts[i];
++				break;
++			}
++		}
++		if (only < 0) {
++			llapi_error(LLAPI_MSG_ERROR | LLAPI_MSG_NO_ERRNO,
++				    -ENODEV,
++				    "'%s' is not an MDT of '%s'; name one, or say --changelog all",
++				    param->fp_changelog_mdt, fsname);
++			rc = -ENODEV;
++			goto out;
++		}
++		mdts[0] = only;
++		mdt_count = 1;
++	}
++
+ 	if (mdt_count == 0) {
+ 		llapi_error(LLAPI_MSG_ERROR | LLAPI_MSG_NO_ERRNO, 0,
+ 			    "'%s' has no MDT this client can see", fsname);
+@@ -5208,8 +5806,18 @@ int llapi_find_since(const char *path, struct find_param *param)
+ 	st.fss_fileset = find_mount_is_fileset(mnt_path) == 1;
+ 	st.fss_since = param->fp_since_kind == LLAPI_SINCE_TIME ?
+ 		       param->fp_since_time : 0;
+-	/* the walk's own mask: the gather then matches a walk field by field */
+-	st.fss_want = find_want(param, 0, false);
++	/*
++	 * The walk's own mask, so the gather matches a walk field by field
++	 * -- and widened for -printf the way cb_find_init() widens it.  What
++	 * the widening adds is LLAPI_SCAN_LMV, which is what lets %Lc, %Lh,
++	 * %Li, %Lo and %Lp answer for a directory.  Not %s, %b or %LP: those
++	 * come from find_decide()'s own stat and find_get_projid(), both
++	 * gated on fc_gather_all rather than on this mask, and find_want()
++	 * clears LLAPI_SCAN_PROJID unconditionally on its way out.
++	 * LLAPI_SCAN_MDT_INDEX rides along because find_want() adds it with
++	 * the rest; nothing on this path reads it.
++	 */
++	st.fss_want = find_want(param, 0, param->fp_format_printf_str != NULL);
+ 	if (st.fss_want == 0)
+ 		/* 0 would be read as "the default"; this is the cheap floor */
+ 		st.fss_want = LLAPI_SCAN_FID | LLAPI_SCAN_MODE |
+@@ -5231,11 +5839,22 @@ int llapi_find_since(const char *path, struct find_param *param)
+ 		 * the log, and a second burst is a second thing that
+ 		 * happened, so it keeps both.
+ 		 */
+-		sc.sc_flags = LLAPI_SCAN_CL_F_COALESCE | LLAPI_SCAN_CL_F_ONCE;
++		sc.sc_flags = LLAPI_SCAN_CL_F_COALESCE;
++		if (!st.fss_as_recorded)
++			sc.sc_flags |= LLAPI_SCAN_CL_F_ONCE;
+ 		sc.sc_filter = find_since_filter_cb;
+ 		sc.sc_mdtname = mdtname;
+-		/* the FID to verify, and the time to cut a window at */
+-		sc.sc_want = LLAPI_SCAN_FID | LLAPI_SCAN_EVENT;
++		/*
++		 * --since needs only the FID to verify and the time to cut a
++		 * window at; --changelog reports the record itself, so it
++		 * takes everything the stream carries.
++		 */
++		sc.sc_want = st.fss_as_recorded ?
++			     (LLAPI_SCAN_FID | LLAPI_SCAN_EVENT |
++			      LLAPI_SCAN_EVENT_SRC | LLAPI_SCAN_JOBID |
++			      LLAPI_SCAN_PARENT | LLAPI_SCAN_EVENT_UID |
++			      LLAPI_SCAN_TYPE) :
++			     (LLAPI_SCAN_FID | LLAPI_SCAN_EVENT);
+ 		if (param->fp_since_kind == LLAPI_SINCE_INDEX)
+ 			sc.sc_startrec = param->fp_since_index;
+ 
+@@ -5251,7 +5870,7 @@ int llapi_find_since(const char *path, struct find_param *param)
+ 	if (rc == 0 && st.fss_scan_rc != 0)
+ 		rc = st.fss_scan_rc;
+ 
+-	if (st.fss_gone != 0)
++	if (st.fss_gone != 0 && !st.fss_as_recorded)
+ 		llapi_error(LLAPI_MSG_WARN | LLAPI_MSG_NO_ERRNO, 0,
+ 			    "%llu of %llu changed objects no longer exist%s and are not in the answer",
+ 			    (unsigned long long)st.fss_gone,
+@@ -5262,10 +5881,26 @@ int llapi_find_since(const char *path, struct find_param *param)
+ 		llapi_error(LLAPI_MSG_WARN | LLAPI_MSG_NO_ERRNO, 0,
+ 			    "%llu objects could not be decided and are not in the answer",
+ 			    (unsigned long long)st.fss_undecided);
++	/* --changelog reads the whole filesystem's log, fileset or not */
++	if (st.fss_unresolved != 0)
++		llapi_error(LLAPI_MSG_WARN | LLAPI_MSG_NO_ERRNO, 0,
++			    "%llu objects have no pathname%s and are named by FID",
++			    (unsigned long long)st.fss_unresolved,
++			    st.fss_fileset && st.fss_as_recorded ?
++			    " or are outside this fileset" : "");
+ 	if (st.fss_dropped != 0)
+ 		llapi_error(LLAPI_MSG_WARN | LLAPI_MSG_NO_ERRNO, 0,
+-			    "%llu objects were dropped with it",
+-			    (unsigned long long)st.fss_dropped);
++			    "%llu of %llu changed objects could not be read and are not in the answer",
++			    (unsigned long long)st.fss_dropped,
++			    (unsigned long long)st.fss_cand);
++	/*
++	 * A resolve that failed for a reason other than "this object has no
++	 * name" is a search that did not finish, as it is for a target scan:
++	 * without this a run that could not resolve anything printed one
++	 * error, silently dropped every match after the first, and exited 0.
++	 */
++	if (rc == 0 && st.fss_path_rc != 0)
++		rc = st.fss_path_rc;
+ out:
+ 	tdestroy(st.fss_seen, free);
+ 	free(mdts);
+-- 
+2.43.0
+
