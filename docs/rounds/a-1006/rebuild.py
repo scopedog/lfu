@@ -228,6 +228,84 @@ List what changed anywhere in the filesystem in the last hour, as the
 changelog recorded it:''', '420 example')
 
 
+# ==== lreview round (fixup2 a2d6617d53) ===============================
+edit(C163, 'lustre/utils/libscan_zfs.c', '''		if (err == EINVAL)
+			return -EINVAL;
+''', '''		if (err == EINVAL)
+			return -EINVAL;
+
+		/* the label scan skipped devices this caller cannot read */
+		if (lpch.lpc_error == LPC_EACCESS)
+			return -EACCES;
+''', 'lr163 eacces')
+edit(C163, 'Documentation/man3/llapi_scan_device.3', '''applies, so the scan is as privileged as the device node.
+''', '''applies, so the scan is as privileged as the device node. On ZFS this is
+also the answer when the pool was not found and some device under the
+search path could not be read.
+''', 'lr163 man')
+SCL = 'lustre/utils/liblustreapi_scan_changelog.c'
+edit(C415, SCL, '''	int			 sl_stop_rc;
+''', '''	int			 sl_stop_rc;
+	int			 sl_clear_rc;	/* the first failed clear */
+''', 'lr415 field')
+edit(C415, SCL, '''	rc = llapi_changelog_clear(sc->sc_mdtname, sc->sc_user, upto);
+	if (rc < 0)
+		llapi_error(LLAPI_MSG_ERROR, rc,
+			    "cannot clear %s past record %llu",
+			    sc->sc_mdtname, (unsigned long long)upto);
+	else
+		sl->sl_last_cleared = upto;
+''', '''	rc = llapi_changelog_clear(sc->sc_mdtname, sc->sc_user, upto);
+	if (rc < 0) {
+		llapi_error(LLAPI_MSG_ERROR, rc,
+			    "cannot clear %s past record %llu",
+			    sc->sc_mdtname, (unsigned long long)upto);
+		/* returned at the end: the log is not being kept bounded */
+		if (sl->sl_clear_rc == 0)
+			sl->sl_clear_rc = rc;
+	} else {
+		sl->sl_last_cleared = upto;
+	}
+''', 'lr415 clear')
+edit(C415, SCL, '''	if (sl->sl_stop_rc != 0)
+		rc = sl->sl_stop_rc;
+out:''', '''	if (sl->sl_stop_rc != 0)
+		rc = sl->sl_stop_rc;
+	else if (rc == 0)
+		rc = sl->sl_clear_rc;
+out:''', 'lr415 rc')
+edit(C415, 'Documentation/man3/llapi_scan_changelog.3', '''.B -EACCES
+the Changelog device is not readable by this user.
+.SH NOTES''', '''.B -EACCES
+the Changelog device is not readable by this user.
+.LP
+With
+.BR LLAPI_SCAN_CL_F_CLEAR ,
+the first error from
+.BR llapi_changelog_clear (3)
+is returned once the stream has ended, unless the callback stopped it
+first. The records were delivered, but the log was not cleared past that
+point.
+.B -ENOENT
+there usually means that
+.I sc_user
+is not registered.
+.SH NOTES''', 'lr415 man')
+edit(C417, PF, '''	/* the subtree the search was rooted at, and its depth */''',
+     '''	/* the subtree the search was rooted at */''', 'lr417 depth')
+edit(C417, PF, '''			    "%llu objects were dropped with it",
+			    (unsigned long long)st.fss_dropped);''',
+     '''			    "%llu of %llu changed objects could not be read and are not in the answer",
+			    (unsigned long long)st.fss_dropped,
+			    (unsigned long long)st.fss_cand);''', 'lr417 dropped',
+     until=C418)
+edit(C418, PF, '''	 * Rule 2: a changelog is per-MDT and knows nothing about where an
+	 * object sits, so under --changelog the path names the filesystem
+	 * rather than a subtree.''', '''	 * A changelog is per-MDT and knows nothing about where an object
+	 * sits, so under --changelog the path names the filesystem rather
+	 * than a subtree.''', 'lr418 rule')
+
+
 # ---- commit messages --------------------------------------------------
 def m_159(m):
     return rep(m, '''A field that the inode format has no room for, such as a project id or
@@ -292,6 +370,13 @@ depth bounds under --changelog.''', 'm418 depth')
             '''lfsr_fd is not always -1 for a regular file''', 'm418 fd1')
     m = rep(m, '''leaves that descriptor in sr_fd.''',
             '''leaves that descriptor in lfsr_fd.''', 'm418 fd2')
+    m = rep(m, '''copies the device name in, so a mark arrives named "lustre-
+MDT0000" -- which is also why "-name 'lustre-MDT*'" matched one before
+the record was dropped above.  A data event on a FID whose name the
+log never held is the real case, and the sentence now says only that.''',
+            '''copies the device name in, so a mark arrives named
+"lustre-MDT0000".  A data event on a FID whose name the log never held
+is the real case, and the sentence now says only that.''', 'm418 mark')
     return m
 
 

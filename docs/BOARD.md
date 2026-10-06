@@ -39,9 +39,14 @@ the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
   valid forms identical; T1 56Eea DNE pass, subdir on MDT0. Regression:
   sanity 56E*+160A* ldiskfs DNE 22/22, ZFS 21/21 (+1 skip), conf-sanity
   300-304 5/5.
-- In flight: lreview on 68163
-  68415 68417 68418 (docs/rounds/a-1006/lreview). Skipped lreview,
-  comment/doc only: 68157 68159 68419 68420; pure carry: 69443.
+- **lreview** (docs/rounds/a-1006/lreview/TRIAGE.md): 10 low findings;
+  6 fixed (fixup2 a2d6617d53: ZFS EACCES, failed _CLEAR returned, 4
+  wording), 4 left for the user (ZFS_DEBUG flags, subtree-before-gather
+  perf, time anchor past a purge, 68418 subject). Skipped: 68157 68159
+  68419 68420 (comment/doc), 69443 (carry).
+- **Now fix-1006 = 8792f895a8**, 69443 = **6e26f11543**; tree == fixup2;
+  sweep 14/14; checkpatch counts unchanged. Lab B (EACCES, _CLEAR) in
+  flight.
 - NOTHING pushed.
 
 ## 2026-10-05 night: fix-1005 PUSHED -- start here
