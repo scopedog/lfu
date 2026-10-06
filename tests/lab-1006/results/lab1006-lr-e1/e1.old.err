@@ -1,0 +1,2 @@
+lfs find: cannot open zfst-mdt1/mdt1: No such file or directory (2)
+lfs: failed for 'zfst-mdt1/mdt1': No such file or directory

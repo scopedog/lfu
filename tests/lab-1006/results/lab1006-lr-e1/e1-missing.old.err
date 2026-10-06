@@ -1,0 +1,2 @@
+lfs find: cannot open nosuchpool/x: No such file or directory (2)
+lfs: failed for 'nosuchpool/x': No such file or directory

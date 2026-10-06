@@ -1,0 +1,27 @@
+== start 2026-10-06 15:26:36 e1
+MDT dataset zfst-mdt1/mdt1
+cleanup rc=0; pools 0
+total 12132
+drwxr-xr-x.  2 root root       118 Oct  6 15:27 .
+drwxrwxrwt. 46 root root     28672 Oct  6 15:26 ..
+-rw-r--r--.  1 root root        40 Oct  6 15:27 kptr-94959-env
+-rw-r--r--.  1 root root      1213 Oct  6 15:26 ogdb-rhel9.7-server
+-rw-r--r--.  1 root root         0 Oct  6 15:27 projid-llmountcleanup
+-rw-------.  1 root root 256000000 Oct  6 15:27 zfst-mdt1
+-rw-------.  1 root root 409600000 Oct  6 15:27 zfst-ost1
+=== E1: non-root, exported pool, vdevs 0600 root
+e1               old nishida exit=2   stdout=0    stderr: lfs find: cannot open zfst-mdt1/mdt1: No such file or directory (2)|lfs: failed for 'zfst-mdt1/mdt1': No such file or directory|
+e1               new nishida exit=13  stdout=0    stderr: lfs find: cannot open zfst-mdt1/mdt1: Permission denied (13)|lfs: failed for 'zfst-mdt1/mdt1': Permission denied|
+=== missing pool, unreadable vdev present (expected EACCES on NEW)
+e1-missing       old nishida exit=2   stdout=0    stderr: lfs find: cannot open nosuchpool/x: No such file or directory (2)|lfs: failed for 'nosuchpool/x': No such file or directory|
+e1-missing       new nishida exit=13  stdout=0    stderr: lfs find: cannot open nosuchpool/x: Permission denied (13)|lfs: failed for 'nosuchpool/x': Permission denied|
+=== missing pool, readable empty search dir (ENOENT on both)
+e1-empty         old nishida exit=2   stdout=0    stderr: lfs find: cannot open nosuchpool/x: No such file or directory (2)|lfs: failed for 'nosuchpool/x': No such file or directory|
+e1-empty         new nishida exit=2   stdout=0    stderr: lfs find: cannot open nosuchpool/x: No such file or directory (2)|lfs: failed for 'nosuchpool/x': No such file or directory|
+=== control: root, same pool
+root             old root  exit=0   stdout=20   stderr: 
+root             new root  exit=0   stdout=20   stderr: 
+PASS root: identical
+lustre-* fixtures untouched
+== end 2026-10-06 15:27:37
+LR RUN DONE

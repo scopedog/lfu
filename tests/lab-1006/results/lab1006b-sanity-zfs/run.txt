@@ -1,0 +1,15 @@
+== start 2026-10-06 15:30:08 FSTYPE=zfs
+loaded version: [2.17.58_65_g8618869]
+/usr/bin/lfs loads:  liblustreapi.so.1 => /tmp/arm1006newb/lib/liblustreapi.so.1 (0x00007f0c74d5a000)
+/usr/lib64/lustre/tests/llapi_scan_changelog_test loads:  liblustreapi.so.1 => /tmp/arm1006newb/lib/liblustreapi.so.1 (0x00007feedd50a000)
+bound lfs is NEW's
+SANITY_RC=0
+T1 getdirstripe -D: lmv_stripe_count: 1 lmv_stripe_offset: 0 lmv_hash_type: none lmv_max_inherit: -1 lmv_max_inherit_rr: 0 
+T1 subdir on MDT 0
+PASS 21  FAIL 0  SKIP 2
+ SKIP: sanity test_56Edb needs >= 2 MDTs
+SKIP 56Edb (0s)
+cleanup rc=0
+lustre-* fixtures untouched
+== end 2026-10-06 15:32:18
+SANITY RUN DONE

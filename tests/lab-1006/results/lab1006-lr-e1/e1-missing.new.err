@@ -1,0 +1,2 @@
+lfs find: cannot open nosuchpool/x: Permission denied (13)
+lfs: failed for 'nosuchpool/x': Permission denied

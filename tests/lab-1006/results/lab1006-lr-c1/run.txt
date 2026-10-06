@@ -1,0 +1,18 @@
+== start 2026-10-06 15:25:47 c1
+clh.old loads:  liblustreapi.so.1 => /tmp/arm1006new/lib/liblustreapi.so.1 (0x00007fe46703d000)
+clh.new loads:  liblustreapi.so.1 => /tmp/arm1006newb/lib/liblustreapi.so.1 (0x00007fcda7fff000)
+registered cl1
+records before: 61
+-- old, unregistered cl9999:  rc=0 (-) delivered=61  stderr: 1 'cannot clear' lines
+   records still there: 61
+-- new, unregistered cl9999:  rc=-2 (No such file or directory) delivered=61  stderr: 1 'cannot clear' lines
+   records still there: 61
+-- old, unregistered, callback stops at 5:  rc=7 (-) delivered=5
+-- new, unregistered, callback stops at 5:  rc=7 (-) delivered=5
+-- old, registered cl1: rc=0 (-) delivered=121  records 121 -> 0
+-- new, registered cl1: rc=0 (-) delivered=60  records 60 -> 0
+lfst-MDT0000: Deregistered changelog user #1
+cleanup rc=0
+lustre-* fixtures untouched
+== end 2026-10-06 15:26:31
+LR RUN DONE

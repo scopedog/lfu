@@ -45,8 +45,13 @@ the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
   perf, time anchor past a purge, 68418 subject). Skipped: 68157 68159
   68419 68420 (comment/doc), 69443 (carry).
 - **Now fix-1006 = 8792f895a8**, 69443 = **6e26f11543**; tree == fixup2;
-  sweep 14/14; checkpatch counts unchanged. Lab B (EACCES, _CLEAR) in
-  flight.
+  sweep 14/14; checkpatch counts unchanged. **Lab B GREEN** (fixup vs
+  fixup2): C1 unregistered _CLEAR user old rc 0 -> new -ENOENT, 61/61
+  delivered both, callback stop value still wins, registered user rc 0
+  both; E1 non-root unreadable vdevs old ENOENT -> new EACCES, root
+  control identical; sanity 56E*+160A* ldiskfs DNE 22/22, ZFS 21/21.
+- **Ready to ask for the push.** Open question for the user: re-lreview
+  68163/68415 after the lreview fixes (~$15)?
 - NOTHING pushed.
 
 ## 2026-10-05 night: fix-1005 PUSHED -- start here
