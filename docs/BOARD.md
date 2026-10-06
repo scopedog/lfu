@@ -23,7 +23,7 @@ the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
   sees every record in order. Writer race (N+1 before N at the tail) is
   separate and stays documented.
 - Next: polling for the AI round and Maloo on the new patchsets.
-- **Follow-up BUILT (local, unpushed):** branch lu-20650-stale-window in
+- **Follow-up PUSHED as 69443 PS1** (tag a1005-stale-pushed; in gpoll). Branch lu-20650-stale-window in
   ~/lfs-fix-1005, **bd44314a52** "LU-20650 lfs: find --since-cookie, check
   each MDT when read" (Change-Id Ibf3e4ecf...), on a1005-pushed. Re-reads
   each later MDT's oldest record just before its scan; -ESTALE, cookie
