@@ -34,6 +34,11 @@ the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
   files, cookie advanced; new ESTALE, cookie kept, next run refused; B2
   no false refusal. Owed in 68419's next round: its filter_cb comment says
   sc_filter sees every record in order -- false under COALESCE.
+- **10-05 19:50 (after host crash):** polling resumed. 68420 PS13
+  Verified+1. 69443 PS1 Verified-1 on ONE axis (server el10.2): rpmbuild
+  could not find the kmod-lustre ChangeLog-lnet doc -- packaging/infra;
+  our commit is utils+man only and its parent built green everywhere.
+  Not in the Jenkins queue; posted BUILD.
 
 ## 2026-10-05 evening: lreview (2) on the fixed tip, fixed locally
 
