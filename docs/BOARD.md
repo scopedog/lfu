@@ -4,6 +4,38 @@ Every ticket and Gerrit id in play, and the ones that are *not* ours. Regenerate
 the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
 **2026-09-06**.
 
+## 2026-10-06 afternoon: AI round on the 10-05 PS fixed locally -- start here
+
+- **Maloo (10-06 pm), all linked + retested:** 68418 PS13 dne-ipv6 sanity
+  413b "subdirs shouldn't be evenly distributed" = LU-17601; 68163 PS28
+  dne-zfs-part-4 sanity-quota 1a group EDQUOT (ZFS) = LU-18293 (reopened);
+  68419 PS13 dne-part-4 sanity-hsm 251+254b = LU-16932; 68419 PS13
+  dne-part-2 sanity-pfl 16b ENOSPC on a 1000-stripe overstriped setstripe
+  = LU-18276.
+- **AI review:** LGTM on 68156/68160/68288/68416. Findings on 68157 (1),
+  68159 (3), 68163 (1), 68415 (2), 68417 (4), 68418 (4): all verified,
+  all fixed locally except 68415 56Eea rename (style, skipped).
+  Real ones: 68163 ZFS 2.4 libzpool falls back to /boot/zfs/zpool.cache
+  (spa_config_path "" not enough) -> spa_evict_all() after kernel_init();
+  68417 --since --mdt never set fp_file_mdt_index (--mdt 1 empty, --mdt 0
+  everything) -> copied from the record; 68417 " -5" got past the sign
+  check -> only a leading digit reaches strtoull(); 68418 --changelog
+  --maxdepth 0 accepted -> lfs refuses it, library skips depth bounds
+  under --changelog; 68415 56Eea subdirs could land on another MDT ->
+  setdirstripe -D -i 0. Rest are comments/man/message.
+- Also carried: 68417/68419 filter_cb comment ("sees every record, in
+  order" -- false under COALESCE), the item owed from 10-05.
+- **Branch fix-1006 = bf7512ad90** (tag r1006-tip) in ~/lfs-fix-1006;
+  69443 rebased = **6dcd7bc4e4** (lu-20650-stale-window-1006, tag
+  r1006-stale). Fixup tip tested: fix-1006-fixup 8506d66293. Script:
+  docs/rounds/a-1006/rebuild.py; final tree == fixup tree + 2 comment
+  hunks; 68156 kept as is. Sweep 14/14 build+hdr+tests; checkpatch counts
+  unchanged. Replies drafted: docs/rounds/a-1006/replies.md.
+- In flight: lab A/B on the clone VM (tests/lab-1006), lreview on 68163
+  68415 68417 68418 (docs/rounds/a-1006/lreview). Skipped lreview,
+  comment/doc only: 68157 68159 68419 68420; pure carry: 69443.
+- NOTHING pushed.
+
 ## 2026-10-05 night: fix-1005 PUSHED -- start here
 
 - **Pushed** 68156-68420 from fix-1005 tip **3a179e7307** (tag
