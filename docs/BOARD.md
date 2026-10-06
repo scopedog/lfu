@@ -4,7 +4,18 @@ Every ticket and Gerrit id in play, and the ones that are *not* ours. Regenerate
 the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
 **2026-09-06**.
 
-## 2026-10-06 afternoon: AI round on the 10-05 PS fixed locally -- start here
+## 2026-10-06 evening: fix-1006 PUSHED -- start here
+
+- **Pushed** (user OK) from lu-20650-stale-window-1006, tag **a1006-pushed**
+  = 6e26f11543: 68157 PS32, 68158 PS29, 68159 PS29, 68160 PS30, 68163 PS29,
+  68288 PS23, 68415/68416 PS21, 68417-68420 PS14, 69443 PS2. 68156 PS31,
+  68094/68095 PS26 untouched.
+- **Replies:** 14 posted on the PS each comment was on, all threaded and
+  resolved (read back). 68415 56Eea rename left unanswered (style).
+- Next: polling for the AI round and Maloo on the new PS. Open for the user:
+  the 4 deferred lreview suggestions (lreview/TRIAGE.md).
+
+## 2026-10-06 afternoon: AI round on the 10-05 PS fixed locally
 
 - **Maloo (10-06 pm), all linked + retested:** 68418 PS13 dne-ipv6 sanity
   413b "subdirs shouldn't be evenly distributed" = LU-17601; 68163 PS28
@@ -50,8 +61,7 @@ the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
   delivered both, callback stop value still wins, registered user rc 0
   both; E1 non-root unreadable vdevs old ENOENT -> new EACCES, root
   control identical; sanity 56E*+160A* ldiskfs DNE 22/22, ZFS 21/21.
-- **Ready to ask for the push.** Open question for the user: re-lreview
-  68163/68415 after the lreview fixes (~$15)?
+- Pushed without a second lreview pass (user: "push and reply").
 - NOTHING pushed.
 
 ## 2026-10-05 night: fix-1005 PUSHED -- start here
