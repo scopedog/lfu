@@ -1,0 +1,28 @@
+== start 2026-10-06 14:27:26
+loaded version: [2.17.58_65_g8618869]
+MDT dataset zfst-mdt1/mdt1
+=== control: held, cache path empty (orig plugins): both must refuse EBUSY
+held-orig      old exit=16  stdout=0     plugin="/tmp/arm1006old/lib/lustre/scan_osd_zfs.so" stderr: lfs find: zfst-mdt1/mdt1: in use: pool imported, or dataset held|lfs: failed for 'zfst-mdt1/mdt1': Device or resource busy|
+held-orig      new exit=16  stdout=0     plugin="/tmp/arm1006new/lib/lustre/scan_osd_zfs.so" stderr: lfs find: zfst-mdt1/mdt1: in use: pool imported, or dataset held|lfs: failed for 'zfst-mdt1/mdt1': Device or resource busy|
+fake cache: 1568 bytes; lists zfst-mdt1: yes
+=== Z1: held AND loaded from a cache file (var plugins, LFU_ZTEST_CACHE)
+z1-1           old exit=121 stdout=0     plugin="/tmp/arm1006old/lib/lustre/scan_osd_zfs.so" stderr: lfs find: cannot open zfst-mdt1/mdt1: Remote I/O error (121)|lfs: failed for 'zfst-mdt1/mdt1': Remote I/O error|
+               (old opened the fake cache)
+z1-1           new exit=16  stdout=0     plugin="/tmp/arm1006new/lib/lustre/scan_osd_zfs.so" stderr: lfs find: zfst-mdt1/mdt1: in use: pool imported, or dataset held|lfs: failed for 'zfst-mdt1/mdt1': Device or resource busy|
+               (new opened the fake cache)
+z1-2           old exit=121 stdout=0     plugin="/tmp/arm1006old/lib/lustre/scan_osd_zfs.so" stderr: lfs find: cannot open zfst-mdt1/mdt1: Remote I/O error (121)|lfs: failed for 'zfst-mdt1/mdt1': Remote I/O error|
+               (old opened the fake cache)
+z1-2           new exit=16  stdout=0     plugin="/tmp/arm1006new/lib/lustre/scan_osd_zfs.so" stderr: lfs find: zfst-mdt1/mdt1: in use: pool imported, or dataset held|lfs: failed for 'zfst-mdt1/mdt1': Device or resource busy|
+               (new opened the fake cache)
+pool health after: zfst-mdt1	ONLINE
+=== control: exported, found with --search (orig plugins)
+cleanup rc=0; mounted 0; pools 0
+exported       old exit=0   stdout=50    plugin="/tmp/arm1006old/lib/lustre/scan_osd_zfs.so" stderr: 
+exported       new exit=0   stdout=50    plugin="/tmp/arm1006new/lib/lustre/scan_osd_zfs.so" stderr: 
+PASS exported: both arms give the same answer
+exported-var   new exit=0   stdout=50    plugin="/tmp/arm1006new/lib/lustre/scan_osd_zfs.so" stderr: 
+PASS var without env == orig
+/etc/zfs/zpool.cache untouched
+lustre-* fixtures untouched
+== end 2026-10-06 14:28:44
+ZFS RUN DONE

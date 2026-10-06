@@ -1,0 +1,61 @@
+== start 2026-10-06 14:26:17
+old lfs loads: /tmp/arm1006old/lib/liblustreapi.so.1 (0x00007f5713f63000)
+new lfs loads: /tmp/arm1006new/lib/liblustreapi.so.1 (0x00007ff32459c000)
+loaded version: [2.17.58_65_g8618869]
+MDTS:
+0: lfst-MDT0000_UUID ACTIVE
+1: lfst-MDT0001_UUID ACTIVE
+changelog users: cl1 cl1
+m0 on 0, m1 on 1
+M1 --mdt 0: walk 6, old --since 12 err[]
+M1 --mdt 0: walk 6, new --since 6 err[]
+PASS M1 new == walk on --mdt 0
+  M1 old != walk on --mdt 0 (expected for the defect)
+M1 --mdt 1: walk 6, old --since 0 err[]
+M1 --mdt 1: walk 6, new --since 6 err[]
+PASS M1 new == walk on --mdt 1
+  M1 old != walk on --mdt 1 (expected for the defect)
+M1 ! --mdt 1: walk 6, old 0
+M1 ! --mdt 1: walk 6, new 6
+PASS M1 new == walk on ! --mdt 1
+D1 [] old rc=0 lines=12 err[]
+D1 [] new rc=95 lines=0 err[error: find: --maxdepth and --mindepth describe a walk, which --changelog is not; --since honours them|]
+PASS D1 [] new refuses
+D1 [--resolve] old rc=0 lines=0 err[]
+D1 [--resolve] new rc=95 lines=0 err[error: find: --maxdepth and --mindepth describe a walk, which --changelog is not; --since honours them|]
+PASS D1 [--resolve] new refuses
+D1 control (no depth) old rc=0 lines=12
+D1 control (no depth) new rc=0 lines=12
+PASS D1 control arms agree
+D1 --since --maxdepth 0 old rc=0 []
+D1 --since --maxdepth 0 new rc=0 []
+S1 ' -5' old rc=22 lines=0 err[lfs find: cannot read lfst-MDT0000's changelog: Invalid argument (22)]
+S1 ' -5' new rc=22 lines=0 err[lfs: bad --since ' -5']
+PASS S1 ' -5' new refuses
+S1 ' +5' old rc=0 lines=4 err[]
+S1 ' +5' new rc=22 lines=0 err[lfs: bad --since ' +5']
+PASS S1 ' +5' new refuses
+S1 '-5' old rc=22 lines=0 err[lfs: bad --since '-5']
+S1 '-5' new rc=22 lines=0 err[lfs: bad --since '-5']
+PASS S1 '-5' new refuses
+S1 '+5' old rc=22 lines=0 err[lfs: bad --since '+5']
+S1 '+5' new rc=22 lines=0 err[lfs: bad --since '+5']
+PASS S1 '+5' new refuses
+S1 good '1': old rc=0 lines=6, new rc=0 lines=6 err[]
+PASS S1 '1' accepted, arms agree
+S1 good '2h': old rc=0 lines=6, new rc=0 lines=6 err[]
+PASS S1 '2h' accepted, arms agree
+S1 good '@1791321945': old rc=0 lines=6, new rc=0 lines=6 err[]
+PASS S1 '@1791321945' accepted, arms agree
+S1 good '00:00': old rc=0 lines=6, new rc=0 lines=6 err[]
+PASS S1 '00:00' accepted, arms agree
+S1 good '2026-10-06 00:00': old rc=0 lines=6, new rc=0 lines=6 err[]
+PASS S1 '2026-10-06 00:00' accepted, arms agree
+S1 good '2026-10-06T00:00:00': old rc=0 lines=6, new rc=0 lines=6 err[]
+PASS S1 '2026-10-06T00:00:00' accepted, arms agree
+lfst-MDT0000: Deregistered changelog user #1
+lfst-MDT0001: Deregistered changelog user #1
+cleanup rc=0
+lustre-* fixtures untouched
+== end 2026-10-06 14:27:24
+ARMS DONE

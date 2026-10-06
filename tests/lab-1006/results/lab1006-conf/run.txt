@@ -1,0 +1,10 @@
+== start 2026-10-06 14:34:10
+lfs loads:  liblustreapi.so.1 => /tmp/arm1006new/lib/liblustreapi.so.1 (0x00007fdd15833000)
+CS_RC=0
+PASS 300 (39s)
+PASS 301 (0s)
+PASS 302 (3s)
+PASS 303 (1s)
+PASS 304 (73s)
+== end 2026-10-06 14:37:05
+CONF RUN DONE

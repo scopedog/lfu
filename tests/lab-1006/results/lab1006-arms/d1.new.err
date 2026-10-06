@@ -1,0 +1,1 @@
+error: find: --maxdepth and --mindepth describe a walk, which --changelog is not; --since honours them

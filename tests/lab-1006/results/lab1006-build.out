@@ -1,0 +1,13 @@
+  new make -k errors in: libmount_utils_zfs.c mount_utils.h 
+  new spa_evict_all: orig 1 var 1
+  new PLUGIN_DIR: /tmp/arm1006new/lib/lustre/scan_osd_%s.so
+ 0x000000000000000f (RPATH)              Library rpath: [/tmp/arm1006new/lib]
+14:25:11 /tmp/lab1006-new/lustre/tests/.libs/llapi_scan_changelog_test
+14:25:09 /tmp/lab1006-new/lustre/utils/.libs/lfs
+  old make -k errors in: libmount_utils_zfs.c mount_utils.h 
+  old spa_evict_all: orig 0 var 0
+  old PLUGIN_DIR: /tmp/arm1006old/lib/lustre/scan_osd_%s.so
+ 0x000000000000000f (RPATH)              Library rpath: [/tmp/arm1006old/lib]
+14:25:35 /tmp/lab1006-old/lustre/tests/.libs/llapi_scan_changelog_test
+14:25:33 /tmp/lab1006-old/lustre/utils/.libs/lfs
+BUILD-OK

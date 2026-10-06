@@ -31,7 +31,15 @@ the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
   docs/rounds/a-1006/rebuild.py; final tree == fixup tree + 2 comment
   hunks; 68156 kept as is. Sweep 14/14 build+hdr+tests; checkpatch counts
   unchanged. Replies drafted: docs/rounds/a-1006/replies.md.
-- In flight: lab A/B on the clone VM (tests/lab-1006), lreview on 68163
+- **Lab GREEN** (clone VM, tests/lab-1006/results, old a1005-pushed vs
+  new fixup 8506d66293): Z1 ZFS cached held pool old EREMOTEIO -> new
+  EBUSY, --search control identical 50/50; M1 DNE --since --mdt 0/1/!1
+  old 12/0/0 -> new 6/6/6 == walk; D1 --changelog --maxdepth 0 old rc0
+  (empty under --resolve) -> new ENOTSUP; S1 ' -5'/' +5' refused, six
+  valid forms identical; T1 56Eea DNE pass, subdir on MDT0. Regression:
+  sanity 56E*+160A* ldiskfs DNE 22/22, ZFS 21/21 (+1 skip), conf-sanity
+  300-304 5/5.
+- In flight: lreview on 68163
   68415 68417 68418 (docs/rounds/a-1006/lreview). Skipped lreview,
   comment/doc only: 68157 68159 68419 68420; pure carry: 69443.
 - NOTHING pushed.

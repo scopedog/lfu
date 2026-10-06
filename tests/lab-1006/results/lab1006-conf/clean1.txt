@@ -1,0 +1,19 @@
+MGS_OS_VERSION_ID=9.7
+MGS_OS_ID=rhel
+MGS_OS_VERSION_CODE=151453696
+MGS_OS_ID_LIKE=fedora rhel
+MDS1_OS_ID=rhel
+MDS1_OS_VERSION_CODE=151453696
+MDS1_OS_ID_LIKE=fedora rhel
+MDS1_OS_VERSION_ID=9.7
+OST1_OS_VERSION_ID=9.7
+OST1_OS_VERSION_CODE=151453696
+OST1_OS_ID=rhel
+OST1_OS_ID_LIKE=fedora rhel
+CLIENT_OS_VERSION_ID=9.7
+CLIENT_OS_ID_LIKE=fedora rhel
+CLIENT_OS_ID=rhel
+CLIENT_OS_VERSION_CODE=151453696
+Stopping clients: rhel9.7-server /mnt/lfsc (opts:-f)
+Stopping clients: rhel9.7-server /mnt/lfsc2 (opts:-f)
+modules unloaded.

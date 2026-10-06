@@ -1,0 +1,4 @@
+lfs: bad --since '+5'
+an index is a bare number (4200); a time is a duration
+(30s, 30m, 2h, 7d, 2w, 1y), a timestamp (2026-08-25T18:00 or
+18:00 for today), or an epoch second as @1787674596
