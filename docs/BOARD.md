@@ -39,6 +39,8 @@ the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
   could not find the kmod-lustre ChangeLog-lnet doc -- packaging/infra;
   our commit is utils+man only and its parent built green everywhere.
   Not in the Jenkins queue; posted BUILD.
+- **10-06:** 69443 PS1 rebuild Verified+1. 68156 PS31 dne-zfs-part-1 crashed
+  in sanity 805 (tgt_grant_sanity_check LBUG) = LU-20523: linked + retested.
 
 ## 2026-10-05 evening: lreview (2) on the fixed tip, fixed locally
 
