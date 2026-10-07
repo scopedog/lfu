@@ -4,7 +4,24 @@ Every ticket and Gerrit id in play, and the ones that are *not* ours. Regenerate
 the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
 **2026-09-06**.
 
-## 2026-10-06 evening: fix-1006 PUSHED -- start here
+## 2026-10-06 night: three follow-ups for the deferred lreview items -- start here
+
+User 10-06: do #3, then #2 and #1; ignore #4 (68418 subject). Built as
+follow-up changes on top of 69443 in ~/lfs-fix-1006, branch
+lu-20650-since-gap, NOT pushed, no Change-Id on Gerrit yet:
+- **29b286be44** LU-20650 lfs: find --since, warn when the log was cleared
+  -- find_since_gap(): each MDT's oldest record before its scan; index > 1
+  and newer than the time (or past a bare index) -> warning naming MDT and
+  time; cookie skipped (has -ESTALE). sanity 160Af. Man1+man3.
+- **3cb09a0414** LU-20650 lfs: find --since, pick before the gather --
+  find_since_pick() as llapi_scan_fid()'s lfsp_filter (try_links without
+  nlink; FID via fss_pre_fid). --changelog unchanged.
+- **37b5ff814d** LU-20613 build: compile libscan_zfs.c as libzpool is built
+  -- -DDEBUG -UNDEBUG -DZFS_DEBUG on every LB_ZFS_USER header set.
+All build (-Werror) and checkpatch clean. Lab: #3 in flight; #2 (answer
+identity + benchmark) and #1 (ZFS build + layout + identical scan) next.
+
+## 2026-10-06 evening: fix-1006 PUSHED
 
 - **Pushed** (user OK) from lu-20650-stale-window-1006, tag **a1006-pushed**
   = 6e26f11543: 68157 PS32, 68158 PS29, 68159 PS29, 68160 PS30, 68163 PS29,
