@@ -9,17 +9,23 @@ the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
 User 10-06: do #3, then #2 and #1; ignore #4 (68418 subject). Built as
 follow-up changes on top of 69443 in ~/lfs-fix-1006, branch
 lu-20650-since-gap, NOT pushed, no Change-Id on Gerrit yet:
-- **29b286be44** LU-20650 lfs: find --since, warn when the log was cleared
+- **bc5e232bd9** LU-20650 lfs: find --since, warn when the log was cleared
   -- find_since_gap(): each MDT's oldest record before its scan; index > 1
   and newer than the time (or past a bare index) -> warning naming MDT and
   time; cookie skipped (has -ESTALE). sanity 160Af. Man1+man3.
-- **3cb09a0414** LU-20650 lfs: find --since, pick before the gather --
+- **0a175c4191** LU-20650 lfs: find --since, pick before the gather --
   find_since_pick() as llapi_scan_fid()'s lfsp_filter (try_links without
   nlink; FID via fss_pre_fid). --changelog unchanged.
-- **37b5ff814d** LU-20613 build: compile libscan_zfs.c as libzpool is built
+- **bb7e771b7f** LU-20613 build: compile libscan_zfs.c as libzpool is built
   -- -DDEBUG -UNDEBUG -DZFS_DEBUG on every LB_ZFS_USER header set.
-All build (-Werror) and checkpatch clean. Lab: #3 in flight; #2 (answer
-identity + benchmark) and #1 (ZFS build + layout + identical scan) next.
+All build (-Werror) and checkpatch clean.
+- **#3 lab GREEN** (tests/lab-1006/results/lab1006-gap*): fresh log silent;
+  cleared MDT warns (old silent), stdout identical; empty log silent;
+  --since at the oldest index silent, one before warns; cookie unchanged
+  (ESTALE both). The lab found a 160Af bug (--changelog on a subdir is
+  refused without --resolve) -> searches $MOUNT, folded. sanity 56E*+160A*
+  ldiskfs DNE 23/23, ZFS 22/22.
+- Lab for #2 and #1 in flight.
 
 ## 2026-10-06 evening: fix-1006 PUSHED
 

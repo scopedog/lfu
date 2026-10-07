@@ -1,0 +1,48 @@
+== start 2026-10-06 17:18:55
+gold lfs loads: /tmp/arm1006gold/lib/liblustreapi.so.1 (0x00007fb905774000)  gap-string=0
+gnew lfs loads: /tmp/arm1006gnew/lib/liblustreapi.so.1 (0x00007f7bffceb000)  gap-string=1
+users: lfst-MDT0000 [1] cl1, lfst-MDT0001 [1] cl1
+fresh: lfst-MDT0000 first=1, lfst-MDT0001 first=1
+g3f gold rc=0 out=4 err[]
+g3f gnew rc=0 out=4 err[]
+PASS G3f fresh log, no warning
+after clear: lfst-MDT0000 cleared to 5, first=6; lfst-MDT0001 records=0
+g1 gold rc=0 out=1 err[]
+g1 gnew rc=0 out=1 err[lfs find: 'lfst-MDT0000' has been cleared past the --since anchor: its oldest record is 6, from 2026-10-06 17:19:18, and changes before it are not in the answer|]
+PASS G1 OLD silent, NEW warns
+PASS G1 names lfst-MDT0000 and index 6
+PASS G1 rc 0 both
+PASS G1 stdout identical
+PASS G4 empty lfst-MDT0001: no warning
+PASS G4 no error
+g2a gold rc=0 out=1 err[]
+g2a gnew rc=0 out=1 err[lfs find: 'lfst-MDT0000' has been cleared past the --since anchor: its oldest record is 6, from 2026-10-06 17:19:18, and changes before it are not in the answer|]
+PASS G2 --since 1: OLD silent, NEW warns
+g2b gold rc=0 out=1 err[]
+g2b gnew rc=0 out=1 err[]
+PASS G2 --since 6 (the oldest): no warning
+g2c gold rc=0 out=1 err[]
+g2c gnew rc=0 out=1 err[lfs find: 'lfst-MDT0000' has been cleared past the --since anchor: its oldest record is 6, from 2026-10-06 17:19:18, and changes before it are not in the answer|]
+PASS G2 --since 5 (one before): warns
+g3 gold rc=0 out=0 err[]
+g3 gnew rc=0 out=0 err[]
+PASS G3 --since @now: no warning
+G5 first gold rc=0 out=1 err[]
+G5 first gnew rc=0 out=1 err[]
+  cookies identical
+G5 purged lfst-MDT0000 to 9, first now 10
+G5 stale gold rc=116 out=0 err[lfs find: 'lfst-MDT0000' has purged past the cookie: it starts at 10 and '/tmp/lab1006-gap/ck.gold' records 7, so the run would resume at 8 and the records in between are gone|lfs: failed for '/mnt/lfst': Stale file handle|]
+G5 stale gnew rc=116 out=0 err[lfs find: 'lfst-MDT0000' has purged past the cookie: it starts at 10 and '/tmp/lab1006-gap/ck.gnew' records 7, so the run would resume at 8 and the records in between are gone|lfs: failed for '/mnt/lfst': Stale file handle|]
+PASS G5 both refuse, same rc
+PASS G5 stderr identical (cookie name normalised)
+PASS G5 the stale message
+PASS G5 no gap warning on the cookie path
+  gold cookie left as it was
+  gnew cookie left as it was
+lfst-MDT0000: Deregistered changelog user #1
+lfst-MDT0001: Deregistered changelog user #1
+cleanup rc=0
+lustre-* fixtures untouched
+PASS 15 FAIL 0
+== end 2026-10-06 17:20:07
+GAP RUN DONE
