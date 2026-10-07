@@ -56,9 +56,13 @@ All build (-Werror) and checkpatch clean.
   (kernel-doc + man3); pick message narrowed (fid2path/statx failures still
   counted, only gather failures not); imperative nlink subject; test 17
   asserts a dir gets no nlink.
-- **Now on 69443: ceaeec5973 gap, 32e7af285c nlink, 4244d46ec4 pick,
-  2848d7f2cf zfsflags.** Sweep 4/4, checkpatch 0/0. The nlink lab running
-  on f14b3b09ab needs a short re-run on 2848d7f2cf (dir RPCs, test 17).
+- Final lreview (nlink2 2, pick3 1, low; nlink2.md, pick3.md): man wording
+  + "test STATX_NLINK first"; test 17 links a 2nd name, asserts nlink 2;
+  double-walk comment/message widened. All fixed.
+- **Now on 69443: ceaeec5973 gap, 3a2a321ac3 nlink, bcf1d6d101 pick,
+  036735e9fb zfsflags.** Sweep 4/4, checkpatch 0/0. lustre/utils code ==
+  2848d7f2cf (comment only), which the nlink lab runs as FINAL; test 17
+  from 036735e9fb asked of the lab.
 - User 10-06: push later, as long as CR+1 is not lost (it is not: only new
   changes on top; 68094/68095 untouched -- re-check --patch-sets first).
 
