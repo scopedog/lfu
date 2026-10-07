@@ -63,6 +63,14 @@ All build (-Werror) and checkpatch clean.
   036735e9fb zfsflags.** Sweep 4/4, checkpatch 0/0. lustre/utils code ==
   2848d7f2cf (comment only), which the nlink lab runs as FINAL; test 17
   from 036735e9fb asked of the lab.
+- **nlink lab GREEN** (results/lab1006-nlink, lab1006-final; 002a920):
+  24/24 answers identical BASE/PICK1/NEW/FINAL. small subtree vs 20k
+  changes: BASE 6.08 s -> FINAL 2.68 s (2.3x); getattr_lock 20010 -> 9;
+  get_info 30021 (BASE) / 60024 (PICK1) / 30023 (FINAL). Whole fs within
+  noise, identical RPCs. +2000 dirs with subdirs outside the subtree:
+  get_info +8002 (two/dir) on f14b3b09ab vs +4001 (one/dir) on FINAL.
+  test 17 passes (incl. tip's nlink==2), sanity 23/23 ldiskfs DNE, 22 ZFS.
+- **Follow-ups READY to push** (4 new changes on 69443; no CR+1 lost).
 - User 10-06: push later, as long as CR+1 is not lost (it is not: only new
   changes on top; 68094/68095 untouched -- re-check --patch-sets first).
 
