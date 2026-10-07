@@ -18,13 +18,14 @@ the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
   (LU-20834), 68158 PS29 dne-part-2 sanity-lfsck 18e (LU-17891), 68163 PS29
   selinux-ssk-part-1 sanity 413b (LU-17601). Earlier today: 68418/68163/68419
   x2 (LU-17601, LU-18293, LU-16932, LU-18276).
-- **For the user:** 68157 PS32 optional dne-part-2 sanity-lfsck 5 = LU-20505,
-  not retested (optional); LU-20834 comment that it also hits server nodes
-  (not posted). LU-20598 sanity-sec on 68416: wait for convergence.
+- **Decided (user 10-07):** 68157 PS32 optional sanity-lfsck 5 (LU-20505):
+  do NOT retest. **REMIND THE USER at the start of the next session:** a
+  comment on LU-20834 that it also hits server nodes (68416 PS21 mds2),
+  not posted. LU-20598 sanity-sec on 68416: wait for convergence.
 - **JLUG slides** (docs/local/jlug26, gitignored): restyled to LAD'26 + TLC
   logo, audited (prototype vs upstream fixed), 25 slides, architecture slide
-  16 added, measurements slide dropped. Offered: a "プロトタイプで測定"
-  footnote on the ldiskfs/ZFS benchmark slides (not done).
+  16 added, measurements slide dropped. Prototype footnote on the
+  benchmark slides: not wanted (user 10-07).
 - Clone VM rhel9.7-server-mgs-mds-clone left running (no fixtures mounted).
 
 ## 2026-10-06 night: three follow-ups for the deferred lreview items
