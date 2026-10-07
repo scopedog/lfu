@@ -1,0 +1,8 @@
+== start 2026-10-06 18:43:05 ldiskfs (036735e9fb)
+binary loads:  liblustreapi.so.1 => /tmp/arm1006nfin/lib/liblustreapi.so.1 (0x00007f0968e2c000)
+nlink==2 asserts in source: 1
+ test17 @1791337410: llapi_scan_fid fills one record for one FID ............... pass
+T17 RC=0
+cleanup rc=0
+lustre-* fixtures untouched
+== end 2026-10-06 18:44:30

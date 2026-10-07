@@ -1,0 +1,13 @@
+== start 2026-10-06 18:37:41 FSTYPE=ldiskfs ARM=nfin (2848d7f2cf)
+loaded version: [2.17.58_65_g8618869]
+/usr/bin/lfs loads:  liblustreapi.so.1 => /tmp/arm1006nfin/lib/liblustreapi.so.1 (0x00007f9a0efc8000)
+/usr/lib64/lustre/tests/llapi_scan_changelog_test loads:  liblustreapi.so.1 => /tmp/arm1006nfin/lib/liblustreapi.so.1 (0x00007fd2290ff000)
+bound lfs is NEW's
+SANITY_RC=0
+T1 getdirstripe -D: lmv_stripe_count: 1 lmv_stripe_offset: 0 lmv_hash_type: none lmv_max_inherit: -1 lmv_max_inherit_rr: 0 
+T1 subdir on MDT 0
+PASS 23  FAIL 0  SKIP 0
+cleanup rc=0
+lustre-* fixtures untouched
+== end 2026-10-06 18:40:23
+SANITY RUN DONE

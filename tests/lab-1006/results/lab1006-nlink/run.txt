@@ -1,0 +1,51 @@
+== start 2026-10-06 18:09:47
+nbase (ceaeec5973) lfs loads: /tmp/arm1006nbase/lib/liblustreapi.so.1 (0x00007f22bdd8b000)  pre_cb=0 nlink-in-scan_fid=0
+g2n (d7bc5decf4) lfs loads: /tmp/arm1006g2n/lib/liblustreapi.so.1 (0x00007fb067539000)  pre_cb=1 nlink-in-scan_fid=0
+nnew (f14b3b09ab) lfs loads: /tmp/arm1006nnew/lib/liblustreapi.so.1 (0x00007fce2090d000)  pre_cb=1 nlink-in-scan_fid=1
+users: cl1 cl1
+big: 5000 x4 created in 9s
+changelog records: lfst-MDT0000 20028, lfst-MDT0001 20002
+hl links: /mnt/lfst/big/d0/hl /mnt/lfst/small/hl 
+PASS N1.1 [/mnt/lfst/small --since 1h ] identical x3: 11 lines, rc 0, err[]
+PASS N1.2 [/mnt/lfst/small --since 1h -type f] identical x3: 9 lines, rc 0, err[]
+PASS N1.3 [/mnt/lfst/small --since 1h -name f*] identical x3: 0 lines, rc 0, err[]
+PASS N1.4 [/mnt/lfst/small --since 1h ! -name x*] identical x3: 10 lines, rc 0, err[]
+PASS N1.5 [/mnt/lfst/small --since 1h -type d] identical x3: 2 lines, rc 0, err[]
+PASS N1.6 [/mnt/lfst/small --since 1h -printf %p\n] identical x3: 11 lines, rc 0, err[]
+PASS N1.7 [/mnt/lfst/small --since 1h -size +0] identical x3: 8 lines, rc 0, err[]
+PASS N1.8 [/mnt/lfst --since 1h ] identical x3: 20017 lines, rc 0, err[]
+PASS N1.9 [/mnt/lfst --since 1h -type f] identical x3: 20010 lines, rc 0, err[]
+PASS N1.10 [/mnt/lfst --since 1h -name f*] identical x3: 20000 lines, rc 0, err[]
+PASS N1.11 [/mnt/lfst --since 1h ! -name x*] identical x3: 20016 lines, rc 0, err[]
+PASS N1.12 [/mnt/lfst --since 1h -type d] identical x3: 7 lines, rc 0, err[]
+PASS N1.13 [/mnt/lfst --since 1h -printf %p\n] identical x3: 20017 lines, rc 0, err[]
+PASS N1.14 [/mnt/lfst --since 1h -size +0] identical x3: 13 lines, rc 0, err[]
+small answer (NEW): /mnt/lfst/small /mnt/lfst/small/hl /mnt/lfst/small/rin /mnt/lfst/small/s1 /mnt/lfst/small/s2 /mnt/lfst/small/s3 /mnt/lfst/small/s4 /mnt/lfst/small/s5 /mnt/lfst/small/sd /mnt/lfst/small/sd/inner /mnt/lfst/small/xskip 
+PASS N1 small has hl
+PASS N1 small has rin
+PASS N1 small has s1
+PASS N1 small has sd
+PASS N1 small has sd/inner
+PASS N1 small has xskip
+PASS N1 small leaves out rout
+N2 caches: not dropped between runs; one untimed warm-up run per arm first
+N2 /mnt/lfst/small nbase: median 6.031  range 5.884-6.208  (n=5)  [5.884009907 5.951500532 6.207658767 6.050391833 6.030568544 ]
+N2 /mnt/lfst/small g2n: median 4.049  range 3.968-4.236  (n=5)  [4.037921272 4.048755857 4.235724152 4.094103802 3.967917710 ]
+N2 /mnt/lfst/small nnew: median 2.513  range 2.430-2.850  (n=5)  [2.477244751 2.714962640 2.430236958 2.512780156 2.849658594 ]
+N2 rpcs /mnt/lfst/small nbase: llog_origin_handle_next_block=866 llog_origin_handle_open=8 llog_origin_handle_read_header=8 mds_getattr=14 mds_getattr_lock=20010 mds_get_info=30021 obd_ping=1 req_active=50928 req_waittime=50928 
+N2 rpcs /mnt/lfst/small g2n: llog_origin_handle_next_block=865 llog_origin_handle_open=8 llog_origin_handle_read_header=8 mds_getattr=4 mds_getattr_lock=9 mds_get_info=60024 obd_ping=1 req_active=60919 req_waittime=60919 
+N2 rpcs /mnt/lfst/small nnew: llog_origin_handle_next_block=865 llog_origin_handle_open=8 llog_origin_handle_read_header=8 mds_getattr=4 mds_getattr_lock=9 mds_get_info=30030 req_active=30924 req_waittime=30924 
+N2 /mnt/lfst (whole fs) nbase: median 6.142  range 6.111-6.143  (n=3)  [6.142228233 6.143465824 6.110996656 ]
+N2 /mnt/lfst (whole fs) g2n: median 6.292  range 6.273-6.405  (n=3)  [6.292213145 6.273059696 6.405157755 ]
+N2 /mnt/lfst (whole fs) nnew: median 6.215  range 6.209-6.224  (n=3)  [6.224050422 6.214787479 6.208624968 ]
+N2 rpcs /mnt/lfst nbase: llog_origin_handle_next_block=865 llog_origin_handle_open=8 llog_origin_handle_read_header=8 mds_getattr=14 mds_getattr_lock=20010 mds_get_info=30019 req_active=50924 req_waittime=50924 
+N2 rpcs /mnt/lfst g2n: llog_origin_handle_next_block=865 llog_origin_handle_open=8 llog_origin_handle_read_header=8 mds_getattr=14 mds_getattr_lock=20010 mds_get_info=30019 req_active=50924 req_waittime=50924 
+N2 rpcs /mnt/lfst nnew: llog_origin_handle_next_block=865 llog_origin_handle_open=8 llog_origin_handle_read_header=8 mds_getattr=14 mds_getattr_lock=20010 mds_get_info=30019 obd_ping=1 req_active=50925 req_waittime=50925 
+ test17 @1791335837: llapi_scan_fid fills one record for one FID ............... pass
+PASS N3 llapi_scan_test -t 17 (NEW) rc 0
+lfst-MDT0000: Deregistered changelog user #1
+lfst-MDT0001: Deregistered changelog user #1
+cleanup rc=0
+lustre-* fixtures untouched
+== end 2026-10-06 18:17:57
+NLINK RUN DONE

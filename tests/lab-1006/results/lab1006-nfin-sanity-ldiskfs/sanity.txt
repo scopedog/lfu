@@ -1,0 +1,341 @@
+MGS_OS_VERSION_ID=9.7
+MGS_OS_ID=rhel
+MGS_OS_VERSION_CODE=151453696
+MGS_OS_ID_LIKE=fedora rhel
+MDS1_OS_ID=rhel
+MDS1_OS_VERSION_CODE=151453696
+MDS1_OS_ID_LIKE=fedora rhel
+MDS1_OS_VERSION_ID=9.7
+OST1_OS_VERSION_ID=9.7
+OST1_OS_VERSION_CODE=151453696
+OST1_OS_ID=rhel
+OST1_OS_ID_LIKE=fedora rhel
+CLIENT_OS_VERSION_ID=9.7
+CLIENT_OS_ID_LIKE=fedora rhel
+CLIENT_OS_ID=rhel
+CLIENT_OS_VERSION_CODE=151453696
+rhel9.7-server: executing check_logdir /tmp/test_logs/1791337086
+Logging to shared log directory: /tmp/test_logs/1791337086
+rhel9.7-server: executing yml_node
+Client: 2.17.58.65
+MDS: 2.17.58.65
+OSS: 2.17.58.65
+rhel9.7-server: /usr/lib64/lustre/tests/except/sanity.0f.ex
+rhel9.7-server: /usr/lib64/lustre/tests/except/sanity.360.ex
+rhel9.7-server: /usr/lib64/lustre/tests/except/sanity.56aa.ex
+rhel9.7-server: /usr/lib64/lustre/tests/except/sanity.ex
+- need _VERSION   (  0) for , skip 
+- see CLIENT_VERSION > v2_15_63-134-gdacc4b6d38 (34683457 > 34553734) for LU-15963, go 312
+- see CLIENT_VERSION > v2_15_63-239-gab4ede45b4 (34683457 > 34553839) for LU-17856, go 56wa 56xe
+- see CLIENT_VERSION >= v2_15_7-16-gab522d54ad (34683457 >= 34539280) for LU-16203, go 60i
+- see CLIENT_VERSION > v2_16_54-54-ga2e3a2f5a3 (34683457 > 34616886) for LU-14590, go 0d
+- see CLIENT_VERSION >= v2_17_50-196-g63ee4af3bb (34683457 >= 34681540) for LU-19620, go 60b
+- see CLIENT_VERSION >= v2_17_50-34-g089f438ba9 (34683457 >= 34681378) for LU-19692, go 77k
+- see CLIENT_VERSION >= v2_17_50-71-g2cbe29c282 (34683457 >= 34681415) for LU-19644, go 150ib
+- see CLIENT_VERSION >= v2_17_50-72-ge1f272796c (34683457 >= 34681416) for LU-19743, go 27z
+- see CLIENT_VERSION >= v2_17_51-74 (34683457 >= 34681674) for LU-20010, go 56aa
+- see CLIENT_VERSION >= v2_17_52-99-g84242c4358 (34683457 >= 34681955) for LU-20010, go 56aa
+- see CLIENT_VERSION >= v2_17_55-19-g2868627130 (34683457 >= 34682643) for LU-20435, go 430a
+- need MDS1_VERSION <= 2.14.55-100-g8a84c7f9c7 (34683457 <= 34486116) for LU-14927, skip 0f
+- need MDS1_VERSION <= 2.16.61-1-g89cf292a8c2 (34683457 <= 34618625) for LU-18938, skip 360
+- need MDS1_VERSION <= 2.16.61-1-g89cf292a8c2 (34683457 <= 34618625) for LU-18938, skip 360
+- see MDS1_VERSION <= CLIENT_VERSION (34683457 <= 34683457) for LU-18562, go 270a
+- need MDS1_VERSION < v2_14_55-100-g8a84c7f9c7 (34683457 < 34486116) for LU-14927, skip 0f
+- need OST1_VERSION < v2_17_50-410-gbd8e7b9555 (34683457 < 34681754) for LU-12550, skip 216
+excepting tests: 42a 42c 42b 118c 118d 407 119i 216 817 906
+skipping tests SLOW=no: 27m 60i 64b 68 71 135 136 230d 300o 842
+=== sanity: start setup 18:38:07 (1791337087) ===
+rhel9.7-server: executing check_config_client /mnt/lfst
+rhel9.7-server: Checking config lustre mounted on /mnt/lfst
+Checking servers environments
+Checking clients rhel9.7-server environments
+Using TIMEOUT=20
+osc.lfst-OST0000-osc-ffff9faf59935800.idle_timeout=debug
+osc.lfst-OST0001-osc-ffff9faf59935800.idle_timeout=debug
+disable quota as required
+osd-ldiskfs.track_declares_assert=1
+=== sanity: finish setup 18:38:07 (1791337087) ===
+running as uid/gid/euid/egid 500/500/500/500, groups: 500
+ [true]
+running as uid/gid/euid/egid 500/500/500/500, groups: 500
+ [touch] [/mnt/lfst/d0_runas_test/f443331]
+preparing for tests involving mounts
+mke2fs 1.47.3-wc2 (11-Nov-2025)
+
+debug=all
+
+== sanity test 56Ea: test lfs find -printf option ======== 18:38:08 (1791337088)
+Creating new pool test_56Ea
+Pool lfst.test_56Ea created
+Adding targets to pool
+OST lfst-OST0000_UUID added to pool lfst.test_56Ea
+OST lfst-OST0001_UUID added to pool lfst.test_56Ea
+lfs find: warning: unrecognized escape: '\Q'
+lfs find: warning: unrecognized format directive: '%Q'
+lfs find: warning: unrecognized escape: '\Q'
+lfs find: warning: unrecognized format directive: '%Q'
+Destroy the created pools: test_56Ea
+lfst.test_56Ea
+OST lfst-OST0000_UUID removed from pool lfst.test_56Ea
+OST lfst-OST0001_UUID removed from pool lfst.test_56Ea
+Pool lfst.test_56Ea destroyed
+PASS 56Ea (6s)
+
+== sanity test 56Eaa: test lfs find -printf added functions ========================================================== 18:38:14 (1791337094)
+comparing 15 elements starting with:
+lfs: 144115188193296385 root root drwxr-xr-x /mnt/lfst
+find: 144115188193296385 root root drwxr-xr-x /mnt/lfst
+PASS 56Eaa (0s)
+
+== sanity test 56Eab: test lfs find -ls function ========= 18:38:14 (1791337094)
+PASS 56Eab (1s)
+
+== sanity test 56Eb: check lfs getstripe on symlink ====== 18:38:15 (1791337095)
+striped dir -i0 -c2 -H crush  /mnt/lfst/d56Eb.sanity/subdir_1
+/mnt/lfst/d56Eb.sanity/link_1
+stripe_count:  1 stripe_size:   4194304 pattern:        stripe_offset: -1
+/mnt/lfst/d56Eb.sanity/link_1 has no stripe info
+/mnt/lfst/d56Eb.sanity/file_link_2
+lmm_stripe_count:  1
+/mnt/lfst/d56Eb.sanity/file_link_2 has no stripe info
+PASS 56Eb (0s)
+
+== sanity test 56Ebb: check /tmp/lab1006-nfin/lustre/utils/.libs/lfs getdirstripe for FIFO file ========================================================== 18:38:15 (1791337095)
+/mnt/lfst/d56Ebb.sanity
+lmv_stripe_count: 0 lmv_stripe_offset: 1 lmv_hash_type: none
+PASS 56Ebb (0s)
+
+== sanity test 56Ec: check lfs getstripe,setstripe --hex --yaml ========================================================== 18:38:15 (1791337095)
+striped dir -i0 -c2 -H crush2  /mnt/lfst/d56Ec.sanity
+PASS 56Ec (0s)
+
+== sanity test 56Ed: verify new YAML format is valid and back-compatible ========================================================== 18:38:15 (1791337095)
+striped dir -i0 -c2 -H crush  /mnt/lfst/d56Ed.sanity
+PASS 56Ed (2s)
+
+== sanity test 56Eda: check lfs find --links ============= 18:38:17 (1791337097)
+striped dir -i0 -c2 -H crush  /mnt/lfst/d56Eda.sanity
+PASS 56Eda (0s)
+
+== sanity test 56Edb: check lfs find --links for directory striped on multiple MDTs ========================================================== 18:38:17 (1791337097)
+striped dir -i0 -c2 -H crush2  /mnt/lfst/d56Edb.sanity
+lmv_stripe_count: 2 lmv_stripe_offset: 1 lmv_hash_type: crush
+mdtidx		 FID[seq:oid:ver]
+     1		 [0x240000400:0x4:0x0]		
+     0		 [0x200000401:0x4:0x0]		
+PASS 56Edb (0s)
+
+== sanity test 56Ef: lfs find with multiple paths ======== 18:38:17 (1791337097)
+striped dir -i0 -c2 -H all_char  /mnt/lfst/d56Ef.sanity
+PASS 56Ef (0s)
+
+== sanity test 56Eg: lfs find -xattr ===================== 18:38:17 (1791337097)
+striped dir -i0 -c2 -H all_char  /mnt/lfst/d56Eg.sanity
+PASS 56Eg (1s)
+
+== sanity test 56Eh: check lfs find --skip =============== 18:38:18 (1791337098)
+striped dir -i0 -c2 -H all_char  /mnt/lfst/d56g.sanity
+striped dir -i0 -c2 -H all_char  /mnt/lfst/d56g.sanity/dir1
+striped dir -i0 -c2 -H crush  /mnt/lfst/d56g.sanity/dir2
+striped dir -i0 -c2 -H all_char  /mnt/lfst/d56g.sanity/dir3
+Running tests on /mnt/lfst/d56g.sanity, with 2813 total results.
+PASS 56Eh (10s)
+
+== sanity test 56Ei: test lfs find --printf prints correct projid for special files ========================================================== 18:38:28 (1791337108)
+striped dir -i0 -c2 -H crush2  /mnt/lfst/d56Ei.sanity
+    0 - /mnt/lfst/d56Ei.sanity//file0
+ 1234 P /mnt/lfst/d56Ei.sanity//link1234
+ 1234 P /mnt/lfst/d56Ei.sanity//char1234
+ 1234 P /mnt/lfst/d56Ei.sanity//file1234
+Actual output:
+0 /mnt/lfst/d56Ei.sanity
+0 /mnt/lfst/d56Ei.sanity/file0
+1234 /mnt/lfst/d56Ei.sanity/link1234
+1234 /mnt/lfst/d56Ei.sanity/char1234
+1234 /mnt/lfst/d56Ei.sanity/file1234
+found_count: 3
+PASS 56Ei (1s)
+
+== sanity test 56Ej: lfs migration --non-block copy ====== 18:38:29 (1791337109)
+striped dir -i0 -c2 -H crush2  /mnt/lfst/d56Ej.sanity.src
+striped dir -i0 -c2 -H all_char  /mnt/lfst/d56Ej.sanity.dest
+1+0 records in
+1+0 records out
+1048576 bytes (1.0 MB, 1.0 MiB) copied, 0.0193938 s, 54.1 MB/s
+PASS 56Ej (0s)
+
+== sanity test 56Ek: Test lfs find error handling with LLAPI_FAIL_LOC ========================================================== 18:38:29 (1791337109)
+Creating test directory structure...
+total: 10 open/close in 0.02 seconds: 551.60 ops/second
+total: 10 open/close in 0.02 seconds: 470.96 ops/second
+total: 10 open/close in 0.02 seconds: 589.97 ops/second
+total: 10 open/close in 0.02 seconds: 468.98 ops/second
+total: 10 open/close in 0.02 seconds: 569.84 ops/second
+Verifying normal find works...
+Testing error handling...
+PASS 56Ek (0s)
+
+== sanity test 56El: lfs find -printf over a subtree that is not on Lustre ========================================================== 18:38:29 (1791337109)
+striped dir -i0 -c2 -H all_char  /mnt/lfst/d56El.sanity
+PASS 56El (0s)
+
+== sanity test 56Eea: llapi changelog scanner API tests == 18:38:29 (1791337109)
+mdd.lfst-MDT0000.changelog_mask=+hsm
+mdd.lfst-MDT0001.changelog_mask=+hsm
+Registered 2 changelog users: 'cl1 cl1'
+  8 records, 8 with a FID, 4 with a name, last index 8
+ test0 @1791337110: the stream delivers records that describe events ........... pass
+  8 events collapse to 3 objects
+ test1 @1791337110: object mode collapses a burst into one record .............. pass
+  no size when unasked; 3 of 8 resolved when asked
+ test2 @1791337110: the demand mask keeps a lookup from happening .............. pass
+  stopped after 1 record, -ESHUTDOWN came back
+ test3 @1791337110: a consumer can stop the scan and hear its value back ....... pass
+  ten bad calls refused with -EINVAL
+ test4 @1791337110: bad arguments are refused, not crashed on .................. pass
+  [0x200000402:0x5d5:0x0] arrives 2 times, once with _ONCE; 5 records of 6
+ test5 @1791337110: _ONCE delivers an object once where object mode repeats it . pass
+  cleared through 23; the log now starts past it
+ test6 @1791337110: _CLEAR purges the records it delivered ..................... pass
+  want 0x2000100000200 -> got 0x2000100000000 without a resolve
+ test7 @1791337110: sc_got reports the subset this scan will answer for ........ pass
+  both renames delivered under the objects they moved
+ test8 @1791337110: a rename is about the object that moved .................... pass
+  4 of 19 records with CL_CREATE asked for
+ test9 @1791337110: sc_type_mask filters through the registered user ........... pass
+ test10 @1791337118: an object changed without pause is delivered, not held .... pass
+lfst-MDT0001: clear the changelog for cl1 of all records
+lfst-MDT0001: Deregistered changelog user #1
+lfst-MDT0000: clear the changelog for cl1 of all records
+lfst-MDT0000: Deregistered changelog user #1
+PASS 56Eea (9s)
+resend_count is set to 4 4
+resend_count is set to 4 4
+resend_count is set to 4 4
+resend_count is set to 4 4
+resend_count is set to 4 4
+
+== sanity test 160Aa: lfs find --since is a subset of the same find ========================================================== 18:38:39 (1791337119)
+mdd.lfst-MDT0000.changelog_mask=+hsm
+mdd.lfst-MDT0001.changelog_mask=+hsm
+Registered 2 changelog users: 'cl2 cl2'
+mdd.lfst-MDT0000.changelog_mask=creat
+mdd.lfst-MDT0001.changelog_mask=creat
+lfst-MDT0000: clear the changelog for cl2 of all records
+lfst-MDT0001: clear the changelog for cl2 of all records
+total: 5 open/close in 0.01 seconds: 502.91 ops/second
+lfs find: 'lfst-MDT0000' has been cleared and starts at record 79, from 2026-10-06 18:38:39, after the --since anchor; anything cleared after the anchor is not in the answer
+lfs find: 'lfst-MDT0000' has been cleared and starts at record 79, from 2026-10-06 18:38:39, after the --since anchor; anything cleared after the anchor is not in the answer
+lfst-MDT0000: clear the changelog for cl2 of all records
+lfst-MDT0000: Deregistered changelog user #2
+lfst-MDT0001: clear the changelog for cl2 of all records
+lfst-MDT0001: Deregistered changelog user #2
+lfst-MDT0001: changelog user 'cl2' not found
+lfst-MDT0000: changelog user 'cl2' not found
+PASS 160Aa (17s)
+
+== sanity test 160Ab: lfs find --changelog refuses what a record cannot answer ========================================================== 18:38:56 (1791337136)
+mdd.lfst-MDT0000.changelog_mask=+hsm
+mdd.lfst-MDT0001.changelog_mask=+hsm
+Registered 2 changelog users: 'cl3 cl3'
+mdd.lfst-MDT0000.changelog_mask=ALL
+mdd.lfst-MDT0001.changelog_mask=ALL
+lfst-MDT0000: clear the changelog for cl3 of all records
+lfst-MDT0001: clear the changelog for cl3 of all records
+lfs find: 'lfst-MDT0000' has been cleared and starts at record 86, from 2026-10-06 18:38:57, after the --since anchor; anything cleared after the anchor is not in the answer
+lfs find: 'lfst-MDT0000' has been cleared and starts at record 86, from 2026-10-06 18:38:57, after the --since anchor; anything cleared after the anchor is not in the answer
+lfs find: 'lfst-MDT0000' has been cleared and starts at record 86, from 2026-10-06 18:38:57, after the --since anchor; anything cleared after the anchor is not in the answer
+lfs find: 'lfst-MDT0000' has been cleared and starts at record 86, from 2026-10-06 18:38:57, after the --since anchor; anything cleared after the anchor is not in the answer
+lfs find: 'lfst-MDT0000' has been cleared and starts at record 86, from 2026-10-06 18:38:57, after the --since anchor; anything cleared after the anchor is not in the answer
+lfs find: 'lfst-MDT0000' has been cleared and starts at record 86, from 2026-10-06 18:38:57, after the --since anchor; anything cleared after the anchor is not in the answer
+lfs find: 'lfst-MDT0000' has been cleared and starts at record 86, from 2026-10-06 18:38:57, after the --since anchor; anything cleared after the anchor is not in the answer
+lfs find: 1 objects have no pathname and are named by FID
+lfs find: 'lfst-MDT0000' has been cleared and starts at record 86, from 2026-10-06 18:38:57, after the --since anchor; anything cleared after the anchor is not in the answer
+lfs find: 1 of 5 changed objects no longer exist and are not in the answer
+lfst-MDT0000: clear the changelog for cl3 of all records
+lfst-MDT0001: clear the changelog for cl3 of all records
+lfs find: 1 objects could not be decided and are not in the answer
+lfs find: 1 objects could not be decided and are not in the answer
+lfst-MDT0000: clear the changelog for cl3 of all records
+lfst-MDT0000: Deregistered changelog user #3
+lfst-MDT0001: clear the changelog for cl3 of all records
+lfst-MDT0001: Deregistered changelog user #3
+lfst-MDT0001: changelog user 'cl3' not found
+lfst-MDT0000: changelog user 'cl3' not found
+PASS 160Ab (9s)
+
+== sanity test 160Ac: lfs find --since-cookie resumes where it stopped ========================================================== 18:39:05 (1791337145)
+mdd.lfst-MDT0000.changelog_mask=+hsm
+mdd.lfst-MDT0001.changelog_mask=+hsm
+Registered 2 changelog users: 'cl4 cl4'
+mdd.lfst-MDT0000.changelog_mask=creat
+mdd.lfst-MDT0001.changelog_mask=creat
+lfst-MDT0000: clear the changelog for cl4 of all records
+lfst-MDT0001: clear the changelog for cl4 of all records
+total: 5 open/close in 0.01 seconds: 547.27 ops/second
+lfst-MDT0000: clear the changelog for cl4 of all records
+lfst-MDT0001: clear the changelog for cl4 of all records
+lfst-MDT0000: clear the changelog for cl4 of all records
+lfst-MDT0000: Deregistered changelog user #4
+lfst-MDT0001: clear the changelog for cl4 of all records
+lfst-MDT0001: Deregistered changelog user #4
+lfst-MDT0001: changelog user 'cl4' not found
+lfst-MDT0000: changelog user 'cl4' not found
+PASS 160Ac (11s)
+
+== sanity test 160Ad: lfs find --since finds a hardlink under either name ========================================================== 18:39:16 (1791337156)
+mdd.lfst-MDT0000.changelog_mask=+hsm
+mdd.lfst-MDT0001.changelog_mask=+hsm
+Registered 2 changelog users: 'cl5 cl5'
+mdd.lfst-MDT0000.changelog_mask=ALL
+mdd.lfst-MDT0001.changelog_mask=ALL
+lfst-MDT0000: clear the changelog for cl5 of all records
+lfst-MDT0001: clear the changelog for cl5 of all records
+lfs find: 'lfst-MDT0000' has been cleared and starts at record 130, from 2026-10-06 18:39:16, after the --since anchor; anything cleared after the anchor is not in the answer
+lfs find: 'lfst-MDT0000' has been cleared and starts at record 130, from 2026-10-06 18:39:16, after the --since anchor; anything cleared after the anchor is not in the answer
+lfs find: 'lfst-MDT0000' has been cleared and starts at record 130, from 2026-10-06 18:39:16, after the --since anchor; anything cleared after the anchor is not in the answer
+lfs find: 'lfst-MDT0000' has been cleared and starts at record 130, from 2026-10-06 18:39:16, after the --since anchor; anything cleared after the anchor is not in the answer
+lfst-MDT0000: clear the changelog for cl5 of all records
+lfst-MDT0000: Deregistered changelog user #5
+lfst-MDT0001: clear the changelog for cl5 of all records
+lfst-MDT0001: Deregistered changelog user #5
+lfst-MDT0001: changelog user 'cl5' not found
+lfst-MDT0000: changelog user 'cl5' not found
+PASS 160Ad (2s)
+
+== sanity test 160Ae: lfs find --since and --changelog see a renamed file ========================================================== 18:39:18 (1791337158)
+mdd.lfst-MDT0000.changelog_mask=+hsm
+mdd.lfst-MDT0001.changelog_mask=+hsm
+Registered 2 changelog users: 'cl6 cl6'
+mdd.lfst-MDT0000.changelog_mask=ALL
+mdd.lfst-MDT0001.changelog_mask=ALL
+lfst-MDT0000: clear the changelog for cl6 of all records
+lfst-MDT0001: clear the changelog for cl6 of all records
+lfs find: 'lfst-MDT0000' has been cleared and starts at record 155, from 2026-10-06 18:39:18, after the --since anchor; anything cleared after the anchor is not in the answer
+lfs find: 1 of 3 changed objects no longer exist and are not in the answer
+lfs find: 1 objects could not be decided and are not in the answer
+lfst-MDT0000: clear the changelog for cl6 of all records
+lfst-MDT0000: Deregistered changelog user #6
+lfst-MDT0001: clear the changelog for cl6 of all records
+lfst-MDT0001: Deregistered changelog user #6
+lfst-MDT0001: changelog user 'cl6' not found
+lfst-MDT0000: changelog user 'cl6' not found
+PASS 160Ae (3s)
+
+== sanity test 160Af: lfs find --since warns when the log was cleared past it ========================================================== 18:39:21 (1791337161)
+mdd.lfst-MDT0000.changelog_mask=+hsm
+mdd.lfst-MDT0001.changelog_mask=+hsm
+Registered 2 changelog users: 'cl7 cl7'
+lfst-MDT0000: clear the changelog for cl7 of all records
+lfst-MDT0001: clear the changelog for cl7 of all records
+lfst-MDT0000: clear the changelog for cl7 of all records
+lfst-MDT0000: Deregistered changelog user #7
+lfst-MDT0001: clear the changelog for cl7 of all records
+lfst-MDT0001: Deregistered changelog user #7
+lfst-MDT0001: changelog user 'cl7' not found
+lfst-MDT0000: changelog user 'cl7' not found
+PASS 160Af (2s)
+== sanity test complete, duration 78 sec ================= 18:39:24 (1791337164)
+=== sanity: start cleanup 18:39:24 (1791337164) ===
+=== sanity: finish cleanup 18:39:28 (1791337168) ===
+debug=super ioctl neterror warning dlmtrace error emerg ha rpctrace vfstrace config console lfsck
