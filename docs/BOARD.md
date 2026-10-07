@@ -38,8 +38,18 @@ All build (-Werror) and checkpatch clean.
   the new flags match it. --device MDT/OST 11/11 identical. ZFS sanity 22/22.
 - lreview on the follow-ups: 7 low, all fixed (lreview-followups/TRIAGE.md).
   **Now: gap ceaeec5973, pick 0f750eed55, zfsflags d7bc5decf4** on 69443
-  (branch lu-20650-since-gap). Sweep 3/3, checkpatch clean. Lab re-run of
-  the gap arms (new wording, no read without an anchor) in flight.
+  (branch lu-20650-since-gap). Sweep 3/3, checkpatch clean. **Gap re-run
+  GREEN** (results/lab1006-gap2*): time wording / index wording as
+  intended, no probe without an anchor (2 opens both arms; 4 with
+  --since), cookie unchanged; sanity 23/23 ldiskfs DNE, 22/22 ZFS.
+- **User 10-06: "do the fid2path saving too"** -> new follow-up
+  **f229155db8** LU-20650 llapi: llapi_scan_fid(), FID and nlink to the
+  filter (statx asks STATX_NLINK; the filter gets a COPY with FID+nlink,
+  the cb record unchanged for the -ESTALE test; llapi_scan_test 17
+  checks both). Pick simplified on top (**7f89ccd7f4**: no fss_pre_fid, no
+  try_links). Stack on 69443: ceaeec5973, f229155db8, 7f89ccd7f4,
+  **f14b3b09ab** (zfsflags). Sweep 4/4, checkpatch clean. lreview on the
+  two changed commits and the nlink lab in flight.
 
 ## 2026-10-06 evening: fix-1006 PUSHED
 

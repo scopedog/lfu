@@ -1,0 +1,5 @@
+  g2n (d7bc5decf4) make -k errors in: libmount_utils_zfs.c mount_utils.h 
+  g2n zfs probe: checking zfs libzpool headers usable from userspace... -DDEBUG -UNDEBUG -DZFS_DEBUG -DLIB_ZPOOL_BUILD -I /usr/src/zfs-2.2.11/lib/libspl/include -I /usr/src/zfs-2.2.11/lib/libspl/include/os/linux -I /usr/src/zfs-2.2.11/in
+  g2n PLUGIN_DIR: /tmp/arm1006g2n/lib/lustre/scan_osd_%s.so
+ 0x000000000000000f (RPATH)              Library rpath: [/tmp/arm1006g2n/lib]
+BUILD-OK

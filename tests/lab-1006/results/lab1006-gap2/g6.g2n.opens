@@ -1,0 +1,2 @@
+      1 openat(AT_FDCWD, "/dev/changelog-lfst-MDT0000", O_RDONLY) = 5
+      1 openat(AT_FDCWD, "/dev/changelog-lfst-MDT0001", O_RDONLY) = 5

@@ -1,0 +1,2 @@
+lfs find: 'lfst-MDT0000' has purged past the cookie: it starts at 10 and '/tmp/lab1006-gap2/ck.ARM' records 7, so the run would resume at 8 and the records in between are gone
+lfs: failed for '/mnt/lfst': Stale file handle
