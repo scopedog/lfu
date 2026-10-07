@@ -1,0 +1,44 @@
+== start 2026-10-06 17:32:18
+pold (bc5e232bd9) lfs loads: /tmp/arm1006pold/lib/liblustreapi.so.1 (0x00007fb09bd27000)  pre_cb=0
+pnew (0a175c4191) lfs loads: /tmp/arm1006pnew/lib/liblustreapi.so.1 (0x00007ff9e1eab000)  pre_cb=1
+users: cl1 cl1
+big: 5000 x4 created in 9s
+changelog records: lfst-MDT0000 20028, lfst-MDT0001 20002
+hl links: /mnt/lfst/big/d0/hl /mnt/lfst/small/hl 
+PASS P1.1 [/mnt/lfst/small --since 1h ] identical: 11 lines, rc 0, err[]
+PASS P1.2 [/mnt/lfst/small --since 1h -type f] identical: 9 lines, rc 0, err[]
+PASS P1.3 [/mnt/lfst/small --since 1h -name f*] identical: 0 lines, rc 0, err[]
+PASS P1.4 [/mnt/lfst/small --since 1h ! -name x*] identical: 10 lines, rc 0, err[]
+PASS P1.5 [/mnt/lfst/small --since 1h -type d] identical: 2 lines, rc 0, err[]
+PASS P1.6 [/mnt/lfst/small --since 1h -printf %p\n] identical: 11 lines, rc 0, err[]
+PASS P1.7 [/mnt/lfst/small --since 1h -size +0] identical: 8 lines, rc 0, err[]
+PASS P1.8 [/mnt/lfst --since 1h ] identical: 20017 lines, rc 0, err[]
+PASS P1.9 [/mnt/lfst --since 1h -type f] identical: 20010 lines, rc 0, err[]
+PASS P1.10 [/mnt/lfst --since 1h -name f*] identical: 20000 lines, rc 0, err[]
+PASS P1.11 [/mnt/lfst --since 1h ! -name x*] identical: 20016 lines, rc 0, err[]
+PASS P1.12 [/mnt/lfst --since 1h -type d] identical: 7 lines, rc 0, err[]
+PASS P1.13 [/mnt/lfst --since 1h -printf %p\n] identical: 20017 lines, rc 0, err[]
+PASS P1.14 [/mnt/lfst --since 1h -size +0] identical: 13 lines, rc 0, err[]
+small answer (NEW): /mnt/lfst/small /mnt/lfst/small/hl /mnt/lfst/small/rin /mnt/lfst/small/s1 /mnt/lfst/small/s2 /mnt/lfst/small/s3 /mnt/lfst/small/s4 /mnt/lfst/small/s5 /mnt/lfst/small/sd /mnt/lfst/small/sd/inner /mnt/lfst/small/xskip 
+PASS P1 small has hl
+PASS P1 small has rin
+PASS P1 small has s1
+PASS P1 small has sd
+PASS P1 small has sd/inner
+PASS P1 small has xskip
+PASS P1 small leaves out rout
+P2 caches: not dropped between runs; one untimed warm-up run per arm first
+P2 /mnt/lfst/small pold: median 6.400  range 6.115-6.564  (n=5)  [6.563686933 6.457830224 6.167936039 6.115479369 6.400344899 ]
+P2 /mnt/lfst/small pnew: median 4.264  range 4.179-4.587  (n=5)  [4.586718749 4.263932128 4.322195348 4.179196285 4.214345083 ]
+P2 rpcs /mnt/lfst/small pold: llog_origin_handle_next_block=865 llog_origin_handle_open=8 llog_origin_handle_read_header=8 mds_getattr=14 mds_getattr_lock=20010 mds_get_info=30021 req_active=50926 req_waittime=50926 
+P2 rpcs /mnt/lfst/small pnew: llog_origin_handle_next_block=866 llog_origin_handle_open=8 llog_origin_handle_read_header=8 mds_getattr=4 mds_getattr_lock=9 mds_get_info=60024 req_active=60919 req_waittime=60919 
+P2 /mnt/lfst (whole fs) pold: median 6.210  range 6.057-6.574  (n=3)  [6.057226005 6.210323756 6.573653991 ]
+P2 /mnt/lfst (whole fs) pnew: median 6.195  range 6.004-6.315  (n=3)  [6.194947234 6.003954050 6.315184669 ]
+P2 rpcs /mnt/lfst pold: llog_origin_handle_next_block=865 llog_origin_handle_open=8 llog_origin_handle_read_header=8 mds_getattr=14 mds_getattr_lock=20010 mds_get_info=30019 obd_ping=1 req_active=50925 req_waittime=50925 
+P2 rpcs /mnt/lfst pnew: llog_origin_handle_next_block=865 llog_origin_handle_open=8 llog_origin_handle_read_header=8 mds_getattr=14 mds_getattr_lock=20010 mds_get_info=30019 obd_ping=1 req_active=50925 req_waittime=50925 
+lfst-MDT0000: Deregistered changelog user #1
+lfst-MDT0001: Deregistered changelog user #1
+cleanup rc=0
+lustre-* fixtures untouched
+== end 2026-10-06 17:38:53
+PICK RUN DONE

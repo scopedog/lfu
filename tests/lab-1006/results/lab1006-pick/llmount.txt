@@ -1,0 +1,63 @@
+MGS_OS_VERSION_ID=9.7
+MGS_OS_ID=rhel
+MGS_OS_VERSION_CODE=151453696
+MGS_OS_ID_LIKE=fedora rhel
+MDS1_OS_ID=rhel
+MDS1_OS_VERSION_CODE=151453696
+MDS1_OS_ID_LIKE=fedora rhel
+MDS1_OS_VERSION_ID=9.7
+OST1_OS_VERSION_ID=9.7
+OST1_OS_VERSION_CODE=151453696
+OST1_OS_ID=rhel
+OST1_OS_ID_LIKE=fedora rhel
+CLIENT_OS_VERSION_ID=9.7
+CLIENT_OS_ID_LIKE=fedora rhel
+CLIENT_OS_ID=rhel
+CLIENT_OS_VERSION_CODE=151453696
+Stopping clients: rhel9.7-server /mnt/lfst (opts:-f)
+Stopping clients: rhel9.7-server /mnt/lfst2 (opts:-f)
+rhel9.7-server: executing set_hostid
+Loading modules from /usr/lib64/lustre
+detected 4 online CPUs by sysfs
+MODOPTS_LIBCFS=
+Force libcfs to create 2 CPU partitions
+ptlrpc/ptlrpc options: 'lbug_on_grant_miscount=1'
+quota/lquota options: 'hash_lqs_cur_bits=3'
+mdt/mdt options: 'mdt_enable_flr_ec=1'
+Formatting mgs, mds, osts
+Format mds1: /tmp/lfst-mdt1
+Format mds2: /tmp/lfst-mdt2
+Format ost1: /tmp/lfst-ost1
+Format ost2: /tmp/lfst-ost2
+Checking servers environments
+Checking clients rhel9.7-server environments
+Loading modules from /usr/lib64/lustre
+detected 4 online CPUs by sysfs
+MODOPTS_LIBCFS=
+Force libcfs to create 2 CPU partitions
+Setup mgs, mdt, osts
+Start mds1: mount -t lustre -o localrecov  /dev/mapper/mds1_flakey /mnt/lfst-mds1
+Commit the device label on /tmp/lfst-mdt1
+Started lfst-MDT0000
+Start mds2: mount -t lustre -o localrecov  /dev/mapper/mds2_flakey /mnt/lfst-mds2
+Commit the device label on /tmp/lfst-mdt2
+Started lfst-MDT0001
+Start ost1: mount -t lustre -o localrecov  /dev/mapper/ost1_flakey /mnt/lfst-ost1
+seq.cli-lfst-OST0000-super.width=65536
+Commit the device label on /tmp/lfst-ost1
+Started lfst-OST0000
+/mnt/lfst-ost1: 55.4 MiB (58085376 bytes) trimmed
+Start ost2: mount -t lustre -o localrecov  /dev/mapper/ost2_flakey /mnt/lfst-ost2
+seq.cli-lfst-OST0001-super.width=65536
+Commit the device label on /tmp/lfst-ost2
+Started lfst-OST0001
+/mnt/lfst-ost2: 55.4 MiB (58085376 bytes) trimmed
+Starting client: rhel9.7-server:  -o user_xattr,flock 192.168.122.10@tcp:/lfst /mnt/lfst
+Using TIMEOUT=20
+osc.lfst-OST0000-osc-ffff9faf1e557000.idle_timeout=debug
+osc.lfst-OST0001-osc-ffff9faf1e557000.idle_timeout=debug
+setting jobstats to procname_uid
+Setting lfst.sys.jobid_var from disable to procname_uid
+Waiting 90s for 'procname_uid'
+Updated after 3s: want 'procname_uid' got 'procname_uid'
+disable quota as required

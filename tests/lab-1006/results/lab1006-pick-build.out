@@ -1,0 +1,13 @@
+  pold (bc5e232bd9) make -k errors in: libmount_utils_zfs.c mount_utils.h 
+  pold zfs probe: checking zfs libzpool headers usable from userspace... -DLIB_ZPOOL_BUILD -I /usr/src/zfs-2.2.11/lib/libspl/include -I /usr/src/zfs-2.2.11/lib/libspl/include/os/linux -I /usr/src/zfs-2.2.11/include -I /usr/src/zfs-2.2.11/
+  pold PLUGIN_DIR: /tmp/arm1006pold/lib/lustre/scan_osd_%s.so
+ 0x000000000000000f (RPATH)              Library rpath: [/tmp/arm1006pold/lib]
+  pnew (0a175c4191) make -k errors in: libmount_utils_zfs.c mount_utils.h 
+  pnew zfs probe: checking zfs libzpool headers usable from userspace... -DLIB_ZPOOL_BUILD -I /usr/src/zfs-2.2.11/lib/libspl/include -I /usr/src/zfs-2.2.11/lib/libspl/include/os/linux -I /usr/src/zfs-2.2.11/include -I /usr/src/zfs-2.2.11/
+  pnew PLUGIN_DIR: /tmp/arm1006pnew/lib/lustre/scan_osd_%s.so
+ 0x000000000000000f (RPATH)              Library rpath: [/tmp/arm1006pnew/lib]
+  znew (bb7e771b7f) make -k errors in: libmount_utils_zfs.c mount_utils.h 
+  znew zfs probe: checking zfs libzpool headers usable from userspace... -DDEBUG -UNDEBUG -DZFS_DEBUG -DLIB_ZPOOL_BUILD -I /usr/src/zfs-2.2.11/lib/libspl/include -I /usr/src/zfs-2.2.11/lib/libspl/include/os/linux -I /usr/src/zfs-2.2.11/in
+  znew PLUGIN_DIR: /tmp/arm1006znew/lib/lustre/scan_osd_%s.so
+ 0x000000000000000f (RPATH)              Library rpath: [/tmp/arm1006znew/lib]
+BUILD-OK

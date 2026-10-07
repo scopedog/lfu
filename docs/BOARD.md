@@ -25,7 +25,18 @@ All build (-Werror) and checkpatch clean.
   (ESTALE both). The lab found a 160Af bug (--changelog on a subdir is
   refused without --resolve) -> searches $MOUNT, folded. sanity 56E*+160A*
   ldiskfs DNE 23/23, ZFS 22/22.
-- Lab for #2 and #1 in flight.
+- **#2 lab GREEN** (results/lab1006-pick*): 14/14 answers byte-identical
+  (small subtree and whole fs; hardlink-first-outside kept, rename in kept,
+  rename out absent). small subtree vs 20k changes elsewhere: 6.40 s ->
+  4.26 s median (5 alternated runs), mds_getattr_lock 20010 -> 9, but
+  fid2path 30021 -> 60024 (the extra link probe per rejected object).
+  Whole fs 6.21 vs 6.20 s, identical RPCs. sanity 23/23.
+- **#1 lab GREEN** (results/lab1006-zfsflags*): configure probe and
+  libscan_zfs.c compile now carry -DZFS_DEBUG; layout probe: dnode_t 968
+  -> 1224, dn_num_slots 164 both, dn_holds 680 -> 808, abd_t 104 -> 248;
+  installed libzpool exports reference_tracking_enable (ZFS_DEBUG-only) so
+  the new flags match it. --device MDT/OST 11/11 identical. ZFS sanity 22/22.
+- lreview on the three follow-ups in flight (lreview-followups/).
 
 ## 2026-10-06 evening: fix-1006 PUSHED
 

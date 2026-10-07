@@ -1,0 +1,29 @@
+== start 2026-10-06 17:39:28
+Z2 pnew ZFS_LIBZPOOL_INCLUDE: -DLIB_ZPOOL_BUILD -I /usr/src/zfs-2.2.11/lib/libspl/include -I /usr/src/zfs-2.2.11/lib/libspl/include/os/linux -I /usr/src/zfs-2.2.11/include -I /usr/src/zfs-2.2.11/include/os/linux/zfs
+Z2 pnew layout: sizeof(zfs_refcount_t)=8 sizeof(dnode_t)=968 offsetof(dn_num_slots)=164 offsetof(dn_tx_holds)=672 offsetof(dn_holds)=680 offsetof(dn_dbufs_mtx)=688 sizeof(dmu_buf_t)=32 sizeof(abd_t)=104
+Z2 pnew libscan_zfs.c compiled with ZFS_DEBUG: 0 compile lines
+Z2 znew ZFS_LIBZPOOL_INCLUDE: -DDEBUG -UNDEBUG -DZFS_DEBUG -DLIB_ZPOOL_BUILD -I /usr/src/zfs-2.2.11/lib/libspl/include -I /usr/src/zfs-2.2.11/lib/libspl/include/os/linux -I /usr/src/zfs-2.2.11/include -I /usr/src/zfs-2.2.11/include/os/linux/zfs
+Z2 znew layout: sizeof(zfs_refcount_t)=136 sizeof(dnode_t)=1224 offsetof(dn_num_slots)=164 offsetof(dn_tx_holds)=672 offsetof(dn_holds)=808 offsetof(dn_dbufs_mtx)=944 sizeof(dmu_buf_t)=32 sizeof(abd_t)=248
+Z2 znew libscan_zfs.c compiled with ZFS_DEBUG: 1 compile lines
+Z2 installed libzpool: libzpool5-2.2.11-1.el9.x86_64, exports: reference_tracking_enable zfs_refcount_add zfs_refcount_create zfs_refcount_remove 
+Z2 (zfs_refcount.h: under !ZFS_DEBUG zfs_refcount_create/_add/_remove are macros and reference_tracking_enable does not exist, so these exports mean libzpool was built with ZFS_DEBUG)
+pnew plugin: 52 undefined syms, md5 3b86a49b4ad4
+znew plugin: 52 undefined syms, md5 42398fe2ff7f
+MDT zfst-mdt1/mdt1 OST zfst-ost1/ost1
+exported: mounted 0, pools 0
+PASS Z3 mdt-all [zfst-mdt1/mdt1] identical: 88 lines rc 0 err[]
+PASS Z3 mdt-f [zfst-mdt1/mdt1 --type f] identical: 80 lines rc 0 err[]
+PASS Z3 mdt-d [zfst-mdt1/mdt1 --type d] identical: 7 lines rc 0 err[]
+PASS Z3 mdt-name [zfst-mdt1/mdt1 -name f1*] identical: 11 lines rc 0 err[lfs find: zfst-mdt1/mdt1: 2 objects could not be decided: the target has no answer for a field the search asked for|]
+PASS Z3 mdt-uid [zfst-mdt1/mdt1 -uid 500] identical: 1 lines rc 0 err[]
+PASS Z3 mdt-perm [zfst-mdt1/mdt1 -perm 600] identical: 1 lines rc 0 err[]
+PASS Z3 mdt-links [zfst-mdt1/mdt1 -links 2] identical: 5 lines rc 0 err[]
+PASS Z3 mdt-printf [zfst-mdt1/mdt1 -printf %LF %m %U %s\n] identical: 88 lines rc 0 err[]
+PASS Z3 ost-all [zfst-ost1/ost1] identical: 97 lines rc 0 err[]
+PASS Z3 ost-size [zfst-ost1/ost1 -size +256k] identical: 16 lines rc 0 err[]
+PASS Z3 ost-printf [zfst-ost1/ost1 -printf %LF %s\n] identical: 97 lines rc 0 err[]
+/etc/zfs/zpool.cache untouched
+lustre-* fixtures untouched
+pools left: 0
+== end 2026-10-06 17:41:04
+ZFSFLAGS RUN DONE
