@@ -48,8 +48,19 @@ All build (-Werror) and checkpatch clean.
   the cb record unchanged for the -ESTALE test; llapi_scan_test 17
   checks both). Pick simplified on top (**7f89ccd7f4**: no fss_pre_fid, no
   try_links). Stack on 69443: ceaeec5973, f229155db8, 7f89ccd7f4,
-  **f14b3b09ab** (zfsflags). Sweep 4/4, checkpatch clean. lreview on the
-  two changed commits and the nlink lab in flight.
+  **f14b3b09ab** (zfsflags). Sweep 4/4, checkpatch clean.
+- lreview (nlink 4, pick 4, all low; lreview-followups/nlink.md, pick2.md):
+  fixed -- no STATX_NLINK for a directory in the filter record (else every
+  rejected dir with subdirs paid a fid2path: filter rec has STATX_TYPE but
+  find_since_hardlinked() tests STATX_MODE); stale link-order paragraphs
+  (kernel-doc + man3); pick message narrowed (fid2path/statx failures still
+  counted, only gather failures not); imperative nlink subject; test 17
+  asserts a dir gets no nlink.
+- **Now on 69443: ceaeec5973 gap, 32e7af285c nlink, 4244d46ec4 pick,
+  2848d7f2cf zfsflags.** Sweep 4/4, checkpatch 0/0. The nlink lab running
+  on f14b3b09ab needs a short re-run on 2848d7f2cf (dir RPCs, test 17).
+- User 10-06: push later, as long as CR+1 is not lost (it is not: only new
+  changes on top; 68094/68095 untouched -- re-check --patch-sets first).
 
 ## 2026-10-06 evening: fix-1006 PUSHED
 
