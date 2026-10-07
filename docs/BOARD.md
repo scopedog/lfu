@@ -4,7 +4,30 @@ Every ticket and Gerrit id in play, and the ones that are *not* ours. Regenerate
 the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
 **2026-09-06**.
 
-## 2026-10-06 night: three follow-ups for the deferred lreview items -- start here
+## 2026-10-07 early: stopped for the day -- START HERE
+
+- **Waiting on:** the AI review of the 13 PS pushed 10-06 evening (68157
+  PS32 ... 68420 PS14, 69443 PS2) -- not posted yet at stop. All 13 built
+  (jenkins +1). Then: clean -> ask, push the 4 follow-ups alone; a fix below
+  them -> fold, rebase the 4, push as one round (user 10-06).
+- **Follow-ups READY, unpushed** (branch lu-20650-since-gap, ~/lfs-fix-1006):
+  ceaeec5973 gap warning, 3a2a321ac3 nlink to the filter, bcf1d6d101 pick
+  before the gather, 036735e9fb ZFS debug flags. lreview x3 fixed, labs
+  green. Push adds new changes only; re-check --patch-sets (68094/68095 CR+1).
+- **Maloo retests in flight** (linked): 68416 PS21 dne-part-1 lustre-init
+  (LU-20834), 68158 PS29 dne-part-2 sanity-lfsck 18e (LU-17891), 68163 PS29
+  selinux-ssk-part-1 sanity 413b (LU-17601). Earlier today: 68418/68163/68419
+  x2 (LU-17601, LU-18293, LU-16932, LU-18276).
+- **For the user:** 68157 PS32 optional dne-part-2 sanity-lfsck 5 = LU-20505,
+  not retested (optional); LU-20834 comment that it also hits server nodes
+  (not posted). LU-20598 sanity-sec on 68416: wait for convergence.
+- **JLUG slides** (docs/local/jlug26, gitignored): restyled to LAD'26 + TLC
+  logo, audited (prototype vs upstream fixed), 25 slides, architecture slide
+  16 added, measurements slide dropped. Offered: a "プロトタイプで測定"
+  footnote on the ldiskfs/ZFS benchmark slides (not done).
+- Clone VM rhel9.7-server-mgs-mds-clone left running (no fixtures mounted).
+
+## 2026-10-06 night: three follow-ups for the deferred lreview items
 
 User 10-06: do #3, then #2 and #1; ignore #4 (68418 subject). Built as
 follow-up changes on top of 69443 in ~/lfs-fix-1006, branch
