@@ -9,7 +9,8 @@ CHANGES = [68094,68095,68156,68157,68158,68159,68160,68163,68231,68288,68340,
            # round 22 created these two: the batch API and the slash trim
            68726,68727,
            69339, 69417,  # uuid_match const cleanup, 09-30
-           69443]  # 68419 stale-window follow-up, 10-05
+           69443,  # 68419 stale-window follow-up, 10-05
+           68810]  # OSD series head; ablagodarenko reviewing it, 10-07
 Q = " OR ".join("change:%d" % c for c in CHANGES)
 
 def fetch():
