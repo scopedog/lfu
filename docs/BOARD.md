@@ -26,7 +26,7 @@ the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
   logo, audited (prototype vs upstream fixed), 25 slides, architecture slide
   16 added, measurements slide dropped. Prototype footnote on the
   benchmark slides: not wanted (user 10-07).
-- Clone VM rhel9.7-server-mgs-mds-clone left running (no fixtures mounted).
+- Clone VM rhel9.7-server-mgs-mds-clone shut down (user 10-07).
 
 ## 2026-10-06 night: three follow-ups for the deferred lreview items
 
