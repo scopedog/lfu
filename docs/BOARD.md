@@ -4,7 +4,52 @@ Every ticket and Gerrit id in play, and the ones that are *not* ours. Regenerate
 the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
 **2026-09-06**.
 
-## 2026-10-07 early: stopped for the day -- START HERE
+## 2026-10-07 afternoon: AI round on PS 10-06 fixed locally -- START HERE
+
+- **fix-1007 READY, UNPUSHED:** ~/lfs-fix-1007, branch fix-1007 = tag-ish
+  branch `a1007-tip` = **f170751608** (old tip 036735e9fb). 68156 kept;
+  68159..69443 + the 4 follow-ups rewritten by docs/rounds/a-1007/rebuild.py
+  (edits with owner/until; `tip` mode applies to the worktree). Tip tree ==
+  worktree checked each rebuild.
+- **21 AI comments:** 20 fixed, 68418 #72ba260c answered "68420 rewrites it";
+  68419 #c5256ba4 (stuck cookie) documented as intended. Replies drafted in
+  docs/rounds/a-1007/replies.md. Real defects: 68163 EACCES lost on ZFS 2.4
+  (lpc_error overwritten; now lpc_open_access_error), 68419 symlinked cookie
+  replaced, 68415 replaced object carried the rename source, 68420 two
+  assertions that could not fail.
+- **lreview** (docs/rounds/a-1007/lreview/, 8 commits, $24): 17 low findings;
+  fixed: 68417 man3 example uses llapi_find_param_alloc + root-only note,
+  68418 --changelog prints the FID when a lookup fails for any reason,
+  68419 keep the cookie off the searched fs, 68420 "Five changes", 160A
+  --since gone-count asserted via stderr, 160Ae asserts the path, 69443
+  cost comment, gap "record 1" claim, 68418/68420 subjects. **Deferred
+  (user):** 68163 plugin ABI (move search arg into 68156's sb_open), 68418
+  message/comments past tense, fsync stdout before the cookie, --since 0 vs 1
+  warning, per-MDT cookie advance.
+- **Verified:** sweep 15/15 (tests/build-sweep-range.sh, utils-only, host);
+  checkpatch counts == old; lab-1007 on the clone VM: arms 7/7 (C1 symlink,
+  L1 --local once, E1 test8 fails on OLD lib), ZFS 6/6 incl. Z24 (plugin
+  with lpc_error overwritten as 2.4 does: OLD -> ENOENT, NEW -> EACCES);
+  sanity 56E*+160A* on f170751608: ldiskfs DNE 23/23, ZFS 22/22 (56Edb skip).
+  Not lab-tested: the 68418 FID-on-error print (needs a path > PATH_MAX or
+  EIO).
+- **68810 (OSD, 2.19):** Artem's el10 build break fixed on lu-20720-el10
+  (~/lfs-osd-1007; old tip kept as lu-20720-fold-1007-base). Built: el9
+  5.14 all modules link at 68810 and tip; el10 6.12.0-124.56.1 (on
+  rhel10.2-client-clone, fs/ext4 copied from Rocky's src.rpm into its
+  kernel-devel tree) old 68810 reproduces the i_atime errors, fixed links.
+  Base llite/namei.c unused label fails -Werror on both (not ours;
+  KCFLAGS=-Wno-error=unused-label). User replied on Gerrit 10-07. lreview
+  on 68810 (lreview-68810/): nothing on the fix; 6 on the Group A port,
+  one real: **lfu_noverify module param can spin the scrub thread** (skip
+  before oii assigned) -- owed before 2.19 lands.
+- Maloo 10-07: LU-19605 x5 ubuntu sanity-lnet 236 (fixed on master after our
+  base) linked+retested; 68419 LU-17891, 68417 LU-17077 retested. **68159
+  review-ldiskfs sanity-lnet 228 "Detected no route send failures": no
+  ticket, user's call.**
+- Clone VM rhel9.7-server-mgs-mds-clone running; rhel10.2-client-clone shut down.
+
+## 2026-10-07 early: stopped for the day
 
 - **Waiting on:** the AI review of the 13 PS pushed 10-06 evening (68157
   PS32 ... 68420 PS14, 69443 PS2) -- not posted yet at stop. All 13 built
