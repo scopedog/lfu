@@ -71,6 +71,10 @@ All build (-Werror) and checkpatch clean.
   get_info +8002 (two/dir) on f14b3b09ab vs +4001 (one/dir) on FINAL.
   test 17 passes (incl. tip's nlink==2), sanity 23/23 ldiskfs DNE, 22 ZFS.
 - **Follow-ups READY to push** (4 new changes on 69443; no CR+1 lost).
+  **User 10-06: wait for the AI review on the 13 PS.** Clean (or nothing
+  below the follow-ups) -> ask, push the 4 alone; a fix below -> fold it,
+  rebase the 4, push as one round. lreview: no further round (only
+  docs/comment/test since the last; name the skip in the push-ask).
 - User 10-06: push later, as long as CR+1 is not lost (it is not: only new
   changes on top; 68094/68095 untouched -- re-check --patch-sets first).
 
