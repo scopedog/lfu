@@ -9,14 +9,14 @@ the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
 User 10-06: do #3, then #2 and #1; ignore #4 (68418 subject). Built as
 follow-up changes on top of 69443 in ~/lfs-fix-1006, branch
 lu-20650-since-gap, NOT pushed, no Change-Id on Gerrit yet:
-- **bc5e232bd9** LU-20650 lfs: find --since, warn when the log was cleared
+- **ceaeec5973** LU-20650 lfs: find --since, warn when the log was cleared
   -- find_since_gap(): each MDT's oldest record before its scan; index > 1
   and newer than the time (or past a bare index) -> warning naming MDT and
   time; cookie skipped (has -ESTALE). sanity 160Af. Man1+man3.
-- **0a175c4191** LU-20650 lfs: find --since, pick before the gather --
+- **0f750eed55** LU-20650 lfs: find --since, pick before the gather --
   find_since_pick() as llapi_scan_fid()'s lfsp_filter (try_links without
   nlink; FID via fss_pre_fid). --changelog unchanged.
-- **bb7e771b7f** LU-20613 build: compile libscan_zfs.c as libzpool is built
+- **d7bc5decf4** LU-20613 build: compile libscan_zfs.c as libzpool is built
   -- -DDEBUG -UNDEBUG -DZFS_DEBUG on every LB_ZFS_USER header set.
 All build (-Werror) and checkpatch clean.
 - **#3 lab GREEN** (tests/lab-1006/results/lab1006-gap*): fresh log silent;
@@ -36,7 +36,10 @@ All build (-Werror) and checkpatch clean.
   -> 1224, dn_num_slots 164 both, dn_holds 680 -> 808, abd_t 104 -> 248;
   installed libzpool exports reference_tracking_enable (ZFS_DEBUG-only) so
   the new flags match it. --device MDT/OST 11/11 identical. ZFS sanity 22/22.
-- lreview on the three follow-ups in flight (lreview-followups/).
+- lreview on the follow-ups: 7 low, all fixed (lreview-followups/TRIAGE.md).
+  **Now: gap ceaeec5973, pick 0f750eed55, zfsflags d7bc5decf4** on 69443
+  (branch lu-20650-since-gap). Sweep 3/3, checkpatch clean. Lab re-run of
+  the gap arms (new wording, no read without an anchor) in flight.
 
 ## 2026-10-06 evening: fix-1006 PUSHED
 
