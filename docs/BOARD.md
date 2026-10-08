@@ -23,6 +23,9 @@ the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
   certain loss -- reverted; 160Aa anchored mid-gap (@$mid); 160Ac symlink
   case; final lreview on 68420 clean. sanity 56E*+160A* on ab63954c73:
   ldiskfs 23/23, ZFS 22/22.
+- **LU-20834 commented** (id 503019, user's word 10-07): it also hits a server
+  node -- 68416 PS21 dne-part-1 el10.1, mds2 trevis-152vm279 never loaded
+  Lustre while mds1 did.
 - 68159 PS29 review-ldiskfs retested (LU-19373) on the user's word; moot now
   that PS30 is up.
 - **68810-68818 PS2 PUSHED** (user, 10-07 evening): the el10 i_*time fix,
