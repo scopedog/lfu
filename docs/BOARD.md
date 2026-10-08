@@ -25,7 +25,10 @@ the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
   ldiskfs 23/23, ZFS 22/22.
 - 68159 PS29 review-ldiskfs retested (LU-19373) on the user's word; moot now
   that PS30 is up.
-- Not pushed: 68810 (OSD) el10 fix, lu-20720-el10 -- ask the user.
+- **68810-68818 PS2 PUSHED** (user, 10-07 evening): the el10 i_*time fix,
+  3b7a039e06 (branch lu-20720-pushed-1007 in ~/lfs-osd-1007); the unpushed
+  subtree commit stays on lu-20720-el10 above it. **lfu_noverify left for
+  later** (user): drop it before the series lands.
 
 ## 2026-10-07 afternoon: AI round on PS 10-06 fixed locally
 
