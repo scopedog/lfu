@@ -1,0 +1,26 @@
+  77d69359a6_77d6935  LU-20650 tests: add sanity cases for lfs find's changelog fl (worktree)
+
+Reviewing 1 change(s), 1 in parallel, timeout 7200s each
+  prompts:   /home/nishida/projects/llm_code_and_review_tools/review-prompts/kernel
+             (via bundled submodule (/home/nishida/projects/llm_code_and_review_tools/review-prompts))
+  results:   /home/nishida/projects/llm_code_and_review_tools/lreview-results
+  worktrees: /home/nishida/projects/llm_code_and_review_tools/lreview-results/worktrees
+
+running: 77d69359a6_77d6935 0m00s | done 0/1
+[77d69359a6_77d6935] review started: LU-20650 tests: add sanity cases for lfs find's changelog fl
+running: 77d69359a6_77d6935 0m59s 285k tok | done 0/1
+running: 77d69359a6_77d6935 2m00s 892k tok | done 0/1
+running: 77d69359a6_77d6935 3m00s 1.8M tok | done 0/1
+running: 77d69359a6_77d6935 4m00s 2.6M tok | done 0/1
+running: 77d69359a6_77d6935 5m00s 3.6M tok | done 0/1
+running: 77d69359a6_77d6935 6m00s 4.0M tok | done 0/1
+running: 77d69359a6_77d6935 7m00s 4.1M tok | done 0/1
+running: 77d69359a6_77d6935 8m00s 5.3M tok | done 0/1
+[77d69359a6_77d6935] clean — no findings (8m30s, 6.0M tok, $3.26)
+
+=== Batch summary ===
+  77d69359a6_77d6935 clean  [6.0M tok, $3.26]
+  total: 6.0M tokens, $3.26
+
+Human-readable reports:
+  /home/nishida/projects/llm_code_and_review_tools/lreview-results/markdown/77d69359a6_77d6935_LU-20650_tests_add_sanity_cases_for_lfs_find_s_changelog_fla.md

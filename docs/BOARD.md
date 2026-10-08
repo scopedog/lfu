@@ -4,7 +4,30 @@ Every ticket and Gerrit id in play, and the ones that are *not* ours. Regenerate
 the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
 **2026-09-06**.
 
-## 2026-10-07 afternoon: AI round on PS 10-06 fixed locally -- START HERE
+## 2026-10-07 evening: PUSHED -- START HERE
+
+- **Pushed ab63954c73** (branch a1007-pushed in ~/lfs-fix-1007) on the
+  user's "fix the deferred items, test, lreview again, then push": new PS
+  on 68159..69443; the four follow-ups are NEW changes **69500** (gap
+  warning), **69501** (nlink to filter), **69502** (pick before gather),
+  **69503** (ZFS debug flags) -- in gpoll. 68094 PS25 / 68231 PS8 under the
+  stack are already-known patch sets (Gerrit's current is PS26 / PS9), so
+  nothing new on them. 21 AI replies posted on the roots' PS, threaded and
+  resolved (docs/rounds/a-1007/post_replies.py).
+- After the afternoon entry below: deferred items fixed -- fsync stdout before
+  the cookie (lab F1: fsync(1) before rename; pipe fine), --since 0 warns as
+  1 (160Af), 68418 past-tense comments + message. Left: 68163 plugin ABI
+  (needs 68156), per-MDT cookie advance (documented). lreview x2 more: 68418
+  message bullets I wrote were wrong (rewritten); moving the gap probe after
+  the scan (to stop a doubled error) made a clear DURING the scan read as a
+  certain loss -- reverted; 160Aa anchored mid-gap (@$mid); 160Ac symlink
+  case; final lreview on 68420 clean. sanity 56E*+160A* on ab63954c73:
+  ldiskfs 23/23, ZFS 22/22.
+- 68159 PS29 review-ldiskfs retested (LU-19373) on the user's word; moot now
+  that PS30 is up.
+- Not pushed: 68810 (OSD) el10 fix, lu-20720-el10 -- ask the user.
+
+## 2026-10-07 afternoon: AI round on PS 10-06 fixed locally
 
 - **fix-1007 READY, UNPUSHED:** ~/lfs-fix-1007, branch fix-1007 = tag-ish
   branch `a1007-tip` = **f170751608** (old tip 036735e9fb). 68156 kept;

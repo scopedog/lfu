@@ -1,0 +1,34 @@
+  8b13984f08_8b13984  LU-20650 tests: add sanity cases for lfs find's changelog fl (worktree)
+  77f391c471_77f391c  LU-20650 lfs: find --since, warn when the log was cleared (worktree)
+
+Reviewing 2 change(s), 1 in parallel, timeout 7200s each
+  prompts:   /home/nishida/projects/llm_code_and_review_tools/review-prompts/kernel
+             (via bundled submodule (/home/nishida/projects/llm_code_and_review_tools/review-prompts))
+  results:   /home/nishida/projects/llm_code_and_review_tools/lreview-results
+  worktrees: /home/nishida/projects/llm_code_and_review_tools/lreview-results/worktrees
+
+running: 8b13984f08_8b13984 0m00s | done 0/2
+[8b13984f08_8b13984] review started: LU-20650 tests: add sanity cases for lfs find's changelog fl
+running: 8b13984f08_8b13984 0m59s 476k tok | done 0/2
+running: 8b13984f08_8b13984 2m00s 1.1M tok | done 0/2
+running: 8b13984f08_8b13984 3m00s 2.5M tok | done 0/2
+running: 8b13984f08_8b13984 4m00s 3.2M tok | done 0/2
+running: 8b13984f08_8b13984 5m00s 3.6M tok | done 0/2
+running: 8b13984f08_8b13984 6m00s 4.4M tok | done 0/2
+[8b13984f08_8b13984] 3 finding(s), severity low (6m40s, 5.2M tok, $3.14) -> gerrit-review-8b13984f08_8b13984.json
+running: 77f391c471_77f391c 0m00s | done 1/2
+[77f391c471_77f391c] review started: LU-20650 lfs: find --since, warn when the log was cleared
+running: 77f391c471_77f391c 0m19s 332k tok | done 1/2
+running: 77f391c471_77f391c 1m19s 332k tok | done 1/2
+running: 77f391c471_77f391c 2m19s 1.4M tok | done 1/2
+running: 77f391c471_77f391c 3m19s 2.2M tok | done 1/2
+[77f391c471_77f391c] 1 finding(s), severity low (4m14s, 2.9M tok, $1.97) -> gerrit-review-77f391c471_77f391c.json
+
+=== Batch summary ===
+  8b13984f08_8b13984 findings (3 finding(s), severity low)  [5.2M tok, $3.14]
+  77f391c471_77f391c findings (1 finding(s), severity low)  [2.9M tok, $1.97]
+  total: 8.1M tokens, $5.11
+
+Human-readable reports:
+  /home/nishida/projects/llm_code_and_review_tools/lreview-results/markdown/8b13984f08_8b13984_LU-20650_tests_add_sanity_cases_for_lfs_find_s_changelog_fla.md
+  /home/nishida/projects/llm_code_and_review_tools/lreview-results/markdown/77f391c471_77f391c_LU-20650_lfs_find_--since_warn_when_the_log_was_cleared.md

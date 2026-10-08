@@ -1,0 +1,57 @@
+  b0d05dac90_b0d05da  LU-20650 lfs: add find --changelog, the log as source (worktree)
+  8a84c316b8_8a84c31  LU-20650 lfs: add find --since-cookie, a per-MDT anchor (worktree)
+  40b5d2de7f_40b5d2d  LU-20650 tests: add sanity cases for lfs find's changelog fl (worktree)
+  2c900d0b60_2c900d0  LU-20650 lfs: find --since, warn when the log was cleared (worktree)
+
+Reviewing 4 change(s), 1 in parallel, timeout 7200s each
+  prompts:   /home/nishida/projects/llm_code_and_review_tools/review-prompts/kernel
+             (via bundled submodule (/home/nishida/projects/llm_code_and_review_tools/review-prompts))
+  results:   /home/nishida/projects/llm_code_and_review_tools/lreview-results
+  worktrees: /home/nishida/projects/llm_code_and_review_tools/lreview-results/worktrees
+
+running: b0d05dac90_b0d05da 0m00s | done 0/4
+[b0d05dac90_b0d05da] review started: LU-20650 lfs: add find --changelog, the log as source
+running: b0d05dac90_b0d05da 1m00s 916k tok | done 0/4
+running: b0d05dac90_b0d05da 2m00s 2.7M tok | done 0/4
+running: b0d05dac90_b0d05da 3m00s 3.7M tok | done 0/4
+running: b0d05dac90_b0d05da 4m00s 4.6M tok | done 0/4
+running: b0d05dac90_b0d05da 5m00s 5.9M tok | done 0/4
+[b0d05dac90_b0d05da] 1 finding(s), severity low (5m26s, 6.3M tok, $3.23) -> gerrit-review-b0d05dac90_b0d05da.json
+running: 8a84c316b8_8a84c31 0m00s | done 1/4
+[8a84c316b8_8a84c31] review started: LU-20650 lfs: add find --since-cookie, a per-MDT anchor
+running: 8a84c316b8_8a84c31 0m33s 98k tok | done 1/4
+running: 8a84c316b8_8a84c31 1m33s 572k tok | done 1/4
+running: 8a84c316b8_8a84c31 2m33s 572k tok | done 1/4
+running: 8a84c316b8_8a84c31 3m33s 990k tok | done 1/4
+running: 8a84c316b8_8a84c31 4m33s 1.5M tok | done 1/4
+running: 8a84c316b8_8a84c31 5m33s 2.1M tok | done 1/4
+running: 8a84c316b8_8a84c31 6m33s 2.5M tok | done 1/4
+running: 8a84c316b8_8a84c31 7m33s 3.1M tok | done 1/4
+running: 8a84c316b8_8a84c31 8m33s 3.4M tok | done 1/4
+[8a84c316b8_8a84c31] 4 finding(s), severity low (8m37s, 3.5M tok, $2.33) -> gerrit-review-8a84c316b8_8a84c31.json
+running: 40b5d2de7f_40b5d2d 0m00s | done 2/4
+[40b5d2de7f_40b5d2d] review started: LU-20650 tests: add sanity cases for lfs find's changelog fl
+running: 40b5d2de7f_40b5d2d 0m55s 505k tok | done 2/4
+running: 40b5d2de7f_40b5d2d 1m55s 1.6M tok | done 2/4
+running: 40b5d2de7f_40b5d2d 2m55s 2.2M tok | done 2/4
+running: 40b5d2de7f_40b5d2d 3m55s 3.0M tok | done 2/4
+[40b5d2de7f_40b5d2d] 4 finding(s), severity low (4m20s, 3.3M tok, $2.19) -> gerrit-review-40b5d2de7f_40b5d2d.json
+running: 2c900d0b60_2c900d0 0m00s | done 3/4
+[2c900d0b60_2c900d0] review started: LU-20650 lfs: find --since, warn when the log was cleared
+running: 2c900d0b60_2c900d0 0m35s 631k tok | done 3/4
+running: 2c900d0b60_2c900d0 1m35s 1.1M tok | done 3/4
+running: 2c900d0b60_2c900d0 2m35s 1.6M tok | done 3/4
+[2c900d0b60_2c900d0] 3 finding(s), severity low (3m25s, 2.4M tok, $1.73) -> gerrit-review-2c900d0b60_2c900d0.json
+
+=== Batch summary ===
+  b0d05dac90_b0d05da findings (1 finding(s), severity low)  [6.3M tok, $3.23]
+  8a84c316b8_8a84c31 findings (4 finding(s), severity low)  [3.5M tok, $2.33]
+  40b5d2de7f_40b5d2d findings (4 finding(s), severity low)  [3.3M tok, $2.19]
+  2c900d0b60_2c900d0 findings (3 finding(s), severity low)  [2.4M tok, $1.73]
+  total: 15.4M tokens, $9.48
+
+Human-readable reports:
+  /home/nishida/projects/llm_code_and_review_tools/lreview-results/markdown/b0d05dac90_b0d05da_LU-20650_lfs_add_find_--changelog_the_log_as_source.md
+  /home/nishida/projects/llm_code_and_review_tools/lreview-results/markdown/8a84c316b8_8a84c31_LU-20650_lfs_add_find_--since-cookie_a_per-MDT_anchor.md
+  /home/nishida/projects/llm_code_and_review_tools/lreview-results/markdown/40b5d2de7f_40b5d2d_LU-20650_tests_add_sanity_cases_for_lfs_find_s_changelog_fla.md
+  /home/nishida/projects/llm_code_and_review_tools/lreview-results/markdown/2c900d0b60_2c900d0_LU-20650_lfs_find_--since_warn_when_the_log_was_cleared.md

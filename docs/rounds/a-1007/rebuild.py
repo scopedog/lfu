@@ -99,8 +99,21 @@ root.''', '''on a filesystem with more than one MDT. Also for a cookie that is n
 regular file (a symbolic link is not one), or that was written for another
 filesystem or another search root.''', '419 man3 symlink')
 
+# (spelt for 68419-68420, where Keep is mid-line) -------------
+edit(C419, LF1, '''starts past N. Keep
+.I FILE
+outside the searched tree;''', '''starts past N.
+An object that cannot be read (an error other than its having gone) is
+reported at the end and leaves
+.I FILE
+as it was, so the next run prints the same matches again. An error that
+persists, such as an object the caller may not read, holds the anchors
+there on every run until it is fixed or the log is purged past them.
+Keep
+.I FILE
+outside the searched tree;''', '419 man1 stuck', until=C443)
 # ---- 68419: a persistent per-object error holds the cookie -------------
-edit(C419, LF1, '''Keep
+edit(C443, LF1, '''Keep
 .I FILE
 outside the searched tree;''', '''An object that cannot be read (an error other than its having gone) is
 reported at the end and leaves
@@ -110,7 +123,7 @@ persists, such as an object the caller may not read, holds the anchors
 there on every run until it is fixed or the log is purged past them.
 Keep
 .I FILE
-outside the searched tree;''', '419 man1 stuck')
+outside the searched tree;''', '443 man1 stuck')
 edit(C419, LS3, '''An error reading an MDT's changelog is returned as it came.''',
      '''An error reading an MDT's changelog is returned as it came. An error
 on one object does not end the search: the first is returned once it is
@@ -515,6 +528,9 @@ that reaches it while an earlier one is being read is refused then.''',
 
 
 def m_419(m):
+    m = rep(m, '''clocks agree; a cookie is exact on every MDT, and is what a repeated
+job should use.''', '''clocks agree; a cookie holds an index per MDT, and is what a repeated
+job should use.''', 'm419 exact')
     return rep(m, '''LU-20650 lfs: find --since-cookie, per-MDT anchor''',
                '''LU-20650 lfs: add find --since-cookie, a per-MDT anchor''',
                'm419 subject')
@@ -536,6 +552,18 @@ filesystem.''', 'm420 wrap')
     m = rep(m, '''LU-20650 tests: sanity cases for find's changelog flags''',
             '''LU-20650 tests: add sanity cases for lfs find's changelog flags''',
             'm420 subject')
+    m = rep(m, '''
+
+Five sanity cases.''', '''
+
+Add sanity 160Aa-160Ae for the lfs find --since, --changelog and
+--since-cookie options added earlier in the series, and bring
+lfs-find.1 up to date with them.
+
+Five sanity cases.''', 'm420 opening')
+    m = rep(m, '''below the mount, an unknown MDT, -perm, -links, --mdt-count,''',
+            '''below the mount, an unknown MDT, -perm, -links, -uid, --mdt-count,''',
+            'm420 uid')
     m = rep(m, '''Four changes to lfs-find.1 come with the tests.''',
             '''Five changes to lfs-find.1 come with the tests.''', 'm420 five')
     m = rep(m, '''"nothing changed since" is never true -- which is what hid an
@@ -681,14 +709,54 @@ edit(C420, SAN, '''	[[ -n "$found" ]] ||
      '''	grep -q "/$tdir/a/g$" <<< "$found" ||
 		error "--changelog -name g missed the renamed file: '$found'"''',
      'lr420 160Ae path')
-edit(C419, LF1, '''Nor is one record lost to a race in the MDT:''',
-     '''Nor is a record lost to a race in the MDT caught:''', 'lr419 race')
+edit(C419, LF1, '''Nor is one record lost to a race in the MDT: records are written''',
+     '''Nor is a record lost to a race in the MDT
+caught: records are written''', 'lr419 race', until=C443)
+edit(C443, LF1, '''Nor is one record lost to a race in the MDT:''',
+     '''Nor is a record lost to a race in the MDT caught:''', 'lr443 race')
 
 
 def m_418(m):
-    return rep(m, '''LU-20650 lfs: find --changelog, the log as source''',
-               '''LU-20650 lfs: add find --changelog, the log as source''',
-               'm418 subject')
+    m = rep(m, '''LU-20650 lfs: find --changelog, the log as source''',
+            '''LU-20650 lfs: add find --changelog, the log as source''',
+            'm418 subject')
+    m = rep(m, '''-printf, --mdt-count and --mdt-hash; --xattr was the loud one,
+reaching llistxattr(NULL, ...) once per object, and the rest were
+quiet and worse, "--perm 644" matching nothing and its negation
+everything.  -uid and -gid are refused for a different reason and at''', '''-printf, --mdt-count and --mdt-hash; answered from the record,
+--xattr would reach llistxattr(NULL, ...) once per object, and
+"--perm 644" would match nothing and its negation everything.  -uid
+and -gid are refused for a different reason and at''',
+            'm418 loud')
+    a = m.index('fc_d is set only for a directory, as find_since_rec_cb() already had')
+    b = m.index('number beside the errno it belongs to.\n') + \
+        len('number beside the errno it belongs to.\n')
+    return m[:a] + M418_TAIL + m[b:]
+
+
+M418_TAIL = '''The --since code this shares changes with it:
+
+- A printed pathname takes the caller's spelling whichever way it was
+  composed: find_since_respell() becomes find_respell(), taking the
+  two roots, and the print site uses it.
+- -printf widens fss_want, the mask handed to llapi_scan_fid(), so
+  --since and --changelog widen together; it buys LLAPI_SCAN_LMV for
+  %Lc and its neighbours.  find_since_rec_cb() sets fc_gather_all
+  under -printf, which gates find_get_projid() and the OST glimpse, so
+  %LP, %s and %b answer as a walk does.
+- find_since_pick() puts a link's basename into the record only for
+  --since.  Under --changelog the recorded name stays, and the link
+  only places the object in the subtree.
+- A CL_MARK is dropped at the top of find_since_cand_cb().
+  mdd_changelog_write_header() writes the marker flags into the union
+  with cr_tfid, where CLM_ON|CLM_START reads as an IGIF sequence.  No
+  marker is written today -- with CL_MARK in the mask, which
+  CHANGELOG_MINMASK forces, the header write returns early -- so this
+  is a guard.
+- LLAPI_SCAN_CL_F_ONCE is set for --since and not for --changelog: a
+  source answering as it was recorded has a second burst to report, so
+  an object touched in two bursts prints twice.  The man page says so.
+'''
 
 # ---- lreview gap: record 1 means nothing lost since the log started ----
 edit(F_GAP, PF, ''' * answer may be short, so say so.  Changelog indexes start at 1: a log that
@@ -707,12 +775,188 @@ the restart is gone.''', 'lrgap man3')
 
 
 def m_gap(m):
-    return rep(m, '''check uses. Changelog indexes start at 1, so a log that still holds
+    m = rep(m, '''check uses. Changelog indexes start at 1, so a log that still holds
 record 1 has lost nothing, and a new filesystem gives no warning.''',
                '''check uses. Changelog indexes start at 1, so a log that still holds
 record 1 has lost nothing since it started, and a new filesystem gives
 no warning. Nor does a log restarted at 1, after its last user went and
 the MDT was remounted.''', 'mgap')
+    m = rep(m, '''the MDT was remounted.
+For a bare index''', '''the MDT was remounted, or an empty log.
+
+For a bare index''', 'mgap blank')
+    return m
+
+# ---- deferred 68419: matches reach the disk before the cookie does ------
+edit(C419, PF, '''/**
+ * llapi_find_since() - lfs find over the objects a changelog says changed''',
+     '''/*
+ * Sync stdout when it is a regular file.  The cookie is synced before its
+ * rename, so without this a crash could keep the new anchors and lose the
+ * matches that moved them.  A pipe or a terminal has nothing to sync.
+ */
+static int find_stdout_sync(void)
+{
+	struct stat st;
+	int fd = fileno(stdout);
+
+	if (fd < 0 || fstat(fd, &st) != 0 || !S_ISREG(st.st_mode))
+		return 0;
+
+	return fsync(fd) == 0 ? 0 : -errno;
+}
+
+/**
+ * llapi_find_since() - lfs find over the objects a changelog says changed''',
+     'd419 sync helper')
+edit(C419, PF, '''	 * Matches printed into a stdout that failed are as lost as the ones
+	 * above, and llapi_printf() reports nothing, so ask stdout itself.
+	 */
+	if (rc == 0 && param->fp_since_cookie != NULL &&
+	    (fflush(stdout) != 0 || ferror(stdout))) {''', '''	 * Matches printed into a stdout that failed are as lost as the ones
+	 * above, and llapi_printf() reports nothing, so ask stdout itself.
+	 */
+	if (rc == 0 && param->fp_since_cookie != NULL &&
+	    (fflush(stdout) != 0 || ferror(stdout) ||
+	     find_stdout_sync() != 0)) {''', 'd419 sync use')
+
+# ---- deferred gap: --since 0 reads what --since 1 reads, and warns alike
+edit(F_GAP, PF, '''	/* only an anchor is compared, so only an anchor reads the log */
+	if (param->fp_since_cookie != NULL ||
+	    (param->fp_since_kind != LLAPI_SINCE_TIME &&
+	     (param->fp_since_kind != LLAPI_SINCE_INDEX ||
+	      param->fp_since_index == 0)))
+		return;''', '''	/*
+	 * Only an anchor is compared, so only an anchor reads the log.  Index
+	 * 0 is one: it starts at the oldest record, as 1 does.
+	 */
+	if (param->fp_since_cookie != NULL ||
+	    (param->fp_since_kind != LLAPI_SINCE_TIME &&
+	     param->fp_since_kind != LLAPI_SINCE_INDEX))
+		return;''', 'dgap zero')
+
+edit(F_GAP, SAN, '''	grep -q "'$mdt'.*$msg" <<< "$out" ||
+		error "--since 1 after a clear gave no warning: '$out'"
+''', '''	grep -q "'$mdt'.*$msg" <<< "$out" ||
+		error "--since 1 after a clear gave no warning: '$out'"
+	# 0 starts at the oldest record too, so it is as short
+	out=$($LFS find $MOUNT --changelog $mdt --since 0 \\
+		2>&1 >/dev/null) || error "lfs find --since 0 failed"
+	grep -q "'$mdt'.*$msg" <<< "$out" ||
+		error "--since 0 after a clear gave no warning: '$out'"
+''', 'dgap 160Af zero')
+
+# ---- deferred 68418: comments say why, not what an earlier PS did -----
+edit(C418, PF, '''	 * stripe block is skipped.  These three live in it, and were
+	 * accepted and never evaluated.
+	 */''', '''	 * stripe block is skipped.  These three live in it, so accepted
+	 * they would never be evaluated.
+	 */''', 'd418 stripe')
+edit(C418, PF, '''	/*
+	 * These four were accepted and then answered from a record that
+	 * cannot carry them.  --xattr was the loud one: find_check_xattrs()
+	 * reaches llistxattr(NULL, ...) and prints an error per object.  The
+	 * other three are quieter and worse -- find_rec_to_lmd() leaves the
+	 * fields zero, so "--perm 644" matched nothing and its negation
+	 * matched everything, which is the approximation this refusal exists
+	 * to prevent.
+	 */''', '''	/*
+	 * A record cannot carry these four.  --xattr would reach
+	 * llistxattr(NULL, ...) in find_check_xattrs() and print an error per
+	 * object.  The other three are quieter and worse: find_rec_to_lmd()
+	 * leaves the fields zero, so "--perm 644" would match nothing and its
+	 * negation everything -- the approximation this refusal prevents.
+	 */''', 'd418 four')
+edit(C418, PF, '''	 * Whatever --resolve looked up.  Dropping these left find_decide()
+	 * with no path and no descriptor, so -size, -blocks, -projid and
+	 * -printf were undecidable for every object even though --resolve is
+	 * documented as the way to make them answerable: the size a striped
+	 * file has lives on the OSTs, and only a stat through the path
+	 * glimpses it.''', '''	 * Whatever --resolve looked up.  Without a path and a descriptor,
+	 * find_decide() cannot decide -size, -blocks, -projid or -printf,
+	 * which --resolve is documented to make answerable: the size of a
+	 * striped file lives on the OSTs, and only a stat through the path
+	 * glimpses it.''', 'd418 resolve')
+edit(C418, PF, '''	 * index and leaves that descriptor in lfsr_fd -- so passing it through
+	 * sent every striped file down the directory branch, onto an lmv
+	 * buffer find_rec_to_lmv() had just zeroed.''', '''	 * index and leaves that descriptor in lfsr_fd -- and passing it
+	 * through would send every striped file down the directory branch,
+	 * onto an lmv buffer find_rec_to_lmv() has just zeroed.''', 'd418 fc_d')
+edit(C418, PF, '''		* record, find_rec_to_lmd() leaves stx_uid 0 with STATX_UID
+		* clear and find_decide() compares it anyway, so "-uid 0"
+		* kept every gone object and "! -uid 1000" kept them too.''', '''		* record, find_rec_to_lmd() leaves stx_uid 0 with STATX_UID
+		* clear and find_decide() compares it anyway, so "-uid 0"
+		* and "! -uid 1000" would both keep every gone object.''',
+     'd418 uid')
+edit(C418, PF, '''		* path: a record with no lookup behind it left fp_obd_index
+		* at OBD_NOT_FOUND, so find_decide() dropped the object
+		* without counting it -- and cleared fp_got_uuids on the way,
+		* so the next object that did resolve looked the OSTs up
+		* again.''', '''		* path: for a record with no lookup behind it fp_obd_index
+		* stays OBD_NOT_FOUND, so find_decide() would drop the object
+		* without counting it, and clear fp_got_uuids so the next
+		* object that resolves looks the OSTs up again.''', 'd418 ost')
+
+# ---- lreview2 -----------------------------------------------------------
+LH = 'include/lustre/lustreapi.h'
+PARSE = 'lustre/utils/lfs_find_parse.c'
+edit(C419, LH, '''	 * the end.  The only anchor that is exact on every MDT.''',
+     '''	 * the end.  One anchor per MDT, so the one that holds on all of them.''',
+     'l2 419 header')
+edit(C419, PARSE, '''	 * --resolve only means something to a changelog: lfs find sends the
+	 * search to llapi_find_since() only when --since, --since-cookie or --changelog is
+	 * given, so on its own the flag was parsed and never looked at.  A flag
+	 * accepted and quietly ignored is the thing find_changelog_supported()
+	 * was written to avoid.''', '''	 * --resolve only means something to a changelog: lfs find sends the
+	 * search to llapi_find_since() only when --since, --since-cookie or
+	 * --changelog is given, so on its own the flag would be parsed and
+	 * never looked at.  A flag accepted and quietly ignored is what
+	 * find_changelog_supported() is there to avoid.''', 'l2 419 parse')
+edit(C420, SAN, '''	stack_trap "rm -f $ck.bad $ck.other $ck.noroot"''',
+     '''	stack_trap "rm -f $ck.bad $ck.other $ck.noroot $ck.link"''',
+     'l2 420 trap')
+edit(C420, SAN, '''	grep -q "^${FSNAME}x-MDT0000 7" $ck.other ||
+		error "the refused cookie was rewritten"
+''', '''	grep -q "^${FSNAME}x-MDT0000 7" $ck.other ||
+		error "the refused cookie was rewritten"
+
+	# a symlink is refused and left alone: the rename would replace it
+	ln -s $ck $ck.link
+	$LFS find $DIR/$tdir --since-cookie $ck.link -type f &> /dev/null &&
+		error "a symlinked cookie should be refused"
+	[[ -L $ck.link ]] || error "the symlinked cookie was replaced"
+''', 'l2 420 symlink')
+
+# gap: an empty log is named as giving no warning (the probe stays before
+# the scan: after it, a clear during the scan reads as a certain loss)
+
+edit(F_GAP, PF, '''	if (find_cl_first(mdtname, 0, &oldest, &when) < 0 || oldest <= 1)
+		return;''', '''	/* an empty log looks the same cleared or idle: nothing to say */
+	if (find_cl_first(mdtname, 0, &oldest, &when) < 0 || oldest <= 1)
+		return;''', 'l2 gap empty')
+
+edit(F_GAP, LS3, '''no warning; neither does a log restarted at 1, though what it held before
+the restart is gone.''', '''no warning; neither does a log restarted at 1, though what it held before
+the restart is gone, nor an empty log, which looks the same to a client
+whether it was cleared or nothing happened.''', 'l2 gap man3 empty')
+
+# ---- lreview3 68420: 160Aa's window anchored mid-gap -------------------
+edit(C420, SAN, '''	local all since nall nsince
+''', '''	local all since nall nsince mid
+''', 'l3 420 local')
+edit(C420, SAN, '''	createmany -o $DIR/$tdir/old 5 || error "createmany failed"
+	sync; sleep 15
+	# two inside it''', '''	createmany -o $DIR/$tdir/old 5 || error "createmany failed"
+	# the anchor in the middle of the gap, so neither side depends on how
+	# long sync or the walk below take, or on the MDS clock to the second
+	sync; sleep 7
+	mid=$(date +%s)
+	sleep 8
+	# two inside it''', 'l3 420 mid')
+edit(C420, SAN, '''	raw=$($LFS find $DIR/$tdir --since 8s -type f) ||''',
+     '''	raw=$($LFS find $DIR/$tdir --since @$mid -type f) ||''', 'l3 420 since')
+edit(C420, SAN, '''	# "8s" did; the same number written bare''',
+     '''	# "@$mid" did; the same number written bare''', 'l3 420 comment')
 
 
 # ---- commit messages --------------------------------------------------
