@@ -23,6 +23,11 @@ the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
   certain loss -- reverted; 160Aa anchored mid-gap (@$mid); 160Ac symlink
   case; final lreview on 68420 clean. sanity 56E*+160A* on ab63954c73:
   ldiskfs 23/23, ZFS 22/22.
+- **CI at stop (10-08 ~00:15):** all 15 PS built (68419/68420/69501/69502
+  needed one BUILD each: el10/el9 builders dropped files mid-build, not ours).
+  Retests in flight: 68160 PS31 zfs-part-5 sanityn 56b OSS OOM (LU-15963),
+  69500 PS1 zfs-part-7 sanity-scrub 10a/12/13 (LU-20277). AI review on the
+  new PS not posted yet. Polling stopped (user).
 - **LU-20834 commented** (id 503019, user's word 10-07): it also hits a server
   node -- 68416 PS21 dne-part-1 el10.1, mds2 trevis-152vm279 never loaded
   Lustre while mds1 did.
