@@ -469,3 +469,51 @@ burst is a second event.""", 'ai420 burst')
 edit(C419, PF, '	/* one of the two has to have selected this path */',
      '	/* --since, --changelog or a cookie has to have selected this path */',
      'ai419 three')
+
+# ---- AI round on 69501 PS1: STATX_NLINK means the same in every scanner
+edit(F_NLINK, LSC, """		/* a directory's count is its subdirectories, not its names */
+		if (nlink != 0 && !S_ISDIR(mode)) {""",
+     """		/* a directory's too, as every scanner gives it */
+		if (nlink != 0) {""", 'ai501 lib')
+edit(F_NLINK, PF, """	if ((rec->lfsr_stx.stx_mask & STATX_MODE) &&
+	    S_ISDIR(rec->lfsr_stx.stx_mode))
+		return false;
+	return true;
+}""", """	/* a directory's count is its subdirectories, not its names */
+	if ((rec->lfsr_stx.stx_mask & (STATX_TYPE | STATX_MODE)) &&
+	    S_ISDIR(rec->lfsr_stx.stx_mode))
+		return false;
+	return true;
+}""", 'ai501 consumer')
+edit(F_NLINK, 'Documentation/man3/llapi_scan_fid.3',
+     """and, for anything but a directory, the link count in""",
+     """and the link count in""", 'ai501 man1')
+edit(F_NLINK, 'Documentation/man3/llapi_scan_fid.3',
+     """before trusting the count: it is clear for a directory, when
+.BR statx (2)
+did not report one, and when the count read back was 0, as for a file
+unlinked after its FID was resolved.""",
+     """before trusting the count: it is clear when
+.BR statx (2)
+did not report one, and when the count read back was 0, as for a file
+unlinked after its FID was resolved. A directory's count is given as the
+other scanners give it; it counts subdirectories, not names.""", 'ai501 man2')
+edit(F_NLINK, 'lustre/tests/llapi_scan_test.c',
+     """	/* a directory's link count counts subdirectories, so it is left out */
+	memset(&fb, 0, sizeof(fb));
+	rc = llapi_scan_fid(mnt_fd, mnt, &dfid, &sp, fid_cb, &fb);
+	ASSERTF(rc == 0 && fb.fb_peek.fp_count == 1 &&
+		!(fb.fb_peek.fp_stx_mask & STATX_NLINK),""",
+     """	/* a directory's link count is given too, as other scanners give it */
+	memset(&fb, 0, sizeof(fb));
+	rc = llapi_scan_fid(mnt_fd, mnt, &dfid, &sp, fid_cb, &fb);
+	ASSERTF(rc == 0 && fb.fb_peek.fp_count == 1 &&
+		(fb.fb_peek.fp_stx_mask & STATX_NLINK),""", 'ai501 test')
+
+
+def m_nlink(m):
+    return rep(m, '''for and, for anything but a directory, the link count. A directory has
+one name, and its link count counts its subdirectories. The statx()''',
+               '''for and the link count, a directory's included, as the other
+scanners give it; the filter tests the type itself. The statx()''',
+               'm501')

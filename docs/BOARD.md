@@ -23,6 +23,8 @@ the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
   checkpatch counts unchanged.
 - Evening AI round (68419 x2, 68420 x1) fixed on top: tip **878bedb6e3**
   (doc/comment only). Replies in a-1008/replies.md.
+- 69501 AI (dir STATX_NLINK hidden) fixed: tip **41a807f27f**; sanity
+  23/23 + 22/22, llapi_scan_test 17 pass.
 - **#19 OPEN (user's call):** --changelog can read back its own CL_OPEN
   records. lreview's time cut in sc_filter is WRONG: it sees coalesced
   objects with the latest time, so it drops a real pre-start change merged

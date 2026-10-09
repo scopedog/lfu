@@ -21,8 +21,10 @@ built by docs/rounds/a-1008/rebuild.py.
 | 69500 PS1  | 33869de4_6135daec | Done. |
 | 68419 PS15 | c4dd5f3b_aaba6d0b | Done. |
 | 68419 PS15 | 2ca7425b_3f9336b4 | Done. |
+| 69501 PS1  | fbce656d_82653553 | Done: the count is passed for a directory too; find_since_hardlinked() tests STATX_TYPE. |
 | 68420 PS15 | e17fb28d_9d96d1b2 | Done: defined where "burst" first appears (68418's paragraph). |
 
 69503 PS1: the AI review posted no comments.
 
 Tip after the evening AI round: 878bedb6e3 (comment + man page only over 2152f95065; sweep 15/15).
+Tip after 69501: 41a807f27f (sweep 15/15, sanity 23/23 + 22/22, llapi_scan_test 17 pass).

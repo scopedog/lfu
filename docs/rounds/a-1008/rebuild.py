@@ -352,7 +352,8 @@ exec(open(os.path.join(os.path.dirname(os.path.abspath(__file__)),
                        'edits_lr.py')).read())
 
 MSG = {C159: m_159, C163: m_163, C288: m_288, C415: m_415, C417: m_417,
-       C418: m_418_b, C419: m_419_b, C443: m_443, F_GAP: m_gap}
+       C418: m_418_b, C419: m_419_b, C443: m_443, F_GAP: m_gap,
+       F_NLINK: m_nlink}
 
 
 def build(dry):
