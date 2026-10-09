@@ -10,7 +10,12 @@ the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
   **af9243c6c0** (from a1007-pushed ab63954c73), docs/rounds/a-1008/rebuild.py.
   14 AI comments on 7 changes fixed; replies in docs/rounds/a-1008/replies.md.
   Sweep 15/15, checkpatch counts unchanged, sanity 56E*+160A* ldiskfs 23/23,
-  ZFS 22/22. lreview on the 9 changed commits running (a-1008/lreview/).
+  ZFS 22/22. lreview (9 commits, $62, a-1008/lreview/findings.txt): 28
+  findings. FIXED: 68417/68418 %Li/%Lo printed 0 for an unstriped dir on
+  another MDT under --since/--changelog (find_rec_dir_stub); lab 05-li.sh
+  OLD 0 [0] -> NEW 1 [1], sanity again 23/23 + 22/22. Tip now **dd97d0158f**.
+  Rest await the user: ~10 doc/msg fixes, 5 behaviour changes, 68418
+  --changelog reading its own CL_OPEN records (unproven), ~10 deferrable.
 - **Retests (linked):** 68159 LU-20788/LU-20471, 68160 LU-20086, 68163
   LU-20710, 68415 LU-16932/LU-19730, 68418 LU-20276, 69443 LU-20501, 69503
   LU-19605, 69502 LU-16932, 68420 LU-19747.

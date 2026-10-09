@@ -1,0 +1,143 @@
+################ 82154d6a0b gerrit-review-82154d6a0b_82154d6.json
+-- /COMMIT_MSG 96 
+(minor) The index part of this does not seem to hold: for a component with no objects, llapi_layout_ost_index_get() fails with EINVAL before it returns anything, so %Li took (and still takes) the error arm rather than printing LLAPI_LAYOUT_DEFAULT. See the note on the %Li check.
+
+Also, the stripe-count case is reached on a walk mostly by a Data-on-MDT component, whose count is a real 0 rather than "the default".
+-- lustre/utils/liblustreapi_pfind.c 1811 
+(suggestion) On a walk this also catches a Data-on-MDT-only file. Its last instantiated component is the DoM one, whose lmm_stripe_count is 0, and llapi_layout_get_by_xattr() turns 0 into LLAPI_LAYOUT_DEFAULT.
+
+So `-printf %Lc` now prints nothing for it, where lfs getstripe reports a stripe count of 0. That beats printing the sentinel, but printing 0 when llapi_layout_pattern_get() says LLAPI_LAYOUT_MDT may be the more useful answer.
+-- lustre/utils/liblustreapi_pfind.c 1828 
+(minor) Can idx be LLAPI_LAYOUT_DEFAULT here? llapi_layout_ost_index_get() returns EINVAL when the component has no objects (stripe_number >= llc_objects_count). When the component has objects, llapi_layout_get_by_xattr() has already set llc_stripe_offset to objects[0].l_ost_idx, which is a __u32.
+
+So this test never fires. A layout with no objects still takes the error arm above, and on a walk that still prints "cannot get OST index of last initialized component".
+-- lustre/utils/liblustreapi_pfind.c 2243 
+(minor) Can a NULL path still reach this `%s`? printf_format_want() copies parse_format_width()'s skipping, but not its failure.
+
+With a width that strtol() cannot hold, such as `-printf '%99999999999999999999%p'`, parse_format_width() returns -ERANGE. printf_format_string() then copies the '%' and the digits as literals and interprets the following `%p` here with path == NULL. printf_format_want() treated the digits and the second '%' as one directive, so it did not refuse the format.
+
+glibc prints "(null)", but the behaviour is undefined. Checking `path == NULL` here and printing nothing would keep this safe even if the two parsers drift apart.
+-- lustre/utils/liblustreapi_pfind.c 4210 
+(minor) Should a striped directory's shards be searched as directories?
+
+A shard has an LMA with a normal FID and a trusted.link entry ("<fid>:<idx>" under the master, written by lod_xattr_set_lmv()). scan_classify() therefore makes it LLAPI_SCAN_CLS_VISIBLE. Its LMV_MAGIC_STRIPE gives scan_lmv_to_user() nothing, so it arrives here as a plain unstriped directory.
+
+A directory striped over N MDTs then matches `-type d` (and -uid, -mtime, ...) N+1 times across the MDT scans, and each shard's FID is printed. A walk reports it once.
+
+9c978aa1c198 ("LU-20637 llapi: name a device scan's objects") later in the series gives a shard no name under --paths/--fid2path, but the default FID output still includes shards. Skipping a record whose trusted.lmv is LMV_MAGIC_STRIPE, or at least documenting it in llapi_find_device.3 next to the -name paragraph, would close the gap.
+################ a566812e8e gerrit-review-a566812e8e_a566812.json
+-- Documentation/man1/lfs-find.1 945 
+(minor) user_fid2path is a client mount option (mount -t lustre -o user_fid2path ..., see mount.lustre(8)), not an llite.* parameter. lproc_llite.c has no user_fid2path entry, so following this text with
+
+    lctl set_param llite.*.user_fid2path=1
+
+fails with ENOENT. The same wording is in the -EPERM entry of llapi_scan_rec_path.3 and in the llapi_scan_rec_path() kernel-doc in liblustreapi_scan.c.
+
+If the patch is refreshed, "unless the client was mounted with -o user_fid2path" would be accurate in all three places.
+-- Documentation/man3/llapi_find_device.3 119 
+(minor) Two new -EINVAL returns are missing from this entry:
+
+- find_device_supported() refuses fp_paths set together with fp_fid2path_mnt.
+- llapi_find_device() refuses an fp_fid2path_mnt that is a fileset (subdirectory) mount, via find_mount_is_fileset().
+
+The fileset refusal isn't mentioned anywhere on this page, though lfs-find.1 describes it. Worth adding both if the patch is refreshed.
+-- include/lustre/lustreapi.h 834 
+(minor) This isn't a bug, but lfsr_owner_fid doesn't come only from trusted.fid. On an OST with 256-byte inodes there is no trusted.fid. There, scan_owner() reads the owner from loa_parent_fid in trusted.lma when LMAC_STRIPE_INFO is set, which covers every owned object on such an OST. llapi_scan_device.3 says the same thing ("which the object records in its own trusted.fid").
+
+If the patch is refreshed, it would help a consumer to mention the LMA here and in the man page.
+################ f3bf74afd4 gerrit-review-f3bf74afd4_f3bf74a.json
+-- /COMMIT_MSG 7 
+(style) This isn't a bug, but the summary is a noun phrase rather than an imperative one. If the patch is refreshed for other reasons, something like "llapi: add a ZFS backend to llapi_scan_device()" would match the usual subject form and still fits in 62 columns.
+-- lustre/tests/Makefile.am 121 
+(style) This isn't a bug, but "the backend the library no longer carries" reads as history from an earlier revision of this change: on master liblustreapi has never linked a ZFS backend (libscan_zfs.c is new here). If the patch is refreshed, maybe "needs the ZFS backend, which liblustreapi does not link".
+################ eaa43f92d7 gerrit-review-eaa43f92d7_eaa43f9.json
+-- lustre/utils/liblustreapi_scan_changelog.c 736 
+(minor) For `mv c d` over an existing d, the record keyed on c (the object that moved) gets the same lfsr_event_flags as the one keyed on old d. mdd_rename() sets both rename bits about the target alone:
+
+    if (tattr->la_nlink == 0)
+            cl_flags |= CLF_RENAME_LAST;
+
+plus CLF_RENAME_LAST_EXISTS when that target has an archive. In the raw record the target is cr_tfid, but c's record here never names old d, so on it the bits read as "c lost its last link, and c has an archive". Fed such a record, scan_cl_event() and scan_cl_object() both deliver flags 0x3 on c's record.
+
+A consumer that acts on lfsr_fid when it sees CLF_RENAME_LAST or CLF_RENAME_LAST_EXISTS, as HSM cleanup does for the target, would then act on the live file. Should the !replaced branch below clear these two bits for the source FID? Or should the page say they describe the replaced object?
+-- include/lustre/lustreapi.h 707 
+(suggestion) LLAPI_SCAN_JOBID and lfsr_jobid hold the job that caused this event, but the names are the generic ones. A job id can also be an attribute of the object: with mdt.*.job_xattr set, the MDT stores the creating job in an xattr (user.job by default), which a namespace or device scan could fill one day. This patch already separates the actor from the object for the uid (lfsr_event_uid vs stx_uid), and the jobid splits the same way. Since these names become ABI once landed, would LLAPI_SCAN_EVENT_JOBID and lfsr_event_jobid be clearer? Change 68418 is the only other user of the current names in the series.
+-- lustre/tests/llapi_scan_changelog_test.c 142 
+(minor) This loop adds no Changelog records. The writes go to the OSTs, and ll_fsync() sends MDS_SYNC, which mdt_sync() handles without logging. So the burst that test1 is named for never reaches the log, and ob.cr_records < ev.cr_records holds only because create, close, rename and unlink are separate events on one file. If the patch is refreshed, the burst could use MDT-visible events instead (open/close cycles, or chmod() as test10 does), and test1 could assert that this file's FID arrives exactly once in object mode.
+################ 433bb7a914 gerrit-review-433bb7a914_433bb7a.json
+-- Documentation/man1/lfs-find.1 1104 
+(minor) --since is now refused over a target scan as well: lfs_find_device() and find_device_supported() both return -ENOTSUP for it, and the commit message says it joins this list. The list here still names only --xattr, --maxdepth, --mindepth, --threads and -printf %p, though.
+
+The -ENOTSUP entry in llapi_find_device(3), which this section points to for the details, lists what a target scan does not have (a path, a mounted filesystem, a walk) and doesn't mention a changelog either. If the patch is refreshed, could both pages gain --since / fp_since_kind?
+-- include/lustre/lustreapi.h 530 
+(minor) This isn't a bug, but these two comments describe how lfs find spells the argument rather than what the library takes. For LLAPI_SINCE_TIME, fp_since_time is an absolute time_t, as llapi_find_since(3) says. "A duration" could lead a caller to store 7200 for two hours ago, which is 1970-01-01 02:00 UTC: nothing is cut and the whole log is answered.
+
+Something like "fp_since_index is one MDT's cr_index" and "fp_since_time is an absolute time, in seconds since the epoch" would match the man page.
+-- lustre/utils/liblustreapi_pfind.c 5090 
+(minor) Only LLAPI_SINCE_NONE is refused here. Any other value outside the two kinds this function handles, such as a later LLAPI_SINCE_* from a newer lustreapi.h, skips both the index refusal and the time cut: st.fss_since stays 0 and sc_startrec stays 0, so the whole retained log of every MDT is answered with rc 0.
+
+scan_cl_param_copyin() and llapi_scan_fid() in this series refuse unknown flag bits with -EINVAL for that forward-compatibility reason. Would refusing anything other than LLAPI_SINCE_TIME and LLAPI_SINCE_INDEX here, and listing that under -EINVAL in llapi_find_since(3), be more consistent with them?
+################ 12bc029bc9 gerrit-review-12bc029bc9_12bc029.json
+-- /COMMIT_MSG 104 
+(minor) Not quite "only for --since": find_since_pick() also puts each link's basename into the record under --changelog --resolve when the record carried no name (fss_live_name), as the comment in find_since_pick() says. If the message is refreshed, perhaps "... only for --since, or for a record that carried no name".
+-- lustre/utils/liblustreapi_pfind.c 5851 
+(defect) Does the widening give %Li and %Lo the walk's answer for an unstriped directory?
+
+llapi_scan_fid() builds the unstriped stub in its own find_param (llapi_scan_get_lmv() answers ENODATA, have_lmv stays false), so the record carries no LLAPI_SCAN_LMV and find_rec_to_lmv() zeroes the header: lum_magic 0, lum_stripe_offset 0. printf_format_lustre() then takes the path != NULL arm and prints lum_stripe_offset:
+
+    %Li -> 0      (a walk prints the directory's MDT index)
+    %Lo -> [0]    (a walk prints [index])
+
+A walk gets the index because scan_rec_gather_finish() writes fp_file_mdt_index into the stub's lum_stripe_offset in the find's own buffer. So on DNE, `lfs find /mnt/lustre --since 1h -type d -printf '%p %Li\n'` reports 0 for every unstriped directory on another MDT, where before this widening it printed nothing.
+
+--changelog --resolve gives the same answer, and find_changelog_rec_cb() also never copies lfsr_mdt_index into fp_file_mdt_index as find_since_rec_cb() does. The field stays at its zero initial value, so %Li prints 0 for a foreign directory on any MDT, and the `fp_file_mdt_index == OBD_NOT_FOUND` skip in printf_format_lustre() can never apply.
+
+Would it work to copy lfsr_mdt_index into fp_file_mdt_index in find_changelog_rec_cb(), and have both record callbacks rebuild the walk's stub (LMV_MAGIC_V1, lum_stripe_offset = lfsr_mdt_index) for a directory with 
+-- lustre/utils/liblustreapi_pfind.c 5875 
+(defect) With OPEN in the changelog mask, as an audit setup has it, can a --changelog search read back the records its own lookups write?
+
+Under --resolve with -printf or --projid, each regular file is opened O_RDONLY: by scan_rec_gather_finish() for the LLAPI_SCAN_MDT_INDEX the -printf widening asks for, and by get_projid(). mdd_open() and mdd_close() record CL_OPEN and CL_CLOSE for those opens. The reader has not reached EOF yet: chlg_load() stays at most CDEV_CHLG_MAX_PREFETCH (1024) records ahead of the consumer, and llog_process_thread() reads to llog_max_idx() rather than to a snapshot.
+
+An object delivered mid-stream, after 600s quiet on the stream clock, has already been freed from the coalescing cache. Its new records therefore start a fresh burst, which passes find_since_filter_cb() because its event time is now. With _ONCE off, that burst is looked up and printed a second time, which opens the file again; while the read is still behind the tail, the cycle can repeat.
+
+--since is protected by _ONCE here, and scan_cl_resolve() uses O_PATH because a real open is recorded. Should --changelog ignore records written after the search started, for example with an event-time cut in find_since_filter_cb()?
+################ 6b18564150 gerrit-review-6b18564150_6b18564.json
+-- /COMMIT_MSG 101 
+(minor) Besides the flush and the error flag, the stdout check also fsync()s stdout when it is a regular file (find_stdout_sync()), and a failed fsync() holds the anchors and returns -EIO. Every run that writes its answer to a file now pays for that sync, and it is a new way for a run to fail, so it is worth a clause here if the message is refreshed.
+-- lustre/utils/liblustreapi_pfind.c 5023 
+(minor) What happens when --since-cookie names an existing file that is not a cookie at all? A regular file with no header and no `<fsname>-MDTxxxx <index>` line passes every check here and in find_cookie_check(). It reads as a first run, and find_cookie_write() then renames the new cookie over it:
+
+    lfs find /mnt/lustre --since-cookie ~/notes.txt
+    find_cookie_read()   -> rc 0, every anchor 0
+    scan                 -> whole log read and printed
+    find_cookie_write()  -> rename(tmp, ~/notes.txt)
+
+The file's contents are gone, and its mode is carried over to the cookie. A swapped or mistyped argument in a cron script is enough to do this. Every other misdirected cookie (another filesystem, another root, a directory, a symlink) is refused.
+
+Would refusing a non-empty file in which no line parsed as the header or as an anchor close this case too? An empty file and a hand-seeded list of anchors would still be accepted.
+-- lustre/utils/liblustreapi_pfind.c 5220 
+(minor) "It costs one record per MDT" undercounts: an anchored MDT with a non-empty log is read twice below, once by find_cl_first() from 0 for the oldest record and again from the anchor for the restart test. Change 69443 ("LU-20650 lfs: find --since-cookie, check each MDT when read") later in the series already rewords this to "up to two records per anchored MDT", so nothing is needed here unless this patch is refreshed anyway.
+-- lustre/utils/liblustreapi_pfind.c 4812 
+(style) This isn't a bug, but find_ck_escape() and FIND_CK_W() abbreviate the prefix that find_cookie_read(), find_cookie_tmp(), find_cookie_write() and find_cookie_check() spell out. If the patch is refreshed, find_cookie_escape() and FIND_COOKIE_WIDTH() would keep the family together.
+-- Documentation/man3/llapi_find_since.3 226 
+(minor) With a cookie, a path that does not resolve is no longer the only source of -ENOENT. find_cookie_check()'s writability probe passes the open() errno up unchanged, so a cookie in a directory that does not exist also returns -ENOENT, and a caller reading this page would take that as @path not resolving. -EACCES and -EROFS from the same probe, and any errno from find_cookie_read()'s open(), are not listed at all. If the patch is refreshed, a line saying that the cookie's own open and create errors are returned as they came would cover them.
+-- include/lustre/lustreapi.h 536 
+(style) This isn't a bug, but "so the one that holds on all of them" is hard to parse. Unlike fp_changelog_mdt above, the comment also doesn't say what the field holds or what NULL means. Something like "--since-cookie: pathname of a file of per-MDT changelog indexes, read before the search and rewritten after it. NULL: not given." would match the neighbouring fields. Further down, the llapi_find_since() prototype comment still says only fp_since_kind says where to start, but fp_since_cookie now does too.
+################ a2126aa71f gerrit-review-a2126aa71f_a2126aa.json
+-- lustre/utils/liblustreapi_pfind.c 6589 
+(suggestion) Is there a reason to skip the first MDT? Its purge test ran first in find_cookie_check(), and the rest of the pre-pass still runs before its scan starts: its own restart probe, then up to two one-record reads for each later anchored MDT.
+
+On a DNE filesystem, a clear that lands on mdts[0] in that time still ends the run with rc 0 and a short answer, and the cookie is rewritten past the lost records. Neither man page's "not caught" list mentions that window.
+
+The window is short, but dropping `i > 0` costs one record per run and makes the rule simply "just before each MDT is read" (here and in both man pages). If the patch is refreshed anyway, consider it.
+################ e0be289b52 gerrit-review-e0be289b52_e0be289.json
+-- Documentation/man1/lfs-find.1 782 
+(minor) If the patch is refreshed: "the records before it" reads as the records before INDEX, but those were never part of the answer. What is certainly missing runs from INDEX up to where the log now starts.
+
+Something like "the records from INDEX up to that point are certainly missing from the answer" would say exactly that.
+-- lustre/utils/liblustreapi_pfind.c 5258 
+(style) This isn't a bug, but "the records before it" also takes in the records below the anchor, which were never in the window, and the anchor itself is not printed. Naming the range that is missing would tell an admin exactly what the answer lacks, e.g.
+
+    '%s' has been cleared past the --since anchor: records %llu to %llu are not in the answer
+
+from fp_since_index (1 for --since 0) to oldest - 1. The comment above it, "the records before the oldest were in the window", is loose in the same way.

@@ -145,3 +145,76 @@ running: 12bc029bc9_12bc029 15m03s 9.7M tok | done 5/9
 running: 12bc029bc9_12bc029 16m03s 10.0M tok | done 5/9
 running: 12bc029bc9_12bc029 17m03s 10.2M tok | done 5/9
 running: 12bc029bc9_12bc029 18m03s 10.8M tok | done 5/9
+running: 12bc029bc9_12bc029 19m03s 11.6M tok | done 5/9
+running: 12bc029bc9_12bc029 20m03s 11.9M tok | done 5/9
+running: 12bc029bc9_12bc029 21m03s 12.4M tok | done 5/9
+running: 12bc029bc9_12bc029 22m03s 12.7M tok | done 5/9
+running: 12bc029bc9_12bc029 23m03s 13.3M tok | done 5/9
+running: 12bc029bc9_12bc029 24m03s 13.6M tok | done 5/9
+running: 12bc029bc9_12bc029 25m03s 14.9M tok | done 5/9
+running: 12bc029bc9_12bc029 26m03s 14.9M tok | done 5/9
+running: 12bc029bc9_12bc029 27m03s 15.9M tok | done 5/9
+[12bc029bc9_12bc029] 3 finding(s), severity medium (27m17s, 16.3M tok, $7.77) -> gerrit-review-12bc029bc9_12bc029.json
+running: 6b18564150_6b18564 0m00s | done 6/9
+[6b18564150_6b18564] review started: LU-20650 lfs: add find --since-cookie, a per-MDT anchor
+running: 6b18564150_6b18564 0m45s 439k tok | done 6/9
+running: 6b18564150_6b18564 1m45s 439k tok | done 6/9
+running: 6b18564150_6b18564 2m45s 1.4M tok | done 6/9
+running: 6b18564150_6b18564 3m45s 1.9M tok | done 6/9
+running: 6b18564150_6b18564 4m45s 2.6M tok | done 6/9
+running: 6b18564150_6b18564 5m45s 3.8M tok | done 6/9
+running: 6b18564150_6b18564 6m45s 5.4M tok | done 6/9
+running: 6b18564150_6b18564 7m45s 6.5M tok | done 6/9
+running: 6b18564150_6b18564 8m45s 7.1M tok | done 6/9
+running: 6b18564150_6b18564 9m45s 7.6M tok | done 6/9
+running: 6b18564150_6b18564 10m45s 8.7M tok | done 6/9
+running: 6b18564150_6b18564 11m45s 8.9M tok | done 6/9
+running: 6b18564150_6b18564 12m45s 10.0M tok | done 6/9
+[6b18564150_6b18564] 6 finding(s), severity low (13m39s, 11.1M tok, $5.85) -> gerrit-review-6b18564150_6b18564.json
+running: a2126aa71f_a2126aa 0m00s | done 7/9
+[a2126aa71f_a2126aa] review started: LU-20650 lfs: find --since-cookie, check each MDT when read
+running: a2126aa71f_a2126aa 0m06s 24k tok | done 7/9
+running: a2126aa71f_a2126aa 1m06s 464k tok | done 7/9
+running: a2126aa71f_a2126aa 2m06s 646k tok | done 7/9
+running: a2126aa71f_a2126aa 3m06s 842k tok | done 7/9
+running: a2126aa71f_a2126aa 4m06s 1.4M tok | done 7/9
+running: a2126aa71f_a2126aa 5m06s 1.9M tok | done 7/9
+running: a2126aa71f_a2126aa 6m06s 2.6M tok | done 7/9
+running: a2126aa71f_a2126aa 7m06s 2.7M tok | done 7/9
+running: a2126aa71f_a2126aa 8m06s 2.8M tok | done 7/9
+running: a2126aa71f_a2126aa 9m06s 3.1M tok | done 7/9
+[a2126aa71f_a2126aa] 1 finding(s), severity low (9m18s, 3.3M tok, $2.66) -> gerrit-review-a2126aa71f_a2126aa.json
+running: e0be289b52_e0be289 0m00s | done 8/9
+[e0be289b52_e0be289] review started: LU-20650 lfs: find --since, warn when the log was cleared
+running: e0be289b52_e0be289 0m48s 682k tok | done 8/9
+running: e0be289b52_e0be289 1m48s 988k tok | done 8/9
+running: e0be289b52_e0be289 2m48s 988k tok | done 8/9
+running: e0be289b52_e0be289 3m48s 1.6M tok | done 8/9
+running: e0be289b52_e0be289 4m48s 2.6M tok | done 8/9
+running: e0be289b52_e0be289 5m48s 2.9M tok | done 8/9
+running: e0be289b52_e0be289 6m48s 2.9M tok | done 8/9
+running: e0be289b52_e0be289 7m48s 4.1M tok | done 8/9
+[e0be289b52_e0be289] 2 finding(s), severity low (8m48s, 4.9M tok, $3.28) -> gerrit-review-e0be289b52_e0be289.json
+
+=== Batch summary ===
+  82154d6a0b_82154d6 findings (5 finding(s), severity low)  [24.0M tok, $10.34]
+  a566812e8e_a566812 findings (3 finding(s), severity low)  [18.3M tok, $8.23]
+  f3bf74afd4_f3bf74a findings (2 finding(s), severity low)  [20.1M tok, $9.23]
+  eaa43f92d7_eaa43f9 findings (3 finding(s), severity low)  [15.9M tok, $7.68]
+  433bb7a914_433bb7a findings (3 finding(s), severity low)  [16.1M tok, $7.03]
+  12bc029bc9_12bc029 findings (3 finding(s), severity medium)  [16.3M tok, $7.77]
+  6b18564150_6b18564 findings (6 finding(s), severity low)  [11.1M tok, $5.85]
+  a2126aa71f_a2126aa findings (1 finding(s), severity low)  [3.3M tok, $2.66]
+  e0be289b52_e0be289 findings (2 finding(s), severity low)  [4.9M tok, $3.28]
+  total: 130.1M tokens, $62.06
+
+Human-readable reports:
+  /home/nishida/projects/llm_code_and_review_tools/lreview-results/markdown/82154d6a0b_82154d6_LU-20611_llapi_run_find_over_a_device_scan.md
+  /home/nishida/projects/llm_code_and_review_tools/lreview-results/markdown/a566812e8e_a566812_LU-20637_llapi_name_a_device_scan_s_objects.md
+  /home/nishida/projects/llm_code_and_review_tools/lreview-results/markdown/f3bf74afd4_f3bf74a_LU-20613_llapi_ZFS_backend_for_llapi_scan_device.md
+  /home/nishida/projects/llm_code_and_review_tools/lreview-results/markdown/eaa43f92d7_eaa43f9_LU-20649_llapi_add_llapi_scan_changelog.md
+  /home/nishida/projects/llm_code_and_review_tools/lreview-results/markdown/433bb7a914_433bb7a_LU-20650_lfs_add_find_--since_from_the_changelog.md
+  /home/nishida/projects/llm_code_and_review_tools/lreview-results/markdown/12bc029bc9_12bc029_LU-20650_lfs_add_find_--changelog_the_log_as_source.md
+  /home/nishida/projects/llm_code_and_review_tools/lreview-results/markdown/6b18564150_6b18564_LU-20650_lfs_add_find_--since-cookie_a_per-MDT_anchor.md
+  /home/nishida/projects/llm_code_and_review_tools/lreview-results/markdown/a2126aa71f_a2126aa_LU-20650_lfs_find_--since-cookie_check_each_MDT_when_read.md
+  /home/nishida/projects/llm_code_and_review_tools/lreview-results/markdown/e0be289b52_e0be289_LU-20650_lfs_find_--since_warn_when_the_log_was_cleared.md

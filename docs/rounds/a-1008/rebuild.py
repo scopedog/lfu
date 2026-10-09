@@ -265,6 +265,49 @@ edit(F_GAP, PF, '''		find_since_gap(param, st.fss_since, mdtname);
 		if (rc < 0) {''', 'gap caller')
 
 
+# ---- lreview 68418 #1: an unstriped directory's %Li/%Lo on --since/--changelog
+edit(C417, PF, '''	memcpy(param->fp_lmv_md, rec->lfsr_lmv, rec->lfsr_lmvsize);
+	return 0;
+}
+''', '''	memcpy(param->fp_lmv_md, rec->lfsr_lmv, rec->lfsr_lmvsize);
+	return 0;
+}
+
+/*
+ * An unstriped directory's record has no LMV.  Build the stub a walk builds,
+ * which names the directory's MDT, so %Li and %Lo answer as on a walk.
+ */
+static void find_rec_dir_stub(struct find_param *param, bool isdir)
+{
+	if (!isdir || param->fp_lmv_md->lum_magic != 0 ||
+	    param->fp_file_mdt_index == OBD_NOT_FOUND)
+		return;
+	param->fp_lmv_md->lum_magic = LMV_MAGIC_V1;
+	param->fp_lmv_md->lum_stripe_offset = param->fp_file_mdt_index;
+}
+''', 'stub helper')
+edit(C417, PF, '''	if (param->fp_mdt_uuid != NULL &&
+	    param->fp_file_mdt_index == OBD_NOT_FOUND)
+		return 0;
+''', '''	if (param->fp_mdt_uuid != NULL &&
+	    param->fp_file_mdt_index == OBD_NOT_FOUND)
+		return 0;
+	find_rec_dir_stub(param, isdir);
+''', 'stub since')
+edit(C418, PF, '''	param->fp_get_lmv = isdir && find_needs_lmv(param);
+
+	fc.fc_rec = rec;
+	/*
+	 * Whatever --resolve looked up.''', '''	param->fp_get_lmv = isdir && find_needs_lmv(param);
+	/* as find_since_rec_cb() has it; 0 would name MDT0000 */
+	param->fp_file_mdt_index = (rec->lfsr_valid & LLAPI_SCAN_MDT_INDEX) ?
+				   (int)rec->lfsr_mdt_index : OBD_NOT_FOUND;
+	find_rec_dir_stub(param, isdir);
+
+	fc.fc_rec = rec;
+	/*
+	 * Whatever --resolve looked up.''', 'stub changelog')
+
 # ---- commit messages --------------------------------------------------
 def para(m, text, what):
     # a paragraph before the trailers
