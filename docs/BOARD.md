@@ -21,6 +21,8 @@ the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
   non-cookie file overwritten -> EINVAL kept, shards gone from a target scan
   (needed LMV_SHARD in want + xattr map); sanity 23/23 + 22/22; sweep 15/15,
   checkpatch counts unchanged.
+- Evening AI round (68419 x2, 68420 x1) fixed on top: tip **878bedb6e3**
+  (doc/comment only). Replies in a-1008/replies.md.
 - **#19 OPEN (user's call):** --changelog can read back its own CL_OPEN
   records. lreview's time cut in sc_filter is WRONG: it sees coalesced
   objects with the latest time, so it drops a real pre-start change merged

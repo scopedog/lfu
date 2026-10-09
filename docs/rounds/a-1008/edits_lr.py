@@ -457,3 +457,15 @@ edit(C288, PF, """	if (param->fp_fid2path_mnt != NULL || param->fp_paths)
 	want |= LLAPI_SCAN_LMV_SHARD;
 
 	return want;""", 'lr5 want')
+
+# ---- AI round on 68419/68420 PS15 (10-08 evening)
+edit(C418, LF1, """An object touched in two separate bursts is delivered twice and printed
+twice: coalescing collapses events only within the window a burst spans, and
+a second burst is a second event.""", """A burst is the events on one object with no gap of ten minutes or more
+between them, and at most about an hour long; on a busy log it can end
+sooner. An object touched in two separate bursts is delivered twice and
+printed twice: coalescing collapses events only within a burst, and a second
+burst is a second event.""", 'ai420 burst')
+edit(C419, PF, '	/* one of the two has to have selected this path */',
+     '	/* --since, --changelog or a cookie has to have selected this path */',
+     'ai419 three')
