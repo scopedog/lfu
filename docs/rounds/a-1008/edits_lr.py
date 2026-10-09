@@ -16,8 +16,17 @@ edit(C159, PF, """			if (str_cnt == LLAPI_LAYOUT_DEFAULT)
 				goto format_done;
 			*wrote = snprintf(buffer, size, "%llu",
 					  (unsigned long long)str_cnt);""",
-     """			/* but Data-on-MDT has a real count of 0 */
+     """			/*
+			 * But Data-on-MDT has a real count of 0.  Not the
+			 * default find_lmm_set_default() forges for a scanned
+			 * object with no layout: its pattern, all ones, has
+			 * the MDT bit set too.
+			 */
 			if (str_cnt == LLAPI_LAYOUT_DEFAULT &&
+			    !(param->fp_lmd->lmd_lmm.lmm_magic ==
+			      LOV_USER_MAGIC_V1 &&
+			      param->fp_lmd->lmd_lmm.lmm_pattern ==
+			      LOV_PATTERN_DEFAULT) &&
 			    llapi_layout_pattern_get(layout, &pattern) == 0 &&
 			    pattern == LLAPI_LAYOUT_MDT)
 				str_cnt = 0;
@@ -217,7 +226,15 @@ edit(C417, PF, """	if (param->fp_since_kind == LLAPI_SINCE_NONE""",
      """	/* a kind this library does not know is not read as "all" */
 	if (param->fp_since_kind > LLAPI_SINCE_TIME)
 		return -EINVAL;
-	if (param->fp_since_kind == LLAPI_SINCE_NONE""", 'lr16 code')
+	if (param->fp_since_kind == LLAPI_SINCE_NONE""", 'lr16 code',
+     until=C418)
+edit(C418, PF, """	/* one of the two has to have selected this path */
+	if (param->fp_since_kind == LLAPI_SINCE_NONE""",
+     """	/* a kind this library does not know is not read as "all" */
+	if (param->fp_since_kind > LLAPI_SINCE_TIME)
+		return -EINVAL;
+	/* one of the two has to have selected this path */
+	if (param->fp_since_kind == LLAPI_SINCE_NONE""", 'lr16 code 418')
 edit(C417, LFS3, """.I param
 is NULL,
 .I fp_since_kind
@@ -337,11 +354,16 @@ int llapi_find_since(""", 'lr25 proto')
 # -- 69443 #26: the first MDT is checked again too
 edit(C443, PF, """		 * find_cookie_check() ran before any MDT was read, so a purge
 		 * on this MDT while an earlier one was being read got past it.
-		 * Ask again just before reading: one record, as there.  The""",
+		 * Ask again just before reading: one record, as there.  The
+		 * cookie is not rewritten, so every later run is refused the
+		 * same way until it is removed, rather than skip the records.""",
      """		 * find_cookie_check() ran before any MDT was read, so a purge
 		 * on this MDT since then got past it -- for the first MDT,
 		 * during the rest of the check.  Ask again just before
-		 * reading: one record, as there.  The""", 'lr26 cmt')
+		 * reading: one record, as there.  The cookie is not
+		 * rewritten, so every later run is refused the same way
+		 * until it is removed, rather than skip the records.""",
+     'lr26 cmt')
 edit(C443, PF, """		if (i > 0 && param->fp_since_cookie != NULL &&
 		    starts[mdts[i]] != 0) {""", """		if (param->fp_since_cookie != NULL &&
 		    starts[mdts[i]] != 0) {""", 'lr26 code')
@@ -435,10 +457,14 @@ anchors and returns -EIO.''', 'm419 fsync')
 
 def m_443(m):
     return rep(m, '''So llapi_find_since() reads the oldest record again just before each
-later MDT is scanned, through find_cookie_purged(), the purge test''',
+later MDT is scanned, through find_cookie_purged(), the purge test
+find_cookie_check() now shares: one find_cl_first() record each. If it
+is past anchor + 1, the run stops with -ESTALE and names both numbers.''',
                '''So llapi_find_since() reads the oldest record again just before each
 MDT is scanned, the first one too, through find_cookie_purged(), the
-purge test''', 'm443')
+purge test find_cookie_check() now shares: one find_cl_first() record
+each. If it is past anchor + 1, the run stops with -ESTALE and names
+both numbers.''', 'm443')
 
 # -- 68288 #5 (lab): the shard bit needs trusted.lmv read, so ask for it
 edit(C288, 'lustre/utils/liblustreapi_scan_device.c',
@@ -561,3 +587,198 @@ and print a file again.  Both man pages say so.  A cut at the start
 of the search would have to be made per record, before coalescing,
 inside llapi_scan_changelog(); that is left for a later change.''',
                 'm418 open')
+
+# ======== second lreview (10-09, pre-push) ========
+# -- 68159: SPECIFIC is shown to a walk; say how the scan differs
+edit(C159, PF, """			 * The two magics a client is never shown are given
+			 * the form it would have been shown, so that every
+			 * check below reads one shape: lod_xattr_get() turns
+			 * SEL into COMP_V1, and SPECIFIC is a V3 whose object
+			 * list only --ost would read, which a target scan
+			 * refuses anyway.""",
+     """			 * Two magics are given a form the checks below read:
+			 * lod_xattr_get() turns SEL into COMP_V1 for a client,
+			 * and SPECIFIC becomes a V3 whose object list only
+			 * --ost would read, which a target scan refuses.  A
+			 * walk sees SPECIFIC as it is, so --pool matches such
+			 * a directory on a scan and not on a walk.""",
+     'lr2-1 specific')
+
+
+def m_159_b(m):
+    m = m_159(m)
+    return rep(m, '''- LOV_MAGIC_SEL and LOV_USER_MAGIC_SPECIFIC are written by lod and
+  never rewritten for a client. They are converted to the forms that a
+  client sees, COMP_V1 and V3.''', '''- LOV_MAGIC_SEL is written by lod and shown to a client as COMP_V1,
+  and it is converted to that. LOV_USER_MAGIC_SPECIFIC is converted to
+  V3; a walk sees it unchanged, so --pool can match such a directory on
+  a scan and not on a walk.''', 'm159 specific')
+
+
+# -- 68163: the ZFS backend declares the same two flags
+edit(C163, LSD3, """gets from the client. The ZFS backend declares only
+.B STATX_ATTR_IMMUTABLE
+and
+.BR STATX_ATTR_APPEND :
+on ZFS both compression and encryption are dataset properties, not
+per-file ones, so no per-file answer exists to give.""",
+     """gets from the client. The ZFS backend declares the same two,
+.B STATX_ATTR_IMMUTABLE
+and
+.BR STATX_ATTR_APPEND .""", 'lr2-2 zfs')
+
+# -- 68288: the shard text matches the code now; the --name fallback
+edit(C288, PF, """		want |= LLAPI_SCAN_OWNER | LLAPI_SCAN_PARENT |
+			LLAPI_SCAN_LINKEA | LLAPI_SCAN_LMV_SHARD;
+	/* find_device_cb() skips a shard, so it has to know one */""",
+     """		want |= LLAPI_SCAN_OWNER | LLAPI_SCAN_PARENT |
+			LLAPI_SCAN_LINKEA;
+	/* find_device_cb() skips a shard, so it has to know one */""",
+     'lr2-3 want')
+edit(C288, LF1, """A hardlinked file is printed once: under the first of its names that
+.B --name
+matches, or else under its first name.""",
+     """A hardlinked file is printed once: under the first of its names that
+.B --name
+matches and whose directory this target can place; if there is none, it is
+counted as having no pathname. Without
+.BR --name ,
+it is printed under the first name that can be placed.""", 'lr2-3 man')
+
+
+def m_288_b(m):
+    m = m_288(m)
+    m = rep(m, '''directory is named through its master directory. A shard itself is
+not in the namespace, so it is counted as having no name. The
+pre-pass asks for LLAPI_SCAN_LMV, and a search that names objects
+asks for LLAPI_SCAN_LMV_SHARD, which also reads trusted.lmv.''',
+            '''directory is named through its master directory. A shard itself is
+not in the namespace and is not reported. The pre-pass asks for
+LLAPI_SCAN_LMV, and every search asks for LLAPI_SCAN_LMV_SHARD, which
+also reads trusted.lmv.''', 'm288 shard')
+    return rep(m, '''path on this MDT. A hardlinked object is printed once, under the first
+name that --name matches and the target can place, or else under its
+first name. On an OST, a file is printed once per object it has there.''',
+               '''path on this MDT. A hardlinked object is printed once, under the first
+name that --name matches and the target can place; if there is none,
+it counts as having no pathname. Without --name it is printed under
+the first name the target can place. On an OST, a file is printed
+once per object it has there.''', 'm288 name')
+
+
+# -- 68415: comment reflow, kernel-doc names the third scanner
+edit(C415, SC, """	 * EXTRA_FLAGS is what carries the uid and gid of whoever acted; asking
+	 * for JOBID costs nothing when the
+	 * server did not record one.""",
+     """	 * EXTRA_FLAGS is what carries the uid and gid of whoever acted; asking
+	 * for JOBID costs nothing when the server did not record one.""",
+     'lr2-4 reflow')
+edit(C415, LH, """ * Called once per object.  Return 0 to continue the scan; any other value
+ * stops it and is returned to the caller of llapi_scan_namespace() or
+ * llapi_scan_device().  With more than one scan thread this is called
+ * concurrently and must be thread-safe.""",
+     """ * Called once per object (for llapi_scan_changelog(), once per record
+ * unless LLAPI_SCAN_CL_F_COALESCE is set).  Return 0 to continue the scan;
+ * any other value stops it and is returned to the caller of
+ * llapi_scan_namespace(), llapi_scan_device() or llapi_scan_changelog().
+ * With more than one scan thread this is called concurrently and must be
+ * thread-safe.""", 'lr2-4 kdoc')
+
+
+def m_415_b(m):
+    m = m_415(m)
+    return rep(m, '''A resolve is skipped only for a demand mask every event can answer,
+which LLAPI_SCAN_TYPE is not: scan_cl_mode() answers it for the four
+record types that imply one and no others, so counting it there would
+leave a consumer asking for FID and type with neither a lookup nor a
+type on a CL_CLOSE.''', '''A resolve is skipped when the demand mask names nothing a resolve
+can fill. LLAPI_SCAN_TYPE is in that set: scan_cl_mode() answers it
+for the four record types that imply one and no others, so leaving
+it out would give a consumer asking for FID and type neither a
+lookup nor a type on a CL_CLOSE.''', 'm415 resolve')
+
+
+# -- 68417: "! --since" is refused, not ignored
+edit(C417, 'lustre/utils/lfs_find_parse.c', """		case LFS_SINCE_OPT:
+			ret = set_since(param, t, optarg);""",
+     """		case LFS_SINCE_OPT:
+			/* the changelog lists what changed, not what did not */
+			if (neg_opt) {
+				fprintf(stderr,
+					"%s: '! --since' is not supported\\n",
+					progname);
+				ret = -EINVAL;
+				goto out;
+			}
+			ret = set_since(param, t, optarg);""", 'lr2-5 neg')
+edit(C417, LFS3, """unless
+.B llite.*.user_fid2path
+is set.""", """unless the client was mounted with
+.BR "-o user_fid2path" .""", 'lr2-5 fid2path')
+
+# -- 68418: stale reason for --mdt; man3 says which form a paragraph is
+edit(C418, PF, """		 * Never, with or without --resolve: check_mdt_match() reads
+		 * fp_file_mdt_index, and scan_rec_gather() sets that on the
+		 * find_param llapi_scan_fid() carries, not on this one.  The
+		 * changelog an event arrived in is not always the object's
+		 * MDT either, so --mdt has two readings here and the source
+		 * selector already spells one of them.""",
+     """		 * Never, with or without --resolve: the changelog an event
+		 * arrived in is not always the object's MDT, so --mdt has
+		 * two readings here and the source selector already spells
+		 * one of them.""", 'lr2-6 mdt')
+edit(C418, LFS3, """.LP
+An object that has been unlinked since its event no longer resolves and is
+not in the answer.""", """.LP
+With
+.I fp_changelog_mdt
+set and
+.I fp_resolve
+clear, neither of the paragraphs above and below applies: every object is
+printed, by FID where it has no pathname, and counted as named by FID.
+.LP
+An object that has been unlinked since its event no longer resolves and is
+not in the answer.""", 'lr2-6 man3')
+
+# -- 68419: the stale check reads up to two records
+edit(C419, PF, """ * and no cookie written, so the next run would repeat them.  It costs one
+ * record per MDT, and none at all for an MDT with no anchor yet: 0 has
+ * nothing to be stale against, and that is also every MDT of a first run.""",
+     """ * and no cookie written, so the next run would repeat them.  It reads up to
+ * two records per anchored MDT, and none for an MDT with no anchor yet: 0
+ * has nothing to be stale against, and that is also every MDT of a first
+ * run.""", 'lr2-7 two')
+
+# -- 69443: "before each MDT", not "each later MDT"
+edit(C443, PF, """ * run.  llapi_find_since() reads one more before each later MDT, for a
+ * purge during the run.""", """ * run.  llapi_find_since() reads one more before each MDT, for a purge
+ * during the run.""", 'lr2-8 each')
+
+# -- 69500: name the cases the warning does not catch
+edit(F_GAP, LF1, """they may be: the client cannot tell whether the cleared records were inside
+the window.""", """they may be: the client cannot tell whether the cleared records were inside
+the window. No warning is given for an empty log or one restarted at 1,
+so silence does not prove the answer complete.""", 'lr2-9 silence')
+
+# -- 69501: the comments say what the code does
+edit(F_NLINK, LSC, """	 * Only the type is wanted, and asking for only the type matters:""",
+     """	 * Only the type and the link count are wanted, and asking for nothing
+	 * that needs the OSTs matters:""", 'lr2-10 statx')
+edit(F_NLINK, LSC, """		 * A copy: the FID asked for and the link count let a filter
+		 * look at the object's other names, but the record cb gets
+		 * must carry only what the gather found, or the -ESTALE test
+		 * below would pass on a FID nothing read back.""",
+     """		 * A copy: the FID asked for and the link count let a filter
+		 * look at the object's other names, but the record cb gets
+		 * must carry only what the gather found -- under a name-only
+		 * mask no gather runs, and cb would get a FID nothing read
+		 * back.""", 'lr2-10 copy')
+
+
+def m_nlink_b(m):
+    m = m_nlink(m)
+    return rep(m, '''carries a FID only when the gather read one back, which is what the
+-ESTALE test relies on. llapi_scan_test 17 checks both.''',
+               '''carries a FID only when the gather read one back; under a name-only
+mask no gather runs, so it carries none. llapi_scan_test 17 checks
+both.''', 'm501 estale')

@@ -351,9 +351,9 @@ when the scan itself fails.''', 'mgap')
 exec(open(os.path.join(os.path.dirname(os.path.abspath(__file__)),
                        'edits_lr.py')).read())
 
-MSG = {C159: m_159, C163: m_163, C288: m_288, C415: m_415, C417: m_417,
+MSG = {C159: m_159_b, C163: m_163, C288: m_288_b, C415: m_415_b, C417: m_417,
        C418: m_418_c, C419: m_419_b, C443: m_443, F_GAP: m_gap,
-       F_NLINK: m_nlink}
+       F_NLINK: m_nlink_b}
 
 
 def build(dry):

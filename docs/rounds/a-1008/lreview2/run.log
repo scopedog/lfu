@@ -1,0 +1,202 @@
+  96bc492679_96bc492  LU-20611 llapi: run find over a device scan (worktree)
+  7e5636362c_7e56363  LU-20613 llapi: add a ZFS backend to llapi_scan_device() (worktree)
+  9af21567bb_9af2156  LU-20637 llapi: name a device scan's objects (worktree)
+  7782f0390b_7782f03  LU-20649 llapi: add llapi_scan_changelog() (worktree)
+  cbb66313ff_cbb6631  LU-20650 lfs: add find --since, from the changelog (worktree)
+  e7205adf69_e7205ad  LU-20650 lfs: add find --changelog, the log as source (worktree)
+  912cc7c73f_912cc7c  LU-20650 lfs: add find --since-cookie, a per-MDT anchor (worktree)
+  6468205f1b_6468205  LU-20650 lfs: find --since-cookie, check each MDT when read (worktree)
+  263818adf3_263818a  LU-20650 lfs: find --since, warn when the log was cleared (worktree)
+  730c9e5965_730c9e5  LU-20650 llapi: pass FID and nlink to llapi_scan_fid() filte (worktree)
+
+Reviewing 10 change(s), 1 in parallel, timeout 7200s each
+  prompts:   /home/nishida/projects/llm_code_and_review_tools/review-prompts/kernel
+             (via bundled submodule (/home/nishida/projects/llm_code_and_review_tools/review-prompts))
+  results:   /home/nishida/projects/llm_code_and_review_tools/lreview-results
+  worktrees: /home/nishida/projects/llm_code_and_review_tools/lreview-results/worktrees
+
+running: 96bc492679_96bc492 0m00s | done 0/10
+[96bc492679_96bc492] review started: LU-20611 llapi: run find over a device scan
+running: 96bc492679_96bc492 0m59s 621k tok | done 0/10
+running: 96bc492679_96bc492 2m00s 1.3M tok | done 0/10
+running: 96bc492679_96bc492 3m00s 2.1M tok | done 0/10
+running: 96bc492679_96bc492 4m00s 3.3M tok | done 0/10
+running: 96bc492679_96bc492 5m00s 4.3M tok | done 0/10
+running: 96bc492679_96bc492 6m00s 5.1M tok | done 0/10
+running: 96bc492679_96bc492 7m00s 5.6M tok | done 0/10
+running: 96bc492679_96bc492 8m00s 7.0M tok | done 0/10
+running: 96bc492679_96bc492 9m00s 8.6M tok | done 0/10
+running: 96bc492679_96bc492 10m00s 9.9M tok | done 0/10
+running: 96bc492679_96bc492 11m00s 11.5M tok | done 0/10
+running: 96bc492679_96bc492 12m00s 12.9M tok | done 0/10
+running: 96bc492679_96bc492 13m00s 14.4M tok | done 0/10
+running: 96bc492679_96bc492 14m00s 15.3M tok | done 0/10
+running: 96bc492679_96bc492 15m00s 15.9M tok | done 0/10
+running: 96bc492679_96bc492 16m00s 16.9M tok | done 0/10
+[96bc492679_96bc492] 3 finding(s), severity low (16m11s, 17.3M tok, $7.62) -> gerrit-review-96bc492679_96bc492.json
+running: 7e5636362c_7e56363 0m00s | done 1/10
+[7e5636362c_7e56363] review started: LU-20613 llapi: add a ZFS backend to llapi_scan_device()
+running: 7e5636362c_7e56363 0m48s 1.1M tok | done 1/10
+running: 7e5636362c_7e56363 1m48s 2.3M tok | done 1/10
+running: 7e5636362c_7e56363 2m48s 3.7M tok | done 1/10
+running: 7e5636362c_7e56363 3m48s 3.9M tok | done 1/10
+running: 7e5636362c_7e56363 4m48s 4.6M tok | done 1/10
+running: 7e5636362c_7e56363 5m48s 5.8M tok | done 1/10
+running: 7e5636362c_7e56363 6m48s 8.2M tok | done 1/10
+running: 7e5636362c_7e56363 7m48s 9.4M tok | done 1/10
+running: 7e5636362c_7e56363 8m48s 9.9M tok | done 1/10
+running: 7e5636362c_7e56363 9m48s 11.2M tok | done 1/10
+running: 7e5636362c_7e56363 10m48s 12.0M tok | done 1/10
+running: 7e5636362c_7e56363 11m48s 12.8M tok | done 1/10
+running: 7e5636362c_7e56363 12m48s 13.7M tok | done 1/10
+running: 7e5636362c_7e56363 13m48s 15.5M tok | done 1/10
+running: 7e5636362c_7e56363 14m48s 16.1M tok | done 1/10
+running: 7e5636362c_7e56363 15m48s 17.7M tok | done 1/10
+running: 7e5636362c_7e56363 16m48s 19.4M tok | done 1/10
+running: 7e5636362c_7e56363 17m48s 20.7M tok | done 1/10
+running: 7e5636362c_7e56363 18m48s 22.4M tok | done 1/10
+running: 7e5636362c_7e56363 19m48s 23.9M tok | done 1/10
+running: 7e5636362c_7e56363 20m48s 25.3M tok | done 1/10
+running: 7e5636362c_7e56363 21m48s 26.8M tok | done 1/10
+running: 7e5636362c_7e56363 22m48s 28.4M tok | done 1/10
+[7e5636362c_7e56363] 1 finding(s), severity low (23m08s, 29.0M tok, $11.70) -> gerrit-review-7e5636362c_7e56363.json
+running: 9af21567bb_9af2156 0m00s | done 2/10
+[9af21567bb_9af2156] review started: LU-20637 llapi: name a device scan's objects
+running: 9af21567bb_9af2156 0m39s 315k tok | done 2/10
+running: 9af21567bb_9af2156 1m39s 952k tok | done 2/10
+running: 9af21567bb_9af2156 2m39s 1.6M tok | done 2/10
+running: 9af21567bb_9af2156 3m39s 3.0M tok | done 2/10
+running: 9af21567bb_9af2156 4m39s 4.1M tok | done 2/10
+running: 9af21567bb_9af2156 5m39s 5.1M tok | done 2/10
+running: 9af21567bb_9af2156 6m39s 6.0M tok | done 2/10
+running: 9af21567bb_9af2156 7m39s 7.8M tok | done 2/10
+running: 9af21567bb_9af2156 8m39s 9.9M tok | done 2/10
+running: 9af21567bb_9af2156 9m39s 10.2M tok | done 2/10
+[9af21567bb_9af2156] 3 finding(s), severity low (10m17s, 11.1M tok, $5.55) -> gerrit-review-9af21567bb_9af2156.json
+running: 7782f0390b_7782f03 0m00s | done 3/10
+[7782f0390b_7782f03] review started: LU-20649 llapi: add llapi_scan_changelog()
+running: 7782f0390b_7782f03 0m21s 419k tok | done 3/10
+running: 7782f0390b_7782f03 1m21s 1.3M tok | done 3/10
+running: 7782f0390b_7782f03 2m21s 1.3M tok | done 3/10
+running: 7782f0390b_7782f03 3m21s 1.3M tok | done 3/10
+running: 7782f0390b_7782f03 4m21s 3.1M tok | done 3/10
+running: 7782f0390b_7782f03 5m21s 3.6M tok | done 3/10
+running: 7782f0390b_7782f03 6m21s 6.2M tok | done 3/10
+running: 7782f0390b_7782f03 7m21s 6.5M tok | done 3/10
+running: 7782f0390b_7782f03 8m21s 8.9M tok | done 3/10
+running: 7782f0390b_7782f03 9m21s 9.5M tok | done 3/10
+running: 7782f0390b_7782f03 10m21s 10.6M tok | done 3/10
+running: 7782f0390b_7782f03 11m21s 10.9M tok | done 3/10
+running: 7782f0390b_7782f03 12m21s 11.8M tok | done 3/10
+running: 7782f0390b_7782f03 13m21s 12.7M tok | done 3/10
+running: 7782f0390b_7782f03 14m21s 12.7M tok | done 3/10
+running: 7782f0390b_7782f03 15m21s 13.3M tok | done 3/10
+running: 7782f0390b_7782f03 16m21s 14.3M tok | done 3/10
+running: 7782f0390b_7782f03 17m21s 15.6M tok | done 3/10
+running: 7782f0390b_7782f03 18m21s 16.7M tok | done 3/10
+running: 7782f0390b_7782f03 19m21s 17.8M tok | done 3/10
+[7782f0390b_7782f03] 4 finding(s), severity low (19m24s, 17.9M tok, $8.44) -> gerrit-review-7782f0390b_7782f03.json
+running: cbb66313ff_cbb6631 0m00s | done 4/10
+[cbb66313ff_cbb6631] review started: LU-20650 lfs: add find --since, from the changelog
+running: cbb66313ff_cbb6631 0m57s 477k tok | done 4/10
+running: cbb66313ff_cbb6631 1m57s 863k tok | done 4/10
+running: cbb66313ff_cbb6631 2m57s 2.1M tok | done 4/10
+running: cbb66313ff_cbb6631 3m57s 3.7M tok | done 4/10
+running: cbb66313ff_cbb6631 4m57s 4.7M tok | done 4/10
+running: cbb66313ff_cbb6631 5m57s 6.0M tok | done 4/10
+running: cbb66313ff_cbb6631 6m57s 8.0M tok | done 4/10
+running: cbb66313ff_cbb6631 7m57s 9.3M tok | done 4/10
+running: cbb66313ff_cbb6631 8m57s 9.7M tok | done 4/10
+running: cbb66313ff_cbb6631 9m57s 10.9M tok | done 4/10
+running: cbb66313ff_cbb6631 10m57s 11.6M tok | done 4/10
+running: cbb66313ff_cbb6631 11m57s 12.9M tok | done 4/10
+running: cbb66313ff_cbb6631 12m57s 13.7M tok | done 4/10
+running: cbb66313ff_cbb6631 13m57s 15.6M tok | done 4/10
+[cbb66313ff_cbb6631] 1 finding(s), severity low (14m03s, 15.7M tok, $6.84) -> gerrit-review-cbb66313ff_cbb6631.json
+running: e7205adf69_e7205ad 0m00s | done 5/10
+[e7205adf69_e7205ad] review started: LU-20650 lfs: add find --changelog, the log as source
+running: e7205adf69_e7205ad 0m53s 1.2M tok | done 5/10
+running: e7205adf69_e7205ad 1m53s 2.2M tok | done 5/10
+running: e7205adf69_e7205ad 2m53s 2.9M tok | done 5/10
+running: e7205adf69_e7205ad 3m53s 3.0M tok | done 5/10
+running: e7205adf69_e7205ad 4m53s 3.6M tok | done 5/10
+running: e7205adf69_e7205ad 5m53s 4.8M tok | done 5/10
+running: e7205adf69_e7205ad 6m53s 6.8M tok | done 5/10
+running: e7205adf69_e7205ad 7m53s 8.1M tok | done 5/10
+running: e7205adf69_e7205ad 8m53s 10.1M tok | done 5/10
+running: e7205adf69_e7205ad 9m53s 11.1M tok | done 5/10
+running: e7205adf69_e7205ad 10m53s 12.7M tok | done 5/10
+running: e7205adf69_e7205ad 11m53s 14.1M tok | done 5/10
+running: e7205adf69_e7205ad 12m53s 14.9M tok | done 5/10
+running: e7205adf69_e7205ad 13m53s 16.8M tok | done 5/10
+running: e7205adf69_e7205ad 14m53s 18.1M tok | done 5/10
+[e7205adf69_e7205ad] 3 finding(s), severity low (14m58s, 18.5M tok, $7.87) -> gerrit-review-e7205adf69_e7205ad.json
+running: 912cc7c73f_912cc7c 0m00s | done 6/10
+[912cc7c73f_912cc7c] review started: LU-20650 lfs: add find --since-cookie, a per-MDT anchor
+running: 912cc7c73f_912cc7c 0m54s 667k tok | done 6/10
+running: 912cc7c73f_912cc7c 1m54s 667k tok | done 6/10
+running: 912cc7c73f_912cc7c 2m54s 1.3M tok | done 6/10
+running: 912cc7c73f_912cc7c 3m54s 2.8M tok | done 6/10
+running: 912cc7c73f_912cc7c 4m54s 4.7M tok | done 6/10
+running: 912cc7c73f_912cc7c 5m54s 4.9M tok | done 6/10
+running: 912cc7c73f_912cc7c 6m54s 5.5M tok | done 6/10
+running: 912cc7c73f_912cc7c 7m54s 6.3M tok | done 6/10
+running: 912cc7c73f_912cc7c 8m54s 7.0M tok | done 6/10
+running: 912cc7c73f_912cc7c 9m54s 7.2M tok | done 6/10
+running: 912cc7c73f_912cc7c 10m54s 7.4M tok | done 6/10
+running: 912cc7c73f_912cc7c 11m54s 7.6M tok | done 6/10
+running: 912cc7c73f_912cc7c 12m54s 8.9M tok | done 6/10
+[912cc7c73f_912cc7c] 2 finding(s), severity medium (13m25s, 9.5M tok, $5.30) -> gerrit-review-912cc7c73f_912cc7c.json
+running: 6468205f1b_6468205 0m00s | done 7/10
+[6468205f1b_6468205] review started: LU-20650 lfs: find --since-cookie, check each MDT when read
+running: 6468205f1b_6468205 0m29s 479k tok | done 7/10
+running: 6468205f1b_6468205 1m29s 730k tok | done 7/10
+running: 6468205f1b_6468205 2m29s 1.3M tok | done 7/10
+running: 6468205f1b_6468205 3m29s 1.8M tok | done 7/10
+running: 6468205f1b_6468205 4m29s 2.3M tok | done 7/10
+running: 6468205f1b_6468205 5m29s 2.7M tok | done 7/10
+[6468205f1b_6468205] 2 finding(s), severity low (5m52s, 2.9M tok, $2.15) -> gerrit-review-6468205f1b_6468205.json
+running: 263818adf3_263818a 0m00s | done 8/10
+[263818adf3_263818a] review started: LU-20650 lfs: find --since, warn when the log was cleared
+running: 263818adf3_263818a 0m37s 302k tok | done 8/10
+running: 263818adf3_263818a 1m37s 302k tok | done 8/10
+running: 263818adf3_263818a 2m37s 1.5M tok | done 8/10
+running: 263818adf3_263818a 3m37s 2.1M tok | done 8/10
+running: 263818adf3_263818a 4m37s 2.2M tok | done 8/10
+running: 263818adf3_263818a 5m37s 2.9M tok | done 8/10
+running: 263818adf3_263818a 6m37s 3.7M tok | done 8/10
+[263818adf3_263818a] 1 finding(s), severity low (6m51s, 4.1M tok, $2.89) -> gerrit-review-263818adf3_263818a.json
+running: 730c9e5965_730c9e5 0m00s | done 9/10
+[730c9e5965_730c9e5] review started: LU-20650 llapi: pass FID and nlink to llapi_scan_fid() filte
+running: 730c9e5965_730c9e5 0m46s 674k tok | done 9/10
+running: 730c9e5965_730c9e5 1m46s 1.5M tok | done 9/10
+running: 730c9e5965_730c9e5 2m46s 2.2M tok | done 9/10
+running: 730c9e5965_730c9e5 3m46s 2.4M tok | done 9/10
+running: 730c9e5965_730c9e5 4m46s 3.1M tok | done 9/10
+running: 730c9e5965_730c9e5 5m46s 3.6M tok | done 9/10
+[730c9e5965_730c9e5] 2 finding(s), severity low (6m26s, 4.2M tok, $2.99) -> gerrit-review-730c9e5965_730c9e5.json
+
+=== Batch summary ===
+  96bc492679_96bc492 findings (3 finding(s), severity low)  [17.3M tok, $7.62]
+  7e5636362c_7e56363 findings (1 finding(s), severity low)  [29.0M tok, $11.70]
+  9af21567bb_9af2156 findings (3 finding(s), severity low)  [11.1M tok, $5.55]
+  7782f0390b_7782f03 findings (4 finding(s), severity low)  [17.9M tok, $8.44]
+  cbb66313ff_cbb6631 findings (1 finding(s), severity low)  [15.7M tok, $6.84]
+  e7205adf69_e7205ad findings (3 finding(s), severity low)  [18.5M tok, $7.87]
+  912cc7c73f_912cc7c findings (2 finding(s), severity medium)  [9.5M tok, $5.30]
+  6468205f1b_6468205 findings (2 finding(s), severity low)  [2.9M tok, $2.15]
+  263818adf3_263818a findings (1 finding(s), severity low)  [4.1M tok, $2.89]
+  730c9e5965_730c9e5 findings (2 finding(s), severity low)  [4.2M tok, $2.99]
+  total: 130.1M tokens, $61.35
+
+Human-readable reports:
+  /home/nishida/projects/llm_code_and_review_tools/lreview-results/markdown/96bc492679_96bc492_LU-20611_llapi_run_find_over_a_device_scan.md
+  /home/nishida/projects/llm_code_and_review_tools/lreview-results/markdown/7e5636362c_7e56363_LU-20613_llapi_add_a_ZFS_backend_to_llapi_scan_device.md
+  /home/nishida/projects/llm_code_and_review_tools/lreview-results/markdown/9af21567bb_9af2156_LU-20637_llapi_name_a_device_scan_s_objects.md
+  /home/nishida/projects/llm_code_and_review_tools/lreview-results/markdown/7782f0390b_7782f03_LU-20649_llapi_add_llapi_scan_changelog.md
+  /home/nishida/projects/llm_code_and_review_tools/lreview-results/markdown/cbb66313ff_cbb6631_LU-20650_lfs_add_find_--since_from_the_changelog.md
+  /home/nishida/projects/llm_code_and_review_tools/lreview-results/markdown/e7205adf69_e7205ad_LU-20650_lfs_add_find_--changelog_the_log_as_source.md
+  /home/nishida/projects/llm_code_and_review_tools/lreview-results/markdown/912cc7c73f_912cc7c_LU-20650_lfs_add_find_--since-cookie_a_per-MDT_anchor.md
+  /home/nishida/projects/llm_code_and_review_tools/lreview-results/markdown/6468205f1b_6468205_LU-20650_lfs_find_--since-cookie_check_each_MDT_when_read.md
+  /home/nishida/projects/llm_code_and_review_tools/lreview-results/markdown/263818adf3_263818a_LU-20650_lfs_find_--since_warn_when_the_log_was_cleared.md
+  /home/nishida/projects/llm_code_and_review_tools/lreview-results/markdown/730c9e5965_730c9e5_LU-20650_llapi_pass_FID_and_nlink_to_llapi_scan_fid_filter.md

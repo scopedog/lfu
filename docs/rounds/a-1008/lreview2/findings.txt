@@ -1,0 +1,120 @@
+################ 96bc492679
+-- /COMMIT_MSG 64 
+(minor) This holds for SEL but not for SPECIFIC. lod_xattr_get() rewrites only LOV_MAGIC_SEL to COMP_V1. LOV_USER_MAGIC_SPECIFIC reaches a walk unchanged through ll_dir_get_default_layout(), so V3 is not the form a client sees for it. See the inline comment in find_rec_to_lmd().
+-- lustre/utils/liblustreapi_pfind.c 1815 
+(defect) Can this print 0 for an object that has no layout at all?
+
+On a scan with a layout predicate, find_rec_layout() calls find_lmm_set_default() for an object with no trusted.lov. That forgery has lmm_pattern = LOV_PATTERN_DEFAULT (0xffffffff), and llapi_layout_get_by_xattr() decodes the pattern with `lmm_pattern & LOV_PATTERN_MDT`. So the forgery comes back as LLAPI_LAYOUT_MDT with a stripe count of LLAPI_LAYOUT_DEFAULT, and this branch turns that into 0. Feeding those 32 bytes to llapi_layout_get_by_xattr() gives exactly that: pattern LLAPI_LAYOUT_MDT, count LLAPI_LAYOUT_DEFAULT, and this logic prints 0.
+
+For example, `--stripe-count -2 -printf '%LF %Lc\n'` over an MDT prints 0 for every regular file, symlink or device node that has no trusted.lov.
+
+llapi_find_device.3 and the comment in find_rec_layout() both say that such an object prints nothing for the layout directives. Testing the raw lmm_pattern before treating the component as Data-on-MDT, or keeping the forged default away from the printer on a scan, would keep that promise.
+-- lustre/utils/liblustreapi_pfind.c 4076 
+(minor) Is SPECIFIC really never shown to a client? lod_xattr_get() rewrites only SEL to COMP_V1. ll_dir_get_default_layout() passes LOV_USER_MAGIC_SPECIFIC through unchanged, and LL_IOC_MDC_GETINFO copies it into lmd_lmm. So a walk sees SPECIFIC for a directory made with `lfs setstripe -o 0,1 -p P dir`.
+
+That makes --pool answer differently on a scan than on a walk. find_check_pool() reads lmm_pool_name only for LOV_USER_MAGIC_V3, so a walk never matches such a directory with --pool P. After this relabelling, a scan does match it.
+
+The scan's answer may be the better one. If so, this comment (and llapi_find_device.3) could say the scan differs from a walk here. Or find_check_pool() could learn SPECIFIC, so the two paths agree.
+################ 7e5636362c
+-- Documentation/man3/llapi_scan_device.3 351 
+(minor) The word "only" suggests the ZFS backend declares a narrower set than ldiskfs. In fact both declare exactly `STATX_ATTR_IMMUTABLE | STATX_ATTR_APPEND` (scan_inode_attrs() and scan_zfs_read_obj() set the same `so_attrs_mask`).
+
+The reason given also contradicts the sentence just above it. Lustre's own encryption is per file, and scan_sink_object() adds `STATX_ATTR_ENCRYPTED` from the LMA's `LMAI_ENCRYPT` for a ZFS record just as it does for an ldiskfs one. So a ZFS scan does have a per-file answer for encryption.
+
+If the page is refreshed, maybe just say the ZFS backend declares the same two, and drop the encryption part of the reason.
+################ 9af21567bb
+-- /COMMIT_MSG 59 
+(minor) This paragraph no longer matches the code. It says a shard "is counted as having no name", and that "a search that names objects asks for LLAPI_SCAN_LMV_SHARD".
+
+In this revision find_device_cb() returns before find_device_prefilter() for any record with LLAPI_SCAN_LMV_SHARD, so a shard is never added to fds_unresolved. find_device_want() also asks for LLAPI_SCAN_LMV_SHARD on every search, not only one that names objects. The last paragraph ("A striped directory's shards are not reported") describes the current behaviour. If the patch is refreshed, could these two sentences be brought in line with it?
+-- lustre/utils/liblustreapi_pfind.c 3549 
+(minor) This arm seems unreachable now. find_decide() has two callers. find_device_cb() returns early for LLAPI_SCAN_LMV_SHARD before it gets here. The namespace walk never sets the bit, and it leaves fc_mnt_fd at -1 and fc_dirmap NULL, so it never enters this block.
+
+This isn't a bug, but if the patch is refreshed, consider dropping the arm. The LLAPI_SCAN_LMV_SHARD in the --fid2path/--paths mask in find_device_want() is now redundant too, since the unconditional `want |= LLAPI_SCAN_LMV_SHARD` after it covers it.
+-- Documentation/man1/lfs-find.1 971 
+(minor) Is "or else under its first name" accurate? find_device_entry() picks the first linkea name that --name matches and whose parent the directory map can place. If no such name exists, it falls back to the --name match, which fails to compose too. So the object is counted with the ones that have no pathname, not printed under its first name.
+
+Without --name, the file is printed under the first name the map can place. Under DNE, with a link from a directory on another MDT, that need not be the first name.
+
+Something like "under the first of its names that --name matches and whose directory is on this target; if there is none, it is counted as having no pathname" would match the code. The commit message has the same sentence.
+################ 7782f0390b
+-- /COMMIT_MSG 118 
+(minor) If the message is refreshed, this rule no longer matches the code. scan_cl_resolve() returns early when sc_want names nothing in SCAN_CL_RESOLVE_MASK, not "only for a demand mask every event can answer".
+
+For example, sc_want = LLAPI_SCAN_FID | LLAPI_SCAN_PARENT skips the lookup even though a CL_CLOSE carries no parent. That is the right behaviour, since a lookup cannot supply a parent either, but the sentence describes the earlier rule.
+
+Something like "A resolve is skipped when the demand mask names nothing a resolve can fill; LLAPI_SCAN_TYPE is in that set because ..." would match the code.
+-- lustre/utils/liblustreapi_scan_changelog.c 1338 
+(minor) With LLAPI_SCAN_CL_F_FOLLOW, can a failing clear ever reach the caller? Without sc_endrec, the loop ends only when cb or sc_filter stops it, or when a read fails. On those paths sl_stop_rc wins here, or rc is already negative, so sl_clear_rc is never returned.
+
+For example, sc_user may name a user that is not registered on this MDT (under DNE the IDs are per MDT), or a bare "1". llapi_changelog_clear() sends the bare form as `clear:1:N`, which chlg_write() rejects because it only parses `clear:cl%u:%llu`. Every batch then fails, scan_cl_clear() logs through llapi_error() and carries on, and the user's backlog keeps growing on the MDT, which is what the NOTES section warns about. A daemon that has silenced llapi messages cannot tell.
+
+Would it be better to end the stream with the error on the first failed clear, or at least to count failed clears in sc_stats? Failing that, the page could say that under _FOLLOW the clear error is returned only when sc_endrec ends the stream.
+-- lustre/utils/liblustreapi_scan_changelog.c 1205 
+(style) This isn't a bug, but the comment breaks after "when the", leaving a short line in the middle of the sentence. The block above the final scan_cl_clear() does the same after "the same rule the". If the patch is refreshed, both could be reflowed.
+-- include/lustre/lustreapi.h 933 
+(style) This isn't a bug, but llapi_scan_changelog() now takes this type for both cb and sc_filter. This kernel-doc still names only llapi_scan_namespace() and llapi_scan_device() as the callers that get the return value back, and lfsp_filter as the filter. "Called once per object" also holds for the changelog only under LLAPI_SCAN_CL_F_COALESCE. If the patch is refreshed, it could mention the third entry point and sc_filter.
+################ cbb66313ff
+-- lustre/utils/lfs_find_parse.c 1293 
+(minor) A `!` in front of --since is accepted and then dropped. The `case 1` arm sets neg_opt, but this arm never reads it, so
+
+    lfs find /mnt/lustre ! --since 30d -type f
+
+prints the files that did change in the last 30 days and exits 0.
+
+Other options here that have no negated form (--maxdepth, --threads) ignore `!` the same way, so this is the existing convention. --since is different because its negation has an obvious meaning: "not changed in 30 days" is exactly what a purge script asks, and here it would get the opposite set with nothing said.
+
+If the patch is refreshed, could this arm refuse a negated --since instead of ignoring the `!`?
+################ e7205adf69
+-- lustre/utils/liblustreapi_pfind.c 4815 
+(minor) The first half of this reason looks stale now. find_changelog_rec_cb() copies lfsr_mdt_index into this param's fp_file_mdt_index ("as find_since_rec_cb() has it"), and with --mdt set find_want() keeps LLAPI_SCAN_MDT_INDEX in fss_want. So under --resolve check_mdt_match() would have an index to read, the same way --since answers --mdt.
+
+The refusal still stands on the second reason (the log an event arrived in is not always the object's MDT). If the patch is refreshed, could the scan_rec_gather() part go, so this doesn't read as a mechanical limit?
+-- lustre/utils/liblustreapi_pfind.c 5672 
+(style) This isn't a bug, but this comment now sits above the wrong test. "One of the two has to have selected this path" describes the fp_since_kind == LLAPI_SINCE_NONE && fp_changelog_mdt == NULL check below, but it is stacked over the unknown-kind range check, which has its own comment. If the patch is refreshed, could it move down to the check it describes?
+-- Documentation/man3/llapi_find_since.3 122 
+(minor) With fp_changelog_mdt set and fp_resolve clear, this paragraph no longer holds. "All of that describes the anchored form" in DESCRIPTION only covers the paragraphs above it.
+
+In that mode an unlinked object is printed by FID (find_changelog_rec_cb() -> find_decide()), and the "no longer exist ... not in the answer" warning is suppressed when fss_as_recorded is set. The fid2path paragraph just above has the same gap. An -EPERM from the lookup prints the object by FID and counts it under "named by FID" rather than leaving it out of the answer, although the errno is still returned.
+
+If the page is refreshed, maybe mark both paragraphs as the anchored form's, or say what fp_changelog_mdt does instead?
+################ 912cc7c73f
+-- lustre/utils/liblustreapi_pfind.c 6048 
+(defect) The anchor taken here also covers a repeat that _ONCE then drops without a second lookup. Under --since this only suppresses a duplicate line. Under --since-cookie, can it lose a change for good?
+
+An object can leave the coalescing cache in the middle of a scan: the stream clock passes its last event by sc_min_age, it is evicted at sc_max_cached, or it is held past SCAN_CL_MAX_HOLD. It is then looked up live. If the predicates reject it, it still goes into the _ONCE set, because scan_cl_deliver() adds it once find_since_cand_cb() returns 0, printed or not. If the object changes again while this run is still reading, the scan reads the new record. That record raises fss_reached here and is then dropped at the _ONCE test in scan_cl_deliver().
+
+For example, `lfs find /mnt/lustre/data --since-cookie ck -name '*.h5'`:
+
+    out.tmp created           -> leaves the cache mid-scan, -name rejects it, added to _ONCE
+    mv out.tmp out.h5         -> happens during the run; record read, anchor moves past it, dropped
+    cookie rewritten          -> the next run starts past the rename
+
+out.h5 is never printed by this run or any later one. The same happens to a file that is still being written at its first lookup (-size), or one moved into the subtree after it. A later --since window would cover it again, but with the cookie this is the short answer with nothing said that the stale check exists to prevent. find_since_seen() has the same shape across MDTs, since it records the FID b
+-- lustre/utils/liblustreapi_pfind.c 5263 
+(style) This isn't a bug, but an anchored MDT whose log holds records costs two one-record reads here, not one: find_cl_first() from 0 for the oldest record, then find_cl_first() from the anchor for the restart check. If the patch is refreshed, this sentence could say so.
+################ 6468205f1b
+-- /COMMIT_MSG 17 
+(style) This isn't a bug, but the reflow left "purge test" on a line of its own, between "the" and "find_cookie_check() now shares".
+
+The new comment above the find_cookie_purged() call in llapi_find_since() has the same leftover: a short line ending in "The" before "cookie is not rewritten". If the patch is refreshed, consider rewrapping both.
+-- lustre/utils/liblustreapi_pfind.c 5298 
+(minor) This isn't a bug, but "before each later MDT" no longer matches the code. llapi_find_since() now calls find_cookie_purged() before every anchored MDT, the first one included ("the first one too" in the commit message, "each MDT" in both man pages). If the patch is refreshed, could this say "before each MDT is scanned"?
+################ 263818adf3
+-- Documentation/man1/lfs-find.1 780 
+(minor) As written, this reads as if no warning means the answer is complete. But find_since_gap() stays silent for an empty log (`oldest <= 1` covers 0) and for a log restarted at 1.
+
+The empty case is also what a caught-up consumer leaves behind. On a full clear, mdd_changelog_llog_cancel() calls mdd_changelog_write_header(). As far as I can tell, that returns early because CL_MARK is always in mc_current_mask (CHANGELOG_MINMASK). So no CLM_PURGE marker is written, and every record is cancelled. 160Af shows it: between `changelog_clear 0` and `touch f1`, `lfs find --since 1h` prints nothing and warns about nothing.
+
+llapi_find_since.3 already names both exceptions, and the --since-cookie paragraph just below lists its own "Not caught:" cases. If the patch is refreshed, could this paragraph name them too, so silence isn't read as a complete answer?
+################ 730c9e5965
+-- lustre/utils/liblustreapi_scan.c 878 
+(style) This isn't a bug, but "Only the type is wanted, and asking for only the type matters" is no longer true: the statx() below now asks for STATX_NLINK too. The glimpse reasoning still holds, since STATX_NLINK is not one of the bits that set need_glimpse in ll_getattr_dentry(). If the patch is refreshed, maybe reword it to something like "Only the type and the link count are wanted, and asking for nothing that needs the OSTs matters: ..." and fold the inline "no glimpse" note into it.
+-- lustre/utils/liblustreapi_scan.c 938 
+(minor) Is the -ESTALE half of this reason right? Every successful scan_rec_gather() ends in scan_rec_mdt(), which sets the FID unconditionally:
+
+    rec->lfsr_fid = lmd->lmd_fid;
+
+If the asked-for FID were written into rec here, the gather would overwrite it. A gather that read no FID would leave [0x0:0x0:0x0], and lu_fid_eq() below would still return -ESTALE. Only the !(rec.lfsr_valid & LLAPI_SCAN_FID) arm of that test would go dead.
+
+The case the copy actually protects is the name-only mask. No gather runs there, so writing into rec would hand cb a FID that nothing read back. That breaks what the man page promises and what test17 now asserts. If the patch is refreshed, the comment could say that instead. The commit message uses the same "the -ESTALE test relies on" wording.

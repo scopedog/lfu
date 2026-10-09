@@ -4,6 +4,26 @@ Every ticket and Gerrit id in play, and the ones that are *not* ours. Regenerate
 the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
 **2026-09-06**.
 
+## 2026-10-09: PUSHED a009cfea7b -- START HERE
+
+- **Pushed a009cfea7b** (branch a1008-pushed in ~/lfs-fix-1007) on the user's
+  "pre-push lreview -> fix -> push": new PS on 68159..69503 (68417 = PS16).
+  18 AI replies posted on each comment's own PS, threaded and resolved
+  (docs/rounds/a-1008/post_replies.py).
+- Second lreview (10 changed commits, $61, a-1008/lreview2/findings.txt):
+  22 findings. FIXED: my DoM %Lc fix printed 0 for a scanned object with no
+  layout (forged default's pattern has the MDT bit) -- lab old [0] -> new [];
+  "! --since" was silently ignored -> refused; stale comments/messages; the
+  SPECIFIC/--pool walk-vs-scan difference documented. Lab sanity 23/23 +
+  22/22.
+- **OWED (not fixed, pre-existing):** 68419 --since-cookie can lose a change:
+  an object looked up mid-scan and rejected goes into the _ONCE set; a later
+  record for it in the same run moves the anchor and is dropped (e.g.
+  out.tmp rejected by -name, then renamed to out.h5 during the run). Also
+  68415 LLAPI_SCAN_CL_F_FOLLOW never returns a clear error (count it in
+  sc_stats or end the stream), and lreview #19 (ABI per-record cut).
+- Polling is off. Host released to lustre-kmec-b9 for shutdown.
+
 ## 2026-10-08: polling resumed; AI round on the 10-07 PS fixed locally
 
 - **Polling stopped 10-09 ~01:30 (user).** CI at stop: every retest back green
