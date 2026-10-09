@@ -6,6 +6,12 @@ the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
 
 ## 2026-10-08: polling resumed; AI round on the 10-07 PS fixed locally
 
+- **Polling stopped 10-09 ~01:30 (user).** CI at stop: every retest back green
+  (68159 68160 68163 68415 68418 68419 68420 69443 69503 Verified+1) except
+  69502 PS1 review-dne-part-4 sanity-hsm retest (LU-16932), still running.
+- **Next:** lreview the changed commits of a1008-tip 28611722df (~$60, awaits
+  the user's word), then the push-ask with replies from a-1008/replies.md.
+
 - **fix-1008 READY, UNPUSHED:** ~/lfs-fix-1007 branch fix-1008 = a1008-tip =
   **af9243c6c0** (from a1007-pushed ab63954c73), docs/rounds/a-1008/rebuild.py.
   14 AI comments on 7 changes fixed; replies in docs/rounds/a-1008/replies.md.
