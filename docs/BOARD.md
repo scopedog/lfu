@@ -4,6 +4,20 @@ Every ticket and Gerrit id in play, and the ones that are *not* ours. Regenerate
 the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
 **2026-09-06**.
 
+## 2026-10-08: polling resumed; AI round on the 10-07 PS fixed locally
+
+- **fix-1008 READY, UNPUSHED:** ~/lfs-fix-1007 branch fix-1008 = a1008-tip =
+  **af9243c6c0** (from a1007-pushed ab63954c73), docs/rounds/a-1008/rebuild.py.
+  14 AI comments on 7 changes fixed; replies in docs/rounds/a-1008/replies.md.
+  Sweep 15/15, checkpatch counts unchanged, sanity 56E*+160A* ldiskfs 23/23,
+  ZFS 22/22. lreview on the 9 changed commits running (a-1008/lreview/).
+- **Retests (linked):** 68159 LU-20788/LU-20471, 68160 LU-20086, 68163
+  LU-20710, 68415 LU-16932/LU-19730, 68418 LU-20276, 69443 LU-20501, 69503
+  LU-19605, 69502 LU-16932, 68420 LU-19747.
+- **68419 PS15 zfs-part-2 sanity-pfl:** OST0000 never remounted after
+  lnet-selftest's rmmod (framework skipped ost1 import); no ticket; retested
+  citing LU-20723, NOT linked (user 10-08). If it recurs: raise a ticket.
+
 ## 2026-10-07 evening: PUSHED -- START HERE
 
 - **Pushed ab63954c73** (branch a1007-pushed in ~/lfs-fix-1007) on the
