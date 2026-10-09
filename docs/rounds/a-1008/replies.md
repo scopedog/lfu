@@ -19,7 +19,6 @@ built by docs/rounds/a-1008/rebuild.py.
 | 69443 PS3  | f4af31b9_52a9d5f7 | Done. |
 | 69500 PS1  | 608bbf64_c2246537 | Done. |
 | 69500 PS1  | 33869de4_6135daec | Done. |
-
 | 68419 PS15 | c4dd5f3b_aaba6d0b | Done. |
 | 68419 PS15 | 2ca7425b_3f9336b4 | Done. |
 | 68420 PS15 | e17fb28d_9d96d1b2 | Done: defined where "burst" first appears (68418's paragraph). |
