@@ -3,7 +3,7 @@
 # applied to each commit's own tree from the commit that owns each edit
 # upward.  Idempotent per edit: new text present -> skip.  No cherry-picks.
 # Framework copied from ../a-1007/rebuild.py.
-import os, subprocess, sys
+import os, re, subprocess, sys
 
 REPO = '/home/nishida/lfs-fix-1007'
 BASE = '507b70072f^'
@@ -348,7 +348,11 @@ anything cleared from the anchor on is missing.''', 'mgap anchor')
 when the scan itself fails.''', 'mgap')
 
 
-MSG = {C417: m_417, C418: m_418, C419: m_419, F_GAP: m_gap}
+exec(open(os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                       'edits_lr.py')).read())
+
+MSG = {C159: m_159, C163: m_163, C288: m_288, C415: m_415, C417: m_417,
+       C418: m_418_b, C419: m_419_b, C443: m_443, F_GAP: m_gap}
 
 
 def build(dry):
@@ -363,6 +367,24 @@ def build(dry):
                 files[f] = git('show', '%s:%s' % (c, f)).decode()
             try:
                 files[f] = rep(files[f], old, new, what)
+            except Exception as e:
+                print('commit %d %s: %s' % (i, c, e))
+                fail = True
+        for (own, a, b) in RENAMES:
+            if own > i:
+                continue
+            out = subprocess.run(['git', '-C', REPO, 'grep', '-l', '-w', a, c],
+                                 capture_output=True).stdout.decode()
+            for f in out.split():
+                f = f.split(':', 1)[1]
+                if f not in files:
+                    files[f] = git('show', '%s:%s' % (c, f)).decode()
+                files[f] = re.sub(r'\b%s\b' % a, b, files[f])
+        for (own, f, a, b, what) in POST:
+            if own > i:
+                continue
+            try:
+                files[f] = rep(files[f], a, b, what)
             except Exception as e:
                 print('commit %d %s: %s' % (i, c, e))
                 fail = True

@@ -14,8 +14,18 @@ the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
   findings. FIXED: 68417/68418 %Li/%Lo printed 0 for an unstriped dir on
   another MDT under --since/--changelog (find_rec_dir_stub); lab 05-li.sh
   OLD 0 [0] -> NEW 1 [1], sanity again 23/23 + 22/22. Tip now **dd97d0158f**.
-  Rest await the user: ~10 doc/msg fixes, 5 behaviour changes, 68418
-  --changelog reading its own CL_OPEN records (unproven), ~10 deferrable.
+  User 10-08 "Fix all": all fixed (edits_lr.py) except #19, tip now
+  **2152f95065** (a1008-tip). Incl. LLAPI_SCAN_JOBID/lfsr_jobid ->
+  _EVENT_JOBID/lfsr_event_jobid, find_ck_ -> find_cookie_, 68163 subject
+  "add a ZFS backend to llapi_scan_device()". Lab old/new: DoM %Lc ''->0,
+  non-cookie file overwritten -> EINVAL kept, shards gone from a target scan
+  (needed LMV_SHARD in want + xattr map); sanity 23/23 + 22/22; sweep 15/15,
+  checkpatch counts unchanged.
+- **#19 OPEN (user's call):** --changelog can read back its own CL_OPEN
+  records. lreview's time cut in sc_filter is WRONG: it sees coalesced
+  objects with the latest time, so it drops a real pre-start change merged
+  with a later one. A correct cut is per raw record inside
+  llapi_scan_changelog() (new param field, ABI). Proposed: document only.
 - **Retests (linked):** 68159 LU-20788/LU-20471, 68160 LU-20086, 68163
   LU-20710, 68415 LU-16932/LU-19730, 68418 LU-20276, 69443 LU-20501, 69503
   LU-19605, 69502 LU-16932, 68420 LU-19747.
