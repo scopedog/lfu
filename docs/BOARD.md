@@ -4,7 +4,27 @@ Every ticket and Gerrit id in play, and the ones that are *not* ours. Regenerate
 the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
 **2026-09-06**.
 
-## 2026-10-09: PUSHED a009cfea7b -- START HERE
+## 2026-10-09 evening: 68419 _ONCE loss FIXED locally -- START HERE
+
+- **Fix:** ~/lfs-fix-1007 branch **fix-1009** = 490dece703, one `fixup!`
+  commit on a009cfea7b, to fold into **68417** (the code is there; 68419's
+  cookie only makes the loss permanent). --since drops _ONCE; lfs keeps one
+  FID set across MDTs and marks an object done when printed, gone,
+  unreadable or undecided -- a rejected one is looked up again on its next
+  burst. fss_cand still counts objects once. checkpatch 0/0.
+- **Proven** (tests/lab-1009/05-once.sh, clone VM): out.tmp aged 610 s,
+  ~99k pad records so the rename lands in a later plain llog (the client
+  reads a plain llog's header when it opens it -- with 5k pads the rename
+  was never read in the run, so no loss), gdb renames after the first
+  lookup returns. OLD: run1 and run2 print nothing, cookie = rename index
+  -> lost. FIX: run1 prints out.h5. 150k pads fill the lab MDT (ENOSPC).
+- Sanity 56E*+160A* on the fix: ldiskfs DNE 23/23, ZFS 22/22 (56Edb skip).
+- **Not done:** lreview of the fixup (standing rule before any push); the
+  fold into 68417 (ripples up the stack). Still owed: 68415 FOLLOW clear
+  error, lreview #19 ABI cut.
+- Polling on (gpoll under Monitor).
+
+## 2026-10-09: PUSHED a009cfea7b
 
 - **Pushed a009cfea7b** (branch a1008-pushed in ~/lfs-fix-1007) on the user's
   "pre-push lreview -> fix -> push": new PS on 68159..69503 (68417 = PS16).
