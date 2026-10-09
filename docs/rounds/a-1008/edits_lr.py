@@ -517,3 +517,47 @@ one name, and its link count counts its subdirectories. The statx()''',
                '''for and the link count, a directory's included, as the other
 scanners give it; the filter tests the type itself. The statx()''',
                'm501')
+
+# ---- lreview #19, documented (user 10-09: "document it for now")
+edit(C418, LF1, """.B --since
+asks what is true now and prints such an object once.
+""", """.B --since
+asks what is true now and prints such an object once.
+With
+.B OPEN
+in the MDT's changelog mask,
+.B --resolve
+with
+.B -printf
+or
+.B --projid
+opens each file it looks up, and the log records those opens while the search
+is reading it. A file can then be printed again, for the search's own opens.
+""", 'lr19 man1')
+edit(C418, LFS3, """guessed at. See
+.BR lfs-find (1)
+for which predicates those are.
+""", """guessed at. See
+.BR lfs-find (1)
+for which predicates those are.
+.IP
+With
+.B CL_OPEN
+in the MDT's changelog mask,
+.I fp_resolve
+with a
+.B -printf
+format or a project id test opens each regular file it looks up, and the log
+records those opens while this call is reading it. A file can then be
+reported again, for the call's own opens.
+""", 'lr19 man3')
+
+
+def m_418_c(m):
+    m = m_418_b(m)
+    return para(m, '''With OPEN in the changelog mask, --changelog --resolve with -printf
+or --projid can read back the CL_OPEN records its own lookups write
+and print a file again.  Both man pages say so.  A cut at the start
+of the search would have to be made per record, before coalescing,
+inside llapi_scan_changelog(); that is left for a later change.''',
+                'm418 open')

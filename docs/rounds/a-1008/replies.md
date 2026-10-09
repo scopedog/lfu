@@ -28,3 +28,4 @@ built by docs/rounds/a-1008/rebuild.py.
 
 Tip after the evening AI round: 878bedb6e3 (comment + man page only over 2152f95065; sweep 15/15).
 Tip after 69501: 41a807f27f (sweep 15/15, sanity 23/23 + 22/22, llapi_scan_test 17 pass).
+Tip after #19 documented: 28611722df (man pages + 68418 message only; sweep 15/15).

@@ -25,11 +25,11 @@ the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
   (doc/comment only). Replies in a-1008/replies.md.
 - 69501 AI (dir STATX_NLINK hidden) fixed: tip **41a807f27f**; sanity
   23/23 + 22/22, llapi_scan_test 17 pass.
-- **#19 OPEN (user's call):** --changelog can read back its own CL_OPEN
-  records. lreview's time cut in sc_filter is WRONG: it sees coalesced
-  objects with the latest time, so it drops a real pre-start change merged
-  with a later one. A correct cut is per raw record inside
-  llapi_scan_changelog() (new param field, ABI). Proposed: document only.
+- **#19 DOCUMENTED (user 10-09):** --changelog --resolve with -printf/--projid
+  can read back its own CL_OPEN records when OPEN is in the mask; noted in
+  lfs-find.1, llapi_find_since.3 and 68418's message. Real fix (per-record cut
+  inside llapi_scan_changelog(), new param field = ABI) left for later.
+  Tip now **28611722df** (a1008-tip), sweep 15/15.
 - **Retests (linked):** 68159 LU-20788/LU-20471, 68160 LU-20086, 68163
   LU-20710, 68415 LU-16932/LU-19730, 68418 LU-20276, 69443 LU-20501, 69503
   LU-19605, 69502 LU-16932, 68420 LU-19747.
