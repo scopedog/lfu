@@ -1,0 +1,25 @@
+  HEAD_4f1d0df  LU-20649 llapi: add llapi_scan_changelog() (worktree)
+
+Reviewing 1 change(s), 5 in parallel, timeout 7200s each
+  prompts:   /home/nishida/projects/llm_code_and_review_tools/review-prompts/kernel
+             (via bundled submodule (/home/nishida/projects/llm_code_and_review_tools/review-prompts))
+  results:   /home/nishida/projects/llm_code_and_review_tools/lreview-results
+  worktrees: /home/nishida/projects/llm_code_and_review_tools/lreview-results/worktrees
+
+running: HEAD_4f1d0df 0m00s | done 0/1
+[HEAD_4f1d0df] review started: LU-20649 llapi: add llapi_scan_changelog()
+running: HEAD_4f1d0df 0m59s 395k tok | done 0/1
+running: HEAD_4f1d0df 2m00s 677k tok | done 0/1
+running: HEAD_4f1d0df 3m00s 1.8M tok | done 0/1
+running: HEAD_4f1d0df 4m00s 2.8M tok | done 0/1
+running: HEAD_4f1d0df 5m00s 3.6M tok | done 0/1
+[HEAD_4f1d0df] 1 finding(s), severity low (5m12s, 3.8M tok, $2.97) -> gerrit-review-HEAD_4f1d0df.json
+
+=== Batch summary ===
+  HEAD_4f1d0df     findings (1 finding(s), severity low)  [3.8M tok, $2.97]
+  total: 3.8M tokens, $2.97
+
+Human-readable reports:
+  /home/nishida/projects/llm_code_and_review_tools/lreview-results/markdown/HEAD_4f1d0df_LU-20649_llapi_add_llapi_scan_changelog.md
+
+Full text dump: /home/nishida/projects/llm_code_and_review_tools/lreview-results/review-last1.txt

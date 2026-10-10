@@ -1,0 +1,15 @@
+mdt image: label lustre-MDT0000, Inode count:              100000
+== slack (1ec86742f5) lfs loads:  /tmp/arm1009slack/lib/liblustreapi.so.1 (0x00007f0f6e9ab000)
+slack plain --ost 0: rc=95 lfs find: OST: label 'foo' carries no target index for --ost or --mdt|lfs: failed for '/tmp/lab1010-plain.img': Operation not supported|
+slack plain --mdt 0: rc=95 lfs find: OST: label 'foo' carries no target index for --ost or --mdt|lfs: failed for '/tmp/lab1010-plain.img': Operation not supported|
+slack plain bare:    rc=22 lfs find: /tmp/lab1010-plain.img: label 'foo' names no MDT or OST|lfs: failed for '/tmp/lab1010-plain.img': Invalid argument|
+slack mdt [--mdt 0]: rc=0 lines=9 md5=aa3d7594b9f3 bytes_pread=373396
+slack mdt []: rc=0 lines=9 md5=aa3d7594b9f3 bytes_pread=351892
+== ai10 (77e7fbd9a8) lfs loads:  /tmp/arm1009ai10/lib/liblustreapi.so.1 (0x00007f44c19bc000)
+ai10 plain --ost 0: rc=22 lfs find: label 'foo' names no MDT or OST|lfs: failed for '/tmp/lab1010-plain.img': Invalid argument|
+ai10 plain --mdt 0: rc=22 lfs find: label 'foo' names no MDT or OST|lfs: failed for '/tmp/lab1010-plain.img': Invalid argument|
+ai10 plain bare:    rc=22 lfs find: /tmp/lab1010-plain.img: label 'foo' names no MDT or OST|lfs: failed for '/tmp/lab1010-plain.img': Invalid argument|
+ai10 mdt [--mdt 0]: rc=0 lines=9 md5=aa3d7594b9f3 bytes_pread=357012
+ai10 mdt []: rc=0 lines=9 md5=aa3d7594b9f3 bytes_pread=351892
+mdt image untouched
+DEVICE DONE

@@ -1,0 +1,16 @@
+== slack (1ec86742f5)
+slack [-name *.o -size +0]: rc=0 lines=4 md5=4df94d75b3 ioctls=20 | lfs find: 2 objects could not be decided and are not in the answer|
+slack [-name *.o]: rc=0 lines=5 md5=56faefce03 ioctls=21 | lfs find: 1 objects have no pathname and are named by FID|
+slack [-name *.o -type f]: rc=0 lines=4 md5=9e02c4fc54 ioctls=21 | lfs find: 1 objects have no pathname and are named by FID|
+slack [-type d]: rc=0 lines=2 md5=91358620a6 ioctls=20 | 
+slack [! -name *.o -type f]: rc=0 lines=4 md5=32feb03b6b ioctls=21 | lfs find: 1 objects have no pathname and are named by FID|
+slack []: rc=0 lines=10 md5=4bae5fc01d ioctls=22 | lfs find: 2 objects have no pathname and are named by FID|
+== ai10d (f9915a4eaa)
+ai10d [-name *.o -size +0]: rc=0 lines=4 md5=4df94d75b3 ioctls=11 | lfs find: 1 objects could not be decided and are not in the answer|
+ai10d [-name *.o]: rc=0 lines=5 md5=56faefce03 ioctls=12 | lfs find: 1 objects have no pathname and are named by FID|
+ai10d [-name *.o -type f]: rc=0 lines=4 md5=9e02c4fc54 ioctls=10 | lfs find: 1 objects have no pathname and are named by FID|
+ai10d [-type d]: rc=0 lines=2 md5=91358620a6 ioctls=6 | 
+ai10d [! -name *.o -type f]: rc=0 lines=4 md5=32feb03b6b ioctls=10 | lfs find: 1 objects have no pathname and are named by FID|
+ai10d []: rc=0 lines=10 md5=4bae5fc01d ioctls=22 | lfs find: 2 objects have no pathname and are named by FID|
+cleanup rc=0
+CLRESOLVE DONE

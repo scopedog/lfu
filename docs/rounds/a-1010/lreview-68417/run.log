@@ -1,0 +1,29 @@
+  HEAD_d4fb6de  LU-20650 lfs: add find --since, from the changelog (worktree)
+
+Reviewing 1 change(s), 5 in parallel, timeout 7200s each
+  prompts:   /home/nishida/projects/llm_code_and_review_tools/review-prompts/kernel
+             (via bundled submodule (/home/nishida/projects/llm_code_and_review_tools/review-prompts))
+  results:   /home/nishida/projects/llm_code_and_review_tools/lreview-results
+  worktrees: /home/nishida/projects/llm_code_and_review_tools/lreview-results/worktrees
+
+running: HEAD_d4fb6de 0m00s | done 0/1
+[HEAD_d4fb6de] review started: LU-20650 lfs: add find --since, from the changelog
+running: HEAD_d4fb6de 1m00s 1.1M tok | done 0/1
+running: HEAD_d4fb6de 2m00s 1.7M tok | done 0/1
+running: HEAD_d4fb6de 3m00s 1.7M tok | done 0/1
+running: HEAD_d4fb6de 4m00s 2.3M tok | done 0/1
+running: HEAD_d4fb6de 5m00s 2.7M tok | done 0/1
+running: HEAD_d4fb6de 6m00s 3.5M tok | done 0/1
+running: HEAD_d4fb6de 7m00s 4.0M tok | done 0/1
+running: HEAD_d4fb6de 8m00s 4.2M tok | done 0/1
+running: HEAD_d4fb6de 9m00s 5.2M tok | done 0/1
+[HEAD_d4fb6de] 3 finding(s), severity low (9m39s, 6.0M tok, $4.15) -> gerrit-review-HEAD_d4fb6de.json
+
+=== Batch summary ===
+  HEAD_d4fb6de     findings (3 finding(s), severity low)  [6.0M tok, $4.15]
+  total: 6.0M tokens, $4.15
+
+Human-readable reports:
+  /home/nishida/projects/llm_code_and_review_tools/lreview-results/markdown/HEAD_d4fb6de_LU-20650_lfs_add_find_--since_from_the_changelog.md
+
+Full text dump: /home/nishida/projects/llm_code_and_review_tools/lreview-results/review-last1.txt

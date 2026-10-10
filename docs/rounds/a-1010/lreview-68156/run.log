@@ -1,0 +1,27 @@
+  HEAD_99bcc55  LU-20606 llapi: scan an ldiskfs target directly (worktree)
+
+Reviewing 1 change(s), 5 in parallel, timeout 7200s each
+  prompts:   /home/nishida/projects/llm_code_and_review_tools/review-prompts/kernel
+             (via bundled submodule (/home/nishida/projects/llm_code_and_review_tools/review-prompts))
+  results:   /home/nishida/projects/llm_code_and_review_tools/lreview-results
+  worktrees: /home/nishida/projects/llm_code_and_review_tools/lreview-results/worktrees
+
+running: HEAD_99bcc55 0m00s | done 0/1
+[HEAD_99bcc55] review started: LU-20606 llapi: scan an ldiskfs target directly
+running: HEAD_99bcc55 1m00s 361k tok | done 0/1
+running: HEAD_99bcc55 2m00s 361k tok | done 0/1
+running: HEAD_99bcc55 3m00s 969k tok | done 0/1
+running: HEAD_99bcc55 4m00s 1.3M tok | done 0/1
+running: HEAD_99bcc55 5m00s 2.1M tok | done 0/1
+running: HEAD_99bcc55 6m00s 2.7M tok | done 0/1
+running: HEAD_99bcc55 7m00s 3.2M tok | done 0/1
+[HEAD_99bcc55] clean — no findings (7m26s, 3.9M tok, $3.41)
+
+=== Batch summary ===
+  HEAD_99bcc55     clean  [3.9M tok, $3.41]
+  total: 3.9M tokens, $3.41
+
+Human-readable reports:
+  /home/nishida/projects/llm_code_and_review_tools/lreview-results/markdown/HEAD_99bcc55_LU-20606_llapi_scan_an_ldiskfs_target_directly.md
+
+Full text dump: /home/nishida/projects/llm_code_and_review_tools/lreview-results/review-last1.txt

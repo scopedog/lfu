@@ -1,0 +1,6 @@
+drwxr-xr-x. 44 root root 0 Oct 10 14:36 /sys/kernel/debug
+slack outside: rc=13 lines=/mnt/lfst2/proj/mine1  | err: lfs find: 1 of 5 changed objects could not be read and are not in the answer|lfs: failed for '/mnt/lfst2/proj': Permission denied|
+ai10c outside: rc=0 lines=/mnt/lfst2/proj/mine1  | err: 
+slack under: rc=13 lines=/mnt/lfst2/proj/mine1  | err: lfs find: 2 of 6 changed objects could not be read and are not in the answer|lfs: failed for '/mnt/lfst2/proj': Permission denied|
+ai10c under: rc=13 lines=/mnt/lfst2/proj/mine1  | err: lfs find: 1 of 6 changed objects could not be read and are not in the answer|lfs: failed for '/mnt/lfst2/proj': Permission denied|
+cleanup rc=0

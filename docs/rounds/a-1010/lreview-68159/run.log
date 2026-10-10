@@ -1,0 +1,30 @@
+  HEAD_1abfebb  LU-20611 llapi: run find over a device scan (worktree)
+
+Reviewing 1 change(s), 5 in parallel, timeout 7200s each
+  prompts:   /home/nishida/projects/llm_code_and_review_tools/review-prompts/kernel
+             (via bundled submodule (/home/nishida/projects/llm_code_and_review_tools/review-prompts))
+  results:   /home/nishida/projects/llm_code_and_review_tools/lreview-results
+  worktrees: /home/nishida/projects/llm_code_and_review_tools/lreview-results/worktrees
+
+running: HEAD_1abfebb 0m00s | done 0/1
+[HEAD_1abfebb] review started: LU-20611 llapi: run find over a device scan
+running: HEAD_1abfebb 1m00s 483k tok | done 0/1
+running: HEAD_1abfebb 2m00s 738k tok | done 0/1
+running: HEAD_1abfebb 3m00s 1.5M tok | done 0/1
+running: HEAD_1abfebb 4m00s 2.3M tok | done 0/1
+running: HEAD_1abfebb 5m00s 2.9M tok | done 0/1
+running: HEAD_1abfebb 6m00s 3.9M tok | done 0/1
+running: HEAD_1abfebb 7m00s 4.6M tok | done 0/1
+running: HEAD_1abfebb 8m00s 5.4M tok | done 0/1
+running: HEAD_1abfebb 9m00s 6.5M tok | done 0/1
+running: HEAD_1abfebb 10m00s 7.6M tok | done 0/1
+[HEAD_1abfebb] 5 finding(s), severity low (10m55s, 8.6M tok, $5.15) -> gerrit-review-HEAD_1abfebb.json
+
+=== Batch summary ===
+  HEAD_1abfebb     findings (5 finding(s), severity low)  [8.6M tok, $5.15]
+  total: 8.6M tokens, $5.15
+
+Human-readable reports:
+  /home/nishida/projects/llm_code_and_review_tools/lreview-results/markdown/HEAD_1abfebb_LU-20611_llapi_run_find_over_a_device_scan.md
+
+Full text dump: /home/nishida/projects/llm_code_and_review_tools/lreview-results/review-last1.txt

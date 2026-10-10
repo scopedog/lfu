@@ -4,7 +4,62 @@ Every ticket and Gerrit id in play, and the ones that are *not* ours. Regenerate
 the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
 **2026-09-06**.
 
-## 2026-10-10 early: PUSHED 7140fb8f2a (68417 + 68415 fixes) -- START HERE
+## 2026-10-10 day: CI triage + AI round on the 10-10 PS, fixed locally -- START HERE
+
+- **Nothing pushed.** Local stack: branch **fold-1010 = 882b85c988** in
+  ~/lfs-fix-1007 (from a1009-pushed 7140fb8f2a; fixups on fix-1010, same
+  tip tree; tags fold-1010-v1/-v2/-v3). A push would give new PS on
+  68156..69503 (68094/68095 untouched).
+- **Enforced failures, 14:** 13 linked + retested (single): 68415 sanity 805
+  crash LU-20523; 68416 + 68419 sanityn 102 LU-20501; 69502 sanity-scrub 10a
+  LU-20277 and sanity-hsm 251/254b LU-16932; 69443 sanityn test_cleanup
+  LU-17857 and sanity-lnet 236 LU-19605; 68419 sanity 413b LU-17601 and
+  sanity-lnet 236 LU-19605; 68418 sanity-quota 63 LU-17077; 69501
+  sanity-quota 2 LU-20585; 69500 sanityn 40c LU-10870; 68420 sanity-lfsck
+  12a LU-20477 (33/41 in the same session, no open ticket).
+- **NO TICKET, not retested, user to decide:** 68418 PS17
+  review-ldiskfs-ubuntu d1960ea4: sanity-lnet 257 "Failed to ping
+  ...@tcp1" (-EIO after the route came up), then sanity-sec test_setup
+  "autotest_config not mounted" -> timeout. 68418 is Verified-1 on it.
+- **AI reviews fixed (lab: tests/lab-1010, clone VM; results beside the
+  scripts):**
+  - 68415 PS24 defect: a _CLEAR below sc_user's own clear point got -ENOENT
+    and ended the run. Now -ENOENT + "MDS still knows the user" (filter
+    ioctl) = already cleared. A/B: old -2, new 0, _FOLLOW runs on, later
+    records still cleared, deregistered user still -2. **Limit (lreview):**
+    a plainly registered user cannot be looked up before LU-20647, so it
+    still gets -ENOENT; man page says so. Plus two wording items.
+  - 68159 PS31: non-target device gives -EINVAL with --ost/--mdt too (was
+    ENOTSUP "OST: ..."); the label probe no longer reads the inode bitmap
+    (read for the first worker; that hunk is in 68156).
+  - 68288 PS25: man wording, ~1 KB per directory for the --fid2path map,
+    last commit-message paragraph dropped. sd_ rename: declined again.
+  - 68417 PS17 defect: an unreadable changed object with no name under the
+    search root no longer fails the search (find_since_failed_under()).
+    A/B as user nishida (debugfs 755, device 644, user_fid2path): old
+    rc=13 "1 of 5 could not be read", new rc=0; an unreadable object UNDER
+    the root is still counted. Comment fixed. Clock: man pages now say the
+    window is on the MDS clock -- **slack on the window cut NOT done, a
+    design choice for the user** (600 s slack = duplicates across runs
+    instead of misses).
+  - 68418 PS17: --changelog --resolve tests a recorded name/type before the
+    lookup (same output on 6 searches, lookups about halved, a gone
+    non-matching name no longer "undecided"); _ONCE wording; table order.
+- **Checks:** sanity ldiskfs 24/24, ZFS 23 + 56Edb skip on each of the
+  three arms; sweep 18/18 then 9/9 (lrv2-sweep); checkpatch output
+  identical per changed commit. lreview (a-1010/): 68156 clean; 68415 1
+  (fixed, above); 68417 3 (2 comment placements fixed, 1 message
+  suggestion left); 68159 5 minor, none on today's diff, NOT acted on:
+  ! --foreign shortcut skips later predicates on a scan, --foreign looks
+  inverted for directories since LU-14489 (upstream, ticket candidate),
+  no validate_printf_str() on the device path, a stale comment, \- in man.
+  68418 (after the prefilter change): 1 doc question, NOT acted on: with
+  CL_OPEN in the mask every --resolve lookup opens a directory, so the
+  "reads back its own records" caveat may be wider than -printf/--projid.
+- **Push-ask owes:** replies for 68415 (3), 68159 (2), 68288 (4, one
+  decline), 68417 (3), 68418 (3); older open AI threads unchanged.
+
+## 2026-10-10 early: PUSHED 7140fb8f2a (68417 + 68415 fixes)
 
 - **Pushed** on the user's "re-lreview 68417 ... push automatically":
   branch a1009-pushed = fold-1009 = **7140fb8f2a** in ~/lfs-fix-1007. New

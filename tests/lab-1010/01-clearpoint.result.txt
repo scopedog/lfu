@@ -1,0 +1,16 @@
+clear-all cl2 rc=0
+== slack (1ec86742f5) user cl2 at 3000, keep cl1 at 0; lib /tmp/arm1009slack/lib/liblustreapi.so.1
+slack plain:  RETURNED rc=-2 after 3000 records; 'cannot clear' x2; U at 3000
+slack follow: exit 0 RETURNED rc=-2 after 1000 records; U at 3000
+slack more:   RETURNED rc=-2 after 4500 records; U at 4500 (was 3000)
+slack dereg:  RETURNED rc=-2 after 4500 records
+current_index: 4500;cl1 0 (2) mask=MARK,CREAT;
+clear-all cl3 rc=0
+== ai10b (c5bdfa9d11) user cl3 at 7500, keep cl1 at 0; lib /tmp/arm1009ai10b/lib/liblustreapi.so.1
+ai10b plain:  RETURNED rc=0 after 7500 records; 'cannot clear' x0; U at 7500
+ai10b follow: exit 124 ; U at 7500
+ai10b more:   RETURNED rc=0 after 9000 records; U at 9000 (was 7500)
+ai10b dereg:  RETURNED rc=-2 after 9000 records
+current_index: 9000;cl1 0 (24) mask=MARK,CREAT;
+cleanup rc=0
+CLEARPOINT DONE
