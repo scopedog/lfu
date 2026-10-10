@@ -6,6 +6,12 @@ the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
 
 ## 2026-10-10 day: CI triage + AI round on the 10-10 PS -- START HERE
 
+- **Polling STOPPED ~16:50 (user out).** CI at stop on the 18 new PS:
+  checkpatch and smatch in on most; Jenkins V+1 on 68156 PS32 and 68157
+  PS33, the other builds running; no Maloo or AI results yet. Next
+  session: restart gpoll (first tick lists everything since the stop; a
+  long tick is truncated, re-list from gerrit query). lfu repo left
+  unpushed, 75+ commits ahead (user 10-10: leave it).
 - **16:45 PUSHED the rest: 552e51f59f (tag a1010-pushed)** = 68418 PS18,
   68419 PS18, 68420 PS18, 69443 PS6, 69500-69503 PS4; 4 replies posted and
   resolved (16 of 16 for the round). lreview before it (a-1010/
