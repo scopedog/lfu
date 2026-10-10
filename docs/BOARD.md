@@ -4,8 +4,16 @@ Every ticket and Gerrit id in play, and the ones that are *not* ours. Regenerate
 the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
 **2026-09-06**.
 
-## 2026-10-10 day: CI triage + AI round on the 10-10 PS, fixed locally -- START HERE
+## 2026-10-10 day: CI triage + AI round on the 10-10 PS -- START HERE
 
+- **16:25 PUSHED the lower ten (user: "push others"):** 0c23264e47 (tag
+  a1010-pushed-a) = 68156 PS32, 68157 PS33, 68158 PS30, 68159 PS32, 68160
+  PS33, 68163 PS32, 68288 PS26, 68415 PS25, 68416 PS25, 68417 PS18. 12
+  replies posted on 68159/68288/68415/68417, read back threaded + resolved
+  (sd_ rename declined; clock: doc only). **Still local:** 68418..69503 on
+  fold-1010 = 552e51f59f, waiting for lreview of 68418 + 68419
+  (a-1010/run-lreview4.sh); then push 552e51f59f and post the last 4
+  replies (post_replies.py 68418 68419).
 - **15:10 add-on, tip now fold-1010 = 552e51f59f (tag fold-1010-v4):**
   68419 PS17 AI (1 minor): `! --since-cookie` was parsed as plain
   --since-cookie and moved the anchors. Now refused like `! --since`;
