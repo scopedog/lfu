@@ -1,0 +1,49 @@
+========================================================================
+lreview: 1 review(s)
+========================================================================
+generated: 2026-10-10T00:29:42+00:00
+repository: /home/nishida/lfs-fix-1007
+reviews: 1
+totals: 7.2M tokens, $4.26
+
+  1. 576096ed5c96e6319b66e6ae0a6c00b508357aa4  576096ed5c96  LU-20650 lfs: add find --since, from the changelog -- findings (3)
+
+========================================================================
+[1/1] 576096ed5c96e6319b66e6ae0a6c00b508357aa4  576096ed5c96  LU-20650 lfs: add find --since, from the changelog
+========================================================================
+
+status: findings (3 finding(s)), severity low
+run:    opus, 7.2M tokens, $4.26, 8m38s
+
+Overall assessment
+------------------------------------------------------------------------
+Mostly good, minor comments inline. Nothing here needs a refresh on its own; the items can ride along with the next one.
+
+Findings (3)
+------------------------------------------------------------------------
+
+(1) Documentation/man3/llapi_find_since.3 (line 80)
+    (minor) The sentence that follows the option is on the .BR line, so it is taken as macro arguments: they alternate bold and roman and are joined without spaces. `man -l` renders this as
+
+        ... mounted with -o user_fid2path.Arefusaltheredoesnotendthesearch:theerrnoiskeptand returned once ...
+
+    If the patch is refreshed, ending the macro line after the period fixes it:
+
+        .BR "-o user_fid2path" .
+        A refusal there does not end the search: the errno is kept and
+
+(2) lustre/utils/liblustreapi_pfind.c (line 4879)
+    (nit) "Stage 5" has nothing to refer to: no other stage is numbered in this file or in lustreapi.h. If the patch is refreshed, the comment could just say what the callback does.
+
+(3) lustre/utils/liblustreapi_pfind.c (line 5057)
+    (minor) Can a later burst change the answer for an object that was rejected? llapi_scan_fid() reads the object as it is now, not as it was at the event, and the log being read was already written when the run began. So the first lookup has already seen every change those later records describe, and a second one differs only if the object changes while the run is in progress.
+
+    The cost is one full lookup per burst for every candidate that does not match:
+
+        find_since_cand_cb()
+          -> llapi_scan_fid()   fid2path, statx, common_param_init(), open, getattr
+            -> find_since_rec_cb() -> find_since_pick() returns false
+
+    and that includes every changed object outside the root, since the subtree test runs in the callback. With the default sc_min_age of 600s, a file that is written all week and sits outside the subtree is looked up again roughly every ten minutes of the window under `--since 7d`.
+
+    Would setting fso_done after any completed lookup, rejected or not, lose anything?

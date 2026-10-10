@@ -4,24 +4,31 @@ Every ticket and Gerrit id in play, and the ones that are *not* ours. Regenerate
 the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
 **2026-09-06**.
 
-## 2026-10-09 evening: 68419 _ONCE loss FIXED locally -- START HERE
+## 2026-10-09 evening: 68417 and 68415 fixed and folded locally -- START HERE
 
-- **Fix:** ~/lfs-fix-1007 branch **fix-1009** = 490dece703, one `fixup!`
-  commit on a009cfea7b, to fold into **68417** (the code is there; 68419's
-  cookie only makes the loss permanent). --since drops _ONCE; lfs keeps one
-  FID set across MDTs and marks an object done when printed, gone,
-  unreadable or undecided -- a rejected one is looked up again on its next
-  burst. fss_cand still counts objects once. checkpatch 0/0.
-- **Proven** (tests/lab-1009/05-once.sh, clone VM): out.tmp aged 610 s,
-  ~99k pad records so the rename lands in a later plain llog (the client
-  reads a plain llog's header when it opens it -- with 5k pads the rename
-  was never read in the run, so no loss), gdb renames after the first
-  lookup returns. OLD: run1 and run2 print nothing, cookie = rename index
-  -> lost. FIX: run1 prints out.h5. 150k pads fill the lab MDT (ENOSPC).
-- Sanity 56E*+160A* on the fix: ldiskfs DNE 23/23, ZFS 22/22 (56Edb skip).
-- **Not done:** lreview of the fixup (standing rule before any push); the
-  fold into 68417 (ripples up the stack). Still owed: 68415 FOLLOW clear
-  error, lreview #19 ABI cut.
+- **Branch fold-1009 = e5930581e4** in ~/lfs-fix-1007 (from a009cfea7b;
+  docs/rounds/a-1009/fold.py rebuilds each commit from its original tree +
+  scripted edits; tip tree == fix-1009). Sweep 11/11, checkpatch counts
+  unchanged. Old folds tagged fold-1009-v1/-v2. NOTHING pushed.
+- **68417 (the 68419 owed item):** --since dropped _ONCE; lfs keeps one FID
+  set across MDTs, done = printed/gone/unreadable/undecided. lreview of the
+  first version (a-1009/lreview, $4.26): #1 man page .BR line ran together
+  (fixed), #2 "Stage 5" comments (fixed), #3 challenged re-looking-up
+  rejected objects: premise wrong (lab: a run reads records appended during
+  it), cost right -> user OK'd a lookup-time gate: a later burst whose event
+  time is before the rejected lookup started is skipped (same clock
+  assumption as the --since window).
+- **68415:** under _FOLLOW a failed clear now ends the stream and returns
+  the errno; man page says so.
+- **Lab (tests/lab-1009, clone VM):** race 05-once.sh (99k pads so the
+  rename lands in a later plain llog; gdb renames after the first lookup):
+  old loses out.h5 in both runs, fix and gate print it in run 1. Gate
+  08-gate.sh: llapi_scan_fid calls fix 3 / gate 2 (first try ran lfs in the
+  rename's own second, which the gate looks up again -- sleep 2). Follow
+  10-follow.sh: old hangs to the 120 s timeout, new returns -2 in 7 s.
+  Sanity on the first fix: ldiskfs DNE 23/23, ZFS 22/22.
+- **Running/next:** lreview of 68415 (a-1009/lreview15) and sanity on the
+  follow arm; then the push-ask. Still owed: lreview #19 ABI cut.
 - Polling on (gpoll under Monitor).
 
 ## 2026-10-09: PUSHED a009cfea7b
