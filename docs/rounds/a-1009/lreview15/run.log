@@ -1,0 +1,28 @@
+  fb72a15d6c_fb72a15  LU-20649 llapi: add llapi_scan_changelog() (worktree)
+
+Reviewing 1 change(s), 1 in parallel, timeout 7200s each
+  prompts:   /home/nishida/projects/llm_code_and_review_tools/review-prompts/kernel
+             (via bundled submodule (/home/nishida/projects/llm_code_and_review_tools/review-prompts))
+  results:   /home/nishida/projects/llm_code_and_review_tools/lreview-results
+  worktrees: /home/nishida/projects/llm_code_and_review_tools/lreview-results/worktrees
+
+running: fb72a15d6c_fb72a15 0m00s | done 0/1
+[fb72a15d6c_fb72a15] review started: LU-20649 llapi: add llapi_scan_changelog()
+running: fb72a15d6c_fb72a15 1m00s 953k tok | done 0/1
+running: fb72a15d6c_fb72a15 2m00s 1.3M tok | done 0/1
+running: fb72a15d6c_fb72a15 3m00s 1.3M tok | done 0/1
+running: fb72a15d6c_fb72a15 4m00s 2.2M tok | done 0/1
+running: fb72a15d6c_fb72a15 5m00s 2.7M tok | done 0/1
+running: fb72a15d6c_fb72a15 6m00s 2.9M tok | done 0/1
+running: fb72a15d6c_fb72a15 7m00s 3.3M tok | done 0/1
+running: fb72a15d6c_fb72a15 8m00s 4.7M tok | done 0/1
+[fb72a15d6c_fb72a15] 0 finding(s), severity low (8m35s, 5.3M tok, $3.89) -> gerrit-review-fb72a15d6c_fb72a15.json
+
+=== Batch summary ===
+  fb72a15d6c_fb72a15 findings (0 finding(s), severity low)  [5.3M tok, $3.89]
+  total: 5.3M tokens, $3.89
+
+Human-readable reports:
+  /home/nishida/projects/llm_code_and_review_tools/lreview-results/markdown/fb72a15d6c_fb72a15_LU-20649_llapi_add_llapi_scan_changelog.md
+
+Full text dump: findings.txt

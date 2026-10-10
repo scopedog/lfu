@@ -23,8 +23,9 @@ mkdir $D; touch $D/out.tmp; echo "out.tmp $(lfs path2fid $D/out.tmp)"
 sleep 610
 touch $D/pad1; sync; mv $D/out.tmp $D/out.txt; sync
 # past the rename's second: an event in the lookup's own second is looked
-# up again, and the first try ran lfs inside it
-sleep 2
+# up again, and the first try ran lfs inside it.  GATE_WAIT=620 puts the
+# rename past FIND_SINCE_CLOCK_SLACK (600 s), which the gate now allows for.
+sleep ${GATE_WAIT:-2}
 lfs changelog $MDT | tail -4
 for ARM in "$@"; do
 	T=/tmp/lab1009-$ARM; P=/tmp/arm1009$ARM; LFS=$T/lustre/utils/.libs/lfs

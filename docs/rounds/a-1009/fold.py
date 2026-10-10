@@ -283,7 +283,65 @@ static int find_since_obj(struct find_since_state *st,
     if ' * Stage 5 on a changelog record itself' in s:
         s = rep(s, ' * Stage 5 on a changelog record itself',
                 ' * On a changelog record itself', 'stage5b')
+    # lreview on the gated version: MDS clock slack, and a noun_verb name
+    s = rep(s, '''	time_t			fso_looked;	/* when the lookup started */
+};''', '''	time_t			fso_looked;	/* when the lookup started */
+};
+
+/* how far the MDS clock may lag this one before a change is missed */
+#define FIND_SINCE_CLOCK_SLACK	600''', 'slack')
+    old1 = '''	/*
+	 * The lookup saw every event before it started.  The clocks are
+	 * compared as the --since window already compares them.
+	 */
+	if (rc == 0 && (rec->lfsr_valid & LLAPI_SCAN_EVENT) &&
+	    rec->lfsr_event_time < obj->fso_looked)
+		return 0;'''
+    new1 = '''	/*
+	 * The lookup saw every event before it started.  The event time
+	 * is the MDS's, so only one well before it is skipped.
+	 */
+	if (rc == 0 && (rec->lfsr_valid & LLAPI_SCAN_EVENT) &&
+	    rec->lfsr_event_time < obj->fso_looked - FIND_SINCE_CLOCK_SLACK)
+		return 0;'''
+    old2 = '''		/*
+		 * The lookup saw every event before it started.  The clocks
+		 * are compared as the --since window already compares them.
+		 */
+		if (rc == 0 && (rec->lfsr_valid & LLAPI_SCAN_EVENT) &&
+		    rec->lfsr_event_time < obj->fso_looked)
+			return 0;'''
+    new2 = '''		/*
+		 * The lookup saw every event before it started.  The event
+		 * time is the MDS's, so only one well before it is skipped.
+		 */
+		if (rc == 0 && (rec->lfsr_valid & LLAPI_SCAN_EVENT) &&
+		    rec->lfsr_event_time <
+		    obj->fso_looked - FIND_SINCE_CLOCK_SLACK)
+			return 0;'''
+    s = rep(s, old1, new1, 'gate1') if old1 in s else rep(s, old2, new2, 'gate2')
+    s = rep(s, '''static int find_since_obj(struct find_since_state *st,
+			  const struct lu_fid *fid, struct find_since_obj **obj)''',
+            '''static int find_since_obj_get(struct find_since_state *st,
+			      const struct lu_fid *fid,
+			      struct find_since_obj **obj)''', 'getdef')
+    s = rep(s, 'rc = find_since_obj(st, &rec->lfsr_fid, &obj);',
+            'rc = find_since_obj_get(st, &rec->lfsr_fid, &obj);', 'getcall')
     return s
+
+MSG_ADD = '''
+Coalescing gives an object one record per burst, so one object can
+arrive more than once in a run.  Each FID is kept in one set across
+bursts and MDTs.  It is done once it was printed, was gone, could not
+be read or was undecided; find_decide() now sets fc_matched at print:
+to say so.  A rejected object is looked up again for a later record
+whose event is less than FIND_SINCE_CLOCK_SLACK seconds older than
+that lookup: a change made after the lookup may make it match, and
+the next run starts past it.
+'''
+def M(msg):
+    a = 'under the root and matches.  No new predicates and no second copy of the\nvocabulary.\n'
+    return rep(msg, a, a + MSG_ADD, 'msg')
 
 CL = 'lustre/utils/liblustreapi_scan_changelog.c'
 CLDOC = 'Documentation/man3/llapi_scan_changelog.3'
@@ -336,6 +394,8 @@ for n, c in enumerate(commits):
            'GIT_COMMITTER_NAME': 'Hiroshi Nishida', 'GIT_COMMITTER_EMAIL': fmt('%ce').strip(),
            'PATH': '/usr/bin:/bin'}
     msg = git('log', '-1', '--format=%B', c)
+    if c == first17:
+        msg = M(msg)
     parent = subprocess.run(['git', '-C', R, 'commit-tree', tree, '-p', parent],
                             input=msg, env=env, capture_output=True, text=True,
                             check=True).stdout.strip()

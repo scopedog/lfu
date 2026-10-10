@@ -1,0 +1,44 @@
+========================================================================
+lreview: 1 review(s)
+========================================================================
+generated: 2026-10-10T01:49:52+00:00
+repository: /home/nishida/lfs-fix-1007
+reviews: 1
+totals: 4.7M tokens, $3.67
+
+  1. 111cb6cd05  111cb6cd052e  LU-20650 lfs: add find --since, from the changelog -- findings (3)
+
+========================================================================
+[1/1] 111cb6cd05  111cb6cd052e  LU-20650 lfs: add find --since, from the changelog
+========================================================================
+
+status: findings (3 finding(s)), severity low
+run:    opus, 4.7M tokens, $3.67, 7m43s
+
+Overall assessment
+------------------------------------------------------------------------
+Mostly good. Nothing new here needs a refresh on its own; three optional minor comments inline for whenever the patch is next refreshed.
+
+Findings (3)
+------------------------------------------------------------------------
+
+(1) /COMMIT_MSG (line 21)
+    (minor) "reaches it once per FID" is the only mention of the per-run candidate set, and the rule that goes with it is not described: find_since_cand_cb() keeps every FID in fss_seen across bursts and MDTs, marks it done once it was printed, failed or went undecided, and looks a rejected one up again only when a later record's event time is not before the earlier lookup.
+
+    That rule is also why find_decide() -- shared with the walk and the target scan -- now sets fc_matched at print:, which the body does not name either. If the patch is refreshed, could a short paragraph say this, so the change to the shared path is not a surprise?
+
+(2) lustre/utils/liblustreapi_pfind.c (line 5021)
+    (style) This isn't a bug, but find_since_obj() and struct find_since_obj now share one name, so a grep for either returns both. If the patch is refreshed, consider a noun_verb name for the function, e.g. find_since_obj_get().
+
+(3) lustre/utils/liblustreapi_pfind.c (line 5070)
+    (minor) The two sides of this test come from different hosts: lfsr_event_time is the MDS's cr_time (scan_cl_absorb() stores cr_time >> 30), and fso_looked is time(NULL) on the client.
+
+    If the MDS clock is behind the client's by a second or more, can a change made after the lookup be dropped here?
+
+        lookup of X at client time T      -> rejected, fso_looked = T
+        X changes, MDS stamps it T - 1    -> record read later in this run
+        T - 1 < fso_looked                -> return 0, X is not looked up again
+
+    That is the case the comment on struct find_since_obj says is kept ("a change made after its lookup, read later in the same run, may make it match"). The window cut compares the same two clocks, but there a skew only moves the edge of the window the user named; here it decides whether a live change is examined at all.
+
+    Would comparing against a time taken from the stream itself (the newest event time read from this MDT when the lookup started) keep both sides on one clock?

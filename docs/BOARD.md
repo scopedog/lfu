@@ -4,7 +4,26 @@ Every ticket and Gerrit id in play, and the ones that are *not* ours. Regenerate
 the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
 **2026-09-06**.
 
-## 2026-10-09 evening: 68417 and 68415 fixed and folded locally -- START HERE
+## 2026-10-10 early: PUSHED 7140fb8f2a (68417 + 68415 fixes) -- START HERE
+
+- **Pushed** on the user's "re-lreview 68417 ... push automatically":
+  branch a1009-pushed = fold-1009 = **7140fb8f2a** in ~/lfs-fix-1007. New
+  PS: 68415/68416 PS24, 68417-68420 PS17, 69443 PS5, 69500-69503 PS3.
+  Nothing below 68415 touched (68094/68095 frozen). No Gerrit replies owed:
+  the fixes came from our own owed list and lreview, not from comments.
+- **68417 re-lreview** (a-1009/lreview17b, $3.67), all fixed: #3 the gate
+  compared the MDS event time with the client clock with no slack, so an MDS
+  lagging by 1 s could skip a live change -> FIND_SINCE_CLOCK_SLACK 600 s
+  (the reviewer's stream-clock idea would re-look-up every later burst); #2
+  find_since_obj() -> find_since_obj_get(); #1 a commit-message paragraph on
+  the candidate set and fc_matched. Lab: 08-gate.sh GATE_WAIT=620, fix 3 /
+  slack 2 lookups; sanity ldiskfs 23/23, ZFS 22/22 on 1ec86742f5 (== pushed
+  tree). Sweep 11/11; checkpatch output identical to the old 68417.
+- **68415 lreview** clean (optional: an sc_endrec test, pre-existing).
+- **Watch next:** Jenkins/Maloo/AI on the 11 new PS. Still owed: lreview #19
+  ABI cut. Machine shut down after the push (user's instruction).
+
+## 2026-10-09 evening: 68417 and 68415 fixed and folded locally
 
 - **Branch fold-1009 = e5930581e4** in ~/lfs-fix-1007 (from a009cfea7b;
   docs/rounds/a-1009/fold.py rebuilds each commit from its original tree +

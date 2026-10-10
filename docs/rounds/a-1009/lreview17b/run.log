@@ -1,0 +1,27 @@
+  111cb6cd05_111cb6c  LU-20650 lfs: add find --since, from the changelog (worktree)
+
+Reviewing 1 change(s), 1 in parallel, timeout 7200s each
+  prompts:   /home/nishida/projects/llm_code_and_review_tools/review-prompts/kernel
+             (via bundled submodule (/home/nishida/projects/llm_code_and_review_tools/review-prompts))
+  results:   /home/nishida/projects/llm_code_and_review_tools/lreview-results
+  worktrees: /home/nishida/projects/llm_code_and_review_tools/lreview-results/worktrees
+
+running: 111cb6cd05_111cb6c 0m00s | done 0/1
+[111cb6cd05_111cb6c] review started: LU-20650 lfs: add find --since, from the changelog
+running: 111cb6cd05_111cb6c 1m00s 477k tok | done 0/1
+running: 111cb6cd05_111cb6c 2m00s 756k tok | done 0/1
+running: 111cb6cd05_111cb6c 3m00s 1.3M tok | done 0/1
+running: 111cb6cd05_111cb6c 4m00s 1.6M tok | done 0/1
+running: 111cb6cd05_111cb6c 5m00s 2.7M tok | done 0/1
+running: 111cb6cd05_111cb6c 6m00s 3.4M tok | done 0/1
+running: 111cb6cd05_111cb6c 7m00s 3.9M tok | done 0/1
+[111cb6cd05_111cb6c] 3 finding(s), severity low (7m43s, 4.7M tok, $3.67) -> gerrit-review-111cb6cd05_111cb6c.json
+
+=== Batch summary ===
+  111cb6cd05_111cb6c findings (3 finding(s), severity low)  [4.7M tok, $3.67]
+  total: 4.7M tokens, $3.67
+
+Human-readable reports:
+  /home/nishida/projects/llm_code_and_review_tools/lreview-results/markdown/111cb6cd05_111cb6c_LU-20650_lfs_add_find_--since_from_the_changelog.md
+
+Full text dump: findings.txt

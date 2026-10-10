@@ -1,0 +1,28 @@
+  576096ed5c96e6319b66e6ae0a6c00b508357aa4_576096e  LU-20650 lfs: add find --since, from the changelog (worktree)
+
+Reviewing 1 change(s), 1 in parallel, timeout 7200s each
+  prompts:   /home/nishida/projects/llm_code_and_review_tools/review-prompts/kernel
+             (via bundled submodule (/home/nishida/projects/llm_code_and_review_tools/review-prompts))
+  results:   /home/nishida/projects/llm_code_and_review_tools/lreview-results
+  worktrees: /home/nishida/projects/llm_code_and_review_tools/lreview-results/worktrees
+
+running: 576096ed5c96e6319b66e6ae0a6c00b508357aa4_576096e 0m00s | done 0/1
+[576096ed5c96e6319b66e6ae0a6c00b508357aa4_576096e] review started: LU-20650 lfs: add find --since, from the changelog
+running: 576096ed5c96e6319b66e6ae0a6c00b508357aa4_576096e 1m00s 807k tok | done 0/1
+running: 576096ed5c96e6319b66e6ae0a6c00b508357aa4_576096e 2m00s 1.1M tok | done 0/1
+running: 576096ed5c96e6319b66e6ae0a6c00b508357aa4_576096e 3m00s 2.2M tok | done 0/1
+running: 576096ed5c96e6319b66e6ae0a6c00b508357aa4_576096e 4m00s 3.7M tok | done 0/1
+running: 576096ed5c96e6319b66e6ae0a6c00b508357aa4_576096e 5m00s 4.2M tok | done 0/1
+running: 576096ed5c96e6319b66e6ae0a6c00b508357aa4_576096e 6m00s 5.0M tok | done 0/1
+running: 576096ed5c96e6319b66e6ae0a6c00b508357aa4_576096e 7m00s 5.5M tok | done 0/1
+running: 576096ed5c96e6319b66e6ae0a6c00b508357aa4_576096e 8m00s 6.7M tok | done 0/1
+[576096ed5c96e6319b66e6ae0a6c00b508357aa4_576096e] 3 finding(s), severity low (8m38s, 7.2M tok, $4.26) -> gerrit-review-576096ed5c96e6319b66e6ae0a6c00b508357aa4_576096e.json
+
+=== Batch summary ===
+  576096ed5c96e6319b66e6ae0a6c00b508357aa4_576096e findings (3 finding(s), severity low)  [7.2M tok, $4.26]
+  total: 7.2M tokens, $4.26
+
+Human-readable reports:
+  /home/nishida/projects/llm_code_and_review_tools/lreview-results/markdown/576096ed5c96e6319b66e6ae0a6c00b508357aa4_576096e_LU-20650_lfs_add_find_--since_from_the_changelog.md
+
+Full text dump: findings.txt
