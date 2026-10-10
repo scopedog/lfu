@@ -14,8 +14,9 @@ the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
   page says (directories opened by every --resolve lookup); 68419 header
   sscanf %255s vs FIND_COOKIE_WIDTH, one unbraced if/else arm, a man
   sentence to move. The retests on the OLD patchsets are moot now.
-  **Watch next:** Jenkins/Maloo/AI on the 18 new PS. Still open for the
-  user: --since clock slack; lreview #19 ABI cut.
+  **Watch next:** Jenkins/Maloo/AI on the 18 new PS. Still owed: lreview
+  #19 ABI cut. **--since clock slack: CLOSED (user 10-10): document only,
+  as pushed; no slack on the window cut.**
 - **16:25 PUSHED the lower ten (user: "push others"):** 0c23264e47 (tag
   a1010-pushed-a) = 68156 PS32, 68157 PS33, 68158 PS30, 68159 PS32, 68160
   PS33, 68163 PS32, 68288 PS26, 68415 PS25, 68416 PS25, 68417 PS18. 12
