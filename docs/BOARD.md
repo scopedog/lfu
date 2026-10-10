@@ -14,6 +14,9 @@ the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
   unchanged; sanity NOT re-run on this tip (parse-only, VM off). 69443 PS5
   AI: "Looks good to me". Maloo V-1 on 68418/68419/68420/69443 are
   roll-ups of the retested sessions (68418: also the no-ticket one).
+- **15:30:** 68416 PS24 review-dne-zfs-part-4 sanity-flr 34a "file reading
+  error" (then 34b ran into the session timeout) = LU-19096: linked +
+  retested. 69500 PS3 AI: "Looks good to me".
 - **Nothing pushed.** Local stack: branch **fold-1010 = 882b85c988** in
   ~/lfs-fix-1007 (from a1009-pushed 7140fb8f2a; fixups on fix-1010, same
   tip tree; tags fold-1010-v1/-v2/-v3). A push would give new PS on
