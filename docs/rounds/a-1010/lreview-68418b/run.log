@@ -1,0 +1,26 @@
+  HEAD_b297adf  LU-20650 lfs: add find --changelog, the log as source (worktree)
+
+Reviewing 1 change(s), 5 in parallel, timeout 7200s each
+  prompts:   /home/nishida/projects/llm_code_and_review_tools/review-prompts/kernel
+             (via bundled submodule (/home/nishida/projects/llm_code_and_review_tools/review-prompts))
+  results:   /home/nishida/projects/llm_code_and_review_tools/lreview-results
+  worktrees: /home/nishida/projects/llm_code_and_review_tools/lreview-results/worktrees
+
+running: HEAD_b297adf 0m00s | done 0/1
+[HEAD_b297adf] review started: LU-20650 lfs: add find --changelog, the log as source
+running: HEAD_b297adf 1m00s 857k tok | done 0/1
+running: HEAD_b297adf 2m00s 1.0M tok | done 0/1
+running: HEAD_b297adf 3m00s 1.2M tok | done 0/1
+running: HEAD_b297adf 4m00s 2.3M tok | done 0/1
+running: HEAD_b297adf 5m00s 3.2M tok | done 0/1
+running: HEAD_b297adf 6m00s 4.2M tok | done 0/1
+[HEAD_b297adf] 1 finding(s), severity low (6m18s, 4.4M tok, $3.40) -> gerrit-review-HEAD_b297adf.json
+
+=== Batch summary ===
+  HEAD_b297adf     findings (1 finding(s), severity low)  [4.4M tok, $3.40]
+  total: 4.4M tokens, $3.40
+
+Human-readable reports:
+  /home/nishida/projects/llm_code_and_review_tools/lreview-results/markdown/HEAD_b297adf_LU-20650_lfs_add_find_--changelog_the_log_as_source.md
+
+Full text dump: /home/nishida/projects/llm_code_and_review_tools/lreview-results/review-last1.txt

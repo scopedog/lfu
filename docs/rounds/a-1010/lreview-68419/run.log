@@ -1,0 +1,24 @@
+  HEAD_304aa3d  LU-20650 lfs: add find --since-cookie, a per-MDT anchor (worktree)
+
+Reviewing 1 change(s), 5 in parallel, timeout 7200s each
+  prompts:   /home/nishida/projects/llm_code_and_review_tools/review-prompts/kernel
+             (via bundled submodule (/home/nishida/projects/llm_code_and_review_tools/review-prompts))
+  results:   /home/nishida/projects/llm_code_and_review_tools/lreview-results
+  worktrees: /home/nishida/projects/llm_code_and_review_tools/lreview-results/worktrees
+
+running: HEAD_304aa3d 0m00s | done 0/1
+[HEAD_304aa3d] review started: LU-20650 lfs: add find --since-cookie, a per-MDT anchor
+running: HEAD_304aa3d 1m00s 558k tok | done 0/1
+running: HEAD_304aa3d 2m00s 1.1M tok | done 0/1
+running: HEAD_304aa3d 3m00s 1.3M tok | done 0/1
+running: HEAD_304aa3d 4m00s 1.6M tok | done 0/1
+[HEAD_304aa3d] 3 finding(s), severity low (4m45s, 2.1M tok, $2.19) -> gerrit-review-HEAD_304aa3d.json
+
+=== Batch summary ===
+  HEAD_304aa3d     findings (3 finding(s), severity low)  [2.1M tok, $2.19]
+  total: 2.1M tokens, $2.19
+
+Human-readable reports:
+  /home/nishida/projects/llm_code_and_review_tools/lreview-results/markdown/HEAD_304aa3d_LU-20650_lfs_add_find_--since-cookie_a_per-MDT_anchor.md
+
+Full text dump: /home/nishida/projects/llm_code_and_review_tools/lreview-results/review-last1.txt
