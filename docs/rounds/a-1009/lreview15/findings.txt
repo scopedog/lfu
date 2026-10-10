@@ -1,0 +1,25 @@
+========================================================================
+lreview: 1 review(s)
+========================================================================
+generated: 2026-10-10T01:40:17+00:00
+repository: /home/nishida/lfs-fix-1007
+reviews: 1
+totals: 5.3M tokens, $3.89
+
+  1. fb72a15d6c  fb72a15d6caf  LU-20649 llapi: add llapi_scan_changelog() -- findings (0)
+
+========================================================================
+[1/1] fb72a15d6c  fb72a15d6caf  LU-20649 llapi: add llapi_scan_changelog()
+========================================================================
+
+status: findings (0 finding(s)), severity low
+run:    opus, 5.3M tokens, $3.89, 8m35s
+
+Overall assessment
+------------------------------------------------------------------------
+Looks good; nothing here needs a re-spin.
+
+(suggestion) One optional coverage point for whenever the patch is next refreshed: sc_endrec is not exercised by any of the eleven cases in llapi_scan_changelog_test, and nothing later in the series sets it either (lfs find --since uses sc_startrec and sc_filter, so those do get run). The inclusive upper bound has three separate pieces of logic in the read loop -- the break before ss_seen is counted, the idx >= sc_endrec stop that _FOLLOW relies on, and the flush and clear that follow it. A short case that takes two indexes from an unbounded scan, reads [first, last] with sc_startrec/sc_endrec, and checks that both ends arrive and nothing outside them does would pin the inclusive contract the man page states.
+
+Findings (0)
+------------------------------------------------------------------------

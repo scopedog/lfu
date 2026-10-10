@@ -27,8 +27,11 @@ the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
   rename's own second, which the gate looks up again -- sleep 2). Follow
   10-follow.sh: old hangs to the 120 s timeout, new returns -2 in 7 s.
   Sanity on the first fix: ldiskfs DNE 23/23, ZFS 22/22.
-- **Running/next:** lreview of 68415 (a-1009/lreview15) and sanity on the
-  follow arm; then the push-ask. Still owed: lreview #19 ABI cut.
+- **68415 lreview** (a-1009/lreview15, $3.89): 0 findings; optional
+  suggestion: an sc_endrec test case (pre-existing gap). Sanity on the
+  follow arm (both fixes): ldiskfs 23/23, ZFS 22/22.
+- **Next:** re-lreview 68417 with the gate (111cb6cd05); then the push-ask.
+  Still owed: lreview #19 ABI cut.
 - Polling on (gpoll under Monitor).
 
 ## 2026-10-09: PUSHED a009cfea7b
