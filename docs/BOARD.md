@@ -6,6 +6,14 @@ the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
 
 ## 2026-10-10 day: CI triage + AI round on the 10-10 PS, fixed locally -- START HERE
 
+- **15:10 add-on, tip now fold-1010 = 552e51f59f (tag fold-1010-v4):**
+  68419 PS17 AI (1 minor): `! --since-cookie` was parsed as plain
+  --since-cookie and moved the anchors. Now refused like `! --since`;
+  `! --changelog` and `! --resolve` refused too (in 68418). Checked with a
+  host-built lfs (rc=22, no cookie written), sweep 8/8, checkpatch
+  unchanged; sanity NOT re-run on this tip (parse-only, VM off). 69443 PS5
+  AI: "Looks good to me". Maloo V-1 on 68418/68419/68420/69443 are
+  roll-ups of the retested sessions (68418: also the no-ticket one).
 - **Nothing pushed.** Local stack: branch **fold-1010 = 882b85c988** in
   ~/lfs-fix-1007 (from a1009-pushed 7140fb8f2a; fixups on fix-1010, same
   tip tree; tags fold-1010-v1/-v2/-v3). A push would give new PS on
