@@ -31,6 +31,25 @@ the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
   cross-MDT operations: MDT0000 "Received MDS connection from
   10.240.28.49 / 10.240.30.243 (not in the session), removing former
   export", MDT0001-3 evicted = LU-19372. Both linked + retested.
+- **10-11 ~11:50 polling RESTARTED** (gpoll under Monitor, 25 min ticks,
+  re-arm every 30 min). First tick, everything since 03:37:
+  **AI reviews on 8 changes, 18 comments, all optional ("no need to
+  re-spin")**: 68156 PS32 (2), 68159 PS32 (1), 68288 PS26 (2), 68415 PS25
+  (3), 68417 PS18 (3), 68418 PS18 (4), 68419 PS18 (2), 68420 PS18 (1).
+  Not fixed yet. **Enforced failures, 5:** 69443 PS6 dne-zfs-part-4
+  sanity-quota 58 crash (tgt_grant.c:562 tgt_grant_incoming LBUG, grant
+  -3407872) LU-20727; 69443 PS6 dne-zfs-part-1 sanity 56xk "lfs mirror
+  resync -W too slow in VM" LU-17637; 68415 PS25 dne-zfs-part-5 sanityn
+  33d LU-19398 (again); 68416 PS25 ldiskfs-ubuntu sanity-lnet 236
+  LU-19605 (again): all four linked + retested. **68415 PS25
+  dne-zfs-part-4 (el10.1) 71d784af sanity-quota 7b "limit on
+  lustre-OST0000 2052 <= 2052": NO ticket found** (LU-17829 is a
+  resolved "returned 1"), not retested, user told.
+- **10-11 67783 (LU-20542, the other session's change): pfarrell2 CR-1 on
+  PS7** + his own fix 69581 (install the reverse ctx when an existing
+  export reconnects). His diagnosis matches our PS6 log notes (client
+  never renegotiated in the window) and the code. Nothing posted; user to
+  decide.
 - **10-11 04:05 polling STOPPED (user).** Last tick 03:37, quiet since
   02:10. Tonight: 9 enforced failures, all linked + retested (one on the
   new LU-20929); the retests are still running. No AI review and no human
