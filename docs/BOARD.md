@@ -6,6 +6,15 @@ the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
 
 ## 2026-10-10 day: CI triage + AI round on the 10-10 PS -- START HERE
 
+- **10-11 01:10 polling RESTARTED** (gpoll under Monitor, 25 min ticks,
+  re-arm every 30 min). First tick: the 8 retests of 10-10 night are
+  running, no AI review yet. **Enforced failures, 4 more, all linked +
+  retested (single):** 68419 PS18 dne-zfs-part-4 sanity-quota 63 "write
+  failed, expect succeed" LU-17077; 68157 PS33 dne-zfs-part-2 (el10.1)
+  sanity-sec 52 "verify mirror failed" (mirror checksums differ on an
+  encrypted file) LU-20896; 68157 PS33 ldiskfs-ubuntu sanity-lnet 236
+  LU-19605; 68420 PS18 dne-part-2 sanity-lfsck 18e "2 orphans, got 4"
+  LU-17891. Optional failures not triaged.
 - **23:30 polling RESTARTED** (gpoll under Monitor, 25 min ticks, re-arm
   every 30 min). First tick on the 18 new PS: Jenkins V+1 on all, no AI
   review yet. **Enforced failures, 8, all linked + retested (single):**
