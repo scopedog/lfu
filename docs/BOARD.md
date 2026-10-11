@@ -20,11 +20,12 @@ the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
   test_cleanup timeout ("rm: cannot remove d80b.sanityn/migrate_dir:
   Directory not empty", all subtests passed) LU-9827. Both linked +
   retested.
-  **NO TICKET, not retested, user to decide:** 68156 PS32
-  review-dne-zfs-part-3 (el10.1) e52cdc52: conf-sanity 56a "Unable to
-  start first ost (idx 10000)". After the module reload the MDS logged
-  "Can't load module 'mdt'" / "unknown type: mds" (-19), so mds1 did not
-  mount and ost1 timed out; 56b loaded and mounted fine 80 s later.
+  68156 PS32 review-dne-zfs-part-3 (el10.1) e52cdc52: conf-sanity 56a
+  "Unable to start first ost (idx 10000)". After the module reload the
+  MDS logged "Can't load module 'mdt'" / "unknown type: mds" (-19), so
+  mds1 did not mount and ost1 timed out; 56b loaded and mounted fine 80 s
+  later. No ticket existed; Maloo takes no retest without one. **Raised
+  LU-20929 (user OK, maloo raise-bug) + retested 02:15.**
 - **23:30 polling RESTARTED** (gpoll under Monitor, 25 min ticks, re-arm
   every 30 min). First tick on the 18 new PS: Jenkins V+1 on all, no AI
   review yet. **Enforced failures, 8, all linked + retested (single):**
