@@ -25,7 +25,12 @@ the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
   MDS logged "Can't load module 'mdt'" / "unknown type: mds" (-19), so
   mds1 did not mount and ost1 timed out; 56b loaded and mounted fine 80 s
   later. No ticket existed; Maloo takes no retest without one. **Raised
-  LU-20929 (user OK, maloo raise-bug) + retested 02:15.**
+  LU-20929 (user OK, maloo raise-bug) + retested 01:58.**
+- **10-11 02:10 tick 3:** 68416 PS25 ldiskfs-ubuntu sanity-lnet 236
+  LU-19605; 69500 PS4 dne-part-1 (el10.1) sanity 24B/24C/24E, all EIO on
+  cross-MDT operations: MDT0000 "Received MDS connection from
+  10.240.28.49 / 10.240.30.243 (not in the session), removing former
+  export", MDT0001-3 evicted = LU-19372. Both linked + retested.
 - **23:30 polling RESTARTED** (gpoll under Monitor, 25 min ticks, re-arm
   every 30 min). First tick on the 18 new PS: Jenkins V+1 on all, no AI
   review yet. **Enforced failures, 8, all linked + retested (single):**
