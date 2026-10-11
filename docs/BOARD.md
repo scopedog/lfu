@@ -17,6 +17,8 @@ the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
   lustre modules loaded?", Chef NoMethodError) LU-20834; 69501 PS4
   dne-zfs-part-7 sanity-pcc 4 mmap test4 EIO after 107 s (client evicted)
   LU-19710. Optional failures not triaged.
+  **Polling STOPPED again the same night (user)**, no tick after the
+  first; the 8 retests are still running. Next session: restart gpoll.
 - **Polling STOPPED ~16:50 (user out).** CI at stop on the 18 new PS:
   checkpatch and smatch in on most; Jenkins V+1 on 68156 PS32 and 68157
   PS33, the other builds running; no Maloo or AI results yet. Next
