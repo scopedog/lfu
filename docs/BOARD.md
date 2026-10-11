@@ -76,7 +76,16 @@ the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
   1 low (a rename between fid2path and statx is counted "gone" and the
   object marked done); 68419 1 low (a clear between the two
   find_cl_first() probes gives a false -ESTALE). None is on a 10-11
-  hunk; none fixed. **NOT done:** replies; push not asked.
+  hunk. **5 of the 7 FIXED 10-11 evening (user: "fix them locally"),
+  tip now c1e53c46fe (tag r1011b-tip):** -newerbY x3 (message, 2
+  comments) and the %LF sentence in 68159; 68417 a lookup that found
+  nothing is not final (fso_gone counts it once, and uncounts it if a
+  later record finds the object); 68419 re-reads the oldest record
+  before -ESTALE (empty log, or only newer records: proceed). Left: the
+  linkea-overflow -name gap, the upstream --foreign question. Sweep
+  18/18, lab n1011b 24/0/0. The two race fixes are NOT lreviewed and the
+  races themselves were not reproduced. **User 10-11: no push now**; the
+  round rides the next push that has a reason. Replies not drafted.
 - **10-11 16:19 tick:** 68415 PS25 dne-zfs-part-5 retest cb5a9241
   crashed in sanityn 70a, OOM panic on the ZFS server = LU-20276,
   linked + retested.
