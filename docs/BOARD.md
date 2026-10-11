@@ -50,6 +50,32 @@ the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
   export reconnects). His diagnosis matches our PS6 log notes (client
   never renegotiated in the window) and the code. Nothing posted; user to
   decide.
+- **10-11 afternoon: the AI round FIXED LOCALLY, not pushed.** Branch
+  fix-1011 in ~/lfs-fix-1007, tip **6ab61c8c13** (tag r1011-tip), 18
+  commits on d2a385f08f. 15 of 18 comments fixed: 68156 (LMAC_HSM man
+  text, static-build sentence in the message), 68159 (printf_lmm and
+  fds_printf_lmm dropped; two later callers in 68417/68418 followed),
+  68288 (walked path returned as is, 2 places), 68415 ("once per object
+  an event is about" x3, _RESOLVE needs CAP_DAC_READ_SEARCH in the page,
+  message wrap), 68417 (fp_since_kind into fp_unused_byte1 + enum
+  llapi_since_kind, find_decide comment), 68418 (man x2, Return: block,
+  "records" in the two warnings, message typo), 68419
+  (FIND_COOKIE_IDX_LEN, braces), 68420 (160Ad comment). **Left for the
+  user:** 68415 message trim (style), 68415 refuse _RESOLVE on the first
+  -EPERM (documented instead), 68417 fss_gone counting objects deleted
+  outside the root (160Ac asserts the count; the AI's skip of
+  CLF_UNLINK_LAST records would not cover a CREAT-then-unlink either).
+  **Verified:** sweep 18/18 (lrv2-sweep; the first sweep caught the two
+  missed callers), checkpatch counts unchanged on the 8 changed commits.
+  **NOT done:** lab (56E*/160A* on the clone VM), lreview, replies.
+- **10-11 65449 (LU-20176, laisiyao, OI scrub refactor): adilger asked
+  for our review against the OSD scan (68810-68818).** Applied on
+  lu-20720-el10 c9c2c6319b: 2 small conflicts, both in
+  osd-ldiskfs/osd_scrub.c (our lfu_noverify hunk beside the os_in_prior
+  block it deletes; our LASSERT on os_partial_scan, which it removes).
+  No other coupling: the DOIF_PARALLEL iterator does not use the
+  priority list, partial scan or osd_fid_lookup(). Not compiled
+  together. Nothing posted.
 - **10-11 04:05 polling STOPPED (user).** Last tick 03:37, quiet since
   02:10. Tonight: 9 enforced failures, all linked + retested (one on the
   new LU-20929); the retests are still running. No AI review and no human
