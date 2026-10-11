@@ -6,6 +6,17 @@ the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
 
 ## 2026-10-10 day: CI triage + AI round on the 10-10 PS -- START HERE
 
+- **23:30 polling RESTARTED** (gpoll under Monitor, 25 min ticks, re-arm
+  every 30 min). First tick on the 18 new PS: Jenkins V+1 on all, no AI
+  review yet. **Enforced failures, 8, all linked + retested (single):**
+  68159 PS32 x2 and 68163 PS32 dne-zfs-part-1 sanity 805 crash
+  (tgt_grant_sanity_check LBUG) LU-20523; 68163 PS32 dne-zfs-part-1 sanity
+  160h "expected 2 GC-thread" then 160i/j/k (MDTs left unmounted) LU-20884;
+  68158 PS30 dne-zfs-part-2 sanity-lfsck 18e "2 orphans, got 4" LU-17891;
+  68160 PS33 and 68417 PS18 dne-part-4 lustre-initialization (OSS "Are the
+  lustre modules loaded?", Chef NoMethodError) LU-20834; 69501 PS4
+  dne-zfs-part-7 sanity-pcc 4 mmap test4 EIO after 107 s (client evicted)
+  LU-19710. Optional failures not triaged.
 - **Polling STOPPED ~16:50 (user out).** CI at stop on the 18 new PS:
   checkpatch and smatch in on most; Jenkins V+1 on 68156 PS32 and 68157
   PS33, the other builds running; no Maloo or AI results yet. Next
