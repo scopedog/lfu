@@ -45,11 +45,10 @@ the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
   dne-zfs-part-4 (el10.1) 71d784af sanity-quota 7b "limit on
   lustre-OST0000 2052 <= 2052": NO ticket found** (LU-17829 is a
   resolved "returned 1"), not retested, user told.
-- **10-11 67783 (LU-20542, the other session's change): pfarrell2 CR-1 on
-  PS7** + his own fix 69581 (install the reverse ctx when an existing
-  export reconnects). His diagnosis matches our PS6 log notes (client
-  never renegotiated in the window) and the code. Nothing posted; user to
-  decide.
+- **10-11 67783 / 69581 are NOT ours and NOT watched** (user). The user
+  asked for a look at 67783 by mistake; the findings (pfarrell2 CR-1 on
+  PS7, his fix 69581) went to the lustre session by message. Not in
+  gpoll's CHANGES; do not track, triage or reply to either here.
 - **10-11 afternoon: the AI round FIXED LOCALLY, not pushed.** Branch
   fix-1011 in ~/lfs-fix-1007, tip **6ab61c8c13** (tag r1011-tip), 18
   commits on d2a385f08f. 15 of 18 comments fixed: 68156 (LMAC_HSM man
