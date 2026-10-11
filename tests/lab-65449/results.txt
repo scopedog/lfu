@@ -1,0 +1,86 @@
+=== A-scrub
+== start 2026-10-11 13:42:12 ARM=A
+1
+RC=127
+PASS 29  FAIL 0  SKIP 0
+0
+lustre-* fixtures untouched
+== end 2026-10-11 14:07:25
+SCRUB RUN DONE
+=== A-extra-scan
+== start 2026-10-11 14:28:46 ARM=A
+RC=127
+S1 walk under s: 20000   OSD scan of lfst-MDT0000, idle: 20002  
+S1 scan 1 during scrub (scanning): 20002  
+S1 scan 2 during scrub (scanning): 20002  
+S1 scan 3 during scrub (scanning): 20002  
+S1 scrub end: status: completed flags: time_since_latest_start: 21 seconds checked: 20162 updated: 0 failed: 0 
+S1 scan after scrub: 20002
+S1 dmesg: 0
+PASS 90b (26s)
+0
+lustre-* fixtures untouched
+== end 2026-10-11 14:30:48
+EXTRA RUN DONE
+=== B-scrub-mds1
+== start 2026-10-11 15:10:03 ARM=B
+0
+RC=127
+PASS 28  FAIL 0  SKIP 1
+ SKIP: sanity-scrub test_21 needs >= 2 MDTs
+SKIP 21 (1s)
+0
+lustre-* fixtures untouched
+== end 2026-10-11 15:24:49
+SCRUB RUN DONE
+=== B-extra-scan
+== start 2026-10-11 15:24:49 ARM=B
+RC=127
+S1 walk under s: 20000   OSD scan of lfst-MDT0000, idle: 20002  
+S1 scan 1 during scrub (scanning): 20002  
+S1 scan 2 during scrub (scanning): 20002  
+S1 scan 3 during scrub (scanning): 20002  
+S1 scrub end: status: completed flags: time_since_latest_start: 21 seconds checked: 20162 updated: 0 failed: 0 
+S1 scan after scrub: 20002
+S1 dmesg: 0
+PASS 90b (26s)
+0
+lustre-* fixtures untouched
+== end 2026-10-11 15:26:44
+EXTRA RUN DONE
+=== B-extra-lma
+== start 2026-10-11 15:26:44 ARM=B
+RC=127
+R2 victim FID [0x200000401:0x3:0x0]
+R2 lma before 0x000000000000000001040000020000000300000000000000
+R2 lma after  0x000000000000000001040000020000000300010000000000
+R2 scrub before: status: init flags: time_since_latest_start: N/A checked: 0 updated: 0 failed: 0 
+R2 first stat rc=1 stat: cannot statx '/mnt/lfst/d90a.r65449-scrub-extra/d/victim': No such file or directory
+R2 scrub after:  status: init flags: time_since_latest_start: N/A checked: 0 updated: 0 failed: 0 
+R2 trigger messages: 0
+R2 second stat rc=1 stat: cannot statx '/mnt/lfst/d90a.r65449-scrub-extra/d/victim': No such file or directory
+R2 bystander rc=0
+R2 ls rc=0
+PASS 90a (15s)
+0
+lustre-* fixtures untouched
+== end 2026-10-11 15:28:31
+EXTRA RUN DONE
+=== A-extra (90a on the control arm; the run was killed in 90b cleanup)
+R2 victim FID [0x200000401:0x3:0x0]
+R2 lma before 0x000000000000000001040000020000000300000000000000
+R2 lma after  0x000000000000000001040000020000000300010000000000
+R2 scrub before: status: init flags: time_since_latest_start: N/A checked: 0 updated: 0 failed: 0 
+R2 first stat rc=124 
+R2 scrub after:  status: completed flags: time_since_latest_start: 10 seconds checked: 101 updated: 0 failed: 0 
+R2 trigger messages: 8
+R2 second stat rc=124 
+R2 bystander rc=0
+R2 ls rc=0
+PASS 90a (261s)
+=== B-scrub-dne (killed after 32 min in test 4a)
+PASS 1c (60s)
+== sanity-scrub test 2: Trigger OI scrub when MDT mounts for backup/restore case ========================================================== 14:35:29 (1791754529)
+PASS 2 (33s)
+== sanity-scrub test 4a: Auto trigger OI scrub if bad OI mapping was found (1) ========================================================== 14:36:02 (1791754562)
+12

@@ -67,6 +67,17 @@ the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
   **Verified:** sweep 18/18 (lrv2-sweep; the first sweep caught the two
   missed callers), checkpatch counts unchanged on the 8 changed commits.
   **NOT done:** lab (56E*/160A* on the clone VM), lreview, replies.
+- **10-11 65449 REVIEWED + LAB (user: "review the code, test with our osd
+  series").** Review branch ~/lfs-65449 (review-65449 = c9c2c6319b + PS8,
+  2 conflicts resolved); builds clean with the OSD series (ldiskfs + ZFS
+  modules, clone VM). Lab tests/lab-65449, arms A = OSD tip, B = + 65449:
+  sanity-scrub 2 MDTs A 29/29, **B hangs in 4a** (32 min, MDT0001 answers
+  -EINPROGRESS for the remote dir and never starts scrub; same TIMEOUT in
+  4a/4b in 65449's own CI); 1 MDT B 28/28; OSD scan during a scrub 20002
+  = 20002 on both arms; LMA-mismatch lookup: A re-triggers scrub for ever
+  and stat hangs, B answers ENOENT and starts no scrub. So two of the AI
+  review's three defects on PS8 are reproduced; the insert/os_rwsem race
+  is by reading only. Nothing posted yet; user said "I will" to adilger.
 - **10-11 65449 (LU-20176, laisiyao, OI scrub refactor): adilger asked
   for our review against the OSD scan (68810-68818).** Applied on
   lu-20720-el10 c9c2c6319b: 2 small conflicts, both in
