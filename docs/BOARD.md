@@ -31,6 +31,10 @@ the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
   cross-MDT operations: MDT0000 "Received MDS connection from
   10.240.28.49 / 10.240.30.243 (not in the session), removing former
   export", MDT0001-3 evicted = LU-19372. Both linked + retested.
+- **10-11 04:05 polling STOPPED (user).** Last tick 03:37, quiet since
+  02:10. Tonight: 9 enforced failures, all linked + retested (one on the
+  new LU-20929); the retests are still running. No AI review and no human
+  comment on the 18 new PS yet. Next session: restart gpoll.
 - **23:30 polling RESTARTED** (gpoll under Monitor, 25 min ticks, re-arm
   every 30 min). First tick on the 18 new PS: Jenkins V+1 on all, no AI
   review yet. **Enforced failures, 8, all linked + retested (single):**
