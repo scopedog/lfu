@@ -66,7 +66,20 @@ the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
   CLF_UNLINK_LAST records would not cover a CREAT-then-unlink either).
   **Verified:** sweep 18/18 (lrv2-sweep; the first sweep caught the two
   missed callers), checkpatch counts unchanged on the 8 changed commits.
-  **NOT done:** lab (56E*/160A* on the clone VM), lreview, replies.
+  **Lab 10-11 16:07 GREEN:** arm n1011 = 6ab61c8c13, 157c 157d 56E*
+  160A* PASS 24 FAIL 0 SKIP 0 (tests/lab-1010/03-sanity.sh, ldiskfs,
+  bound lfs is the new one). **lreview on the 4 code commits**
+  (docs/local/lreview-1011; the other 4 are docs/comments only): 68418
+  clean; 68159 5 low (-newerXb should be -newerbY x2, a %LF man
+  sentence, find_check_foreign() inverted for directories in LANDED
+  code since LU-14489 -- unverified, a linkea-overflow -name gap); 68417
+  1 low (a rename between fid2path and statx is counted "gone" and the
+  object marked done); 68419 1 low (a clear between the two
+  find_cl_first() probes gives a false -ESTALE). None is on a 10-11
+  hunk; none fixed. **NOT done:** replies; push not asked.
+- **10-11 16:19 tick:** 68415 PS25 dne-zfs-part-5 retest cb5a9241
+  crashed in sanityn 70a, OOM panic on the ZFS server = LU-20276,
+  linked + retested.
 - **10-11 65449 REVIEWED + LAB (user: "review the code, test with our osd
   series").** Review branch ~/lfs-65449 (review-65449 = c9c2c6319b + PS8,
   2 conflicts resolved); builds clean with the OSD series (ldiskfs + ZFS
