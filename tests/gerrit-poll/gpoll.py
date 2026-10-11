@@ -11,7 +11,10 @@ CHANGES = [68094,68095,68156,68157,68158,68159,68160,68163,68231,68288,68340,
            69339, 69417,  # uuid_match const cleanup, 09-30
            69443,  # 68419 stale-window follow-up, 10-05
            68810,  # OSD series head; ablagodarenko reviewing it, 10-07
-           69500, 69501, 69502, 69503]  # the 10-06 follow-ups, pushed 10-07
+           69500, 69501, 69502, 69503,  # the 10-06 follow-ups, pushed 10-07
+           # not ours: laisiyao's OI scrub refactor, reviewed 10-11 for
+           # adilger; watched for the owner's reply
+           65449]
 Q = " OR ".join("change:%d" % c for c in CHANGES)
 
 def fetch():

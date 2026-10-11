@@ -77,7 +77,11 @@ the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
   = 20002 on both arms; LMA-mismatch lookup: A re-triggers scrub for ever
   and stat hangs, B answers ENOENT and starts no scrub. So two of the AI
   review's three defects on PS8 are reproduced; the insert/os_rwsem race
-  is by reading only. Nothing posted yet; user said "I will" to adilger.
+  is by reading only. **POSTED on PS8 10-11 ~16:00 (user OK), no vote:**
+  patchset message, 3 replies in the AI defect threads, 2 new comments
+  (lfsck_start flags ignored on -EALREADY; scrub_check_data only stats).
+  65449 is now in gpoll. **Plan (user):** wait for the owner; if he does
+  not reply or fix, send our own fixes and rebase the OSD series on them.
 - **10-11 65449 (LU-20176, laisiyao, OI scrub refactor): adilger asked
   for our review against the OSD scan (68810-68818).** Applied on
   lu-20720-el10 c9c2c6319b: 2 small conflicts, both in
