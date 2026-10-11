@@ -15,6 +15,16 @@ the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
   encrypted file) LU-20896; 68157 PS33 ldiskfs-ubuntu sanity-lnet 236
   LU-19605; 68420 PS18 dne-part-2 sanity-lfsck 18e "2 orphans, got 4"
   LU-17891. Optional failures not triaged.
+- **10-11 01:45 tick 2:** 68415 PS25 dne-zfs-part-5 sanityn 33d "mv ...
+  didn't trigger CoS" LU-19398; 69502 PS4 dne-zfs-part-5 sanityn
+  test_cleanup timeout ("rm: cannot remove d80b.sanityn/migrate_dir:
+  Directory not empty", all subtests passed) LU-9827. Both linked +
+  retested.
+  **NO TICKET, not retested, user to decide:** 68156 PS32
+  review-dne-zfs-part-3 (el10.1) e52cdc52: conf-sanity 56a "Unable to
+  start first ost (idx 10000)". After the module reload the MDS logged
+  "Can't load module 'mdt'" / "unknown type: mds" (-19), so mds1 did not
+  mount and ost1 timed out; 56b loaded and mounted fine 80 s later.
 - **23:30 polling RESTARTED** (gpoll under Monitor, 25 min ticks, re-arm
   every 30 min). First tick on the 18 new PS: Jenkins V+1 on all, no AI
   review yet. **Enforced failures, 8, all linked + retested (single):**
