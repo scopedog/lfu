@@ -93,6 +93,12 @@ the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
   quota code. Maloo, 45 days of lustre-reviews: 777 pass, 1 fail (this
   one). In the failing run the second dd succeeded under fail_loc 0xa02
   and bhardlimit was 2052 before and after the OST restart.
+- **10-11 19:45 tick:** 69443 PS6 dne-zfs-part-4 retest: sanity-hsm 251
+  "request on ... is not STARTED on mds1" (+254b after it) LU-16932;
+  68415 PS25 dne-zfs-part-5 retest crashed again, sanityn 71a, OOM panic
+  on the ZFS server, LU-20276 (second time running; 33d, 70a, 71a on
+  three tries of this session). Both linked + retested. 69443
+  dne-zfs-part-1 (56xk) passed on retest.
 - **10-11 16:19 tick:** 68415 PS25 dne-zfs-part-5 retest cb5a9241
   crashed in sanityn 70a, OOM panic on the ZFS server = LU-20276,
   linked + retested.
