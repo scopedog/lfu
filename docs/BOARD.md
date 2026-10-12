@@ -57,6 +57,18 @@ the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
   asked for a look at 67783 by mistake; the findings (pfarrell2 CR-1 on
   PS7, his fix 69581) went to the lustre session by message. Not in
   gpoll's CHANGES; do not track, triage or reply to either here.
+- **10-11 night: PUSHED the lower seven, 47e44d0c77 (tag
+  a1011-pushed-lower)** on the user's "if no CR+1, fix and push" + "push
+  what you can" (no change in the stack has a Code-Review vote): 68156
+  PS33, 68157 PS34, 68158 PS31, 68159 PS33, 68160 PS34, 68163 PS33,
+  68288 PS27. 5 AI replies posted and resolved (68156 x2, 68159, 68288
+  x2). The three held AI comments are now FIXED too, tip **eaad52caf2**
+  (tag r1011c-tip): 68415 message 190 -> 55 lines; 68415 _RESOLVE probes
+  the root by FID once and is refused -EPERM without CAP_DAC_READ_SEARCH;
+  68417 below the mount a gone object is counted only if its record's
+  parent is under the root (find_since_gone_under). Sweep 18/18. **The
+  upper eleven (68415..69503) wait for the lab (n1011c + 05-extra) and
+  lreview on 68415/68417/68419, then push + 13 replies.**
 - **10-11 afternoon: the AI round FIXED LOCALLY, not pushed.** Branch
   fix-1011 in ~/lfs-fix-1007, tip **6ab61c8c13** (tag r1011-tip), 18
   commits on d2a385f08f. 15 of 18 comments fixed: 68156 (LMAC_HSM man
