@@ -31,6 +31,14 @@ the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
   cross-MDT operations: MDT0000 "Received MDS connection from
   10.240.28.49 / 10.240.30.243 (not in the session), removing former
   export", MDT0001-3 evicted = LU-19372. Both linked + retested.
+- **10-11 22:33 polling STOPPED (user).** Last event 20:32. Today: 12
+  enforced failures linked + retested (LU-20727, LU-17637, LU-19398,
+  LU-19605 x2, LU-20276 x2, LU-16932, and LU-20933 raised for
+  sanity-quota 7b); retests still running on 68415 (dne-zfs-part-4 and
+  -5), 68416 (ldiskfs-ubuntu), 69443 (dne-zfs-part-4). The AI round and
+  5 lreview fixes are local at fix-1011 c1e53c46fe, NOT pushed (user: no
+  push now). 65449 review posted, owner has not replied. Next session:
+  restart gpoll (65449 is in its list now).
 - **10-11 ~11:50 polling RESTARTED** (gpoll under Monitor, 25 min ticks,
   re-arm every 30 min). First tick, everything since 03:37:
   **AI reviews on 8 changes, 18 comments, all optional ("no need to
