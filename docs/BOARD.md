@@ -6,6 +6,11 @@ the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
 
 ## 2026-10-10 day: CI triage + AI round on the 10-10 PS -- START HERE
 
+- **10-12 14:45 polling RESTARTED** (gpoll under Monitor, 25 min ticks,
+  re-arm every 30 min). First tick, everything since the 10-11 pushes:
+  all 18 new patchsets built (Verified+1), checkpatch and smatch only;
+  **no Maloo result, no AI review, no human comment yet** (last message
+  10-12 01:55). 65449: the owner has not replied.
 - **10-11 01:10 polling RESTARTED** (gpoll under Monitor, 25 min ticks,
   re-arm every 30 min). First tick: the 8 retests of 10-10 night are
   running, no AI review yet. **Enforced failures, 4 more, all linked +
