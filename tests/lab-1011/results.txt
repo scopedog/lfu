@@ -1,6 +1,6 @@
-=========== n1011c
-== start 2026-10-11 22:44:29 ARM=n1011c (eaad52caf2)
-lfs loads:  liblustreapi.so.1 => /tmp/arm1009n1011c/lib/liblustreapi.so.1 (0x00007f86953de000)
+=========== n1011d
+== start 2026-10-11 23:08:53 ARM=n1011d (dedf203e2b)
+lfs loads:  liblustreapi.so.1 => /tmp/arm1009n1011d/lib/liblustreapi.so.1 (0x00007fcca65cb000)
 changelog user cl1
 --- G1: nothing deleted
 rc=0 out=1 err: 
@@ -12,64 +12,73 @@ rc=0 out=1 err: lfs find: 1 of 6 changed objects no longer exist and are not in 
 rc=0 out=1 err: lfs find: 2 of 6 changed objects no longer exist and are not in the answer
 --- G5: a directory under the root removed with its file (the file's parent is gone too)
 rc=0 out=1 err: lfs find: 2 of 8 changed objects no longer exist and are not in the answer
+--- G6: depth options (gone so far under in: sub/i1 d2 d2/f; add top1 at depth 1, sub/deep1 at depth 2)
+no depth:    lfs find: 4 of 10 changed objects no longer exist and are not in the answer
+--maxdepth 1: lfs find: 2 of 10 changed objects no longer exist and are not in the answer
+--mindepth 2: lfs find: 2 of 10 changed objects no longer exist and are not in the answer
 --- P1: the changelog test as root, all capabilities
 rc=1 10 ok-lines, 2 fail-lines
 llapi_scan_changelog_test: llapi_scan_changelog_test.c:694: test9: assertion 'rc == 0' failed: the masked scan failed: No such file or directory
- test9 @1791783899: sc_type_mask filters through the registered user ........... fail (exit status 1)
- test10 @1791783907: an object changed without pause is delivered, not held .... pass
+ test9 @1791785365: sc_type_mask filters through the registered user ........... fail (exit status 1)
+ test10 @1791785373: an object changed without pause is delivered, not held .... pass
 --- P2: the same without CAP_DAC_READ_SEARCH
 rc=2
 llapi_scan_changelog_test: cannot open objects of '/mnt/lfst/clt' by FID to resolve them: Operation not permitted (1)
 llapi_scan_changelog_test: llapi_scan_changelog_test.c:253: test2: assertion 'rc == 0' failed: lean scan failed: Operation not permitted
- test2 @1791783907: the demand mask keeps a lookup from happening .............. fail (exit status 1)
+ test2 @1791785373: the demand mask keeps a lookup from happening .............. fail (exit status 1)
 llapi_scan_changelog_test: llapi_scan_changelog_test.c:694: test9: assertion 'rc == 0' failed: the masked scan failed: No such file or directory
- test9 @1791783907: sc_type_mask filters through the registered user ........... fail (exit status 1)
- test9 @1791783907: sc_type_mask filters through the registered user ........... fail (exit status 1)
- test10 @1791783915: an object changed without pause is delivered, not held .... pass
+ test9 @1791785373: sc_type_mask filters through the registered user ........... fail (exit status 1)
+ test9 @1791785373: sc_type_mask filters through the registered user ........... fail (exit status 1)
+ test10 @1791785382: an object changed without pause is delivered, not held .... pass
 cleanup rc=0
 lustre-* fixtures untouched
-== end 2026-10-11 22:46:02
+== end 2026-10-11 23:10:14
 EXTRA RUN DONE
-=========== n1011b
-== start 2026-10-11 22:46:02 ARM=n1011b (c1e53c46fe)
-lfs loads:  liblustreapi.so.1 => /tmp/arm1009n1011b/lib/liblustreapi.so.1 (0x00007f1d85355000)
+=========== n1011c
+== start 2026-10-11 23:10:14 ARM=n1011c (eaad52caf2)
+lfs loads:  liblustreapi.so.1 => /tmp/arm1009n1011c/lib/liblustreapi.so.1 (0x00007f29b990a000)
 changelog user cl1
 --- G1: nothing deleted
 rc=0 out=1 err: 
 --- G2: a file created and deleted OUTSIDE the root
-rc=0 out=1 err: lfs find: 1 of 5 changed objects no longer exist and are not in the answer
+rc=0 out=1 err: 
 --- G3: a file created and deleted INSIDE the root
-rc=0 out=1 err: lfs find: 2 of 6 changed objects no longer exist and are not in the answer
+rc=0 out=1 err: lfs find: 1 of 6 changed objects no longer exist and are not in the answer
 --- G4: the whole filesystem as the root
 rc=0 out=1 err: lfs find: 2 of 6 changed objects no longer exist and are not in the answer
 --- G5: a directory under the root removed with its file (the file's parent is gone too)
-rc=0 out=1 err: lfs find: 4 of 8 changed objects no longer exist and are not in the answer
+rc=0 out=1 err: lfs find: 2 of 8 changed objects no longer exist and are not in the answer
+--- G6: depth options (gone so far under in: sub/i1 d2 d2/f; add top1 at depth 1, sub/deep1 at depth 2)
+no depth:    lfs find: 4 of 10 changed objects no longer exist and are not in the answer
+--maxdepth 1: lfs find: 4 of 10 changed objects no longer exist and are not in the answer
+--mindepth 2: 
 --- P1: the changelog test as root, all capabilities
 rc=1 10 ok-lines, 2 fail-lines
 llapi_scan_changelog_test: llapi_scan_changelog_test.c:694: test9: assertion 'rc == 0' failed: the masked scan failed: No such file or directory
- test9 @1791783993: sc_type_mask filters through the registered user ........... fail (exit status 1)
- test10 @1791784001: an object changed without pause is delivered, not held .... pass
+ test9 @1791785450: sc_type_mask filters through the registered user ........... fail (exit status 1)
+ test10 @1791785458: an object changed without pause is delivered, not held .... pass
 --- P2: the same without CAP_DAC_READ_SEARCH
 rc=2
-llapi_scan_changelog_test: llapi_scan_changelog_test.c:264: test2: assertion 'full.cr_resolved > 0' failed: no record of 104 was resolved when a size was asked for
- test2 @1791784001: the demand mask keeps a lookup from happening .............. fail (exit status 1)
+llapi_scan_changelog_test: cannot open objects of '/mnt/lfst/clt' by FID to resolve them: Operation not permitted (1)
+llapi_scan_changelog_test: llapi_scan_changelog_test.c:253: test2: assertion 'rc == 0' failed: lean scan failed: Operation not permitted
+ test2 @1791785458: the demand mask keeps a lookup from happening .............. fail (exit status 1)
 llapi_scan_changelog_test: llapi_scan_changelog_test.c:694: test9: assertion 'rc == 0' failed: the masked scan failed: No such file or directory
- test9 @1791784001: sc_type_mask filters through the registered user ........... fail (exit status 1)
- test9 @1791784001: sc_type_mask filters through the registered user ........... fail (exit status 1)
- test10 @1791784009: an object changed without pause is delivered, not held .... pass
+ test9 @1791785458: sc_type_mask filters through the registered user ........... fail (exit status 1)
+ test9 @1791785458: sc_type_mask filters through the registered user ........... fail (exit status 1)
+ test10 @1791785466: an object changed without pause is delivered, not held .... pass
 cleanup rc=0
 lustre-* fixtures untouched
-== end 2026-10-11 22:47:18
+== end 2026-10-11 23:11:47
 EXTRA RUN DONE
-=========== n1011c sanity
-== start 2026-10-11 22:41:48 FSTYPE=ldiskfs ARM=n1011c (eaad52caf2)
+=========== n1011d sanity
+== start 2026-10-11 23:06:14 FSTYPE=ldiskfs ARM=n1011d (dedf203e2b)
 loaded version: [2.17.58_65_g8618869]
-/usr/bin/lfs loads:  liblustreapi.so.1 => /tmp/arm1009n1011c/lib/liblustreapi.so.1 (0x00007ff786655000)
-/usr/lib64/lustre/tests/llapi_scan_changelog_test loads:  liblustreapi.so.1 => /tmp/arm1009n1011c/lib/liblustreapi.so.1 (0x00007fc73b5fe000)
+/usr/bin/lfs loads:  liblustreapi.so.1 => /tmp/arm1009n1011d/lib/liblustreapi.so.1 (0x00007fa89c5a1000)
+/usr/lib64/lustre/tests/llapi_scan_changelog_test loads:  liblustreapi.so.1 => /tmp/arm1009n1011d/lib/liblustreapi.so.1 (0x00007f2d5ad0c000)
 bound lfs is NEW's
 SANITY_RC=0
 PASS 24  FAIL 0  SKIP 0
 cleanup rc=0
 lustre-* fixtures untouched
-== end 2026-10-11 22:44:29
+== end 2026-10-11 23:08:53
 SANITY RUN DONE

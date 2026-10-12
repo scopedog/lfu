@@ -57,6 +57,24 @@ the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
   asked for a look at 67783 by mistake; the findings (pfarrell2 CR-1 on
   PS7, his fix 69581) went to the lustre session by message. Not in
   gpoll's CHANGES; do not track, triage or reply to either here.
+- **10-11 23:20 PUSHED the upper eleven, dedf203e2b (tag a1011-pushed):**
+  68415 PS26, 68416 PS26, 68417 PS19, 68418 PS19, 68419 PS19, 68420
+  PS19, 69443 PS7, 69500-69503 PS5. 13 AI replies posted and resolved
+  (18 of 18 for the round). Before it: lreview on 68415/68417/68419
+  (run2, no defect; fixed from it: the gone count took --maxdepth/
+  --mindepth one level off, and two message sentences); sweep 11/11;
+  lab n1011d sanity 24/0/0 and tests/lab-1011/05-extra.sh (outside the
+  root: no warning; inside: counted; --maxdepth 1 -> 2, --mindepth 2 ->
+  2 where the unfixed arm said 4 and none; _RESOLVE without
+  CAP_DAC_READ_SEARCH refused -EPERM). **Left from lreview, not fixed:**
+  68415 man text on CL_MIGRATE's old FID and on a cross-MDT rename
+  appearing in "both" logs (it is in one); 68419 the cookie is bound to
+  the client's mount path, not the root FID; 68159 linkea-overflow -name
+  gap; upstream --foreign for directories. The hand-run changelog test
+  fails test9 on every arm in 05-extra.sh (passes in sanity 56Eea): the
+  script's invocation, not chased. **Polling STOPPED again** after the
+  push (user: poll until the running tasks are done). Next session:
+  restart gpoll; CI is running on all 18 new patchsets.
 - **10-11 night: PUSHED the lower seven, 47e44d0c77 (tag
   a1011-pushed-lower)** on the user's "if no CR+1, fix and push" + "push
   what you can" (no change in the stack has a Code-Review vote): 68156

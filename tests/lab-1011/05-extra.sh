@@ -45,6 +45,12 @@ echo "--- G5: a directory under the root removed with its file (the file's paren
 mkdir $M/in/d2; echo x > $M/in/d2/f; rm -rf $M/in/d2; sync; sleep 2
 $LFS find $M/in --since 10m -type f > $OUT/g5.out 2> $OUT/g5.err; echo "rc=$? out=$(wc -l < $OUT/g5.out) err: $(cat $OUT/g5.err)"
 
+echo "--- G6: depth options (gone so far under in: sub/i1 d2 d2/f; add top1 at depth 1, sub/deep1 at depth 2)"
+echo x > $M/in/top1; rm -f $M/in/top1; echo x > $M/in/sub/deep1; rm -f $M/in/sub/deep1; sync; sleep 2
+$LFS find $M/in --since 10m -type f > /dev/null 2> $OUT/g6a.err; echo "no depth:    $(cat $OUT/g6a.err)"
+$LFS find $M/in --maxdepth 1 --since 10m -type f > /dev/null 2> $OUT/g6b.err; echo "--maxdepth 1: $(cat $OUT/g6b.err)"
+$LFS find $M/in --mindepth 2 --since 10m -type f > /dev/null 2> $OUT/g6c.err; echo "--mindepth 2: $(cat $OUT/g6c.err)"
+
 echo "--- P1: the changelog test as root, all capabilities"
 mkdir -p $M/clt
 $CLT -m lfst-MDT0000 -u $U -d $M/clt > $OUT/p1.txt 2>&1; echo "rc=$? $(grep -ciE 'pass|ok' $OUT/p1.txt) ok-lines, $(grep -ciE 'fail' $OUT/p1.txt) fail-lines"
