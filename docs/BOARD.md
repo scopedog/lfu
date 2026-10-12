@@ -86,6 +86,13 @@ the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
   18/18, lab n1011b 24/0/0. The two race fixes are NOT lreviewed and the
   races themselves were not reproduced. **User 10-11: no push now**; the
   round rides the next push that has a reason. Replies not drafted.
+- **10-11 evening: 68415 sanity-quota 7b = LU-20933, raised (user OK,
+  maloo raise-bug) + retested.** Checked not ours first: the stack up to
+  68415 changes only lustre/utils, lustre/tests, docs, the ZFS build
+  probe and a fid_is_root() move into the uapi header; no server or
+  quota code. Maloo, 45 days of lustre-reviews: 777 pass, 1 fail (this
+  one). In the failing run the second dd succeeded under fail_loc 0xa02
+  and bhardlimit was 2052 before and after the OST restart.
 - **10-11 16:19 tick:** 68415 PS25 dne-zfs-part-5 retest cb5a9241
   crashed in sanityn 70a, OOM panic on the ZFS server = LU-20276,
   linked + retested.
