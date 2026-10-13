@@ -11,6 +11,9 @@ the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
   all 18 new patchsets built (Verified+1), checkpatch and smatch only;
   **no Maloo result, no AI review, no human comment yet** (last message
   10-12 01:55). 65449: the owner has not replied.
+- **10-12 ~18:00 polling STOPPED (user: host restart).** No event all
+  day; the Maloo stall below is unchanged. Next session: restart gpoll
+  and check whether sessions for builds 133426-133444 ever uploaded.
 - **10-12 17:15 still no Maloo result on any of the 18 patchsets**, 16+
   hours after the push. Not gpoll: `maloo sessions --branch
   lustre-reviews --days 1` shows the last session reached Maloo at
