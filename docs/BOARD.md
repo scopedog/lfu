@@ -86,9 +86,28 @@ the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
     the read then never reaches the end once more than sc_max_cached
     (100000) objects, or more than sc_min_age (600 s) of lookups, are
     in the window: the message and man pages call it "can be printed
-    again". NOT verified in the lab. The cut (stop at the index the
-    log ended at when the run began) is what the message left for
-    later.
+    again". The cut (stop at the index the log ended at when the run
+    began) is what the message left for later.
+    **NOT REPRODUCED (user asked 10-13, tests/lab-1013/03, 04, arm
+    n1013, modules 2.17.58_65).** 03: mask +OPEN, 120000 mknod files
+    (> sc_max_cached), `lfs find /mnt/lfst --changelog lfst-MDT0000
+    --resolve -printf "%p\n"`: ended by itself in 120 s, 120002 lines,
+    120001 distinct (the one repeat is the directory, two records of
+    its own), while the log index went 255008 -> 495011, i.e. the
+    lookups did append 240000 records. Control without OPEN: 120001
+    lines, log unchanged. 04, the premise alone: a plain `lfs
+    changelog` reader stalled about 2000 records into a 20002-record
+    log returned exactly 20002 with 5000 appended meanwhile, and again
+    with 150000 appended: 0 records past the end it started with. So
+    on this build a non-FOLLOW reader does not see what is appended
+    after it starts, and the loop cannot begin. That also makes the
+    "can be printed again" sentences (68418 message, lfs-find.1,
+    llapi_find_since.3; written 10-09 from reasoning, never observed)
+    unsupported; not changed, user to decide. Not explained from the
+    kernel source: llog_process_thread() does re-read a chunk for new
+    records, so why the client stops at the old end is not traced.
+    Not tried: the first run's fixture trap -- the default MDT image
+    holds about 100000 inodes (use MDSSIZE=2000000).
 - **10-12 ~22:15 polling STOPPED (user).** Last event: the five
   landings below. gpoll's list now also has 68582, 69438, 64945,
   65026. 65026 PS17: green +1 (20:23), sbuisson +1, no open thread.

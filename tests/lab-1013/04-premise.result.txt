@@ -1,0 +1,7 @@
+== start 2026-10-13 15:48:58
+P1: log 1..20002 when the reader started, ..25002 after 5000 more creates; the reader returned 20002 records, the last one 20002 (0 past its starting end)
+P2: log 25003..45004 when the reader started, ..195004 after 150000 more creates; the reader returned 20002 records, the last one 45004 (0 past its starting end)
+cleanup rc=0
+== end 2026-10-13 15:52:49
+PREMISE DONE
+0

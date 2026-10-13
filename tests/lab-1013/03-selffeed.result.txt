@@ -1,0 +1,24 @@
+== start 2026-10-13 15:41:23 ARM=n1013 (92aa52e6cc)
+lfs loads:  /tmp/arm1009n1013/lib/liblustreapi.so.1 (0x00007f3a2b431000)
+--- a: 120000 files, mask [MARK ], log holds 120001 records
+  A t+20s: lines=20863 log index=120001
+  A t+40s: lines=41748 log index=120001
+  A t+60s: lines=62663 log index=120001
+  A t+80s: lines=83749 log index=120001
+  A t+100s: lines=104597 log index=120001
+  A t+120s: lines=120001 log index=120001
+A: rc=0 (124 = still running at 600s) in 120s; lines=120001 distinct=120001 most-repeated=1; log index 120001 -> 120001; err: 
+--- b: 5000 files, mask [MARK CREAT MKDIR HLINK SLINK MKNOD UNLNK RMDIR RENME RNMTO OPEN CLOSE LYOUT TRUNC SATTR XATTR HSM MTIME CTIME MIGRT FLRW RESYNC ], log holds 5003 records
+  B t+20s: lines=5001 log index=135005
+B: rc=0 (124 = still running at 600s) in 20s; lines=5001 distinct=5001 most-repeated=1; log index 125004 -> 135005; err: 
+--- c: 120000 files, mask [MARK CREAT MKDIR HLINK SLINK MKNOD UNLNK RMDIR RENME RNMTO OPEN CLOSE LYOUT TRUNC SATTR XATTR HSM MTIME CTIME MIGRT FLRW RESYNC ], log holds 120003 records
+  C t+20s: lines=20619 log index=296251
+  C t+40s: lines=41207 log index=337429
+  C t+60s: lines=60757 log index=376527
+  C t+80s: lines=80563 log index=416137
+  C t+100s: lines=101393 log index=457799
+  C t+120s: lines=120002 log index=495011
+C: rc=0 (124 = still running at 300s) in 120s; lines=120002 distinct=120001 most-repeated=2; log index 255008 -> 495011; err: 
+cleanup rc=0
+== end 2026-10-13 15:47:29
+SELFFEED DONE
