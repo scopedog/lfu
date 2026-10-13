@@ -6,6 +6,10 @@ the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
 
 ## 2026-10-10 day: CI triage + AI round on the 10-10 PS -- START HERE
 
+- **10-12 19:55 polling RESTARTED** after the host restart (gpoll under
+  Monitor, 25 min ticks, re-arm every 30 min). First tick silent: no
+  Gerrit message since the stop. Maloo stall unchanged, last session
+  still 10-12 02:33 UTC; builds 133426-133444 have no session.
 - **10-12 14:45 polling RESTARTED** (gpoll under Monitor, 25 min ticks,
   re-arm every 30 min). First tick, everything since the 10-11 pushes:
   all 18 new patchsets built (Verified+1), checkpatch and smatch only;
