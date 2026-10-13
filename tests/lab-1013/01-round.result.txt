@@ -1,0 +1,25 @@
+== start 2026-10-13 14:51:35
+--- C: log holds 3500 records, user cl1; sc_user=cl99 is not registered
+C n1011d (dedf203e2b): RETURNED rc=-2 after 3500 records; 'cannot clear' x4; lib /tmp/arm1009n1011d/lib/liblustreapi.so.1
+C n1013 (92aa52e6cc): RETURNED rc=-2 after 3500 records; 'cannot clear' x1; lib /tmp/arm1009n1013/lib/liblustreapi.so.1
+cleanup rc=0
+--- F: device scan of /tmp/lustre-mdt1 (label lustre-MDT0000)
+F n1011d (dedf203e2b) lfs loads:  /tmp/arm1009n1011d/lib/liblustreapi.so.1 (0x00007f946fc94000)
+F n1011d [-type d]: rc=0 lines=5 md5=6bc5160489 err=0
+F n1011d [-type d --uid 1000]: rc=0 lines=0 md5=d41d8cd98f err=0
+F n1011d [-type d ! --foreign]: rc=0 lines=5 md5=6bc5160489 err=0
+F n1011d [-type d ! --foreign --uid 1000]: rc=0 lines=5 md5=6bc5160489 err=0
+F n1011d [-type d ! --foreign ! --uid 1000]: rc=0 lines=5 md5=6bc5160489 err=0
+F n1011d [-type d ! --foreign --perm 0000]: rc=0 lines=5 md5=6bc5160489 err=0
+F n1011d [-type d ! --foreign -name u1]: rc=0 lines=0 md5=d41d8cd98f err=1
+F n1013 (92aa52e6cc) lfs loads:  /tmp/arm1009n1013/lib/liblustreapi.so.1 (0x00007f0aee133000)
+F n1013 [-type d]: rc=0 lines=5 md5=6bc5160489 err=0
+F n1013 [-type d --uid 1000]: rc=0 lines=0 md5=d41d8cd98f err=0
+F n1013 [-type d ! --foreign]: rc=0 lines=5 md5=6bc5160489 err=0
+F n1013 [-type d ! --foreign --uid 1000]: rc=0 lines=0 md5=d41d8cd98f err=0
+F n1013 [-type d ! --foreign ! --uid 1000]: rc=0 lines=5 md5=6bc5160489 err=0
+F n1013 [-type d ! --foreign --perm 0000]: rc=0 lines=0 md5=d41d8cd98f err=0
+F n1013 [-type d ! --foreign -name u1]: rc=0 lines=0 md5=d41d8cd98f err=1
+mdt image untouched
+== end 2026-10-13 14:52:39
+ROUND DONE

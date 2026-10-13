@@ -6,6 +6,89 @@ the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
 
 ## 2026-10-10 day: CI triage + AI round on the 10-10 PS -- START HERE
 
+- **10-13 14:41 polling RESTARTED** (gpoll under Monitor, 25 min ticks,
+  re-arm every 30 min). The Maloo stall is over: sessions uploaded from
+  10-13 06:00 on. First tick, 47 messages.
+  **Enforced failures, 14, all linked + retested (single):**
+  68156 PS33 dne-part-1 (el10.1) lustre-initialization, client "mount:
+  No such device / Are the lustre modules loaded?" LU-20834; 68156 PS33
+  + 68288 PS27 dne-zfs-part-4 sanity-quota 2 "group/user create
+  success, but expect EDQUOT" LU-20585; 68415 PS26 dne-zfs-part-4
+  sanity-quota 2 "project create fail, but expect success" LU-16301;
+  68156 PS33, 68157 PS34, 69500 PS5 ldiskfs-ubuntu sanity-lnet 236
+  LU-19605; 68159 PS33 + 68420 PS19 dne-part-4 sanity-quota 12a + 13
+  "dd failed" (project quota all 0) LU-19908; 68288 PS27 dne-part-2 +
+  dne-zfs-part-2 and 68415 PS26 dne-zfs-part-2 sanity-lfsck 18e "2
+  orphans, got 4" LU-17891; 69443 PS7 dne-zfs-part-2 sanity-lfsck 18c
+  "4 fixed on mds1, got 7" LU-20776; 69503 PS5 dne-zfs-part-5 sanityn
+  70b OSS OOM panic (ll_ost, ZFS) LU-20276. 65026 PS18: green,
+  sbuisson +1.
+- **10-13 AI round on the 10-11 patchsets: 21 comments on 9 changes,
+  19 fixed locally, NOT pushed, no Gerrit reply yet.** Tree
+  ~/lfs-fix-1007, branch fix-1013, tip 687d01f357 (tag r1013b-tip;
+  92aa52e6cc = r1013-tip, before the lreview text fixes). Lower two (68094,
+  68095, landed) untouched; the stack is still not rebased on master.
+  - 68159 (defect): `! --foreign` on a device scan took find_decide()'s
+    `goto print` for an unstriped directory and skipped -uid, -perm,
+    the times, -size... Now only the --foreign test is skipped on a
+    scan (fc_path NULL); a walk keeps the shortcut. NOT the reviewer's
+    one-liner: falling through to find_check_foreign() would reject
+    every unstriped directory, because the directory branch there is
+    inverted upstream (the ticket candidate noted 10-10). Message
+    paragraph re-flowed, three lines added.
+  - 68415: scan_cl_object() restores sl_accepted when a two-FID record
+    fails partway, as scan_cl_event() does; scan_cl_clear() stops
+    after the first failed clear, which is what the man page says.
+  - 68417: one MDT whose changelog cannot be read no longer ends the
+    search; the first error is kept in fss_scan_rc and returned at
+    the end (cookie not rewritten), unless fp_stop_on_error. A stale
+    cookie (-ESTALE) still ends the run. lfs.c indent.
+  - 68418: --changelog --resolve takes -ENODATA and -EINVAL from the
+    lookup as "no name", as find_decide() does, so the record is
+    printed by FID and not dropped with an error.
+  - Text only: 68156 (mid-update wording in man + kernel-doc, the
+    IGNORE_CSUM comment, spec %description; the ZFS %description line
+    went into 68163), 68288 (man: only non-"gone" lookup errors fail;
+    two comments merged), 68416 (man: "none of the fields this call
+    gathers", example declares fid and closes mnt_fd; llapi_scan_cb_t
+    kernel-doc names llapi_scan_fid(); "before the open" comment),
+    68419 ("three records", the anchor comments, a cookie example in
+    llapi_find_since.3), 68420 (mid from mds1's clock; the two names a
+    lax parse reads as MDT0000, at index 1).
+  - **Left for the user, 2:** 68418 "move the --since-only hunks
+    (fc_gather_all, fss_want widening, CL_MARK guard) down into 68417"
+    (suggestion; a hunk move across two commits); 69500 PS5 got an AI
+    review with no inline comment.
+  - **Verified:** fold tree == fixup tree; sweep 18/18 (lrv2-sweep,
+    d2a385f08f..92aa52e6cc, and again ..687d01f357); checkpatch output
+    identical per commit;
+    lab tests/lab-1013 (arms n1011d = dedf203e2b, n1013): failed
+    clear 'cannot clear' x4 -> x1, both rc -2; device scan
+    `! --foreign --perm 0755` 5 -> 3 (= `--perm 0755`), `! --foreign
+    ! --uid 0` 5 -> 0; sanity ldiskfs 157c/d + 56E* + 160A* on
+    n1013 with the new sanity.sh: 24 pass, 0 fail, 0 skip. Not
+    lab-tested: sl_accepted restore (ENOMEM
+    only), the per-MDT continue (needs a dead MDT), the -ENODATA
+    resolve arm (needs an object with no linkEA).
+  - **lreview on the four code commits** (docs/local/lreview-1013):
+    68159 1 low, 68415 1 low, 68417 4 low, 68418 1 MEDIUM. Fixed and
+    folded (text only, so no second lab): llapi_scan_device.3 "name
+    starts with a NUL byte"; llapi_scan_changelog.3 CL_MIGRATE's old
+    FID is gone only when it differs (the item left 10-11); 68417
+    message + llapi_find_since.3 say an unreadable MDT does not end
+    the run; the stale "returning rc here ended the whole run" comment.
+    Not done: 68417 find_since_filter_cb() header comment (_ONCE
+    leftover, rewritten by 68419 anyway).
+  - **OPEN, for the user: 68418 lreview MEDIUM, not on today's diff.**
+    With OPEN in the changelog mask, --changelog --resolve -printf (or
+    --projid), and --since -printf, open every file they look up; each
+    open appends CL_OPEN/CL_CLOSE behind the reader. lreview argues
+    the read then never reaches the end once more than sc_max_cached
+    (100000) objects, or more than sc_min_age (600 s) of lookups, are
+    in the window: the message and man pages call it "can be printed
+    again". NOT verified in the lab. The cut (stop at the index the
+    log ended at when the run began) is what the message left for
+    later.
 - **10-12 ~22:15 polling STOPPED (user).** Last event: the five
   landings below. gpoll's list now also has 68582, 69438, 64945,
   65026. 65026 PS17: green +1 (20:23), sbuisson +1, no open thread.
