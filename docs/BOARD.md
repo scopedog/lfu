@@ -6,6 +6,11 @@ the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
 
 ## 2026-10-10 day: CI triage + AI round on the 10-10 PS -- START HERE
 
+- **10-12 ~22:15 polling STOPPED (user).** Last event: the five
+  landings below. gpoll's list now also has 68582, 69438, 64945,
+  65026. 65026 PS17: green +1 (20:23), sbuisson +1, no open thread.
+  69438 PS1 still has jsimmons -1; our 10-09 reply is the last word.
+  Still no Maloo result on the 18 patchsets of 10-11.
 - **10-12 21:19-21:28 FIVE CHANGES LANDED on master** (green,
   cherry-picked): 68094 LU-20603 llapi_scan_namespace() e356c095d1,
   68095 LU-20605 find on the scan record 29233e2075, 68413 LU-20647
