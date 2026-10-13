@@ -6,6 +6,13 @@ the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
 
 ## 2026-10-10 day: CI triage + AI round on the 10-10 PS -- START HERE
 
+- **10-12 21:19-21:28 FIVE CHANGES LANDED on master** (green,
+  cherry-picked): 68094 LU-20603 llapi_scan_namespace() e356c095d1,
+  68095 LU-20605 find on the scan record 29233e2075, 68413 LU-20647
+  changelog user lookup 52969639ae, 68582 LU-20546 import ref
+  bdb7948b87, 64945 LU-20050 sepol import ref leak 1550e227f4. The
+  rest of the stack (68156 up) now sits on a merged parent; not
+  rebased. 68582 and 69438 added to gpoll's list the same evening.
 - **10-12 19:55 polling RESTARTED** after the host restart (gpoll under
   Monitor, 25 min ticks, re-arm every 30 min). First tick silent: no
   Gerrit message since the stop. Maloo stall unchanged, last session
