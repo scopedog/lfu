@@ -11,6 +11,14 @@ the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
   all 18 new patchsets built (Verified+1), checkpatch and smatch only;
   **no Maloo result, no AI review, no human comment yet** (last message
   10-12 01:55). 65449: the owner has not replied.
+- **10-12 17:15 still no Maloo result on any of the 18 patchsets**, 16+
+  hours after the push. Not gpoll: `maloo sessions --branch
+  lustre-reviews --days 1` shows the last session reached Maloo at
+  10-12 02:33 UTC (10-11 19:33 PDT), none since, for anybody. Autotest
+  itself is running (`maloo queue --branch lustre-reviews`: builds
+  133444-133477 Testing, some "Finished testing"); our builds
+  133426-133443 have left the queue with no session uploaded. Looks
+  like a stalled upload on the CI side; user told, nothing done.
 - **10-11 01:10 polling RESTARTED** (gpoll under Monitor, 25 min ticks,
   re-arm every 30 min). First tick: the 8 retests of 10-10 night are
   running, no AI review yet. **Enforced failures, 4 more, all linked +
