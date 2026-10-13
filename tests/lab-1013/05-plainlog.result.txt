@@ -1,0 +1,10 @@
+== start 2026-10-13 16:07:35 ARM=n1013 (92aa52e6cc)
+P3: log 1..100001 when the reader started, ..150002 after 50000 more creates; the reader returned 129534 records, the last one 129534 (29533 past its starting end)
+cleanup rc=0
+--- C2: 150000 files, mask [MARK CREAT MKDIR HLINK SLINK MKNOD UNLNK RMDIR RENME RNMTO OPEN CLOSE LYOUT TRUNC SATTR XATTR HSM MTIME CTIME MIGRT FLRW RESYNC ], log 1..150001
+C2: rc=0 (124 = still running at 900s) in 154s; lines=172151 distinct=150001; log index 150001 -> 494302; err: 
+C2: printed x1: 127851 paths; printed x2: 22150 paths; 
+C2 repeated, first and last: /mnt/lfst/c /mnt/lfst/c/f22148 
+cleanup rc=0
+== end 2026-10-13 16:13:42
+PLAINLOG DONE

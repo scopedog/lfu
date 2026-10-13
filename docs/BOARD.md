@@ -100,12 +100,29 @@ the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
     log returned exactly 20002 with 5000 appended meanwhile, and again
     with 150000 appended: 0 records past the end it started with. So
     on this build a non-FOLLOW reader does not see what is appended
-    after it starts, and the loop cannot begin. That also makes the
-    "can be printed again" sentences (68418 message, lfs-find.1,
-    llapi_find_since.3; written 10-09 from reasoning, never observed)
-    unsupported; not changed, user to decide. Not explained from the
-    kernel source: llog_process_thread() does re-read a chunk for new
-    records, so why the client stops at the old end is not traced.
+    after it starts -- in a log of ONE plain llog, which is what 03
+    and 04 had by the time anything was appended.
+    **TRACED 10-13 (user asked), tests/lab-1013/05.** The client
+    copies an llog header once, when it opens that log
+    (llog_client.c READ_HEADER -> memcpy into lgh_hdr), and
+    llog_process_thread() calls back only for indexes set in that
+    copy's bitmap (llog_is_index_skipable()). chlg_load() opens the
+    catalog when the read starts; llog_cat_process_cb() opens each
+    plain log when the read reaches it. So a reader sees what is
+    appended to the last plain log the catalog listed at the start,
+    until it opens that log, and never a plain log created later.
+    Predicted, then measured: a reader stalled in the first plain log
+    of a 100001-record log, 50000 appended -> returned 129534 = 2 x
+    64767 (one plain log holds 64767 records), not 100001 and not
+    150002. And the finding's own case, +OPEN, 150000 files, `lfs
+    find --changelog --resolve -printf`: ended in 154 s, 172151 lines,
+    22150 files printed twice (f0..f22148: the 44300 records of room
+    left in the third plain log), none three times, log 150001 ->
+    494302. **So: the repeat is real and the man pages are right;
+    lreview's "never ends" is wrong.** It is bounded by one plain
+    log: at most ~32000 files repeat once, and only when lookups run
+    before the last plain log is opened (more than 100000 objects
+    ahead of it, or records spread over more than sc_min_age).
     Not tried: the first run's fixture trap -- the default MDT image
     holds about 100000 inodes (use MDSSIZE=2000000).
 - **10-12 ~22:15 polling STOPPED (user).** Last event: the five
