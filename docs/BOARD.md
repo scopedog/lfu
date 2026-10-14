@@ -22,6 +22,26 @@ the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
   56Edb skip. lreview run5 on 68159/68163/68288 running. Push held
   for the AI round on the 19:20 patchsets (the plan).
   Not done: -name on a device scan still compares the encrypted name.
+  **Final tip 00885dbb1c (tag r1013l-tip), 10-13 ~23:00.** lreview
+  run5 (68159 1, 68163 2, 68288 2) and run6 (68159 4, 68163 2), all
+  low. Fixed, being on today's diff: ! -newerbY undecided on a scan
+  like ! -btime; the -EOPNOTSUPP arm that became dead; configure probe
+  and Makefile comment name zpool_search_import(); the import comment
+  moved above scan_zfs_import() and names LU-20613; ENOMEM from the
+  pool lookup passed through, not read as -ENOENT; args.poolname set
+  so only the named pool's labels are tried; 68288 message figures
+  296 bytes / 592 / 888 MiB (the bool); lfs-find.1 says MOUNT may be a
+  path or an fsname. Sweep 18/18, checkpatch equal on all 18; lab on
+  n1013l: sanity ldiskfs 24/0/0, ZFS 23 + 56Edb skip, the ZFS race
+  arm 0 of 27, destroyed pool -ENOENT, re-created pool opened; the
+  ldiskfs items and the encryption run were on n1013k (same ldiskfs
+  code). run6's fixes are NOT lreviewed.
+  Not fixed, older code (run6 on 68159): %n (and %t/%c/%a) of a
+  striped directory on a scan print the master inode's values; a stale
+  comment on foreign directories; find_asks_layout() duplicates
+  find_check_lmm_info(); no sanity case for the walk-side -printf
+  fixes. run5 on 68288: no test for the fileset / other-fsname
+  refusals of --fid2path.
 - **10-13 ~20:15 lreview items 1-6 FIXED locally (user: "we need to
   fix 1-6"), NOT pushed.** fix-1013 = 890fe9b397 (tag r1013h-tip;
   r1013h-fixups = the lab-tested tree, equal but for one declaration

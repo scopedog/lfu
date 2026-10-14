@@ -1,0 +1,18 @@
+  n1013l zfs probe: checking zfs libzpool headers usable from userspace... -DDEBUG -UNDEBU
+BUILD-OK
+PASS 23  FAIL 0  SKIP 2
+ SKIP: sanity test_56Edb needs >= 2 MDTs
+PASS 24  FAIL 0  SKIP 0
+5 n1013e []: rc=0 lines=2005 md5=ce109a26f5 warnings=0 stderr-lines=0 secs=1.347
+5 n1013e [--mdt 0]: rc=0 lines=2005 md5=ce109a26f5 warnings=0 stderr-lines=0 secs=2.596
+5 n1013e [-type f --mdt 0]: rc=0 lines=2000 md5=9748bf2dc0 warnings=0 stderr-lines=0 secs=2.591
+4 n1013e: 27 runs, 0 with a failed open; return values seen:      54 rc=0 
+5 n1013l []: rc=0 lines=2005 md5=ce109a26f5 warnings=0 stderr-lines=0 secs=1.281
+5 n1013l [--mdt 0]: rc=0 lines=2005 md5=ce109a26f5 warnings=0 stderr-lines=0 secs=1.313
+5 n1013l [-type f --mdt 0]: rc=0 lines=2000 md5=9748bf2dc0 warnings=0 stderr-lines=0 secs=1.314
+4 n1013l: 27 runs, 0 with a failed open; return values seen:      54 rc=0 
+  scan: rc=0 lines=505 err: 
+  scan: rc=2 lines=0 err: lfs find: cannot open zfst-mdt1/mdt1: No such file or directory (2)|lfs: failed for 'zfst-mdt1/mdt1': No such file or directory|
+  scan: rc=22 lines=0 err: lfs find: zfst-mdt1/mdt1: label '' names no MDT or OST|lfs: failed for 'zfst-mdt1/mdt1': Invalid argument|
+0
+no pools available

@@ -1,0 +1,88 @@
+== start 2026-10-13 22:07:13 FSTYPE=ldiskfs ARM=n1013k (3badfc0b56)
+loaded version: [2.17.58_65_g8618869]
+/usr/bin/lfs loads:  liblustreapi.so.1 => /tmp/arm1009n1013k/lib/liblustreapi.so.1 (0x00007fd6fbb9d000)
+/usr/lib64/lustre/tests/llapi_scan_changelog_test loads:  liblustreapi.so.1 => /tmp/arm1009n1013k/lib/liblustreapi.so.1 (0x00007fca47019000)
+bound lfs is NEW's
+SANITY_RC=0
+PASS 24  FAIL 0  SKIP 0
+cleanup rc=0
+lustre-* fixtures untouched
+== end 2026-10-13 22:09:52
+SANITY RUN DONE
+== start 2026-10-13 22:09:52 FSTYPE=zfs ARM=n1013k (3badfc0b56)
+loaded version: [2.17.58_65_g8618869]
+/usr/bin/lfs loads:  liblustreapi.so.1 => /tmp/arm1009n1013k/lib/liblustreapi.so.1 (0x00007f1f94d35000)
+/usr/lib64/lustre/tests/llapi_scan_changelog_test loads:  liblustreapi.so.1 => /tmp/arm1009n1013k/lib/liblustreapi.so.1 (0x00007f088f9e2000)
+bound lfs is NEW's
+SANITY_RC=0
+PASS 23  FAIL 0  SKIP 2
+ SKIP: sanity test_56Edb needs >= 2 MDTs
+SKIP 56Edb (0s)
+cleanup rc=0
+lustre-* fixtures untouched
+== end 2026-10-13 22:12:14
+SANITY RUN DONE
+== start 2026-10-13 22:12:14
+dataset zfst-mdt1/mdt1, snapshot zfst-mdt1/mdt1@s1, vdevs in /tmp/zfslab1013: kptr-428857-env ogdb-rhel9.7-server projid-llmountcleanup zfst-mdt1 zfst-ost1 zfst-ost2 
+== n1013e (1f4bab071b) lib /tmp/arm1009n1013e/lib/liblustreapi.so.1; plugin 94584 bytes
+5 n1013e []: rc=0 lines=2005 md5=ce109a26f5 warnings=0 stderr-lines=0 secs=1.402
+5 n1013e [--mdt 0]: rc=0 lines=2005 md5=ce109a26f5 warnings=0 stderr-lines=0 secs=2.684
+5 n1013e [-type f --mdt 0]: rc=0 lines=2000 md5=9748bf2dc0 warnings=0 stderr-lines=0 secs=2.716
+4 n1013e: 27 runs, 2 with a failed open; return values seen:      52 rc=0       2 rc=-2 
+60 ms: A rc=0 n=2005  B rc=-2 n=0
+60 ms: A rc=0 n=2005  B rc=-2 n=0
+== n1013k (3badfc0b56) lib /tmp/arm1009n1013k/lib/liblustreapi.so.1; plugin 99064 bytes
+5 n1013k []: rc=0 lines=2005 md5=ce109a26f5 warnings=0 stderr-lines=0 secs=1.364
+5 n1013k [--mdt 0]: rc=0 lines=2005 md5=ce109a26f5 warnings=0 stderr-lines=0 secs=1.422
+5 n1013k [-type f --mdt 0]: rc=0 lines=2000 md5=9748bf2dc0 warnings=0 stderr-lines=0 secs=1.458
+4 n1013k: 27 runs, 0 with a failed open; return values seen:      54 rc=0 
+== end 2026-10-13 22:14:34
+ZFS DONE
+== start 2026-10-13 22:14:34 ARM=n1013k (3badfc0b56)
+--- D0: exported pool zfst-mdt1 (zfst-mdt1/mdt1), vdevs: kptr-465148-env ogdb-rhel9.7-server projid-llmountcleanup zfst-mdt1 zfst-ost1 
+  scan: rc=0 lines=505 err: 
+--- D1: zpool destroy zfst-mdt1
+  zpool import -d: 1 pools; with -D:  pool: zfst-mdt1  state: ONLINE (DESTROYED) 
+  scan: rc=2 lines=0 err: lfs find: cannot open zfst-mdt1/mdt1: No such file or directory (2)|lfs: failed for 'zfst-mdt1/mdt1': No such file or directory|
+--- D2: a new zfst-mdt1 on another vdev in /tmp/zfslab1013d
+  zpool import -d:  pool: zfst-ost1  state: ONLINE  pool: zfst-mdt1  state: ONLINE 
+  scan: rc=22 lines=0 err: lfs find: zfst-mdt1/mdt1: label '' names no MDT or OST|lfs: failed for 'zfst-mdt1/mdt1': Invalid argument|
+no pools available
+== end 2026-10-13 22:15:29
+ZD DONE
+== start 2026-10-13 22:15:29 ARM=n1013k (3badfc0b56)
+Joined session keyring: 499976816
+  with the key: lsattr ---------E-----C------ /mnt/lf; ls -R: /mnt/lfst/enc: dir_named_clear  /mnt/lfst/enc/dir_named_clear: file_named_clear 
+  without the key: Qy3Urp8Zif6LC3JlZ9gK8g 
+--- the MDT image, servers stopped
+  --paths rc=0, lines under /enc:
+    /enc
+  stderr: lfs find: /tmp/lfst-mdt1: 3 matching objects have no pathname and were not printed 
+== end 2026-10-13 22:16:00
+ENC DONE
+== start 2026-10-13 22:16:00
+fixture: 0 stripes on p1, 2 on sd
+image /tmp/lfst-mdt1 label lfst-MDT0000
+== n1013e (1f4bab071b) lib /tmp/arm1009n1013e/lib/liblustreapi.so.1
+2 n1013e [-type d]: rc=0 lines=9
+2 n1013e [-type d --mdt-count 2]: rc=0 lines=1
+2 n1013e [-type d ! --mdt-count 2]: rc=0 lines=8
+2 n1013e [-type d ! --foreign]: rc=0 lines=8
+2 n1013e [-type d ! --foreign --mdt-count 2]: rc=0 lines=8
+2 n1013e [-type d ! --foreign ! --mdt-count 2]: rc=0 lines=8
+2 n1013e [-type d ! --foreign --mdt-hash crush]: rc=0 lines=8
+3 n1013e scan rc=0: 10 directories; '/mnt/lfst/it/sd' named 2 times; shard lines: /mnt/lfst/it/sd  <-shard;
+6 n1013e printed 11 lines; rc=0 ss_size=168 seen=0 emitted=0 skipped=0
+== n1013k (3badfc0b56) lib /tmp/arm1009n1013k/lib/liblustreapi.so.1
+2 n1013k [-type d]: rc=0 lines=9
+2 n1013k [-type d --mdt-count 2]: rc=0 lines=1
+2 n1013k [-type d ! --mdt-count 2]: rc=0 lines=8
+2 n1013k [-type d ! --foreign]: rc=0 lines=8
+2 n1013k [-type d ! --foreign --mdt-count 2]: rc=0 lines=0
+2 n1013k [-type d ! --foreign ! --mdt-count 2]: rc=0 lines=8
+2 n1013k [-type d ! --foreign --mdt-hash crush]: rc=0 lines=0
+3 n1013k scan rc=0: 10 directories; '/mnt/lfst/it/sd' named 1 times; shard lines: rc=-2  <-shard;
+6 n1013k printed 11 lines; rc=0 ss_size=168 seen=276 emitted=12 skipped=0
+cleanup rc=0
+== end 2026-10-13 22:18:17
+ITEMS DONE
