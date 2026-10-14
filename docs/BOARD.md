@@ -6,6 +6,9 @@ the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
 
 ## 2026-10-10 day: CI triage + AI round on the 10-10 PS -- START HERE
 
+- **10-14 REBASE PUSHED (user: "push them"):** 6b9f324bce, branch
+  a1014-pushed, 18 new patchsets, parent = master ee61b3f6dd. No replies
+  owed (the fix-1013 lreview fixes rode along). Next: 68726 batch API.
 - **10-14 STACK REBASED ON MASTER, local only, NOT pushed (user: "start
   with the rebase").** ~/lfs-fix-1007 branch rebase-1014 = 6b9f324bce
   (tag r1014-rebase-tip) on master ee61b3f6dd; old tip fix-1013
