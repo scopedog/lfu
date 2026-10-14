@@ -21,7 +21,12 @@ the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
   returned; example compiles. (3) message: history-relative paragraphs
   rewritten. Checkpatch = PS3. Open AI thread (lfsp_got/stats not
   exposed) was answered at PS3, still unresolved: resolve with the push.
-  Not run: lreview on the fixed tip (the user checks credits first).
+  lreview run2 on the fixed tip 399adead23 ($2.69): nothing on the fix;
+  3 low doc points, all taken -> af3375dbba (tag r1014-batch-tip):
+  a reader racing the refill is undefined (may crash), not "finds the
+  next batch's bytes" (man page + message); @data and the filter must
+  live until llapi_scan_close() (man page, header, kerneldoc). Comments
+  and docs only since the lab arm; builds, checkpatch = PS3.
 - **10-14 REBASE PUSHED (user: "push them"):** 6b9f324bce, branch
   a1014-pushed, 18 new patchsets, parent = master ee61b3f6dd. No replies
   owed (the fix-1013 lreview fixes rode along). Next: 68726 batch API.
