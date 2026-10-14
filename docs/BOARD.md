@@ -6,6 +6,12 @@ the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
 
 ## 2026-10-10 day: CI triage + AI round on the 10-10 PS -- START HERE
 
+- **10-13 19:21 tick:** checkpatch on the 18 new patchsets. Counts
+  equal the previous patchsets' except **68416 PS27, one NEW warning,
+  mine**: the last doc fix left a 112-column kernel-doc line in
+  liblustreapi_scan.c (the one fix made after the checkpatch
+  compare). Re-wrapped locally, fix-1013 = 468d0628a8 (tag
+  r1013g-tip), comment only; NOT pushed, rides the next push.
 - **10-13 ~19:20 ALL 18 PUSHED (user: "ok, push", then "fix 68416
   now").** Tip 7698fb4ef5 (branch a1013-pushed in ~/lfs-fix-1007, tag
   r1013f-tip): 68156 PS34, 68159 PS34, 68288 PS28, 68415/68416 PS27,
