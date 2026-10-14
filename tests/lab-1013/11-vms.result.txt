@@ -1,0 +1,15 @@
+== start 2026-10-13 21:00:13
+--- c + 1: FSNAME=lfsb, MDT inodes of 128 bytes
+  128-byte inodes did not mount: mkfs.lustre FATAL: mkfs failed 256|
+--- b: FSNAME=lfst, client with test_dummy_encryption
+mount.lustre: test dummy encryption option ignored: could not insert dummy encryption key into session keyring
+  lsattr: ---------------------- /mnt/lfst/enc; walk: /mnt/lfst/enc /mnt/lfst/enc/dir_named_clear /mnt/lfst/enc/dir_named_clear/file_named_clear 
+  remounted without the option: dir_named_clear 
+c n1013h (800fd00034) skip: rc=0 ss_size=168 seen=999 emitted=999 skipped=999
+c n1013h (800fd00034) plain: rc=0 ss_size=168 seen=256 emitted=4 skipped=0
+c n1013i (963eea7dd8) skip: rc=0 ss_size=168 seen=0 emitted=0 skipped=0
+c n1013i (963eea7dd8) plain: rc=0 ss_size=168 seen=256 emitted=4 skipped=0
+  b n1013h --paths rc=0: /enc/dir_named_clear/file_named_clear /enc /enc/dir_named_clear  | lfs find: /tmp/lfst-mdt1: 1 matching objects have no pathname and were not printed 
+  b n1013i --paths rc=0: /enc/dir_named_clear/file_named_clear /enc /enc/dir_named_clear  | lfs find: /tmp/lfst-mdt1: 1 matching objects have no pathname and were not printed 
+== end 2026-10-13 21:01:09
+VMS DONE

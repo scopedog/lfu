@@ -1,0 +1,15 @@
+== start 2026-10-13 21:03:01 ARM=n1013i (963eea7dd8)
+Joined session keyring: 244945393
+  with the key: lsattr ---------E-----C------ /mnt/lf; ls -R: /mnt/lfst/enc: dir_named_clear  /mnt/lfst/enc/dir_named_clear: file_named_clear 
+  without the key: joODdqWRQHZlb2cYANrKCA 
+--- the MDT image, servers stopped
+  --paths rc=0, lines under /enc:
+grep: /tmp/lab1013-enc/paths.txt: binary file matches
+    /enc
+  stderr: lfs find: /tmp/lfst-mdt1: 1 matching objects have no pathname and were not printed 
+== end 2026-10-13 21:03:31
+ENC DONE
+
+/enc/M-^NM-^CM-^CvM-%M-^Q@veog^X=@M-ZM-J^H/M-3WM-^\M-[AM-^HXM-"M-0M-mM-`M-hM-b=JM-,M-^A
+/enc
+/enc/M-^NM-^CM-^CvM-%M-^Q@veog^X=@M-ZM-J^H

@@ -19,7 +19,26 @@ the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
   1 low (a destroyed pool's labels are imported like a live one; a
   pool destroyed and re-created elsewhere gives -EINVAL), 68288 1 low
   (names below an fscrypt-encrypted directory print as ciphertext via
-  --paths / --fid2path on an MDT); both older code, NOT fixed. Sweep 18/18, checkpatch equal to the 10-11 patchsets on all
+  --paths / --fid2path on an MDT); both older code, NOT fixed.
+  **VM tests 10-13 21:00 (user: "test on vms"), tests/lab-1013/11-13:**
+  - item 6 skip path (`--mdt 1` against MDT0, counters preset to 999):
+    n1013h left 999/999/999, n1013i writes 0/0/0. Proven.
+  - item 1: NOT testable this way. mkfs.lustre refuses an MDT with
+    128-byte inodes (MDS_FS_MKFS_OPTS="-I 128": "Unable to build fs"),
+    and a smaller i_extra_isize set with debugfs would move the in-inode
+    xattrs and lose the LMA.
+  - 68163 destroyed pool, REPRODUCED: after `zpool destroy`, `zpool
+    import -d` lists nothing for it (only -D does) and the scan still
+    reads it, rc 0, 505 lines, the same as the live pool. A new pool of
+    the same name on another vdev in the search dir: `zpool import -d`
+    lists one, the scan answers -EINVAL.
+  - 68288 encrypted names, REPRODUCED: client mounted with
+    test_dummy_encryption and a dummy key (sanity-sec's
+    setup_dummy_key(), inside `keyctl session`). `lfs find --device
+    --paths` on the MDT image prints /enc/<raw ciphertext bytes> for the
+    directory and the file below it, rc 0 -- not even the client's
+    keyless spelling (joODdqWRQHZlb2cYANrKCA). The first attempt without
+    a key gave unencrypted names: the mount option alone is ignored. Sweep 18/18, checkpatch equal to the 10-11 patchsets on all
   18 (so the 112-column line is gone too), sanity n1013h ldiskfs
   24/0/0 and ZFS 23 + 56Edb skip. lreview on 68159, 68163, 68288
   running (docs/local/lreview-1013 run4-*).
