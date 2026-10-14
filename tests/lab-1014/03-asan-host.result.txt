@@ -1,0 +1,12 @@
+callback: 20081 objects
+batch    1 threads 1: 20081 objects in 20081 batches, 0 lmm, 0 lmv, 0 fd, close rc 0, IDENTICAL
+batch    1 threads 8: 20081 objects in 20081 batches, 0 lmm, 0 lmv, 0 fd, close rc 0, IDENTICAL
+batch    7 threads 1: 20081 objects in 2869 batches, 0 lmm, 0 lmv, 0 fd, close rc 0, IDENTICAL
+batch    7 threads 8: 20081 objects in 2869 batches, 0 lmm, 0 lmv, 0 fd, close rc 0, IDENTICAL
+batch  100 threads 1: 20081 objects in 201 batches, 0 lmm, 0 lmv, 0 fd, close rc 0, IDENTICAL
+batch  100 threads 8: 20081 objects in 201 batches, 0 lmm, 0 lmv, 0 fd, close rc 0, IDENTICAL
+batch 1000 threads 1: 20081 objects in 21 batches, 0 lmm, 0 lmv, 0 fd, close rc 0, IDENTICAL
+batch 1000 threads 8: 20081 objects in 21 batches, 0 lmm, 0 lmv, 0 fd, close rc 0, IDENTICAL
+batch 4096 threads 1: 20081 objects in 5 batches, 0 lmm, 0 lmv, 0 fd, close rc 0, IDENTICAL
+batch 4096 threads 8: 20081 objects in 5 batches, 0 lmm, 0 lmv, 0 fd, close rc 0, IDENTICAL
+200 early closes: ok

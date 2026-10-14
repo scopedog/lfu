@@ -1,0 +1,35 @@
+== start 2026-10-14 15:49:22 ARM=n1014b (6612afe8fc)
+trees: m 20001, s 1022
+--- stress on m
+callback: 20001 objects
+batch    1 threads 1: 20001 objects in 20001 batches, 0 lmm, 0 lmv, 0 fd, close rc 0, IDENTICAL
+batch    1 threads 8: 20001 objects in 20001 batches, 0 lmm, 0 lmv, 0 fd, close rc 0, IDENTICAL
+batch    7 threads 1: 20001 objects in 2858 batches, 0 lmm, 0 lmv, 0 fd, close rc 0, IDENTICAL
+batch    7 threads 8: 20001 objects in 2858 batches, 0 lmm, 0 lmv, 0 fd, close rc 0, IDENTICAL
+batch  100 threads 1: 20001 objects in 201 batches, 0 lmm, 0 lmv, 0 fd, close rc 0, IDENTICAL
+batch  100 threads 8: 20001 objects in 201 batches, 0 lmm, 0 lmv, 0 fd, close rc 0, IDENTICAL
+batch 1000 threads 1: 20001 objects in 21 batches, 0 lmm, 0 lmv, 0 fd, close rc 0, IDENTICAL
+batch 1000 threads 8: 20001 objects in 21 batches, 0 lmm, 0 lmv, 0 fd, close rc 0, IDENTICAL
+batch 4096 threads 1: 20001 objects in 5 batches, 0 lmm, 0 lmv, 0 fd, close rc 0, IDENTICAL
+batch 4096 threads 8: 20001 objects in 5 batches, 0 lmm, 0 lmv, 0 fd, close rc 0, IDENTICAL
+200 early closes: ok
+rc=0
+--- stress on s
+callback: 1022 objects
+batch    1 threads 1: 1022 objects in 1022 batches, 1022 lmm, 1 lmv, 0 fd, close rc 0, IDENTICAL
+batch    1 threads 8: 1022 objects in 1022 batches, 1022 lmm, 1 lmv, 0 fd, close rc 0, IDENTICAL
+batch    7 threads 1: 1022 objects in 146 batches, 1022 lmm, 1 lmv, 0 fd, close rc 0, IDENTICAL
+batch    7 threads 8: 1022 objects in 146 batches, 1022 lmm, 1 lmv, 0 fd, close rc 0, IDENTICAL
+batch  100 threads 1: 1022 objects in 11 batches, 1022 lmm, 1 lmv, 0 fd, close rc 0, IDENTICAL
+batch  100 threads 8: 1022 objects in 11 batches, 1022 lmm, 1 lmv, 0 fd, close rc 0, IDENTICAL
+batch 1000 threads 1: 1022 objects in 2 batches, 1022 lmm, 1 lmv, 0 fd, close rc 0, IDENTICAL
+batch 1000 threads 8: 1022 objects in 2 batches, 1022 lmm, 1 lmv, 0 fd, close rc 0, IDENTICAL
+batch 4096 threads 1: 1022 objects in 1 batches, 1022 lmm, 1 lmv, 0 fd, close rc 0, IDENTICAL
+batch 4096 threads 8: 1022 objects in 1 batches, 1022 lmm, 1 lmv, 0 fd, close rc 0, IDENTICAL
+200 early closes: ok
+rc=0
+cleanup rc=0
+== end 2026-10-14 15:50:50
+BATCH RUN DONE
+
+[exited with code 0]
