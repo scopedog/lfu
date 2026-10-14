@@ -6,6 +6,11 @@ the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
 
 ## 2026-10-10 day: CI triage + AI round on the 10-10 PS -- START HERE
 
+- **10-14 ~00:30 polling STOPPED (user).** Plan (user): wait for the AI
+  reviews of the 10-13 19:20 patchsets, fix them on top of fix-1013
+  7aa1e5e206, push maybe 10-14. Last poll tick 00:03: nothing new; no
+  Maloo result or AI review on the 19:20 patchsets yet. Lab VM
+  rhel9.7-server-mgs-mds-clone left running, nothing mounted.
 - **10-14 ~00:20 open items 1 and 5 FIXED locally (user: "fix 1 and
   5"), NOT pushed.** fix-1013 = 7aa1e5e206 (tag r1013n-tip), all in
   68159. (1) -printf %n, %a, %c, %t print nothing for a striped
