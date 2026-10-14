@@ -6,6 +6,23 @@ the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
 
 ## 2026-10-10 day: CI triage + AI round on the 10-10 PS -- START HERE
 
+- **10-14 STACK REBASED ON MASTER, local only, NOT pushed (user: "start
+  with the rebase").** ~/lfs-fix-1007 branch rebase-1014 = 6b9f324bce
+  (tag r1014-rebase-tip) on master ee61b3f6dd; old tip fix-1013
+  7aa1e5e206 kept (tag bk-fix-1013-pre-rebase). Landed 68094/68095 are
+  patch-identical to our f42d20f639/d2a385f08f, so base swap only.
+  Conflicts: 68158 (lfs.c; master's four edits in the moved find code
+  ported to lfs_find_parse.[ch]: LFS_NO_WARN_OPT, LFS_FORCE_NO_EC_OPT,
+  LFS_EC_MAP_OPT, LU-20433 `! -m` sets fp_exclude_mdt, LU-15504 -ls
+  format), 68159 man3/Makefile.am, 68160 enum, 68420 sanity.sh (master's
+  160y kept ahead of our 160Aa-Af). Proof: old->new tip diff equals
+  master's own diff in every file except those four ported hunks.
+  Sweep 18/18 (tests/lab-1014/00-sweep.log, ~/lrv2-sweep reconfigured),
+  checkpatch equal on 17, 68158 +1 = master's 82-col -ls string kept
+  verbatim. Lab n1014: sanity ldiskfs 24/0/0, ZFS 23 + 56Edb skip
+  (tests/lab-1014/01). Ticket item 4 (`! --mdt` no-op) is FIXED upstream
+  by LU-20433 -- drop it. Next candidate: 68726 batch API as a standalone
+  change on master (user to decide).
 - **10-14 polling RESTARTED then STOPPED (user), one tick.** First tick: 65026 PS18 Maloo +1;
   AI review 2 comments (sec.c:1979 launch errno, sanity-selinux.sh:901
   SEPOL_HELPER) LEFT ALONE by the user's choice -- CR+1 x2 held before
