@@ -25,7 +25,8 @@ the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
   sbuisson +1.
 - **10-13 AI round on the 10-11 patchsets: 21 comments on 9 changes,
   19 fixed locally, NOT pushed, no Gerrit reply yet.** Tree
-  ~/lfs-fix-1007, branch fix-1013, tip 687d01f357 (tag r1013b-tip;
+  ~/lfs-fix-1007, branch fix-1013, tip ece788d09d (tag r1013c-tip;
+  687d01f357 = r1013b-tip, before the 68418 bound text;
   92aa52e6cc = r1013-tip, before the lreview text fixes). Lower two (68094,
   68095, landed) untouched; the stack is still not rebased on master.
   - 68159 (defect): `! --foreign` on a device scan took find_decide()'s
@@ -123,6 +124,10 @@ the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
     log: at most ~32000 files repeat once, and only when lookups run
     before the last plain log is opened (more than 100000 objects
     ahead of it, or records spread over more than sc_min_age).
+    **Bound stated in the text (user 10-13: no code fix):** 68418's
+    message, lfs-find.1 and llapi_find_since.3. Tip now ece788d09d
+    (tag r1013c-tip), man + message only, sweep 18/18, checkpatch
+    unchanged. The per-record cut stays "a later change".
     Not tried: the first run's fixture trap -- the default MDT image
     holds about 100000 inodes (use MDSSIZE=2000000).
 - **10-12 ~22:15 polling STOPPED (user).** Last event: the five
