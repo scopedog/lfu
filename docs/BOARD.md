@@ -6,6 +6,10 @@ the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
 
 ## 2026-10-10 day: CI triage + AI round on the 10-10 PS -- START HERE
 
+- **10-14 polling RESTARTED (user).** First tick: 65026 PS18 Maloo +1;
+  AI review 2 comments (sec.c:1979 launch errno, sanity-selinux.sh:901
+  SEPOL_HELPER) LEFT ALONE by the user's choice -- CR+1 x2 held before
+  the rebase. 69339/69417 got master-next.
 - **10-14 ~00:30 polling STOPPED (user).** Plan (user): wait for the AI
   reviews of the 10-13 19:20 patchsets, fix them on top of fix-1013
   7aa1e5e206, push maybe 10-14. Last poll tick 00:03: nothing new; no
