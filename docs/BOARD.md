@@ -35,7 +35,9 @@ the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
   n1013l: sanity ldiskfs 24/0/0, ZFS 23 + 56Edb skip, the ZFS race
   arm 0 of 27, destroyed pool -ENOENT, re-created pool opened; the
   ldiskfs items and the encryption run were on n1013k (same ldiskfs
-  code). run6's fixes are NOT lreviewed.
+  code). lreview run7 at this tip: 68159 clean; 68163 1 suggestion,
+  not done (a pool this kernel holds is refused EBUSY only after a
+  label scan of /dev; the kstat probe could come first, same errno).
   Not fixed, older code (run6 on 68159): %n (and %t/%c/%a) of a
   striped directory on a scan print the master inode's values; a stale
   comment on foreign directories; find_asks_layout() duplicates
