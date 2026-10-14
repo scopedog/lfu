@@ -1,0 +1,26 @@
+== start 2026-10-13 19:56:27
+fixture: 0 stripes on p1, 2 on sd
+image /tmp/lfst-mdt1 label lfst-MDT0000
+== n1013e (1f4bab071b) lib /tmp/arm1009n1013e/lib/liblustreapi.so.1
+2 n1013e [-type d]: rc=0 lines=9
+2 n1013e [-type d --mdt-count 2]: rc=0 lines=1
+2 n1013e [-type d ! --mdt-count 2]: rc=0 lines=8
+2 n1013e [-type d ! --foreign]: rc=0 lines=8
+2 n1013e [-type d ! --foreign --mdt-count 2]: rc=0 lines=8
+2 n1013e [-type d ! --foreign ! --mdt-count 2]: rc=0 lines=8
+2 n1013e [-type d ! --foreign --mdt-hash crush]: rc=0 lines=8
+3 n1013e scan rc=0: 10 directories; '/mnt/lfst/it/sd' named 2 times; shard lines: /mnt/lfst/it/sd  <-shard;
+6 n1013e printed 11 lines; rc=0 ss_size=168 seen=0 emitted=0 skipped=0
+== n1013h (800fd00034) lib /tmp/arm1009n1013h/lib/liblustreapi.so.1
+2 n1013h [-type d]: rc=0 lines=9
+2 n1013h [-type d --mdt-count 2]: rc=0 lines=1
+2 n1013h [-type d ! --mdt-count 2]: rc=0 lines=8
+2 n1013h [-type d ! --foreign]: rc=0 lines=8
+2 n1013h [-type d ! --foreign --mdt-count 2]: rc=0 lines=0
+2 n1013h [-type d ! --foreign ! --mdt-count 2]: rc=0 lines=8
+2 n1013h [-type d ! --foreign --mdt-hash crush]: rc=0 lines=0
+3 n1013h scan rc=0: 10 directories; '/mnt/lfst/it/sd' named 1 times; shard lines: rc=-2  <-shard;
+6 n1013h printed 11 lines; rc=0 ss_size=168 seen=275 emitted=12 skipped=0
+cleanup rc=0
+== end 2026-10-13 19:58:51
+ITEMS DONE

@@ -6,6 +6,43 @@ the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
 
 ## 2026-10-10 day: CI triage + AI round on the 10-10 PS -- START HERE
 
+- **10-13 ~20:15 lreview items 1-6 FIXED locally (user: "we need to
+  fix 1-6"), NOT pushed.** fix-1013 = 890fe9b397 (tag r1013h-tip;
+  r1013h-fixups = the lab-tested tree, equal but for one declaration
+  moved). Sweep 18/18, checkpatch equal to the 10-11 patchsets on all
+  18 (so the 112-column line is gone too), sanity n1013h ldiskfs
+  24/0/0 and ZFS 23 + 56Edb skip. lreview on 68159, 68163, 68288
+  running (docs/local/lreview-1013 run4-*).
+  1. 68159 `! -btime` on a scan, inode with no room for a birth time:
+     both forms undecided now (the MDS answers 0 over a mount). NOT
+     lab-tested: no fixture with such an inode.
+  2. 68159 `! --foreign --mdt-count 2` on a scan: find_lmv_rejects()
+     takes not_foreign and goes on to the stripe tests. Lab 08: 8
+     unstriped directories printed -> 0; `! --foreign ! --mdt-count 2`
+     8 -> 8; `! --foreign --mdt-hash crush` 8 -> 0. A walk unchanged.
+  3. 68288 llapi_scan_rec_path() on a shard: -ENOENT. Lab 08: the
+     striped directory named 2 times -> 1, the shard rc=-2.
+  4. 68163 two threads importing one pool: the import is under a
+     lock and the dataset is asked for again first. Lab 09 (dataset +
+     its snapshot, second thread 40-90 ms later): 23 of 80 runs had a
+     -ENOENT -> 0 of 80.
+  5. 68163 libzpool up once per process: kernel_init() once,
+     spa_evict_all() when the last scan closes, kernel_fini() at exit
+     (skipped if a scan is still running). The sha2 warning lreview
+     saw with libzpool 2.2.2 does NOT appear on this VM's 2.2.11 in
+     either arm, so the symptom is not reproduced; what is measured
+     is that `lfs find --device ... --mdt 0` (two opens) went from
+     2.6 s to 1.4 s with the same output. Cost: libzpool's threads
+     stay for the life of the process.
+  6. 68159 llapi_find_device() fills the caller's lfsp_stats
+     (-EINVAL for an ss_size below the minimum, as the scan). Lab 08:
+     seen=0 emitted=0 -> seen=275 emitted=12 skipped=0. Man page:
+     three fields are overwritten, not four.
+  - The fold: items 1, 2, 6 sit in lines that 68288 and 68416 rewrite,
+    so the fixup conflicted in itself. Done with a version-tolerant
+    edit script (docs/rounds/a-1013/edits_items126.py): edit at 68159,
+    then at each later conflict take REBASE_HEAD's file and apply the
+    script again. llmount.sh reformats unless NOFORMAT=true.
 - **10-13 19:21 tick:** checkpatch on the 18 new patchsets. Counts
   equal the previous patchsets' except **68416 PS27, one NEW warning,
   mine**: the last doc fix left a 112-column kernel-doc line in

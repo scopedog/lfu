@@ -1,0 +1,15 @@
+== start 2026-10-13 19:59:24
+dataset zfst-mdt1/mdt1, snapshot zfst-mdt1/mdt1@s1, vdevs in /tmp/zfslab1013: kptr-140045-env ogdb-rhel9.7-server projid-llmountcleanup zfst-mdt1 zfst-ost1 zfst-ost2 
+== n1013e (1f4bab071b) lib /tmp/arm1009n1013e/lib/liblustreapi.so.1; plugin 94584 bytes
+5 n1013e []: rc=0 lines=2005 md5=ce109a26f5 warnings=0 stderr-lines=0 secs=1.359
+5 n1013e [--mdt 0]: rc=0 lines=2005 md5=ce109a26f5 warnings=0 stderr-lines=0 secs=2.681
+5 n1013e [-type f --mdt 0]: rc=0 lines=2000 md5=9748bf2dc0 warnings=0 stderr-lines=0 secs=2.609
+4 n1013e: 27 runs, 1 with a failed open; return values seen:      53 rc=0       1 rc=-2 
+60 ms: A rc=0 n=2005  B rc=-2 n=0
+== n1013h (800fd00034) lib /tmp/arm1009n1013h/lib/liblustreapi.so.1; plugin 95840 bytes
+5 n1013h []: rc=0 lines=2005 md5=ce109a26f5 warnings=0 stderr-lines=0 secs=1.375
+5 n1013h [--mdt 0]: rc=0 lines=2005 md5=ce109a26f5 warnings=0 stderr-lines=0 secs=1.375
+5 n1013h [-type f --mdt 0]: rc=0 lines=2000 md5=9748bf2dc0 warnings=0 stderr-lines=0 secs=1.371
+4 n1013h: 27 runs, 0 with a failed open; return values seen:      54 rc=0 
+== end 2026-10-13 20:01:49
+ZFS DONE

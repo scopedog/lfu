@@ -1,0 +1,24 @@
+== start 2026-10-13 20:07:15 FSTYPE=ldiskfs ARM=n1013h (800fd00034)
+loaded version: [2.17.58_65_g8618869]
+/usr/bin/lfs loads:  liblustreapi.so.1 => /tmp/arm1009n1013h/lib/liblustreapi.so.1 (0x00007f6d85362000)
+/usr/lib64/lustre/tests/llapi_scan_changelog_test loads:  liblustreapi.so.1 => /tmp/arm1009n1013h/lib/liblustreapi.so.1 (0x00007f91fa523000)
+bound lfs is NEW's
+SANITY_RC=0
+PASS 24  FAIL 0  SKIP 0
+cleanup rc=0
+lustre-* fixtures untouched
+== end 2026-10-13 20:09:41
+SANITY RUN DONE
+== start 2026-10-13 20:09:41 FSTYPE=zfs ARM=n1013h (800fd00034)
+loaded version: [2.17.58_65_g8618869]
+/usr/bin/lfs loads:  liblustreapi.so.1 => /tmp/arm1009n1013h/lib/liblustreapi.so.1 (0x00007f03d38f1000)
+/usr/lib64/lustre/tests/llapi_scan_changelog_test loads:  liblustreapi.so.1 => /tmp/arm1009n1013h/lib/liblustreapi.so.1 (0x00007ff574dba000)
+bound lfs is NEW's
+SANITY_RC=0
+PASS 23  FAIL 0  SKIP 2
+ SKIP: sanity test_56Edb needs >= 2 MDTs
+SKIP 56Edb (0s)
+cleanup rc=0
+lustre-* fixtures untouched
+== end 2026-10-13 20:11:54
+SANITY RUN DONE
