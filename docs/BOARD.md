@@ -9,7 +9,17 @@ the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
 - **10-13 ~20:15 lreview items 1-6 FIXED locally (user: "we need to
   fix 1-6"), NOT pushed.** fix-1013 = 890fe9b397 (tag r1013h-tip;
   r1013h-fixups = the lab-tested tree, equal but for one declaration
-  moved). Sweep 18/18, checkpatch equal to the 10-11 patchsets on all
+  moved). **Now 963eea7dd8 (tag r1013i-tip):** lreview run4
+  on 68159 found 2 low on the new stats code, both fixed: the copy-out
+  is at out:, so a target skipped as unable to match answers zeros
+  and not the previous call's counters; the kernel-doc no longer lists
+  lfsp_stats as overwritten. Sweep 18/18, checkpatch equal on all 18,
+  lab 08 rerun on n1013i: items 2, 3, 6 as before (the skip path
+  itself not exercised). That move is NOT lreviewed. run4 also: 68163
+  1 low (a destroyed pool's labels are imported like a live one; a
+  pool destroyed and re-created elsewhere gives -EINVAL), 68288 1 low
+  (names below an fscrypt-encrypted directory print as ciphertext via
+  --paths / --fid2path on an MDT); both older code, NOT fixed. Sweep 18/18, checkpatch equal to the 10-11 patchsets on all
   18 (so the 112-column line is gone too), sanity n1013h ldiskfs
   24/0/0 and ZFS 23 + 56Edb skip. lreview on 68159, 68163, 68288
   running (docs/local/lreview-1013 run4-*).
