@@ -128,6 +128,24 @@ the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
     message, lfs-find.1 and llapi_find_since.3. Tip now ece788d09d
     (tag r1013c-tip), man + message only, sweep 18/18, checkpatch
     unchanged. The per-record cut stays "a later change".
+  - **lreview before the push (user 10-13 "ok, push"), all ten changed
+    commits, docs/local/lreview-1013 run2-*:** 68418, 68156, 68419
+    clean; 68420 2, 68159 5, 68415 1, 68417 1, 68163 3, 68288 1, 68416
+    2; all low. On the round's diff only 68159: the comment and the
+    message said a scan skips "only the --foreign test", but
+    find_lmv_rejects() still returns early, so --mdt-count/--mdt-hash
+    stay skipped as on a walk: wording fixed, tip **67fe152485** (tag
+    r1013d-tip), sweep 18/18. NOT fixed, all older code: **68416
+    marked (defect)**: a rename between fid2path and the statx makes
+    llapi_scan_fid() answer -ENOENT/-ESTALE for a live object (two
+    RPCs wide; an ancestor's rename logs no record for the object);
+    68159 `! -btime` on an inode with no crtime room answers where a
+    walk compares against 0, and lfsp_stats is not copied back; 68420
+    two cases that pass for the wrong reason (unwritable cookie,
+    symlink cookie); 68417 "N of M" counts M filesystem-wide; 68288 a
+    shard gets the master's path from llapi_scan_rec_path(); 68163
+    libzpool re-init warning, a two-thread import race, a third EBUSY
+    source; 68415 SEE ALSO back-references; 68416 a comment.
     Not tried: the first run's fixture trap -- the default MDT image
     holds about 100000 inodes (use MDSSIZE=2000000).
 - **10-12 ~22:15 polling STOPPED (user).** Last event: the five
