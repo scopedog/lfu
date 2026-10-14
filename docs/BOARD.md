@@ -21,7 +21,8 @@ the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
   checkpatch equal on 17, 68158 +1 = master's 82-col -ls string kept
   verbatim. Lab n1014: sanity ldiskfs 24/0/0, ZFS 23 + 56Edb skip
   (tests/lab-1014/01). Ticket item 4 (`! --mdt` no-op) is FIXED upstream
-  by LU-20433 -- drop it. Next candidate: 68726 batch API as a standalone
+  by LU-20433 -- drop it. lreview on 68158 69fd63d44d: CLEAN ($3.00,
+  6m21s). Next candidate: 68726 batch API as a standalone
   change on master (user to decide).
 - **10-14 polling RESTARTED then STOPPED (user), one tick.** First tick: 65026 PS18 Maloo +1;
   AI review 2 comments (sec.c:1979 launch errno, sanity-selinux.sh:901
