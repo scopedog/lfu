@@ -6,6 +6,22 @@ the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
 
 ## 2026-10-10 day: CI triage + AI round on the 10-10 PS -- START HERE
 
+- **10-14 68726 (batch API) PORTED, local only, NOT pushed.** User chose
+  "on top of the stack": ~/lfs-batch-1014 branch batch-1014 = 399adead23
+  (tag r1014-batch-tip) on a1014-pushed 6b9f324bce. Port: lfsr_jobid ->
+  lfsr_event_jobid; lfsp_search/lfsp_fsname cleared in the handle (new
+  since 09-10, would dangle). Lab: stress IDENTICAL on 20001 objects and
+  on 1022 with layouts + LMV (tests/lab-1014/02), host ASan/UBSan/LSan
+  clean (03), sanity ldiskfs 24/0/0 (04). lreview ($3.44): 3 findings,
+  all taken. (1, defect) close() waited for the whole walk when
+  lfsp_filter rejects -- the stop was only seen in the callback;
+  reproduced 1.36 s / 20081 filtered, fixed 0.000 s; new test18 fails
+  3/3 on the old lib, passes 3/3 fixed; llapi_scan_test 19/19 (05).
+  (2) man example STATX_MODE -> STATX_TYPE, errors from next/close
+  returned; example compiles. (3) message: history-relative paragraphs
+  rewritten. Checkpatch = PS3. Open AI thread (lfsp_got/stats not
+  exposed) was answered at PS3, still unresolved: resolve with the push.
+  Not run: lreview on the fixed tip (the user checks credits first).
 - **10-14 REBASE PUSHED (user: "push them"):** 6b9f324bce, branch
   a1014-pushed, 18 new patchsets, parent = master ee61b3f6dd. No replies
   owed (the fix-1013 lreview fixes rode along). Next: 68726 batch API.

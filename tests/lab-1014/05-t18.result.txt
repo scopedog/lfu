@@ -1,0 +1,16 @@
+19
+== start 2026-10-14 16:01:22
+n1014b run 1: rc=1 llapi_scan_test: llapi_scan_test.c:1294: test18: assertion 't18_calls == 4' failed: the filter ran 6 times, 4 expected: the close did not stop the walk
+n1014b run 2: rc=1 llapi_scan_test: llapi_scan_test.c:1294: test18: assertion 't18_calls == 4' failed: the filter ran 6 times, 4 expected: the close did not stop the walk
+n1014b run 3: rc=1 llapi_scan_test: llapi_scan_test.c:1294: test18: assertion 't18_calls == 4' failed: the filter ran 6 times, 4 expected: the close did not stop the walk
+n1014c run 1: rc=0 
+n1014c run 2: rc=0 
+n1014c run 3: rc=0 
+--- all of llapi_scan_test on n1014c
+rc=0
+0
+ test16 @1792018906: a scan reports which of the fields asked for it will answer  pass
+ test17 @1792018906: llapi_scan_fid fills one record for one FID ............... pass
+ test18 @1792018907: a close stops a scan whose filter is rejecting everything . pass
+cleanup rc=0
+T18 RUN DONE
