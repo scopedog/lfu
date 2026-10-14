@@ -6,6 +6,22 @@ the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
 
 ## 2026-10-10 day: CI triage + AI round on the 10-10 PS -- START HERE
 
+- **10-13 ~21:45 the two reproduced bugs FIXED locally (user: "go
+  ahead with your plan"), NOT pushed.** fix-1013 = e595f04593 (tag
+  r1013j-tip). 68163: scan_zfs_find_config() replaces
+  zpool_find_config(), built on zpool_search_import() and skipping
+  POOL_STATE_DESTROYED. Lab 12 on n1013j: a destroyed pool -> -ENOENT
+  (was rc 0, 505 lines); a pool re-created under the name -> the live
+  one is opened (a plain dataset, so "label '' names no MDT or OST",
+  -EINVAL; was "cannot open", -EINVAL for two pools). 68288: the dirmap
+  records which directories are encrypted (pre-pass asks
+  LLAPI_SCAN_ATTRS) and scan_dirmap_path() answers -ENOENT below one.
+  Lab 13: --paths prints /enc only; "3 matching objects have no
+  pathname" (was 1, with two ciphertext lines). Sweep 18/18,
+  checkpatch equal on all 18, sanity n1013j ldiskfs 24/0/0, ZFS 23 +
+  56Edb skip. lreview run5 on 68159/68163/68288 running. Push held
+  for the AI round on the 19:20 patchsets (the plan).
+  Not done: -name on a device scan still compares the encrypted name.
 - **10-13 ~20:15 lreview items 1-6 FIXED locally (user: "we need to
   fix 1-6"), NOT pushed.** fix-1013 = 890fe9b397 (tag r1013h-tip;
   r1013h-fixups = the lab-tested tree, equal but for one declaration

@@ -1,0 +1,12 @@
+== start 2026-10-13 21:36:31 ARM=n1013j (7d46080db9)
+--- D0: exported pool zfst-mdt1 (zfst-mdt1/mdt1), vdevs: kptr-341336-env ogdb-rhel9.7-server projid-llmountcleanup zfst-mdt1 zfst-ost1 
+  scan: rc=0 lines=505 err: 
+--- D1: zpool destroy zfst-mdt1
+  zpool import -d: 1 pools; with -D:  pool: zfst-mdt1  state: ONLINE (DESTROYED) 
+  scan: rc=2 lines=0 err: lfs find: cannot open zfst-mdt1/mdt1: No such file or directory (2)|lfs: failed for 'zfst-mdt1/mdt1': No such file or directory|
+--- D2: a new zfst-mdt1 on another vdev in /tmp/zfslab1013d
+  zpool import -d:  pool: zfst-ost1  state: ONLINE  pool: zfst-mdt1  state: ONLINE 
+  scan: rc=22 lines=0 err: lfs find: zfst-mdt1/mdt1: label '' names no MDT or OST|lfs: failed for 'zfst-mdt1/mdt1': Invalid argument|
+no pools available
+== end 2026-10-13 21:37:22
+ZD DONE
