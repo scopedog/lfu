@@ -6,6 +6,27 @@ the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
 
 ## 2026-10-10 day: CI triage + AI round on the 10-10 PS -- START HERE
 
+- **10-14 ~00:20 open items 1 and 5 FIXED locally (user: "fix 1 and
+  5"), NOT pushed.** fix-1013 = 7aa1e5e206 (tag r1013n-tip), all in
+  68159. (1) -printf %n, %a, %c, %t print nothing for a striped
+  directory on a device scan (printf_scan_striped_dir(); the format asks
+  LLAPI_SCAN_LMV for them); %W still printed. Lab 18: 20 subdirs over
+  two stripes, walk 22 links / ctime ...256, old scan n=4 t=...253, new
+  empty. (5) -name on a device scan counts an encrypted object
+  undecided, the top encrypted directory included (a record does not
+  say which it is). Lab 17: `-type f ! -name 'zzz*'` printed the
+  encrypted file's FID before, now 1 undecided; -name '*named_clear*'
+  undecided 2 -> 5. Folded with a scripted edit (later commits rewrite
+  the lines). Sweep 18/18, checkpatch equal on all 18.
+  lreview run8 on 68159: 1 "(defect)" DECLINED -- shards of a striped
+  directory are skipped (find_device_cb() on LLAPI_SCAN_LMV_SHARD);
+  checked on MDT1's image: -type d, --mdt-count 0, ! --foreign all give
+  the 10 subdirectories that hashed there, no shard. 1 minor FIXED (the
+  big-endian foreign-layout comment: a refused layout is counted
+  undecided, not given the default). 1 style left (the "The fix is
+  Artem Blagodarenko's." line in the message). Also its suggestion:
+  split the walk-side -printf fixes out with their own sanity tests --
+  not done.
 - **10-13 ~21:45 the two reproduced bugs FIXED locally (user: "go
   ahead with your plan"), NOT pushed.** fix-1013 = e595f04593 (tag
   r1013j-tip). 68163: scan_zfs_find_config() replaces

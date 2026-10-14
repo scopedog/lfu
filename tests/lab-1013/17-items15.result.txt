@@ -1,0 +1,46 @@
+== start 2026-10-13 23:55:12
+--- 1: a striped directory, MDSCOUNT=2
+  walk: sd 4 links, ctime 1791960934; plain 2 links, ctime 1791960934
+  sd FID [0x200000402:0x1:0x0], plain FID [0x200000402:0x4:0x0]
+  P1 n1013l rc=0 lines=7 
+      25047 n=5 t=1791960934 a=0 w=1791960918
+      25048 n=4 t=0 a=0 w=1791960918
+      25049 n=2 t=0 a=0 w=1791960918
+      25050 n=2 t=0 a=0 w=1791960918
+  P1 n1013m rc=0 lines=7 
+      25047 n=5 t=1791960934 a=0 w=1791960918
+      25048 n=4 t=0 a=0 w=1791960918
+      25049 n=2 t=0 a=0 w=1791960918
+      25050 n=2 t=0 a=0 w=1791960918
+--- 5: an encrypted directory, MDSCOUNT=1
+Joined session keyring: 1043307178
+  with the key: ---------E-----C------ / /mnt/lfst: enc plainfile  /mnt/lfst/enc: dir_named_clear  /mnt/lfst/enc/dir_named_clear: file_named_clear 
+  N1 n1013l rc=0 lines=0 2 objects could not be decided
+  N1 n1013m rc=0 lines=0 5 objects could not be decided
+  N2 n1013l rc=0 lines=2 
+      [0x200000401:0x3:0x0]
+      [0x200000401:0x4:0x0]
+  N2 n1013m rc=0 lines=1 1 objects could not be decided
+      [0x200000401:0x4:0x0]
+  N3 n1013l rc=0 lines=1 2 objects could not be decided
+      [0x200000401:0x4:0x0]
+  N3 n1013m rc=0 lines=1 5 objects could not be decided
+      [0x200000401:0x4:0x0]
+== end 2026-10-13 23:56:46
+ITEMS15 DONE
+== n1013l
+25047 n=5 t=1791960934 a=0 w=1791960918
+25048 n=4 t=0 a=0 w=1791960918
+25049 n=2 t=0 a=0 w=1791960918
+25050 n=2 t=0 a=0 w=1791960918
+25053 n=4 t=1791960934 a=1791960934 w=1791960934
+25056 n=2 t=1791960934 a=1791960934 w=1791960934
+25057 n=2 t=1791960934 a=1791960934 w=1791960934
+== n1013m
+25047 n=5 t=1791960934 a=0 w=1791960918
+25048 n=4 t=0 a=0 w=1791960918
+25049 n=2 t=0 a=0 w=1791960918
+25050 n=2 t=0 a=0 w=1791960918
+25053 n= t= a= w=1791960934
+25056 n=2 t=1791960934 a=1791960934 w=1791960934
+25057 n=2 t=1791960934 a=1791960934 w=1791960934

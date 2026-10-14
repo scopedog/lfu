@@ -1,0 +1,6 @@
+walk: sd 22 links, ctime 1791961256, mtime 1791961256, inode 144115205289279489
+subdirs per stripe:      10 0      10 1 
+master inode on MDT0: Links: 4
+== n1013l: n=4 t=1791961253 c=1791961253 w=1791961253
+== n1013m: n= t= c= w=1791961253
+DONE18
