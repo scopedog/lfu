@@ -6,6 +6,33 @@ the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
 
 ## 2026-10-10 day: CI triage + AI round on the 10-10 PS -- START HERE
 
+- **10-13 ~19:20 ALL 18 PUSHED (user: "ok, push", then "fix 68416
+  now").** Tip 7698fb4ef5 (branch a1013-pushed in ~/lfs-fix-1007, tag
+  r1013f-tip): 68156 PS34, 68159 PS34, 68288 PS28, 68415/68416 PS27,
+  68417-68420 PS20, the rest one up. 21 AI replies posted into their
+  threads on the old patchsets, read back: 21 resolved. The 68418
+  "move the --since-only hunks" thread left unanswered (user: ignore).
+  The 14 retests of this morning are on superseded patchsets now.
+  - **68416 rename race FIXED before the push** (lreview's one
+    "(defect)"): a rename of the object or of a directory above it,
+    between fid2path and the statx/open/gather, made llapi_scan_fid()
+    answer -ENOENT for a live object. Now the name is looked up again
+    (SCAN_FID_RETRIES 3; -ESTALE at the same name stands; a callback's
+    or filter's own value is never retried; the filter is called again
+    with the new name). Lab tests/lab-1013/06, 20000 calls on one live
+    file: directory flip-flopping, old 2427 x -ENOENT, new 0; one
+    rename per 20 ms, old 195, new 0; no renames 0 and 0; an unlinked
+    FID still -ENOENT 100/100 on both. Sanity on n1013e 24/0/0, sweep
+    18/18 at the pushed tip, checkpatch unchanged, lreview on the
+    fixed commit 2 low, both fixed (text): "-o user_fid2path" is a
+    mount option and not an llite parameter (man, kernel-doc,
+    message), and the filter-called-again sentence.
+  - Folding it conflicted in 69501 (pass FID and nlink), which
+    rewrites the filter block: resolved from the finished tree, tree
+    hash equal. Trap: a script that inserts text before "Signed-off-by"
+    by searching the EDITOR file for "Test-Parameters:" hits the
+    commit template's comment lines; build the message from `git log
+    -1 --format=%B` and use `git commit --amend -F`.
 - **10-13 14:41 polling RESTARTED** (gpoll under Monitor, 25 min ticks,
   re-arm every 30 min). The Maloo stall is over: sessions uploaded from
   10-13 06:00 on. First tick, 47 messages.

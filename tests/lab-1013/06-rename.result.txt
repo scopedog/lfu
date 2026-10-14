@@ -1,0 +1,15 @@
+== start 2026-10-13 19:03:51
+== n1013 (92aa52e6cc) lib /tmp/arm1009n1013/lib/liblustreapi.so.1
+R1 n1013 flip-flop:  calls=20000 ok=17573 ENOENT=2427 ESTALE=0 other=0
+R2 n1013 every 20 ms: calls=20000 ok=19805 ENOENT=195 ESTALE=0 other=0
+R3 n1013 no renames:  calls=20000 ok=20000 ENOENT=0 ESTALE=0 other=0
+R3 n1013 unlinked:    calls=100 ok=0 ENOENT=100 ESTALE=0 other=0
+== n1013e (1f4bab071b) lib /tmp/arm1009n1013e/lib/liblustreapi.so.1
+mv: cannot stat '/mnt/lfst/rn-n1013e/b': No such file or directory
+R1 n1013e flip-flop:  calls=20000 ok=20000 ENOENT=0 ESTALE=0 other=0
+R2 n1013e every 20 ms: calls=20000 ok=20000 ENOENT=0 ESTALE=0 other=0
+R3 n1013e no renames:  calls=20000 ok=20000 ENOENT=0 ESTALE=0 other=0
+R3 n1013e unlinked:    calls=100 ok=0 ENOENT=100 ESTALE=0 other=0
+cleanup rc=0
+== end 2026-10-13 19:05:37
+RENAME DONE

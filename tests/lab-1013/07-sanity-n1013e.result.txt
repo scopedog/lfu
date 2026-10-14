@@ -1,0 +1,11 @@
+== start 2026-10-13 19:05:50 FSTYPE=ldiskfs ARM=n1013e (1f4bab071b)
+loaded version: [2.17.58_65_g8618869]
+/usr/bin/lfs loads:  liblustreapi.so.1 => /tmp/arm1009n1013e/lib/liblustreapi.so.1 (0x00007ff5ff0d9000)
+/usr/lib64/lustre/tests/llapi_scan_changelog_test loads:  liblustreapi.so.1 => /tmp/arm1009n1013e/lib/liblustreapi.so.1 (0x00007f3d16cb1000)
+bound lfs is NEW's
+SANITY_RC=0
+PASS 24  FAIL 0  SKIP 0
+cleanup rc=0
+lustre-* fixtures untouched
+== end 2026-10-13 19:08:18
+SANITY RUN DONE
