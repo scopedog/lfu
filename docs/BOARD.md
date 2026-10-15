@@ -30,6 +30,14 @@ the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
   Shard A/B on 68160' (11): before the move each MDT image reports its
   shard as a directory (12, 5), after it not (11, 4).  Ready to push;
   the ask is open.
+  adilger PS35 items done (local): test_300 -> 300a (MDT) / 300b (OST) /
+  300c (--local sweep), each skipping; conf-sanity green on 68156',
+  68160', tip ldiskfs + ZFS (300c skips on ZFS) -- tests/lab-1014/13
+  (first 300c run failed: a passing grep && {...} as the last line
+  returns 1).  136 em-dashes gone from every commit (3 agents on tip
+  pages + block transform + 9 older passages by hand; groff clean).
+  1.8 note -> link/LMA lost to corruption; root-FID comment reworded.
+  Trunk tip now 9d2dc0c901.  Reply drafts: docs/rounds/a-1014/replies-adilger.md.
 - **10-14 FOLLOW-UP (user: defer): `lfs find --device <MDT> --ost N`.**
   lreview on 68159': answer "which files have objects on OST N" from the
   MDT's layouts, offline -- the drain/replace-an-OST question, with the OST

@@ -1,0 +1,56 @@
+##### v1
+== start 2026-10-14 21:05:00 v1 arm=s1 (abdabf073d) fs=ldiskfs
+CS_RC=0
+PASS 300a (42s)
+PASS 300b (24s)
+== end 2026-10-14 21:07:00
+CONF RUN DONE
+##### v2
+== start 2026-10-14 21:07:00 v2 arm=t1 (153d335e96) fs=ldiskfs
+CS_RC=1
+PASS 300a (43s)
+PASS 300b (24s)
+FAIL 300c (1s)
+left mounted: /mnt/lfsc-mds1
+left mounted: /mnt/lfsc-ost1
+left mounted: /mnt/lfsc-ost2
+left mounted: /mnt/lfsc
+== end 2026-10-14 21:08:58
+CONF RUN DONE
+##### v3
+== start 2026-10-14 21:08:58 v3 arm=h6 (341b0e407c) fs=ldiskfs
+CS_RC=1
+PASS 300a (40s)
+PASS 300b (25s)
+FAIL 300c (0s)
+left mounted: /mnt/lfsc-mds1
+left mounted: /mnt/lfsc-ost1
+left mounted: /mnt/lfsc-ost2
+left mounted: /mnt/lfsc
+== end 2026-10-14 21:11:03
+CONF RUN DONE
+##### v3z
+== start 2026-10-14 21:11:03 v3z arm=h6 (341b0e407c) fs=zfs
+CS_RC=0
+PASS 300a (57s)
+PASS 300b (33s)
+ SKIP: conf-sanity-v3z test_300c ldiskfs only test
+SKIP 300c (0s)
+== end 2026-10-14 21:13:27
+CONF RUN DONE
+##### v2b
+== start 2026-10-14 21:14:27 v2b arm=t1 (153d335e96) fs=ldiskfs
+CS_RC=0
+PASS 300a (43s)
+PASS 300b (24s)
+PASS 300c (1s)
+== end 2026-10-14 21:16:27
+CONF RUN DONE
+##### v3b
+== start 2026-10-14 21:16:27 v3b arm=h6 (341b0e407c) fs=ldiskfs
+CS_RC=0
+PASS 300a (39s)
+PASS 300b (24s)
+PASS 300c (0s)
+== end 2026-10-14 21:18:27
+CONF RUN DONE
