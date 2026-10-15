@@ -6,6 +6,13 @@ the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
 
 ## 2026-10-10 day: CI triage + AI round on the 10-10 PS -- START HERE
 
+- **10-15 READY TO PUSH (asked the user):** 69700 PS2 = 53315d572c
+  (~/lrv1015-69700 rate-1015, on 68160 PS37), --max-rate 29e1c9998d
+  (~/lfs-maxrate-1015 maxrate-1015b), IGIF 5d406ba96f (~/lfs-igif-1015).
+  69700 now also: 1 ms lag kept (100k/s achieved 31.8k -> 100k, harness
+  tests/lab-1015/07-rate-harness.c), stop latency documented, lfsp_max_rate
+  in llapi_scan_fid's ignored lists.  Lab 06-lag: m0 FAIL x3 / fixed PASS
+  x3, 300a/b/c + 300a(--max-rate) PASS.  lreview 3rd pass: 1 doc nit, fixed.
 - **10-15: 69700 RE-PARENTED onto 68160 PS37 (user), LOCAL, NOT pushed.**
   ~/lrv1015-69700 branch rate-1015 = 09a829091d (69700 PS2 candidate);
   ~/lfs-maxrate-1015 branch maxrate-1015b = bf7465ee2b (--max-rate on it).

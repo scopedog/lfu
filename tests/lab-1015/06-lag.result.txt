@@ -1,0 +1,30 @@
+== start 2026-10-15 15:31:36
+m4 (23fb7eecab) build: BUILD-OK
+m5 (697117c76b) build: BUILD-OK
+m0 run 1: rc=1 llapi_scan_test: llapi_scan_test.c:1034: test19: assertion 'took < 7.0 / 5 + 0.3' failed: a stopped scan at 5/s took 2.401s to return
+m0 run 2: rc=1 llapi_scan_test: llapi_scan_test.c:1034: test19: assertion 'took < 7.0 / 5 + 0.3' failed: a stopped scan at 5/s took 2.401s to return
+m0 run 3: rc=1 llapi_scan_test: llapi_scan_test.c:1034: test19: assertion 'took < 7.0 / 5 + 0.3' failed: a stopped scan at 5/s took 2.401s to return
+m4 run 1: rc=0  test19 @1792103571: lfsp_max_rate paces the objects, and every one still arrives  pass
+m4 run 2: rc=0  test19 @1792103573: lfsp_max_rate paces the objects, and every one still arrives  pass
+m4 run 3: rc=0  test19 @1792103574: lfsp_max_rate paces the objects, and every one still arrives  pass
+all of llapi_scan_test on m4: rc=0
+ test17 @1792103574: llapi_scan_fid fills one record for one FID ............... pass
+ test19 @1792103576: lfsp_max_rate paces the objects, and every one still arrives  pass
+cleanup rc=0
+== start 2026-10-15 15:34:00 stop-m4 arm=m4 (23fb7eecab) fs=ldiskfs
+CS_RC=0
+PASS 300a (37s)
+PASS 300b (24s)
+PASS 300c (0s)
+== end 2026-10-15 15:35:53
+CONF RUN DONE
+ test7 @1792103682: lfsp_max_rate paces a scan of the target, losing nothing ... pass
+ test7 @1792103703: lfsp_max_rate paces a scan of the target, losing nothing ... pass
+== start 2026-10-15 15:35:54 stop-m5 arm=m5 (697117c76b) fs=ldiskfs
+CS_RC=0
+PASS 300a (40s)
+== end 2026-10-15 15:37:30
+CONF RUN DONE
+362 objects at --max-rate 181 took 2006ms
+== end 2026-10-15 15:37:30
+LAG RUN DONE
