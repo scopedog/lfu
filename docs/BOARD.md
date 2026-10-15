@@ -6,6 +6,14 @@ the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
 
 ## 2026-10-10 day: CI triage + AI round on the 10-10 PS -- START HERE
 
+- **10-14 FOLLOW-UP (user: defer): `lfs find --device <MDT> --ost N`.**
+  lreview on 68159': answer "which files have objects on OST N" from the
+  MDT's layouts, offline -- the drain/replace-an-OST question, with the OST
+  down. Today refused (find_device_supported()). Needs: bound lmm_objects[]
+  by stripe count for a file (find_lmm_fits() measures by buffer), every
+  component of PFL/FLR/EC, fsname-OSTxxxx_UUID against the MDT label,
+  `! --ost`, several OSTs, sanity cases. Own change off 68160, own LU
+  under LU-20611. After the fork push settles.
 - **10-14 68726 PS4 PUSHED (user: "push 68726 if it's clean"):** af3375dbba
   (branch a1014b-pushed) on 69503 PS7; old AI thread resolved, 0 open.
 - **10-14 68726 (batch API) PORTED, local only, NOT pushed.** User chose
