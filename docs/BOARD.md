@@ -6,18 +6,22 @@ the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
 
 ## 2026-10-10 day: CI triage + AI round on the 10-10 PS -- START HERE
 
-- **10-15: two LOCAL commits, NOT pushed.**
+- **10-15: two LOCAL commits, NOT pushed -- lab green, lreview done.**
   (a) IGIF root for --paths (promised to adilger): ~/lfs-igif-1015 branch
-  igif-root-1015, 62a12a14a0 on 68288 PS30 (fac02ee959), new Change-Id.
+  igif-root-1015, 5d406ba96f on 68288 PS30 (fac02ee959), new Change-Id.
   Root = .lustre's linkea parent (LFSCK writes it on MDT0 every mount),
-  else LU_ROOT_FID.  Lab tests/lab-1015: IGIF fixture by debugfs
-  (01-mkigif.py); old names 0/8, new names all but "/" (an IGIF ROOT has
-  no linkea -> classed internal; --internal prints it).  checkpatch clean;
-  lreview NOT run.  No sanity test (needs a debugfs-built fixture).
+  else LU_ROOT_FID.  New conf-sanity 305 (e2image copy + debugfs IGIF
+  root): PASS fixed, FAIL unfixed; 303/304 still PASS.  An IGIF ROOT has
+  no linkea -> classed internal, printed only with --internal (documented).
+  lreview: 1 finding (.lustre "has no pathname" in a comment and
+  llapi_find_device.3) -- FIXED.  checkpatch clean.
   (b) lfs find --device --max-rate: ~/lfs-maxrate-1015 branch maxrate-1015,
-  268c3945a5 on 68160 PS37 + a cherry-pick of 69700 (277b13d873); needs
-  69700 moved into the trunk before it can be pushed.  Host build clean,
-  conf-sanity 300a additions NOT run on the VM yet; lreview not run.
+  1cddc0706d on 68160 PS37 + a cherry-pick of 69700 (277b13d873); needs
+  69700 moved into the trunk before it can be pushed.  conf-sanity 300a/b/c
+  PASS (362 objects at 181/s: 2006 ms).  lreview: 3 low -- test walked an
+  unmounted $DIR (fixed: $TMP + message grep), usage RATE name (fixed),
+  subject not imperative (declined: house style).
+  Lab: tests/lab-1015/.
 - **10-15: rate threads 849bc2b4 / e355d9d5 on 68156 PS30 answered and
   RESOLVED** ("Done in 69700"; bytes/s and lfs find --device --max-rate
   promised as follow-ups).  CI on the fork + 69700: all Verified+1.

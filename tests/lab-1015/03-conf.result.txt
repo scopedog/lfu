@@ -1,0 +1,43 @@
+##### igif-i1
+== start 2026-10-15 14:56:24 igif-i1 arm=i1 (b3faf95eef) fs=ldiskfs
+CS_RC=0
+PASS 303 (15s)
+PASS 304 (1s)
+PASS 305 (6s)
+== end 2026-10-15 14:57:35
+CONF RUN DONE
+IGIF root [26724:1487779382]: 23 paths
+##### igif-i0
+== start 2026-10-15 14:57:35 igif-i0 arm=i0 (fac02ee959) fs=ldiskfs
+CS_RC=1
+FAIL 305 (17s)
+left mounted: /mnt/lfsc-ost1
+left mounted: /mnt/lfsc
+left mounted: /mnt/lfsc-mds1
+== end 2026-10-15 14:58:37
+CONF RUN DONE
+##### maxrate-m1
+== start 2026-10-15 14:59:22 maxrate-m1 arm=m1 (268c3945a5) fs=ldiskfs
+CS_RC=0
+PASS 300a (42s)
+PASS 300b (25s)
+PASS 300c (0s)
+== end 2026-10-15 15:01:24
+CONF RUN DONE
+362 objects at --max-rate 181 took 2006ms
+##### maxrate-m1b
+== start 2026-10-15 15:01:55 maxrate-m1b arm=m1 (268c3945a5) fs=ldiskfs
+CS_RC=0
+PASS 300a (41s)
+== end 2026-10-15 15:03:38
+CONF RUN DONE
+362 objects at --max-rate 181 took 2006ms
+##### igif-i1b
+== start 2026-10-15 15:03:38 igif-i1b arm=i1 (b3faf95eef) fs=ldiskfs
+CS_RC=0
+PASS 303 (15s)
+PASS 304 (1s)
+PASS 305 (3s)
+== end 2026-10-15 15:04:46
+CONF RUN DONE
+IGIF root [26723:1840749112]: 23 paths
