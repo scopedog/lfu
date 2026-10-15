@@ -1,0 +1,36 @@
+== i0 (fac02ee959) loads:  /tmp/arm1009i0/lib/liblustreapi.so.1 (0x00007ff27c9e1000)
+i0 std: rc=0 lines=8 md5=8f824adda9ea err=lfs find: /tmp/lab1015-mdt-std.img: 1 matching objects have no pathname and were not printed|
+i0 igif: rc=0 lines=0 md5=d41d8cd98f00 err=lfs find: /tmp/lab1015-mdt-igif.img: 8 matching objects have no pathname and were not printed|
+== i1 (b3faf95eef) loads:  /tmp/arm1009i1/lib/liblustreapi.so.1 (0x00007fd6d710e000)
+i1 std: rc=0 lines=8 md5=8f824adda9ea err=lfs find: /tmp/lab1015-mdt-std.img: 1 matching objects have no pathname and were not printed|
+i1 igif: rc=0 lines=7 md5=27bb0c75edc9 err=lfs find: /tmp/lab1015-mdt-igif.img: 1 matching objects have no pathname and were not printed|
+images untouched
+--- i0-std
+/
+/.lustre
+/.lustre/lost+found
+/rd
+/rd/b8_1
+/rd/c10_200
+/rd/c300_5
+/rd/c4_1048000
+--- i1-std
+/
+/.lustre
+/.lustre/lost+found
+/rd
+/rd/b8_1
+/rd/c10_200
+/rd/c300_5
+/rd/c4_1048000
+--- i1-igif
+/.lustre
+/.lustre/lost+found
+/rd
+/rd/b8_1
+/rd/c10_200
+/rd/c300_5
+/rd/c4_1048000
+--- i0-igif
+std: i0 == i1
+AB DONE
