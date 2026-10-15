@@ -1,0 +1,15 @@
+BUILD-OK
+== start 2026-10-14 22:19:35 FSTYPE=ldiskfs ARM=r1 (5671925e73)
+PASS 17  FAIL 0  SKIP 0
+== end 2026-10-14 22:21:28
+ test19 @1792041623: lfsp_max_rate paces the objects, and every one still arrives  pass
+== start 2026-10-14 22:21:28 r1 arm=r1 (5671925e73) fs=ldiskfs
+CS_RC=0
+PASS 300a (42s)
+PASS 300b (24s)
+== end 2026-10-14 22:23:28
+CONF RUN DONE
+ test7 @1792041732: lfsp_max_rate paces a scan of the target, losing nothing ... pass
+ test7 @1792041758: lfsp_max_rate paces a scan of the target, losing nothing ... pass
+
+[exited with code 0]
