@@ -1,0 +1,12 @@
+old  payload    512 B x 1024:      2.5 us per batch, 2 chunks
+new  payload    512 B x 1024:      2.5 us per batch, 2 chunks
+old  payload    512 B x 1024:      2.4 us per batch, 2 chunks
+new  payload    512 B x 1024:      3.1 us per batch, 2 chunks
+old  payload   4096 B x 1024:     20.7 us per batch, 16 chunks
+new  payload   4096 B x 1024:      3.7 us per batch, 16 chunks
+old  payload   4096 B x 1024:     20.1 us per batch, 16 chunks
+new  payload   4096 B x 1024:      3.6 us per batch, 16 chunks
+old  payload  48128 B x 1024:    234.4 us per batch, 205 chunks
+new  payload  48128 B x 1024:     20.5 us per batch, 205 chunks
+old  payload  48128 B x 1024:    295.4 us per batch, 205 chunks
+new  payload  48128 B x 1024:     17.2 us per batch, 205 chunks

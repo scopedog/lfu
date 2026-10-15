@@ -1,0 +1,22 @@
+SWEEP ee61b3f6dd..341b0e407c, 14 commits in /home/nishida/lrv2-sweep
+129517811d build=0 hdr=0 tests=0 sh=0  LU-20606 llapi: scan an ldiskfs target direct
+5fde0b11d4 build=0 hdr=0 tests=0 sh=0  LU-20649 llapi: add llapi_scan_changelog()
+d935b0b095 build=0 hdr=0 tests=0 sh=0  LU-20650 llapi: fill a scan record for one FI
+a3fa823738 build=0 hdr=0 tests=0 sh=0  LU-20611 llapi: split cb_find_init's decider 
+da13019b5b build=0 hdr=0 tests=0 sh=0  LU-20611 lfs: share find's predicate parsing
+abdabf073d build=0 hdr=0 tests=0 sh=0  LU-20611 llapi: run find over a device scan
+961cd967a5 build=0 hdr=0 tests=0 sh=0  LU-20611 lfs: find over a target, with --devi
+bcc9ee923d build=0 hdr=0 tests=0 sh=0  LU-20613 llapi: add a ZFS backend to llapi_sc
+06cb8afb38 build=0 hdr=0 tests=0 sh=0  LU-20637 llapi: name a device scan's objects
+2ebfb2f9aa build=0 hdr=0 tests=0 sh=0  LU-20650 lfs: add find --since, from the chan
+33be0f3074 build=0 hdr=0 tests=0 sh=0  LU-20650 lfs: add find --changelog, the log a
+f5a99f8049 build=0 hdr=0 tests=0 sh=0  LU-20650 lfs: add find --since-cookie, a per-
+de45626fef build=0 hdr=0 tests=0 sh=0  LU-20650 lfs: find --since-cookie, check each
+341b0e407c build=0 hdr=0 tests=0 sh=0  LU-20650 lfs: find --since, warn when the log
+SWEEP 2ebfb2f9aa..d99d1e9962, 2 commits in /home/nishida/lrv2-sweep
+e2685e8f30 build=0 hdr=0 tests=0 sh=0  LU-20650 llapi: pass FID and nlink to llapi_s
+d99d1e9962 build=0 hdr=0 tests=0 sh=0  LU-20650 lfs: find --since, pick before the g
+SWEEP bcc9ee923d..94ebd8efa9, 1 commits in /home/nishida/lrv2-sweep
+94ebd8efa9 build=0 hdr=0 tests=0 sh=0  LU-20613 build: compile libscan_zfs.c as libz
+SWEEP 5fde0b11d4..a9c243962a, 1 commits in /home/nishida/lrv2-sweep
+a9c243962a build=0 hdr=0 tests=0 sh=0  LU-20603 llapi: pull a scan's records in batc

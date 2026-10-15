@@ -1,0 +1,17 @@
+== start 2026-10-14 20:22:54
+== f1 (8585d98d0f) lib /tmp/arm1009f1/lib/liblustreapi.so.1
+E1 f1 file at the old name, no pause: calls=20000 ok=20000 ENOENT=0 ESTALE=0 other=0
+E2 f1 file at the old name, 20 ms:    calls=20000 ok=20000 ENOENT=0 ESTALE=0 other=0
+E3 f1 in-process flipper:            calls=20000 ok=19963 ENOENT=0 ESTALE=0 other=37
+R1 f1 plain rename flip-flop:        calls=20000 ok=20000 ENOENT=0 ESTALE=0 other=0
+== g1 (6554026591) lib /tmp/arm1009g1/lib/liblustreapi.so.1
+mv: cannot stat '/mnt/lfst/en-g1/b': No such file or directory
+E1 g1 file at the old name, no pause: calls=20000 ok=20000 ENOENT=0 ESTALE=0 other=0
+E2 g1 file at the old name, 20 ms:    calls=20000 ok=20000 ENOENT=0 ESTALE=0 other=0
+E3 g1 in-process flipper:            calls=20000 ok=19998 ENOENT=2 ESTALE=0 other=0
+R1 g1 plain rename flip-flop:        calls=20000 ok=20000 ENOENT=0 ESTALE=0 other=0
+cleanup rc=0
+== end 2026-10-14 20:25:17
+ENOTDIR DONE
+
+[exited with code 0]
