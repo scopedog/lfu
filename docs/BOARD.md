@@ -6,6 +6,19 @@ the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
 
 ## 2026-10-10 day: CI triage + AI round on the 10-10 PS -- START HERE
 
+- **10-15: 69700 RE-PARENTED onto 68160 PS37 (user), LOCAL, NOT pushed.**
+  ~/lrv1015-69700 branch rate-1015 = 09a829091d (69700 PS2 candidate);
+  ~/lfs-maxrate-1015 branch maxrate-1015b = bf7465ee2b (--max-rate on it).
+  lreview on the moved 69700 found a DEFECT PS1 has too: a stopped paced
+  walk slept a slot for every entry left in its open directories (wait
+  was before the stop check).  FIXED: check before AND after the wait,
+  both scanners.  test19 now times the stopped scan: old lib 2.401 s
+  FAIL x3, fixed 1.001 s PASS x3 (bound 1.7 s).  conf-sanity 300a/b/c
+  PASS on the fix, 300a PASS on --max-rate on top.  Second lreview: 2 low,
+  OPEN for the user: (1) clock_nanosleep slack means 100k/s achieves ~32k/s
+  (allow sr_next to lag ~1 ms?); (2) a sleeper cannot be woken by a stop:
+  up to threads/rate s of latency (cond wait, or document).
+  Superseded: maxrate-1015 (1cddc0706d), rate-1014 (bfaee4696e = PS1).
 - **10-15: two LOCAL commits, NOT pushed -- lab green, lreview done.**
   (a) IGIF root for --paths (promised to adilger): ~/lfs-igif-1015 branch
   igif-root-1015, 5d406ba96f on 68288 PS30 (fac02ee959), new Change-Id.

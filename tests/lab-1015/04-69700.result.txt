@@ -1,0 +1,17 @@
+== start 2026-10-15 15:08:37 m0 (277b13d873)
+llapi_scan_test rc=0
+ test19 @1792102164: lfsp_max_rate paces the objects, and every one still arrives  pass
+ test17 @1792102162: llapi_scan_fid fills one record for one FID ............... pass
+ test19 @1792102164: lfsp_max_rate paces the objects, and every one still arrives  pass
+cleanup rc=0
+== start 2026-10-15 15:10:02 69700-m0 arm=m0 (277b13d873) fs=ldiskfs
+CS_RC=0
+PASS 300a (37s)
+PASS 300b (26s)
+PASS 300c (0s)
+== end 2026-10-15 15:11:58
+CONF RUN DONE
+ test7 @1792102245: lfsp_max_rate paces a scan of the target, losing nothing ... pass
+ test7 @1792102267: lfsp_max_rate paces a scan of the target, losing nothing ... pass
+== end 2026-10-15 15:11:58
+69700 RUN DONE
