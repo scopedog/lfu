@@ -14,8 +14,7 @@ for n in "$@"; do
 		> /tmp/lab1009-$n-conf.log 2>&1 || { echo "configure $n failed"; exit 1; }
 	(cd $T && make -k -j4) > /tmp/lab1009-$n-make.log 2>&1
 	(cd $T && make -C lustre/utils liblustreapi.la lfs &&
-	 make -C lustre/tests llapi_scan_changelog_test llapi_scan_test \
-		llapi_scan_device_test) > /tmp/lab1009-$n-make2.log 2>&1 ||
+	 make -C lustre/tests $(for t in llapi_scan_changelog_test llapi_scan_test llapi_scan_device_test; do [ -f lustre/tests/$t.c ] && echo $t; done)) > /tmp/lab1009-$n-make2.log 2>&1 ||
 		{ echo "make targets $n failed"; grep -m5 " error: " /tmp/lab1009-$n-make2.log; exit 1; }
 	echo "  $n ($(cat /tmp/lab1009-$n.sha)) make -k errors in: $(grep ' error: ' /tmp/lab1009-$n-make.log | sed 's/:.*//' | sort -u | tr '\n' ' ')"
 	gcc -shared -fPIC -Wl,--export-dynamic -o $T/lustre/utils/scan_osd_ldiskfs.so \

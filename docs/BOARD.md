@@ -6,6 +6,18 @@ the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
 
 ## 2026-10-10 day: CI triage + AI round on the 10-10 PS -- START HERE
 
+- **10-15 JST: RATE LIMITING (user: "start on the rate limiting change").**
+  User chose: objects/s now (bytes/s later, ldiskfs first); library change
+  now, lfs find --device option as a separate change on 68160.  Branch
+  rate-1014 in ~/lfs-rate-1014 on 68156 PS36 (17dc262b9d): lfsp_max_rate
+  (__u32, objects examined per second, all threads; 0 = none) carved out
+  of lfsp_padding[7] -> [3], so the struct does not grow; pacing limiter
+  struct scan_rate (one slot per object under a mutex, clock_nanosleep,
+  no catch-up burst) in the walk's per-object callback and the device
+  core's pre-filter.  Tests: llapi_scan_test test19, device test7.  Ticket
+  LU-20606 for now (own LU = user's call).  User 10-15: lab -> lreview ->
+  fix -> PUSH, then save state; host shuts down 17:30 JST.  NOT posting on
+  adilger's rate threads (849bc2b4, e355d9d5) until the user approves text.
 - **10-14 night THE FORK PUSHED (user: "ok, push").**  18 new patchsets;
   branches p1014-fork-* in ~/lfs-fork-1014 (trunk 9d2dc0c901).  68420 ABANDONED
   ("split into the changes it tests").  9 replies to adilger on 68156
