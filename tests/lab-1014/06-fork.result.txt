@@ -1,0 +1,35 @@
+f1 (8585d98d0f) build: make targets f1 failed
+f2 (14ce5d6463) build: BUILD-OK
+  f2 ldiskfs: PASS 20  FAIL 0  SKIP 0 
+    ran: 56Ea 56Eaa 56Eab 56Eb 56Ebb 56Ec 56Ed 56Eda 56Edb 56Ef 56Eg 56Eh 56Ei 56Ej 56Ek 56El 56Eea 157c 160Aa 160Ad 
+f3 (051153316e) build: BUILD-OK
+  f3 ldiskfs: PASS 22  FAIL 0  SKIP 0 
+    ran: 56Ea 56Eaa 56Eab 56Eb 56Ebb 56Ec 56Ed 56Eda 56Edb 56Ef 56Eg 56Eh 56Ei 56Ej 56Ek 56El 56Eea 157c 160Aa 160Ab 160Ad 160Ae 
+f4 (a969c2e55a) build: BUILD-OK
+  f4 ldiskfs: PASS 20  FAIL 0  SKIP 0 
+    ran: 56Ea 56Eaa 56Eab 56Eb 56Ebb 56Ec 56Ed 56Eda 56Edb 56Ef 56Eg 56Eh 56Ei 56Ej 56Ek 56El 56Eea 157c 160Aa 160Ad 
+f5 (63ef1ae3af) build: make targets f5 failed
+f6 (8d7d2be498) build: BUILD-OK
+  f6 ldiskfs: PASS 24  FAIL 0  SKIP 0 
+    ran: 56Ea 56Eaa 56Eab 56Eb 56Ebb 56Ec 56Ed 56Eda 56Edb 56Ef 56Eg 56Eh 56Ei 56Ej 56Ek 56El 56Eea 157c 160Aa 160Ab 160Ac 160Ad 160Ae 160Af 
+  f6 zfs: PASS 23  FAIL 0  SKIP 2 
+     SKIP: sanity test_56Edb needs >= 2 MDTs
+    SKIP 56Edb (0s)
+    ran: 56Ea 56Eaa 56Eab 56Eb 56Ebb 56Ec 56Ed 56Eda 56Ef 56Eg 56Eh 56Ei 56Ej 56Ek 56El 56Eea 157c 160Aa 160Ab 160Ac 160Ad 160Ae 160Af 
+f7 (09da9df311) build: BUILD-OK
+  f7 ldiskfs: PASS 18  FAIL 0  SKIP 0 
+    ran: 56Ea 56Eaa 56Eab 56Eb 56Ebb 56Ec 56Ed 56Eda 56Edb 56Ef 56Eg 56Eh 56Ei 56Ej 56Ek 56El 56Eea 157c 
+  f7 zfs: PASS 17  FAIL 0  SKIP 2 
+     SKIP: sanity test_56Edb needs >= 2 MDTs
+    SKIP 56Edb (0s)
+    ran: 56Ea 56Eaa 56Eab 56Eb 56Ebb 56Ec 56Ed 56Eda 56Ef 56Eg 56Eh 56Ei 56Ej 56Ek 56El 56Eea 157c 
+FORK LAB DONE
+
+--- rerun of f1, f5 with 07-build-nozfs.sh (01-build.sh asks for libscan_zfs.la, absent below 68163):
+f1 (8585d98d0f) build: BUILD-OK
+  f1 ldiskfs: PASS 18  FAIL 0  SKIP 0 
+    ran: 56Ea 56Eaa 56Eab 56Eb 56Ebb 56Ec 56Ed 56Eda 56Edb 56Ef 56Eg 56Eh 56Ei 56Ej 56Ek 56El 56Eea 157c 
+f5 (63ef1ae3af) build: BUILD-OK
+  f5 ldiskfs: PASS 18  FAIL 0  SKIP 0 
+    ran: 56Ea 56Eaa 56Eab 56Eb 56Ebb 56Ec 56Ed 56Eda 56Edb 56Ef 56Eg 56Eh 56Ei 56Ej 56Ek 56El 56Eea 157c 
+F1F5 DONE

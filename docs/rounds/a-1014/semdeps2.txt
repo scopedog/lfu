@@ -1,0 +1,76 @@
+C1 <- 
+C2 <- 
+C3 <- 
+C4 <- C1 C2
+    C1: uses 42 CLS_NO_LMA, LLAPI_SCAN_CLASS, LLAPI_SCAN_F_INTERNAL, LLAPI_SCAN_F_KNOWN_DEV, LLAPI_SCAN_INO, LLAPI_SCAN_LINKEA, LLAPI_SCAN_STATS_MIN_SIZE, LLAPI_SCAN_TGT_INDEX; edits 31 lines
+    C2: uses 11 fc_checked_type, fc_d, fc_fdp, fc_lustre_fs, fc_p, fc_path, fc_rec, fc_stripe_count; edits 23 lines
+C5 <- C1 C3 C4
+    C1: uses 5 LLAPI_SCAN_F_INTERNAL, client_fids, llapi_scan_device, scan_err, scan_fids; edits 7 lines
+    C3: uses 1 lfs_find_parse_fini
+    C4: uses 1 llapi_find_device; edits 1 lines
+C6 <- C1 C4 C5
+    C1: uses 83 LLAPI_SCAN_DEVICE, LLAPI_SCAN_SKIP_INVALID, LLAPI_SCAN_SKIP_IO, LLAPI_SCAN_SKIP_XATTR, LLAPI_SCAN_SO_BTIME, LLAPI_SCAN_SO_GEN, LLAPI_SCAN_SO_PROJID, LLAPI_SCAN_TGT_INDEX; edits 81 lines
+    C4: uses 1 scan_device_target; edits 13 lines
+    C5: uses 4 LFS_FSNAME_OPT, find_fids, fp_fsname, fp_scan_internal; edits 34 lines
+C7 <- C1 C2 C4 C5 C6
+    C1: uses 47 LLAPI_SCAN_CLASS, LLAPI_SCAN_CLS_OST_OBJ, LLAPI_SCAN_CLS_VISIBLE, LLAPI_SCAN_F_INTERNAL, LLAPI_SCAN_LINKEA, LLAPI_SCAN_LMA, LLAPI_SCAN_PARENT, LLAPI_SCAN_TGT_; edits 31 lines
+    C2: uses 5 fc_d, fc_p, fc_path, fc_rec, find_decide; edits 2 lines
+    C4: uses 7 CLS_INTERNAL, find_device_cb, find_device_prefilter, find_device_state, llapi_find_device, scan_linkea_entry, scan_linkea_next; edits 15 lines
+    C5: uses 5 fp_fsname, fp_local_targets, fp_scan_internal, fp_target, lfs_find_local_targets; edits 7 lines
+    C6: uses 4 fp_search, kernel_fini, lfsp_search, scan_zfs_close; edits 7 lines
+C8 <- C1 C7
+    C1: uses 14 LLAPI_SCAN_PARENT, LLAPI_SCAN_STATS_MIN_SIZE, lfsp_stats, lfsr_linkea, lfsr_parent_fid, llapi_scan_device, llapi_scan_stats, scan_stats_whole; edits 3 lines
+    C7: uses 1 llapi_scan_rec_path
+C9 <- C1 C4 C6 C7 C8
+    C1: uses 5 LLAPI_SCAN_F_INTERNAL, LLAPI_SCAN_F_KNOWN_DEV, fid_cb, lfsp_stats, llapi_scan_device
+    C4: uses 0 ; edits 9 lines
+    C6: uses 1 lfsp_search
+    C7: uses 4 LLAPI_SCAN_OWNER, lfsp_fsname, lfsr_owner_fid, llapi_scan_rec_path
+    C8: uses 1 llapi_scan_changelog; edits 1 lines
+C10 <- C1 C2 C4 C7 C8 C9
+    C1: uses 2 LLAPI_SCAN_PARENT, lfsr_parent_fid
+    C2: uses 12 fc_checked_type, fc_d, fc_de, fc_fdp, fc_lustre_fs, fc_p, fc_path, fc_rec; edits 3 lines
+    C4: uses 6 find_device_prefilter, find_device_supported, find_needs_lmv, find_rec_layout, find_rec_to_lmv, llapi_find_device
+    C7: uses 3 fc_mnt_fd, find_mount_is_fileset, llapi_scan_rec_path
+    C8: uses 12 LLAPI_SCAN_CL_F_COALESCE, LLAPI_SCAN_EVENT, lfsr_event_time, llapi_scan_changelog, llapi_scan_changelog_param, sc_filter, sc_mdtname, sc_min_age
+    C9: uses 1 llapi_scan_fid
+C11 <- C1 C2 C4 C7 C8 C9 C10
+    C1: uses 2 LLAPI_SCAN_PARENT, lfsr_parent_fid
+    C2: uses 12 fc_checked_type, fc_d, fc_fdp, fc_gather_all, fc_lustre_fs, fc_p, fc_path, fc_rec
+    C4: uses 8 fc_undecided, find_device_supported, find_lmm_set_default, find_needs_lmv, find_rec_layout, find_rec_to_lmd, find_rec_to_lmv, llapi_find_device; edits 5 lines
+    C7: uses 5 fc_mnt_fd, fc_mnt_path, fc_path_rc, fc_unresolved, llapi_scan_rec_path; edits 2 lines
+    C8: uses 18 LLAPI_SCAN_EVENT, LLAPI_SCAN_EVENT_JOBID, LLAPI_SCAN_EVENT_SRC, LLAPI_SCAN_EVENT_UID, lfsr_event_flags, lfsr_event_gid, lfsr_event_index, lfsr_event_jobid
+    C9: uses 1 llapi_scan_fid
+    C10: uses 29 FIND_SINCE_CLOCK_SLACK, LLAPI_SINCE_NONE, find_rec_dir_stub, find_since_cand_cb, find_since_filter_cb, find_since_gone_under, find_since_obj_get, find_since_pick; edits 113 lines
+C12 <- C4 C8 C10 C11
+    C4: uses 1 llapi_find_device
+    C8: uses 11 LLAPI_SCAN_EVENT, lfsr_event_index, llapi_scan_changelog, llapi_scan_changelog_param, sc_filter, sc_mdtname, sc_size, sc_startrec
+    C10: uses 7 LLAPI_SINCE_NONE, find_since_cand_cb, find_since_filter_cb, fp_since_kind, fss_root, llapi_find_since, mdt_bound; edits 10 lines
+    C11: uses 3 find_changelog_supported, fp_changelog_mdt, fss_path_rc; edits 32 lines
+C13 <- C10 C11 C12
+    C10: uses 1 llapi_find_since; edits 3 lines
+    C11: uses 0 ; edits 5 lines
+    C12: uses 0 ; edits 38 lines
+C14 <- C10 C12 C13
+    C10: uses 1 llapi_find_since
+    C12: uses 3 find_cl_first, find_cookie_check, fp_since_cookie; edits 17 lines
+    C13: uses 0 ; edits 5 lines
+C15 <- C8 C10 C12 C14
+    C8: uses 3 lfsr_event_index, lfsr_event_time, llapi_scan_changelog
+    C10: uses 6 LLAPI_SINCE_INDEX, LLAPI_SINCE_TIME, find_since_cand_cb, fp_since_index, fp_since_kind, fss_since; edits 1 lines
+    C12: uses 3 find_cl_first, find_cl_first_cb, fp_since_cookie; edits 7 lines
+    C14: uses 0 ; edits 1 lines
+C16 <- C1 C9 C10
+    C1: uses 1 fid_cb
+    C9: uses 3 fid_seen, fs_valid, llapi_scan_fid; edits 14 lines
+    C10: uses 0 ; edits 1 lines
+C17 <- C9 C10
+    C9: uses 1 llapi_scan_fid
+    C10: uses 3 find_since_pick, find_since_rec_cb, find_since_state
+C18 <- C6
+    C6: uses 3 DLIB_ZPOOL_BUILD, zpool_pkg_set, zpool_src_set; edits 2 lines
+C19 <- C1 C6 C7 C8
+    C1: uses 4 LLAPI_SCAN_LINKEA, lfsp_stats, lfsr_linkea, lfsr_linkeasize
+    C6: uses 1 lfsp_search
+    C7: uses 2 LLAPI_SCAN_OWNER, lfsp_fsname
+    C8: uses 2 lfsr_event_jobid, lfsr_src_name
