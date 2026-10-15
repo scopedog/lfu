@@ -6,6 +6,22 @@ the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
 
 ## 2026-10-10 day: CI triage + AI round on the 10-10 PS -- START HERE
 
+- **10-15 ~15:00 JST: 69700 PUSHED -- START HERE TOMORROW.**
+  "LU-20606 llapi: limit a scan's rate", on 68156 PS36, branch p1015-rate
+  (bfaee4696e) in ~/lfs-rate-1014.  Lab (tests/lab-1014/15, 16): sanity
+  17/0/0 with test19, conf-sanity 300a/300b with device test7 (MDT and
+  OST); lreview: 3 findings, all fixed -- the pacing wait must come BEFORE
+  the stop check (a thread asleep for its slot delivered after the
+  consumer stopped: old library called 6 times where 3 was the stop, 3/3;
+  fixed 3/3 pass), and an include order.  69700 added to gpoll.
+  TOMORROW, in order:
+  1. Reply on adilger's rate threads 849bc2b4 / e355d9d5 (68156 PS30)
+     pointing at 69700 -- draft the text for the user first; keep them
+     open until the lfs option lands, or resolve -- user's call.
+  2. Check CI / AI reviews on the 18 fork patchsets and 69700 (polling
+     was stopped for the 17:30 JST host shutdown).
+  3. Owed: lfs find --device --max-rate (on 68160); bytes/s (ldiskfs);
+     IGIF-root follow-up for --paths; --ost over an MDT; %p with --paths.
 - **10-15 JST: RATE LIMITING (user: "start on the rate limiting change").**
   User chose: objects/s now (bytes/s later, ldiskfs first); library change
   now, lfs find --device option as a separate change on 68160.  Branch

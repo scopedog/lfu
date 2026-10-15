@@ -1,0 +1,9 @@
+== start 2026-10-14 22:36:10
+r1 run 1: rc=1 llapi_scan_test: llapi_scan_test.c:837: test19: assertion 'calls == 3' failed: the consumer stopped at its third record and was called 6 times
+r1 run 2: rc=1 llapi_scan_test: llapi_scan_test.c:837: test19: assertion 'calls == 3' failed: the consumer stopped at its third record and was called 6 times
+r1 run 3: rc=1 llapi_scan_test: llapi_scan_test.c:837: test19: assertion 'calls == 3' failed: the consumer stopped at its third record and was called 6 times
+r2 run 1: rc=0  test19 @1792042599: lfsp_max_rate paces the objects, and every one still arrives  pass
+r2 run 2: rc=0  test19 @1792042601: lfsp_max_rate paces the objects, and every one still arrives  pass
+r2 run 3: rc=0  test19 @1792042604: lfsp_max_rate paces the objects, and every one still arrives  pass
+cleanup rc=0
+RATESTOP DONE
