@@ -6,6 +6,17 @@ the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
 
 ## 2026-10-10 day: CI triage + AI round on the 10-10 PS -- START HERE
 
+- **10-14 night THE FORK PUSHED (user: "ok, push").**  18 new patchsets;
+  branches p1014-fork-* in ~/lfs-fork-1014 (trunk 9d2dc0c901).  68420 ABANDONED
+  ("split into the changes it tests").  9 replies to adilger on 68156
+  (PS30 x8, PS35 x1), all threaded; left OPEN on purpose: rate limiting
+  x2 (849bc2b4, e355d9d5 -- promised: a change of its own near the bottom
+  of the tree, a limit in llapi_scan_param both scanners honour) and the
+  OST-FID question (95aa0721 -- our position: lfsr_fid stays the scanned
+  object's own FID, tools ask for lfsr_owner_fid).  PROMISED follow-up:
+  IGIF root for --paths (scan_dirmap_path() stops only at LU_ROOT_FID).
+  Deferred follow-ups: --ost over an MDT; %p with --paths; 68726 partial
+  batch handoff.  No BUILD on 68416 PS28 / 68417 PS21 (superseded).
 - **10-14 THE FORK (Andreas on 68156 PS35), local, NOT pushed.**
   ~/lfs-fork-1014: trunk fork-1014 = e3c936c050 (68156 68415 68416 68157 68158
   68159 68160 68163 68288 68417 68418 68419 69443 69500); leaves
