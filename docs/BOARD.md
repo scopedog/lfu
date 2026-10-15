@@ -6,6 +6,25 @@ the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
 
 ## 2026-10-10 day: CI triage + AI round on the 10-10 PS -- START HERE
 
+- **10-14 THE FORK (Andreas on 68156 PS35), local, NOT pushed.**
+  ~/lfs-fork-1014: trunk fork-1014 = e3c936c050 (68156 68415 68416 68157 68158
+  68159 68160 68163 68288 68417 68418 68419 69443 69500); leaves
+  fork-69501/69502 (on 68417'), fork-69503 (on 68163'), fork-68726 (on
+  68415').  68420 SPLIT into 68417/68418/68419 (tests, message paras,
+  man revisions) -- abandon it at push time.  Dependency map and every
+  transform: docs/rounds/a-1014/ (forktx.py + tx_*.py).  Proofs: trunk
+  tree == old 68420/69500 trees before the fix pass; leaf patches ==
+  originals except deliberate edits; sweeps 18/18; labs 06/07 green.
+  User decisions: 68415/68416 moved down; tests split; sc_ -> lfsc_;
+  changelog decls beside the other scanners; shard skip moved into 68159;
+  --ost over an MDT deferred.  lreview on the 9 changed commits (0.28,
+  23 low): all taken but 3 deferred (--ost, %p with --paths, 68726
+  partial-batch handoff); 68726 static_assert replaced by a header note
+  (a size pin would break whichever of 68288/68726 lands second).
+  -ENOTDIR retry A/B (tests/lab-1014/08): 37 -> 0 (2 -ENOENT = retry
+  bound under a continuous flipper).  Arena cursor (09): 234-295 ->
+  17-20 us per batch of 1024 x 47 KB.  68416 PS28 and 68417 PS21 Jenkins
+  failures are agent disconnects -- BUILD held (fork repush).
 - **10-14 FOLLOW-UP (user: defer): `lfs find --device <MDT> --ost N`.**
   lreview on 68159': answer "which files have objects on OST N" from the
   MDT's layouts, offline -- the drain/replace-an-OST question, with the OST
