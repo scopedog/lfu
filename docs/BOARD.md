@@ -6,6 +6,13 @@ the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
 
 ## 2026-10-10 day: CI triage + AI round on the 10-10 PS -- START HERE
 
+- **10-15 ~15:45 PUSHED (user: "ok, push"):** 69700 PS2 (53315d572c, now
+  on 68160 PS37, PS2 note posted), 69728 NEW "lfs: find --device
+  --max-rate" (29e1c9998d, on 69700), 69729 NEW "llapi: find the root of
+  an upgraded filesystem" (5d406ba96f, on 68288 PS30).  Both added to gpoll.
+  adilger promises done: rate limit (69700) + lfs option (69728), IGIF
+  root (69729).  Still owed: bytes/s (ldiskfs); --ost over an MDT; %p
+  with --paths; 68726 partial batch handoff.
 - **10-15 READY TO PUSH (asked the user):** 69700 PS2 = 53315d572c
   (~/lrv1015-69700 rate-1015, on 68160 PS37), --max-rate 29e1c9998d
   (~/lfs-maxrate-1015 maxrate-1015b), IGIF 5d406ba96f (~/lfs-igif-1015).
