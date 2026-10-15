@@ -1,0 +1,43 @@
+s0 (adb32c9d38) build: BUILD-OK
+s1 (abdabf073d) build: BUILD-OK
+h1 (d935b0b095) build: BUILD-OK
+h5 (a9c243962a) build: BUILD-OK
+h2 (2ebfb2f9aa) build: BUILD-OK
+h3 (33be0f3074) build: BUILD-OK
+h4 (d99d1e9962) build: BUILD-OK
+h6 (341b0e407c) build: BUILD-OK
+h7 (94ebd8efa9) build: BUILD-OK
+== start 2026-10-14 20:30:39
+walk: 11 directories under sd (sd included)
+lmv_stripe_count: 2 lmv_stripe_offset: 0 lmv_hash_type: fnv_1a_64
+mdtidx		 FID[seq:oid:ver]
+     0		 [0x200000400:0x2:0x0]		
+-rw-r--r--. 1 root root 256000000 Oct 14 20:31 /tmp/lfst-mdt1
+-rw-r--r--. 1 root root 256000000 Oct 14 20:31 /tmp/lfst-mdt2
+s0 lfst-mdt1: 32 directories; find files matching given attributes recursively in directory tree. usage: find <directory|filename> ...      [[!] --atime|-A [+-]N[smhdwy]] [[!] --btime|-B [+-]N[smhdwy]]      [[!] --ctime|-C [+-]N[s
+lfs: unrecognized option '--device'
+s0 lfst-mdt2: 32 directories; find files matching given attributes recursively in directory tree. usage: find <directory|filename> ...      [[!] --atime|-A [+-]N[smhdwy]] [[!] --btime|-B [+-]N[smhdwy]]      [[!] --ctime|-C [+-]N[s
+lfs: unrecognized option '--device'
+s1 lfst-mdt1: 32 directories; find files matching given attributes recursively in directory tree. usage: find <directory|filename> ...      [[!] --atime|-A [+-]N[smhdwy]] [[!] --btime|-B [+-]N[smhdwy]]      [[!] --ctime|-C [+-]N[s
+lfs: unrecognized option '--device'
+s1 lfst-mdt2: 32 directories; find files matching given attributes recursively in directory tree. usage: find <directory|filename> ...      [[!] --atime|-A [+-]N[smhdwy]] [[!] --btime|-B [+-]N[smhdwy]]      [[!] --ctime|-C [+-]N[s
+lfs: unrecognized option '--device'
+== end 2026-10-14 20:32:00
+SHARD DONE
+  s1 ldiskfs: PASS 18  FAIL 0  SKIP 0 
+  h1 ldiskfs: PASS 18  FAIL 0  SKIP 0 
+  h2 ldiskfs: PASS 20  FAIL 0  SKIP 0 
+  h3 ldiskfs: PASS 22  FAIL 0  SKIP 0 
+  h4 ldiskfs: PASS 20  FAIL 0  SKIP 0 
+  h5 ldiskfs: PASS 18  FAIL 0  SKIP 0 
+  h6 ldiskfs: PASS 24  FAIL 0  SKIP 0 
+  h6 zfs: PASS 23  FAIL 0  SKIP 2 
+     SKIP: sanity test_56Edb needs >= 2 MDTs
+    SKIP 56Edb (0s)
+  h7 ldiskfs: PASS 18  FAIL 0  SKIP 0 
+  h7 zfs: PASS 17  FAIL 0  SKIP 2 
+     SKIP: sanity test_56Edb needs >= 2 MDTs
+    SKIP 56Edb (0s)
+FIXES LAB DONE
+
+[exited with code 0]

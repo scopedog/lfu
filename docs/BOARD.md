@@ -25,6 +25,11 @@ the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
   bound under a continuous flipper).  Arena cursor (09): 234-295 ->
   17-20 us per batch of 1024 x 47 KB.  68416 PS28 and 68417 PS21 Jenkins
   failures are agent disconnects -- BUILD held (fork repush).
+  Fixes lab (tests/lab-1014/12): sanity green on all 8 changed arms
+  (ldiskfs 18-24/0/0; ZFS on the tip and 69503' 23/17 + 56Edb skip).
+  Shard A/B on 68160' (11): before the move each MDT image reports its
+  shard as a directory (12, 5), after it not (11, 4).  Ready to push;
+  the ask is open.
 - **10-14 FOLLOW-UP (user: defer): `lfs find --device <MDT> --ost N`.**
   lreview on 68159': answer "which files have objects on OST N" from the
   MDT's layouts, offline -- the drain/replace-an-OST question, with the OST
