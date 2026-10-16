@@ -6,6 +6,13 @@ the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
 
 ## 2026-10-10 day: CI triage + AI round on the 10-10 PS -- START HERE
 
+- **10-15 evening: polling RESTARTED.  adilger on 69728 PS1 (no vote):**
+  prefers `--bandwidth` (-W, as lfs migrate/mirror resync) -- two
+  patchset-level comments he resolved himself; 3 open: $SECONDS instead of
+  `date +%s%N` (conf-sanity x2), `RATE` metavar unclear.  Proposed rename
+  `--speed OBJS_PER_SEC` (LFSCK's --speed is objects/s); the USER ASKED
+  ANDREAS if --speed is ok -- wait for his answer.  65026 PS19 pushed 18:30
+  from another session, Verified+1.
 - **10-15 ~17:30 polling STOPPED (user switched agents).**  Last seen:
   69700 PS2, 69728, 69729 all Verified+1, smatch + checkpatch clean; no
   test sessions or AI review yet.  Seen-state is in gerrit-poll/seen.json,
