@@ -10,7 +10,7 @@ the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
   69700 PS2, 69728, 69729 all Verified+1, smatch + checkpatch clean; no
   test sessions or AI review yet.  Seen-state is in gerrit-poll/seen.json,
   so the next gpoll.py run reports only what came after.  Lab VM
-  rhel9.7-server-mgs-mds-clone left RUNNING.
+  rhel9.7-server-mgs-mds-clone SHUT DOWN (idle; its /tmp lab trees kept).
 - **10-15 ~15:45 PUSHED (user: "ok, push"):** 69700 PS2 (53315d572c, now
   on 68160 PS37, PS2 note posted), 69728 NEW "lfs: find --device
   --max-rate" (29e1c9998d, on 69700), 69729 NEW "llapi: find the root of
