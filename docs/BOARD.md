@@ -41,8 +41,13 @@ the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
   with 68288.  Sweep 18/18 (tests/lab-1017/00-sweep.log; the first sweep
   caught 68160 needing lustreapi_internal.h back); checkpatch equal
   except 68288 +2 pre-existing lines.  Replies drafted in
-  docs/rounds/a-1017/replies.md.  Lab (tests/lab-1017/06-all.sh on the
-  clone VM) and lreview of the 10 changed commits RUNNING.
+  docs/rounds/a-1017/replies.md.  **Lab GREEN** (tests/lab-1017/*.result.txt):
+  68159 A/B over a striped tree -- old got=LMV and fetched LMV per object,
+  new got=0 and fetched none; conf-sanity 300a/b/c PASS ldiskfs, 300a/b
+  PASS zfs (300c ldiskfs-only skip); sanity 56E*/157c/160A* 24/0 at the
+  trunk tip, 18/0 at 68726.  test14 under 24 CPU hogs: 80/80 old and new,
+  the helper never won -- the race fix is NOT lab-proven, only read.
+  lreview of the 10 changed commits RUNNING.
   69700/69728/69729 sit on the OLD 68160/68288 -- re-parent at push time.
 - **10-15 evening: polling RESTARTED.  adilger on 69728 PS1 (no vote):**
   prefers `--bandwidth` (-W, as lfs migrate/mirror resync) -- two

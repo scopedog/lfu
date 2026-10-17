@@ -1,0 +1,15 @@
+o2 (12dc40155c): pass=40 fail=0 won=0 missed=0 of 40
+n2 (eef7b949eb): pass=40 fail=0 won=0 missed=0 of 40
+o2 (12dc40155c): pass=40 fail=0 won=0 missed=0 of 40
+n2 (eef7b949eb): pass=40 fail=0 won=0 missed=0 of 40
+T14 DONE
+##### sanity n2 ldiskfs (rerun, binaries built)
+/usr/bin/lfs loads:  liblustreapi.so.1 => /tmp/arm1009n2/lib/liblustreapi.so.1 (0x00007fa5211c3000)
+/usr/lib64/lustre/tests/llapi_scan_changelog_test loads:  liblustreapi.so.1 => /tmp/arm1009n2/lib/liblustreapi.so.1 (0x00007f6529546000)
+bound lfs is NEW's
+SANITY_RC=0
+PASS 18  FAIL 0  SKIP 0
+cleanup rc=0
+lustre-* fixtures untouched
+== end 2026-10-17 14:05:56
+SANITY RUN DONE

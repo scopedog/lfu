@@ -1,0 +1,225 @@
+== start 2026-10-17 13:53:56 o1=9d2dc0c901 n1=257dc4e470
+/tmp/04-ab.sh: line 21: createmany: command not found
+/tmp/04-ab.sh: line 21: createmany: command not found
+/tmp/04-ab.sh: line 21: createmany: command not found
+/tmp/04-ab.sh: line 21: createmany: command not found
+/tmp/04-ab.sh: line 21: createmany: command not found
+/tmp/04-ab.sh: line 21: createmany: command not found
+objects: 10
+o1 run1: rc=0 got=0x1000000000 got_lmv=1 records=10 with_lmv=1 ms=11.0
+n1 run1: rc=0 got=0 got_lmv=0 records=10 with_lmv=0 ms=9.2
+o1 run2: rc=0 got=0x1000000000 got_lmv=1 records=10 with_lmv=1 ms=10.1
+n1 run2: rc=0 got=0 got_lmv=0 records=10 with_lmv=0 ms=8.3
+o1 run3: rc=0 got=0x1000000000 got_lmv=1 records=10 with_lmv=1 ms=9.8
+n1 run3: rc=0 got=0 got_lmv=0 records=10 with_lmv=0 ms=8.0
+cleanup rc=0
+== end 2026-10-17 13:55:00
+AB DONE
+taskset: failed to execute /tmp/lab1009-o2/lustre/tests/.libs/llapi_scan_test: No such file or directory
+taskset: failed to execute /tmp/lab1009-o2/lustre/tests/.libs/llapi_scan_test: No such file or directory
+taskset: failed to execute /tmp/lab1009-o2/lustre/tests/.libs/llapi_scan_test: No such file or directory
+taskset: failed to execute /tmp/lab1009-o2/lustre/tests/.libs/llapi_scan_test: No such file or directory
+taskset: failed to execute /tmp/lab1009-o2/lustre/tests/.libs/llapi_scan_test: No such file or directory
+taskset: failed to execute /tmp/lab1009-o2/lustre/tests/.libs/llapi_scan_test: No such file or directory
+taskset: failed to execute /tmp/lab1009-o2/lustre/tests/.libs/llapi_scan_test: No such file or directory
+taskset: failed to execute /tmp/lab1009-o2/lustre/tests/.libs/llapi_scan_test: No such file or directory
+taskset: failed to execute /tmp/lab1009-o2/lustre/tests/.libs/llapi_scan_test: No such file or directory
+taskset: failed to execute /tmp/lab1009-o2/lustre/tests/.libs/llapi_scan_test: No such file or directory
+taskset: failed to execute /tmp/lab1009-o2/lustre/tests/.libs/llapi_scan_test: No such file or directory
+taskset: failed to execute /tmp/lab1009-o2/lustre/tests/.libs/llapi_scan_test: No such file or directory
+taskset: failed to execute /tmp/lab1009-o2/lustre/tests/.libs/llapi_scan_test: No such file or directory
+taskset: failed to execute /tmp/lab1009-o2/lustre/tests/.libs/llapi_scan_test: No such file or directory
+taskset: failed to execute /tmp/lab1009-o2/lustre/tests/.libs/llapi_scan_test: No such file or directory
+taskset: failed to execute /tmp/lab1009-o2/lustre/tests/.libs/llapi_scan_test: No such file or directory
+taskset: failed to execute /tmp/lab1009-o2/lustre/tests/.libs/llapi_scan_test: No such file or directory
+taskset: failed to execute /tmp/lab1009-o2/lustre/tests/.libs/llapi_scan_test: No such file or directory
+taskset: failed to execute /tmp/lab1009-o2/lustre/tests/.libs/llapi_scan_test: No such file or directory
+taskset: failed to execute /tmp/lab1009-o2/lustre/tests/.libs/llapi_scan_test: No such file or directory
+taskset: failed to execute /tmp/lab1009-o2/lustre/tests/.libs/llapi_scan_test: No such file or directory
+taskset: failed to execute /tmp/lab1009-o2/lustre/tests/.libs/llapi_scan_test: No such file or directory
+taskset: failed to execute /tmp/lab1009-o2/lustre/tests/.libs/llapi_scan_test: No such file or directory
+taskset: failed to execute /tmp/lab1009-o2/lustre/tests/.libs/llapi_scan_test: No such file or directory
+taskset: failed to execute /tmp/lab1009-o2/lustre/tests/.libs/llapi_scan_test: No such file or directory
+taskset: failed to execute /tmp/lab1009-o2/lustre/tests/.libs/llapi_scan_test: No such file or directory
+taskset: failed to execute /tmp/lab1009-o2/lustre/tests/.libs/llapi_scan_test: No such file or directory
+taskset: failed to execute /tmp/lab1009-o2/lustre/tests/.libs/llapi_scan_test: No such file or directory
+taskset: failed to execute /tmp/lab1009-o2/lustre/tests/.libs/llapi_scan_test: No such file or directory
+taskset: failed to execute /tmp/lab1009-o2/lustre/tests/.libs/llapi_scan_test: No such file or directory
+taskset: failed to execute /tmp/lab1009-o2/lustre/tests/.libs/llapi_scan_test: No such file or directory
+taskset: failed to execute /tmp/lab1009-o2/lustre/tests/.libs/llapi_scan_test: No such file or directory
+taskset: failed to execute /tmp/lab1009-o2/lustre/tests/.libs/llapi_scan_test: No such file or directory
+taskset: failed to execute /tmp/lab1009-o2/lustre/tests/.libs/llapi_scan_test: No such file or directory
+taskset: failed to execute /tmp/lab1009-o2/lustre/tests/.libs/llapi_scan_test: No such file or directory
+taskset: failed to execute /tmp/lab1009-o2/lustre/tests/.libs/llapi_scan_test: No such file or directory
+taskset: failed to execute /tmp/lab1009-o2/lustre/tests/.libs/llapi_scan_test: No such file or directory
+taskset: failed to execute /tmp/lab1009-o2/lustre/tests/.libs/llapi_scan_test: No such file or directory
+taskset: failed to execute /tmp/lab1009-o2/lustre/tests/.libs/llapi_scan_test: No such file or directory
+taskset: failed to execute /tmp/lab1009-o2/lustre/tests/.libs/llapi_scan_test: No such file or directory
+o2 (12dc40155c): pass=0 fail=40 won=0 missed=0 of 40
+taskset: failed to execute /tmp/lab1009-n2/lustre/tests/.libs/llapi_scan_test: No such file or directory
+taskset: failed to execute /tmp/lab1009-n2/lustre/tests/.libs/llapi_scan_test: No such file or directory
+taskset: failed to execute /tmp/lab1009-n2/lustre/tests/.libs/llapi_scan_test: No such file or directory
+taskset: failed to execute /tmp/lab1009-n2/lustre/tests/.libs/llapi_scan_test: No such file or directory
+taskset: failed to execute /tmp/lab1009-n2/lustre/tests/.libs/llapi_scan_test: No such file or directory
+taskset: failed to execute /tmp/lab1009-n2/lustre/tests/.libs/llapi_scan_test: No such file or directory
+taskset: failed to execute /tmp/lab1009-n2/lustre/tests/.libs/llapi_scan_test: No such file or directory
+taskset: failed to execute /tmp/lab1009-n2/lustre/tests/.libs/llapi_scan_test: No such file or directory
+taskset: failed to execute /tmp/lab1009-n2/lustre/tests/.libs/llapi_scan_test: No such file or directory
+taskset: failed to execute /tmp/lab1009-n2/lustre/tests/.libs/llapi_scan_test: No such file or directory
+taskset: failed to execute /tmp/lab1009-n2/lustre/tests/.libs/llapi_scan_test: No such file or directory
+taskset: failed to execute /tmp/lab1009-n2/lustre/tests/.libs/llapi_scan_test: No such file or directory
+taskset: failed to execute /tmp/lab1009-n2/lustre/tests/.libs/llapi_scan_test: No such file or directory
+taskset: failed to execute /tmp/lab1009-n2/lustre/tests/.libs/llapi_scan_test: No such file or directory
+taskset: failed to execute /tmp/lab1009-n2/lustre/tests/.libs/llapi_scan_test: No such file or directory
+taskset: failed to execute /tmp/lab1009-n2/lustre/tests/.libs/llapi_scan_test: No such file or directory
+taskset: failed to execute /tmp/lab1009-n2/lustre/tests/.libs/llapi_scan_test: No such file or directory
+taskset: failed to execute /tmp/lab1009-n2/lustre/tests/.libs/llapi_scan_test: No such file or directory
+taskset: failed to execute /tmp/lab1009-n2/lustre/tests/.libs/llapi_scan_test: No such file or directory
+taskset: failed to execute /tmp/lab1009-n2/lustre/tests/.libs/llapi_scan_test: No such file or directory
+taskset: failed to execute /tmp/lab1009-n2/lustre/tests/.libs/llapi_scan_test: No such file or directory
+taskset: failed to execute /tmp/lab1009-n2/lustre/tests/.libs/llapi_scan_test: No such file or directory
+taskset: failed to execute /tmp/lab1009-n2/lustre/tests/.libs/llapi_scan_test: No such file or directory
+taskset: failed to execute /tmp/lab1009-n2/lustre/tests/.libs/llapi_scan_test: No such file or directory
+taskset: failed to execute /tmp/lab1009-n2/lustre/tests/.libs/llapi_scan_test: No such file or directory
+taskset: failed to execute /tmp/lab1009-n2/lustre/tests/.libs/llapi_scan_test: No such file or directory
+taskset: failed to execute /tmp/lab1009-n2/lustre/tests/.libs/llapi_scan_test: No such file or directory
+taskset: failed to execute /tmp/lab1009-n2/lustre/tests/.libs/llapi_scan_test: No such file or directory
+taskset: failed to execute /tmp/lab1009-n2/lustre/tests/.libs/llapi_scan_test: No such file or directory
+taskset: failed to execute /tmp/lab1009-n2/lustre/tests/.libs/llapi_scan_test: No such file or directory
+taskset: failed to execute /tmp/lab1009-n2/lustre/tests/.libs/llapi_scan_test: No such file or directory
+taskset: failed to execute /tmp/lab1009-n2/lustre/tests/.libs/llapi_scan_test: No such file or directory
+taskset: failed to execute /tmp/lab1009-n2/lustre/tests/.libs/llapi_scan_test: No such file or directory
+taskset: failed to execute /tmp/lab1009-n2/lustre/tests/.libs/llapi_scan_test: No such file or directory
+taskset: failed to execute /tmp/lab1009-n2/lustre/tests/.libs/llapi_scan_test: No such file or directory
+taskset: failed to execute /tmp/lab1009-n2/lustre/tests/.libs/llapi_scan_test: No such file or directory
+taskset: failed to execute /tmp/lab1009-n2/lustre/tests/.libs/llapi_scan_test: No such file or directory
+taskset: failed to execute /tmp/lab1009-n2/lustre/tests/.libs/llapi_scan_test: No such file or directory
+taskset: failed to execute /tmp/lab1009-n2/lustre/tests/.libs/llapi_scan_test: No such file or directory
+taskset: failed to execute /tmp/lab1009-n2/lustre/tests/.libs/llapi_scan_test: No such file or directory
+n2 (eef7b949eb): pass=0 fail=40 won=0 missed=0 of 40
+taskset: failed to execute /tmp/lab1009-o2/lustre/tests/.libs/llapi_scan_test: No such file or directory
+taskset: failed to execute /tmp/lab1009-o2/lustre/tests/.libs/llapi_scan_test: No such file or directory
+taskset: failed to execute /tmp/lab1009-o2/lustre/tests/.libs/llapi_scan_test: No such file or directory
+taskset: failed to execute /tmp/lab1009-o2/lustre/tests/.libs/llapi_scan_test: No such file or directory
+taskset: failed to execute /tmp/lab1009-o2/lustre/tests/.libs/llapi_scan_test: No such file or directory
+taskset: failed to execute /tmp/lab1009-o2/lustre/tests/.libs/llapi_scan_test: No such file or directory
+taskset: failed to execute /tmp/lab1009-o2/lustre/tests/.libs/llapi_scan_test: No such file or directory
+taskset: failed to execute /tmp/lab1009-o2/lustre/tests/.libs/llapi_scan_test: No such file or directory
+taskset: failed to execute /tmp/lab1009-o2/lustre/tests/.libs/llapi_scan_test: No such file or directory
+taskset: failed to execute /tmp/lab1009-o2/lustre/tests/.libs/llapi_scan_test: No such file or directory
+taskset: failed to execute /tmp/lab1009-o2/lustre/tests/.libs/llapi_scan_test: No such file or directory
+taskset: failed to execute /tmp/lab1009-o2/lustre/tests/.libs/llapi_scan_test: No such file or directory
+taskset: failed to execute /tmp/lab1009-o2/lustre/tests/.libs/llapi_scan_test: No such file or directory
+taskset: failed to execute /tmp/lab1009-o2/lustre/tests/.libs/llapi_scan_test: No such file or directory
+taskset: failed to execute /tmp/lab1009-o2/lustre/tests/.libs/llapi_scan_test: No such file or directory
+taskset: failed to execute /tmp/lab1009-o2/lustre/tests/.libs/llapi_scan_test: No such file or directory
+taskset: failed to execute /tmp/lab1009-o2/lustre/tests/.libs/llapi_scan_test: No such file or directory
+taskset: failed to execute /tmp/lab1009-o2/lustre/tests/.libs/llapi_scan_test: No such file or directory
+taskset: failed to execute /tmp/lab1009-o2/lustre/tests/.libs/llapi_scan_test: No such file or directory
+taskset: failed to execute /tmp/lab1009-o2/lustre/tests/.libs/llapi_scan_test: No such file or directory
+taskset: failed to execute /tmp/lab1009-o2/lustre/tests/.libs/llapi_scan_test: No such file or directory
+taskset: failed to execute /tmp/lab1009-o2/lustre/tests/.libs/llapi_scan_test: No such file or directory
+taskset: failed to execute /tmp/lab1009-o2/lustre/tests/.libs/llapi_scan_test: No such file or directory
+taskset: failed to execute /tmp/lab1009-o2/lustre/tests/.libs/llapi_scan_test: No such file or directory
+taskset: failed to execute /tmp/lab1009-o2/lustre/tests/.libs/llapi_scan_test: No such file or directory
+taskset: failed to execute /tmp/lab1009-o2/lustre/tests/.libs/llapi_scan_test: No such file or directory
+taskset: failed to execute /tmp/lab1009-o2/lustre/tests/.libs/llapi_scan_test: No such file or directory
+taskset: failed to execute /tmp/lab1009-o2/lustre/tests/.libs/llapi_scan_test: No such file or directory
+taskset: failed to execute /tmp/lab1009-o2/lustre/tests/.libs/llapi_scan_test: No such file or directory
+taskset: failed to execute /tmp/lab1009-o2/lustre/tests/.libs/llapi_scan_test: No such file or directory
+taskset: failed to execute /tmp/lab1009-o2/lustre/tests/.libs/llapi_scan_test: No such file or directory
+taskset: failed to execute /tmp/lab1009-o2/lustre/tests/.libs/llapi_scan_test: No such file or directory
+taskset: failed to execute /tmp/lab1009-o2/lustre/tests/.libs/llapi_scan_test: No such file or directory
+taskset: failed to execute /tmp/lab1009-o2/lustre/tests/.libs/llapi_scan_test: No such file or directory
+taskset: failed to execute /tmp/lab1009-o2/lustre/tests/.libs/llapi_scan_test: No such file or directory
+taskset: failed to execute /tmp/lab1009-o2/lustre/tests/.libs/llapi_scan_test: No such file or directory
+taskset: failed to execute /tmp/lab1009-o2/lustre/tests/.libs/llapi_scan_test: No such file or directory
+taskset: failed to execute /tmp/lab1009-o2/lustre/tests/.libs/llapi_scan_test: No such file or directory
+taskset: failed to execute /tmp/lab1009-o2/lustre/tests/.libs/llapi_scan_test: No such file or directory
+taskset: failed to execute /tmp/lab1009-o2/lustre/tests/.libs/llapi_scan_test: No such file or directory
+o2 (12dc40155c): pass=0 fail=40 won=0 missed=0 of 40
+taskset: failed to execute /tmp/lab1009-n2/lustre/tests/.libs/llapi_scan_test: No such file or directory
+taskset: failed to execute /tmp/lab1009-n2/lustre/tests/.libs/llapi_scan_test: No such file or directory
+taskset: failed to execute /tmp/lab1009-n2/lustre/tests/.libs/llapi_scan_test: No such file or directory
+taskset: failed to execute /tmp/lab1009-n2/lustre/tests/.libs/llapi_scan_test: No such file or directory
+taskset: failed to execute /tmp/lab1009-n2/lustre/tests/.libs/llapi_scan_test: No such file or directory
+taskset: failed to execute /tmp/lab1009-n2/lustre/tests/.libs/llapi_scan_test: No such file or directory
+taskset: failed to execute /tmp/lab1009-n2/lustre/tests/.libs/llapi_scan_test: No such file or directory
+taskset: failed to execute /tmp/lab1009-n2/lustre/tests/.libs/llapi_scan_test: No such file or directory
+taskset: failed to execute /tmp/lab1009-n2/lustre/tests/.libs/llapi_scan_test: No such file or directory
+taskset: failed to execute /tmp/lab1009-n2/lustre/tests/.libs/llapi_scan_test: No such file or directory
+taskset: failed to execute /tmp/lab1009-n2/lustre/tests/.libs/llapi_scan_test: No such file or directory
+taskset: failed to execute /tmp/lab1009-n2/lustre/tests/.libs/llapi_scan_test: No such file or directory
+taskset: failed to execute /tmp/lab1009-n2/lustre/tests/.libs/llapi_scan_test: No such file or directory
+taskset: failed to execute /tmp/lab1009-n2/lustre/tests/.libs/llapi_scan_test: No such file or directory
+taskset: failed to execute /tmp/lab1009-n2/lustre/tests/.libs/llapi_scan_test: No such file or directory
+taskset: failed to execute /tmp/lab1009-n2/lustre/tests/.libs/llapi_scan_test: No such file or directory
+taskset: failed to execute /tmp/lab1009-n2/lustre/tests/.libs/llapi_scan_test: No such file or directory
+taskset: failed to execute /tmp/lab1009-n2/lustre/tests/.libs/llapi_scan_test: No such file or directory
+taskset: failed to execute /tmp/lab1009-n2/lustre/tests/.libs/llapi_scan_test: No such file or directory
+taskset: failed to execute /tmp/lab1009-n2/lustre/tests/.libs/llapi_scan_test: No such file or directory
+taskset: failed to execute /tmp/lab1009-n2/lustre/tests/.libs/llapi_scan_test: No such file or directory
+taskset: failed to execute /tmp/lab1009-n2/lustre/tests/.libs/llapi_scan_test: No such file or directory
+taskset: failed to execute /tmp/lab1009-n2/lustre/tests/.libs/llapi_scan_test: No such file or directory
+taskset: failed to execute /tmp/lab1009-n2/lustre/tests/.libs/llapi_scan_test: No such file or directory
+taskset: failed to execute /tmp/lab1009-n2/lustre/tests/.libs/llapi_scan_test: No such file or directory
+taskset: failed to execute /tmp/lab1009-n2/lustre/tests/.libs/llapi_scan_test: No such file or directory
+taskset: failed to execute /tmp/lab1009-n2/lustre/tests/.libs/llapi_scan_test: No such file or directory
+taskset: failed to execute /tmp/lab1009-n2/lustre/tests/.libs/llapi_scan_test: No such file or directory
+taskset: failed to execute /tmp/lab1009-n2/lustre/tests/.libs/llapi_scan_test: No such file or directory
+taskset: failed to execute /tmp/lab1009-n2/lustre/tests/.libs/llapi_scan_test: No such file or directory
+taskset: failed to execute /tmp/lab1009-n2/lustre/tests/.libs/llapi_scan_test: No such file or directory
+taskset: failed to execute /tmp/lab1009-n2/lustre/tests/.libs/llapi_scan_test: No such file or directory
+taskset: failed to execute /tmp/lab1009-n2/lustre/tests/.libs/llapi_scan_test: No such file or directory
+taskset: failed to execute /tmp/lab1009-n2/lustre/tests/.libs/llapi_scan_test: No such file or directory
+taskset: failed to execute /tmp/lab1009-n2/lustre/tests/.libs/llapi_scan_test: No such file or directory
+taskset: failed to execute /tmp/lab1009-n2/lustre/tests/.libs/llapi_scan_test: No such file or directory
+taskset: failed to execute /tmp/lab1009-n2/lustre/tests/.libs/llapi_scan_test: No such file or directory
+taskset: failed to execute /tmp/lab1009-n2/lustre/tests/.libs/llapi_scan_test: No such file or directory
+taskset: failed to execute /tmp/lab1009-n2/lustre/tests/.libs/llapi_scan_test: No such file or directory
+taskset: failed to execute /tmp/lab1009-n2/lustre/tests/.libs/llapi_scan_test: No such file or directory
+n2 (eef7b949eb): pass=0 fail=40 won=0 missed=0 of 40
+T14 DONE
+##### conf n1 ldiskfs
+== start 2026-10-17 13:55:01 n1-ldiskfs arm=n1 (257dc4e470) fs=ldiskfs
+CS_RC=0
+PASS 300a (36s)
+PASS 300b (24s)
+PASS 300c (1s)
+== end 2026-10-17 13:56:51
+CONF RUN DONE
+##### conf n1 zfs
+== start 2026-10-17 13:56:51 n1-zfs arm=n1 (257dc4e470) fs=zfs
+CS_RC=0
+PASS 300a (55s)
+PASS 300b (33s)
+ SKIP: conf-sanity-n1-zfs test_300c ldiskfs only test
+SKIP 300c (0s)
+== end 2026-10-17 13:59:13
+CONF RUN DONE
+##### sanity n1 ldiskfs
+== start 2026-10-17 13:59:13 FSTYPE=ldiskfs ARM=n1 (257dc4e470)
+loaded version: [2.17.58_65_g8618869]
+/usr/bin/lfs loads:  liblustreapi.so.1 => /tmp/arm1009n1/lib/liblustreapi.so.1 (0x00007f03b6ce9000)
+/usr/lib64/lustre/tests/llapi_scan_changelog_test loads:  liblustreapi.so.1 => /tmp/arm1009n1/lib/liblustreapi.so.1 (0x00007f9ca50bf000)
+bound lfs is NEW's
+SANITY_RC=0
+PASS 24  FAIL 0  SKIP 0
+cleanup rc=0
+lustre-* fixtures untouched
+== end 2026-10-17 14:01:44
+SANITY RUN DONE
+##### sanity n2 ldiskfs
+bound lfs is NEW's
+SANITY_RC=1
+umount: /usr/lib64/lustre/tests/llapi_scan_test: not mounted.
+umount: /usr/lib64/lustre/tests/llapi_scan_changelog_test: not mounted.
+umount: /usr/lib64/lustre/tests/llapi_scan_device_test: not mounted.
+PASS 17  FAIL 2  SKIP 0
+FAIL 157c (2s)
+sanity: FAIL: test_157c llapi_scan_test failed
+cleanup rc=0
+lustre-* fixtures untouched
+== end 2026-10-17 14:03:19
+SANITY RUN DONE
+LAB 1017 DONE
