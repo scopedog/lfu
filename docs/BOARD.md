@@ -28,7 +28,11 @@ the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
   (local, makes 69729 a content PS): diff only /$tdir in 305; igif-1017
   now fa4127d7dc.  Lab 11-reparent2 GREEN: 69700 sanity 18/0; 69729
   conf-sanity 300a/b/c+303/304/305 all PASS in the order that failed, and
-  303-305 alone PASS.  lreview of 69729 (content changed) running.
+  303-305 alone PASS.  lreview of 69729: 3 low (all older text), fixed:
+  message wording, a comment's wrong example, man page says DNE names
+  only MDT0000 on an IGIF-root fs.  igif-1017 now 4abe777811 (comment,
+  man, message only since the lab), builds, checkpatch clean.  READY TO
+  ASK: push 69700 (rebase) + 69729 (test fix + docs).
   Held lreview suggestions: docs/rounds/a-1017/lreview.md.
 - **10-17 polling RESTARTED** (gpoll under Monitor, 25 min ticks).  The
   10-14 fork patchsets finished testing overnight.  **Enforced failures:
