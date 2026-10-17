@@ -1,0 +1,27 @@
+r1 (b0d98641fe) build: make targets r1 failed
+i1x (88eadd607f) build: BUILD-OK
+##### sanity r1
+FAIL 56El (1s)
+FAIL 157c (1s)
+sanity: FAIL: test_56El layout directives printed '0none0[0]' for /mnt/lfst/d56El.sanity/notlustre/d1
+sanity: FAIL: test_157c llapi_scan_test failed
+cleanup rc=0
+lustre-* fixtures untouched
+== end 2026-10-17 15:57:41
+SANITY RUN DONE
+##### conf i1x
+== start 2026-10-17 15:57:41 i1x arm=i1x (88eadd607f) fs=ldiskfs
+CS_RC=1
+PASS 300a (36s)
+PASS 300b (24s)
+PASS 300c (1s)
+PASS 303 (0s)
+PASS 304 (1s)
+FAIL 305 (2s)
+left mounted: /mnt/lfsc-ost1
+left mounted: /mnt/lfsc-ost2
+left mounted: /mnt/lfsc
+left mounted: /mnt/lfsc-mds1
+== end 2026-10-17 15:59:51
+CONF RUN DONE
+REPARENT DONE
