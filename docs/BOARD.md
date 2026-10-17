@@ -47,7 +47,12 @@ the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
   PASS zfs (300c ldiskfs-only skip); sanity 56E*/157c/160A* 24/0 at the
   trunk tip, 18/0 at 68726.  test14 under 24 CPU hogs: 80/80 old and new,
   the helper never won -- the race fix is NOT lab-proven, only read.
-  lreview of the 10 changed commits RUNNING.
+  **lreview done** (docs/rounds/a-1017/lreview.md): 15 findings, 68415 and
+  68417 clean; 9 FIXED (two were my own a1017 wording, one a real 68159
+  -errno regression), 68288 hang claim DECLINED after a lab check (root
+  open with MDT0000 down: 11 ms), 4 suggestions HELD for the user.
+  Tips after pass 5: fork-1014 f9034db8d7, 69501 c04f587561, 69502
+  ef203223ca, 69503 cb22fe163b, 68726 7c6733dfca.  Sweep 18/18 again.
   69700/69728/69729 sit on the OLD 68160/68288 -- re-parent at push time.
 - **10-15 evening: polling RESTARTED.  adilger on 69728 PS1 (no vote):**
   prefers `--bandwidth` (-W, as lfs migrate/mirror resync) -- two

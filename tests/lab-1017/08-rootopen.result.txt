@@ -1,0 +1,6 @@
+MDT0000 mounted after stop: 0
+open ok fd 3
+open of the mount root: rc=0 in .011292662 s
+[0x200000007:0x1:0x0]
+lfs path2fid root: rc=0 in .003375538 s
+ROOTOPEN DONE
