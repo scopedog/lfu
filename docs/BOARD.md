@@ -26,7 +26,9 @@ the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
   own $tdir's linkea, so 300a's leftover d300a names LU_ROOT_FID and drops
   out (CI passed 305 20/20 -- order-dependent, a test defect).  FIX
   (local, makes 69729 a content PS): diff only /$tdir in 305; igif-1017
-  now fa4127d7dc.  Lab 11-reparent2 (r1 nozfs + 305 after 300) running.
+  now fa4127d7dc.  Lab 11-reparent2 GREEN: 69700 sanity 18/0; 69729
+  conf-sanity 300a/b/c+303/304/305 all PASS in the order that failed, and
+  303-305 alone PASS.  lreview of 69729 (content changed) running.
   Held lreview suggestions: docs/rounds/a-1017/lreview.md.
 - **10-17 polling RESTARTED** (gpoll under Monitor, 25 min ticks).  The
   10-14 fork patchsets finished testing overnight.  **Enforced failures:

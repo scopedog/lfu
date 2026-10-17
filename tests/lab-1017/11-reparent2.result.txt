@@ -1,0 +1,32 @@
+r1 (b0d98641fe) build: BUILD-OK
+i2 (fa4127d7dc) build: BUILD-OK
+##### sanity r1
+/usr/lib64/lustre/tests/llapi_scan_changelog_test loads:  liblustreapi.so.1 => /tmp/arm1009r1/lib/liblustreapi.so.1 (0x00007fccdf795000)
+bound lfs is NEW's
+SANITY_RC=0
+PASS 18  FAIL 0  SKIP 0
+cleanup rc=0
+lustre-* fixtures untouched
+== end 2026-10-17 16:04:12
+SANITY RUN DONE
+##### conf i2
+== start 2026-10-17 16:04:12 i2 arm=i2 (fa4127d7dc) fs=ldiskfs
+CS_RC=0
+PASS 300a (41s)
+PASS 300b (25s)
+PASS 300c (0s)
+PASS 303 (0s)
+PASS 304 (1s)
+PASS 305 (3s)
+== end 2026-10-17 16:06:21
+CONF RUN DONE
+##### conf i2 alone
+== start 2026-10-17 16:06:21 i2b arm=i2 (fa4127d7dc) fs=ldiskfs
+CS_RC=0
+PASS 303 (15s)
+PASS 304 (6s)
+PASS 305 (1s)
+== end 2026-10-17 16:07:30
+CONF RUN DONE
+REPARENT2 DONE
+0
