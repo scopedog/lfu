@@ -1,0 +1,126 @@
+======== 68156 PS36 LU-20606 llapi: scan an ldiskfs target directly 17dc262b9d
+--[485b1c07_663e0a08] lustre/utils/libscan_ldiskfs.c:596 by aireview
+(minor) Two small inaccuracies in this comment, if the patch is refreshed:
+
+- "read at open": scan_ldiskfs_worker_init() reads the bitmap for the first worker, and its own comment says "Read for the first worker and not at open".
+- "unlike the errors above, which leave it untouched": the errors that leave *ino unset are the ones handled below this arm (the `if (err != 0) return -EIO;` after it). Nothing above this arm checks an error.
+
+======== 68158 PS34 LU-20611 lfs: share find's predicate parsing 421e90e914
+--[63979fe1_edbc257c] lustre/utils/lfs_find_parse.c:40 by aireview
+(style) This isn't a bug, but nothing in this file needs lustreapi_internal.h. Dropping the include still compiles cleanly; struct xattr_match_info and struct find_param both come from lustre/lustreapi.h.
+
+The header comment above says the file is meant to build outside lustre/utils' usual flags so another front end can share it. Pulling in liblustreapi's private header works against that. If the patch is refreshed, could it be removed?
+
+--[4441713a_bb86dbec] lustre/utils/lfs_find_parse.h:128 by aireview
+(minor) "carries fp_min_depth and fp_quiet as lfs_find() set them" reads as though init leaves those two fields as the caller had them. lfs_find_parse_init() actually overwrites the whole structure with a compound literal, setting fp_min_depth = 0 and fp_quiet = 1. After this patch lfs_find() no longer sets them itself, so the reference also points nowhere. The commit message's "keeps fp_min_depth and fp_quiet" has the same problem.
+
+"dates it differently" is also hard to follow. Perhaps something like: "sets fp_max_depth = -1 (no limit), fp_time_margin = FP_DEFAULT_TIME_MARGIN, fp_quiet = 1, and zeroes everything else"?
+
+======== 68159 PS36 LU-20611 llapi: run find over a device scan 48d21ea7fd
+--[fa712d02_eb6ba86f] /COMMIT_MSG:144 by aireview
+(style) These two Fixes: lines sit in the middle of the body, with two more paragraphs after them, so tools that look for them in the trailer block may miss them. If the message is refreshed, please move them down to just above the Signed-off-by: lines:
+
+    Fixes: 6b8e97b76c47 ("LU-10378 utils: add formatted printf to lfs find")
+    Fixes: 186b97e68abb ("LU-11971 utils: Send file creation time to clients")
+
+--[1e2474be_2b6c6bbf] /COMMIT_MSG:155 by aireview
+(style) This isn't a bug, but this paragraph still reads as a changelog against an earlier patchset of this change, which was raised on PS17 as well. master has no llapi_find_device(), so "the caller's pointer came through and was answered with find's own demand mask" describes a bug that never existed outside this review. The same goes for "so it would otherwise be decided on a stx_size the scan never reported. The fix is Artem Blagodarenko's." a few lines up: the second Signed-off-by already carries the credit.
+
+If the message is refreshed, could these be reworded to state what the code does (e.g. "lfsp_got is not filled: it would report find's demand mask, not the caller's"), or dropped where the man page already says it?
+
+--[ac196834_d22b8344] lustre/utils/liblustreapi_pfind.c:3085 by aireview
+(minor) On a walk this is now the second identical call: cb_find_init() has already run find_lmv_rejects() with the same have_lmv, which equals the LLAPI_SCAN_LMV bit that scan_rec_mdt() sets. It's harmless, but it's extra work per directory and makes it look as if the walk depends on this call. If the patch is refreshed, consider limiting it to the callers that need it, e.g. `if (fc->fc_path == NULL && find_lmv_rejects(...))`.
+
+--[cc0ef9d2_27476a6b] lustre/utils/lustreapi_internal.h:592 by aireview
+(minor) Does LLAPI_SCAN_LMV_SHARD need widening to LLAPI_SCAN_LMV? For the device scanner, scan_want_xattr() already maps LMV_SHARD to the trusted.lmv read, so the widening adds nothing there.
+
+For llapi_scan_namespace(), which never reports a shard, it changes what the scan costs. A caller passing only LLAPI_SCAN_LMV_SHARD now gets LLAPI_SCAN_LMV, which is in LLAPI_SCAN_MDT_MASK. scan_rec_gather() then does the full getattr plus the LMV ioctl for every object, and lfsp_got reports LMV, which the caller never asked for. A caller that hands one mask to both scanners is the likely way to hit this.
+
+If the patch is refreshed, consider leaving LMV_SHARD out of scan_want_widen().
+
+======== 68160 PS37 LU-20611 lfs: find over a target, with --device 49b6a881b2
+--[02a10a46_6d2cda51] lustre/tests/conf-sanity.sh:13816 by aireview
+(minor) In the usual review-session cluster layout mds1 and ost1 are separate VMs, so this subtest will skip in every review session. That leaves two things with no CI coverage: a successful --local sweep over mounted targets (test_300a only runs --local after stopall, where it must fail), and lfs_find_device() skipping targets of the other type under --ost/--mdt (test_300a's --fsname --mdt run finds no OST on the mds1 node to skip).
+
+If the patch is refreshed, could the two halves run independently, each on its own facet, so neither needs a shared host? For example:
+
+    do_facet mds1 "$LFS find --local --mdt $mdtsvc --type f"
+    do_facet ost1 "$LFS find --local --ost $ostsvc --type f"
+
+with the shared-node cross-type check kept behind this skip. The per-target header only prints when the node serves more than one target, so the positive greps would need the same guard, or could check the exit status and that some FIDs came back.
+
+======== 68163 PS36 LU-20613 llapi: add a ZFS backend to llapi_scan_device() 5a6e2de780
+--[7bf7ed99_f24edadf] Documentation/man3/llapi_scan_device.3:568 by aireview
+(minor) scan_zfs_import() returns -EACCES here only for a caller that is not root:
+
+    if (lpch.lpc_open_access_error && geteuid() != 0)
+            return -EACCES;
+
+If root cannot read a device under the search path, it gets -ENOENT. If the patch is refreshed, could this sentence say "and the caller is not root" so the page matches the code?
+
+--[62de17d3_e446743a] lustre/tests/conf-sanity.sh:13674 by aireview
+(minor) In a build without plugins, does this skip all of test_300a rather than only its lfs find half?
+
+lfs does not link libscan_zfs_in.la, so `lfs find --target` gets -ENOTSUP from scan_backend_load_zfs() with no loader message. zfs_scan_unbuilt() then returns 0 because "device scan backend" is absent, and the test skips here, before stopall. The `$scanner -d $mdt1 -p $sdir` half never runs, but llapi_scan_device_test is the one program that does link the backend in that build (the weak slot plus -Wl,-u,scan_zfs_open).
+
+The commit message says "conf-sanity 300 skips its lfs find half on exactly that". Here the skip covers the whole test. If the patch is refreshed, could this branch record that lfs has no ZFS backend (or just carry on) and skip only the later lfs find --device checks, so the scanner half still runs?
+
+======== 68288 PS30 LU-20637 llapi: name a device scan's objects fac02ee959
+--[010bc2da_8d1a04ef] Documentation/man3/llapi_find_device.3:27 by aireview
+(minor) Once fp_paths or fp_fid2path_mnt is set, this no longer describes the output. A match is then printed as a pathname or counted as nameless, never as a FID or obj:N. NOTES says so further down, but this section and "a default search prints the first form and nothing else. Every record carries one or the other" still read as unconditional. If the page is refreshed, a sentence here pointing at the two fields would help. lfs-find.1 got the equivalent change.
+
+--[3592e59a_a2da22be] lustre/utils/liblustreapi_pfind.c:4951 by aireview
+(minor) Does this count only directories? scan_dirmap_filter() runs in sk_prefilter(), but both backends report an unreadable or implausible inode (LLAPI_SCAN_SKIP_IO, LLAPI_SCAN_SKIP_INVALID) through sk_skip() before sk_prefilter() is ever called. So scan_sink_skip() adds every such inode to the pre-pass ss_skipped, regular files included.
+
+One unreadable file inode therefore gives two warnings: the "1 of N objects were skipped" one just above, and this one, which says pathnames below it may be missing. That can't be true for a file.
+
+The pre-pass can't know the type of an inode it could not read, so if the patch is refreshed, consider rewording this. For example: "%llu objects could not be read while mapping directories; any that were directories leave the pathnames below them missing".
+
+======== 68415 PS29 LU-20649 llapi: add llapi_scan_changelog() 9fc081a113
+--[cc706da5_c17708f9] Documentation/man3/llapi_scan_changelog.3:305 by aireview
+(minor) Same point as in SCAN_CL_RESOLVE_MASK: there is no OST-object owner field in struct llapi_scan_rec yet, so this item in the list refers to nothing a reader of this release can find.
+
+--[8a0307fa_e005a11c] include/lustre/lustreapi.h:664 by aireview
+(minor) The new bits start at 0x0002000000000000 and skip 0x0000800000000000 and 0x0001000000000000. Nothing in this tree defines those two. As far as I can tell, LU-20611 "llapi: run find over a device scan" (LLAPI_SCAN_LMV_SHARD) and LU-20637 "llapi: name a device scan's objects" (LLAPI_SCAN_OWNER) claim them, and both sit later in the relation chain. If this lands first, should a short comment say the two bits are reserved, so nobody fills the gap in the meantime?
+
+--[19270dda_fa62847e] include/lustre/lustreapi.h:881 by aireview
+(style) This isn't a bug, but the edit leaves "continue the scan;" as a short line of its own. If the patch is refreshed, the paragraph could be reflowed.
+
+--[fa65a621_7109b0b7] include/lustre/lustreapi.h:1027 by aireview
+(style) This isn't a bug, but there are two blank lines after the llapi_scan_changelog() prototype, and one is enough.
+
+--[bf6ad7f2_1e6a8337] lustre/tests/sanity.sh:10907 by aireview
+(minor) "test9 filters on the server" isn't quite what happens. The MDS only answers the user's mask (MDS_GET_INFO with KEY_CHANGELOG_USER). The records are dropped on the client, in mdc's chlg_read_cb() via crs_user_mask, which is how the library comment and the man page describe it. If the patch is refreshed, maybe "test9 asks the MDS for the user's mask, with a key the MDS has only from 2.17.0".
+
+--[6e7bfba4_f341a114] lustre/utils/liblustreapi_scan_changelog.c:81 by aireview
+(minor) "an OST object's owner" names a field that struct llapi_scan_rec does not have in this tree. It seems to arrive with LLAPI_SCAN_OWNER later in the series. Until then a reader looking for it finds nothing. Could this mention, and the matching one in llapi_scan_changelog.3 under lfsc_got, move into the patch that adds the field?
+
+======== 68416 PS29 LU-20650 llapi: fill a scan record for one FID 31efedddc8
+--[e191222a_da091859] lustre/utils/liblustreapi_scan.c:811 by aireview
+(minor) llapi_scan_rec_path() isn't in the tree at this commit. It, and Documentation/man3/llapi_scan_rec_path.3, are added later in the chain by 68288 ("LU-20637 llapi: name a device scan's objects"). Still, this kernel-doc and these comments use it as the existing reference behaviour: the -EBADF choice here, the -EINVAL meaning at line 771, the hardlink ordering at line 724, the wrong-filesystem warning at line 762 and the optional mnt_path at line 819. llapi_scan_fid.3 cites it the same way in its RETURN VALUES and ERRORS sections.
+
+The change is submitted as a cherry-pick, so this can land before 68288. If it does, these rationales point at nothing. If the patch is refreshed, could the comparisons be stated on their own terms here, with the cross-references moved into 68288?
+
+======== 68417 PS22 LU-20650 lfs: add find --since, from the changelog 1a385c2abc
+--[4205536b_8b56e27e] /COMMIT_MSG:137 by aireview
+(nit) This says 160Aa's locals stay separate from the assignments that fill them, but two of them don't:
+
+    local hourago=$(($(date +%s) - 3600))
+    local stamp=$(date -d @$hourago +%Y-%m-%dT%H:%M:%S)
+
+Neither one wraps an lfs find, so the exit-status concern the sentence is about doesn't apply. If the patch is refreshed, either split them like the others or narrow the sentence to the lfs find captures.
+
+======== 68726 PS5 LU-20603 llapi: pull a scan's records in batches 12dc40155c
+--[43e4332a_1d7ecc36] include/lustre/lustreapi.h:730 by aireview
+(suggestion) This isn't a bug, but a public header is an odd place to name a static function inside liblustreapi_scan_batch.c. Application writers reading lustreapi.h can't act on it, and a library developer adding a field may not read this far. liblustreapi_scan.c already pins the record layout with static_assert(). A similar assert in liblustreapi_scan_batch.c would enforce the rule at build time. For example, it could assert offsetof(struct llapi_scan_rec, lfsr_event_uid) or sizeof(struct llapi_scan_rec) next to scan_batch_append(), with a comment saying any new pointer field must be copied there. Then a new field breaks the build in the file that has to change, and this header comment isn't needed.
+
+--[9954f2b7_fc17ba8b] lustre/tests/llapi_scan_test.c:1117 by aireview
+(minor) What happens if the helper thread wins the race? The main thread does pthread_create(), then clock_gettime(), then llapi_scan_next(). If it is descheduled for more than br_delay_ms (50ms) anywhere in that stretch, batch_second_next() gets into llapi_scan_next() first, sets sh_in_next, and blocks waiting for the slow filter. The main thread's call then returns -EBUSY, and this ASSERTF fails with "the slow scan's third batch failed: -16".
+
+That contradicts the comment above and the commit message ("an unreachable case is reported rather than failed"). On a loaded test VM this would show up as an intermittent 157c failure. When the roles are reversed, the guard is still exercised, so something like this could count that as a pass:
+
+    if (rc == -EBUSY && br.br_rc == 0)
+            /* the helper got in first; the guard refused us */
+    else
+            ASSERTF(rc >= 0, ...);
+

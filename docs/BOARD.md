@@ -6,6 +6,28 @@ the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
 
 ## 2026-10-10 day: CI triage + AI round on the 10-10 PS -- START HERE
 
+- **10-17 polling RESTARTED** (gpoll under Monitor, 25 min ticks).  The
+  10-14 fork patchsets finished testing overnight.  **Enforced failures:
+  17 sessions linked + retested (single):** sanity 160h "User cl10 not
+  registered" on dne-zfs-part-1 x5 (68157, 68158, 68417, 69443; control
+  69579 pfarrell same text 10-17) = LU-15566; 160h "cl11 index expected 30,
+  but is 31" (68163) = LU-20813; 160h-k GC-thread (69503) = LU-20884;
+  sanity-hsm 251/254b (68158, 69503) = LU-16932; sanityn 18 mmap (68159) =
+  LU-19532; sanity 230b "migrating remote dir to MDT0" (68160) = LU-15602
+  (MDT1 form); 413a/413b (68415, 69501) = LU-17601; sanity-quota 58 grant
+  LBUG (68415) = LU-20727; sanity 411b osd_write_commit PageLocked LBUG
+  (68418) = LU-19778; sanity-quota 2 (68419) = LU-15879; sanity-quota
+  3a/12a/13 (69500) = LU-18382 + LU-19908; sanityn cleanup d80b
+  migrate_dir (69502, 68156) = LU-9827.
+  **HELD, no ticket (told the user):** 68156 dne-zfs-part-5
+  lustre-rsync-test 2c "differences found" ("Only in .../clients", dbench;
+  LU-16489 Resolved, LU-11993 is rc=-2) -- sanityn half linked LU-9827 but
+  the session NOT retested; 68159 review-ldiskfs-ubuntu
+  lustre-initialization, `pdsh: mcmd: xpoll: protocol failure in circuit
+  setup` while mounting the client (infra; no open ticket).
+  **AI round on the 10-14 PS: 22 threads on 10 changes** (68156 1, 68158 2,
+  68159 4, 68160 1, 68163 2, 68288 2, 68415 6, 68416 1, 68417 1, 68726 2),
+  list in docs/rounds/a-1017/threads.txt; fix locally on ~/lfs-fork-1014.
 - **10-15 evening: polling RESTARTED.  adilger on 69728 PS1 (no vote):**
   prefers `--bandwidth` (-W, as lfs migrate/mirror resync) -- two
   patchset-level comments he resolved himself; 3 open: $SECONDS instead of
