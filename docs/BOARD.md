@@ -28,9 +28,9 @@ the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
   **AI round on the 10-14 PS: 22 threads on 10 changes** (68156 1, 68158 2,
   68159 4, 68160 1, 68163 2, 68288 2, 68415 6, 68416 1, 68417 1, 68726 2),
   list in docs/rounds/a-1017/threads.txt; fix locally on ~/lfs-fork-1014.
-  **FIXED LOCALLY, UNPUSHED (a1017):** 20 of 22 done via
+  **FIXED LOCALLY, UNPUSHED (a1017):** 20 of 22 done (+ 69501 PS8 msg thread 2019ab14, 13:36) via
   docs/rounds/a-1017/tx_*.py + forktx2.py (HAS288 = at/above 68288);
-  tips fork-1014 1e9ebbb9bd, 69501 a4c904106b, 69502 c6bcb54edd, 69503
+  tips fork-1014 1e9ebbb9bd, 69501 8cd1556e0d, 69502 c3eb100c7f, 69503
   e6e7bf8b53, 68726 eef7b949eb; backups a1017-pre-* (10-14 as pushed) and
   a1017-pass1-*.  Real defects: 68159 LMV_SHARD no longer widens to LMV
   (namespace scan paid getattr+LMV per object), 68726 test14 helper-wins
