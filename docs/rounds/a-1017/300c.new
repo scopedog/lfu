@@ -1,0 +1,76 @@
+test_300c() {
+	# ldiskfs only: a ZFS pool in use is refused
+	[[ "$mds1_FSTYPE" == ldiskfs && "$ost1_FSTYPE" == ldiskfs ]] ||
+		skip "ldiskfs only test"
+	remote_mds_nodsh && skip "remote MDS with nodsh"
+	(( MDS1_VERSION >= $(version_code 2.17.58) )) ||
+		skip "Need MDS >= 2.17.58 for lfs find --local"
+
+	local scan_err=$TMP/$tfile.scanerr
+	local scan_out=$TMP/$tfile.scanout
+
+	stack_trap "rm -f $scan_err $scan_out"
+	is_mounted $MOUNT || setup_noconfig
+	check_mount || error "check_mount failed"
+	# on mds1 and ost1, so both sweeps below have something to find
+	mkdir_on_mdt0 $DIR/$tdir || error "mkdir $tdir failed"
+	$LFS setstripe -i 0 -c 1 $DIR/$tdir || error "setstripe $tdir failed"
+	createmany -o $DIR/$tdir/$tfile- 10 || error "createmany failed"
+
+	local ostsvc=$(facet_svc ost1)
+	local mdtsvc=$(facet_svc mds1)
+
+	# a --local sweep of mounted targets, each on its own node
+	do_facet ost1 "$LFS find --local --ost $ostsvc --type f" \
+		> $scan_out 2> $scan_err || {
+		cat $scan_err
+		error "lfs find --local --ost $ostsvc failed on ost1"
+	}
+	[[ -s $scan_out ]] ||
+		error "lfs find --local --ost $ostsvc found nothing"
+	do_facet mds1 "$LFS find --local --mdt $mdtsvc --type f" \
+		> $scan_out 2> $scan_err || {
+		cat $scan_err
+		error "lfs find --local --mdt $mdtsvc failed on mds1"
+	}
+	[[ -s $scan_out ]] ||
+		error "lfs find --local --mdt $mdtsvc found nothing"
+
+	# and where one node serves both, --ost or --mdt skips the other type
+	[[ $(facet_active_host mds1) == $(facet_active_host ost1) ]] || {
+		echo "mds1 and ost1 are not on one node: no cross-type check"
+		return 0
+	}
+
+	do_facet mds1 "$LFS find --local --ost $ostsvc --type f" \
+		> /dev/null 2> $scan_err || {
+		cat $scan_err
+		error "lfs find --local --ost $ostsvc failed"
+	}
+	# the naming line is only printed when more than one target
+	# was swept, so assert the right one was read as well as that
+	# the wrong one was not -- otherwise an empty $scan_err
+	# passes both greps while checking nothing
+	grep -q -- "-OST" $scan_err || {
+		cat $scan_err
+		error "lfs find --local --ost $ostsvc did not read the OST"
+	}
+	grep -q -- "-MDT" $scan_err && {
+		cat $scan_err
+		error "lfs find --local --ost $ostsvc read an MDT"
+	}
+	do_facet mds1 "$LFS find --local --mdt $mdtsvc --type f" \
+		> /dev/null 2> $scan_err || {
+		cat $scan_err
+		error "lfs find --local --mdt $mdtsvc failed"
+	}
+	grep -q -- "-MDT" $scan_err || {
+		cat $scan_err
+		error "lfs find --local --mdt $mdtsvc did not read the MDT"
+	}
+	if grep -q -- "-OST" $scan_err; then
+		cat $scan_err
+		error "lfs find --local --mdt $mdtsvc read an OST"
+	fi
+}
+run_test 300c "lfs find --local --ost or --mdt reads only that type"

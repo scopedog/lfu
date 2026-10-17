@@ -28,6 +28,22 @@ the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
   **AI round on the 10-14 PS: 22 threads on 10 changes** (68156 1, 68158 2,
   68159 4, 68160 1, 68163 2, 68288 2, 68415 6, 68416 1, 68417 1, 68726 2),
   list in docs/rounds/a-1017/threads.txt; fix locally on ~/lfs-fork-1014.
+  **FIXED LOCALLY, UNPUSHED (a1017):** 20 of 22 done via
+  docs/rounds/a-1017/tx_*.py + forktx2.py (HAS288 = at/above 68288);
+  tips fork-1014 1e9ebbb9bd, 69501 a4c904106b, 69502 c6bcb54edd, 69503
+  e6e7bf8b53, 68726 eef7b949eb; backups a1017-pre-* (10-14 as pushed) and
+  a1017-pass1-*.  Real defects: 68159 LMV_SHARD no longer widens to LMV
+  (namespace scan paid getattr+LMV per object), 68726 test14 helper-wins
+  race (intermittent 157c), 68163 300a no-plugin skip covered the scanner
+  half, 68160 300c split per facet (skipped in every review session).
+  68159 ac196834 DECLINED (fc_path is set by --since too).  68726
+  43e4332a (sizeof static_assert) = USER DECISION, ties landing order
+  with 68288.  Sweep 18/18 (tests/lab-1017/00-sweep.log; the first sweep
+  caught 68160 needing lustreapi_internal.h back); checkpatch equal
+  except 68288 +2 pre-existing lines.  Replies drafted in
+  docs/rounds/a-1017/replies.md.  Lab (tests/lab-1017/06-all.sh on the
+  clone VM) and lreview of the 10 changed commits RUNNING.
+  69700/69728/69729 sit on the OLD 68160/68288 -- re-parent at push time.
 - **10-15 evening: polling RESTARTED.  adilger on 69728 PS1 (no vote):**
   prefers `--bandwidth` (-W, as lfs migrate/mirror resync) -- two
   patchset-level comments he resolved himself; 3 open: $SECONDS instead of
