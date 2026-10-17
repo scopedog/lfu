@@ -6,6 +6,15 @@ the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
 
 ## 2026-10-10 day: CI triage + AI round on the 10-10 PS -- START HERE
 
+- **10-17 ~16:00 PUSHED (user: "ok, push and post replies"):** the 18
+  of the tree, tags a1017-pushed-*: trunk f9034db8d7 (68156 PS37 ...
+  69500), 69501/69502 PS9 (ef203223ca), 69503 (cb22fe163b), 68726 PS6
+  (7c6733dfca).  26 replies posted on each thread's own PS, all 26
+  verified threaded + resolved (docs/rounds/a-1017/post_replies.py).
+  **NOT pushed:** 69700, 69728, 69729 still sit on the OLD 68160 PS37 /
+  68288 PS30 (outdated parent).  69728 respin owes $SECONDS x2 and the
+  RATE metavar (promised to adilger 10-16); --speed still unanswered.
+  Held lreview suggestions: docs/rounds/a-1017/lreview.md.
 - **10-17 polling RESTARTED** (gpoll under Monitor, 25 min ticks).  The
   10-14 fork patchsets finished testing overnight.  **Enforced failures:
   17 sessions linked + retested (single):** sanity 160h "User cl10 not
