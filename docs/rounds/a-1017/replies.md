@@ -30,4 +30,4 @@ only when declining).  Thread ids are the root comment ids.
 | 69502 | 3c794599_c46c0b3f | Done. |
 | 69502 | 86500a8b_90ecd953 | Done. |
 | 69502 | 94da9534_83ebfc3f | Done. |
-| 68726 | 43e4332a_1d7ecc36 | USER DECISION: a sizeof() static_assert in liblustreapi_scan_batch.c would fail the build of whichever of 68726 / 68288 (LLAPI_SCAN_OWNER grows the record) lands second. Right failure, but it ties landing order. |
+| 68726 | 43e4332a_1d7ecc36 | Agreed that the guard belongs in the code. Held until 68726 and 68288 are both on master: 68288 grows the record on another branch, so a sizeof() assert now would fail whichever lands second. The header note stays until then. |

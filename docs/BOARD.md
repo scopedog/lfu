@@ -37,8 +37,8 @@ the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
   race (intermittent 157c), 68163 300a no-plugin skip covered the scanner
   half, 68160 300c split per facet (skipped in every review session).
   68159 ac196834 DECLINED (fc_path is set by --since too).  68726
-  43e4332a (sizeof static_assert) = USER DECISION, ties landing order
-  with 68288.  Sweep 18/18 (tests/lab-1017/00-sweep.log; the first sweep
+  43e4332a (sizeof static_assert) DECLINED FOR NOW (user 10-17,
+  option 1): add it once 68726 and 68288 are both on master.  Sweep 18/18 (tests/lab-1017/00-sweep.log; the first sweep
   caught 68160 needing lustreapi_internal.h back); checkpatch equal
   except 68288 +2 pre-existing lines.  Replies drafted in
   docs/rounds/a-1017/replies.md.  **Lab GREEN** (tests/lab-1017/*.result.txt):
