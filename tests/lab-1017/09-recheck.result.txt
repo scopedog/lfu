@@ -1,0 +1,19 @@
+n3 (f9034db8d7) build: BUILD-OK
+/usr/lib64/lustre/tests/llapi_scan_changelog_test loads:  liblustreapi.so.1 => /tmp/arm1009n3/lib/liblustreapi.so.1 (0x00007f7d16b1f000)
+bound lfs is NEW's
+SANITY_RC=0
+PASS 24  FAIL 0  SKIP 0
+cleanup rc=0
+lustre-* fixtures untouched
+== end 2026-10-17 15:30:57
+SANITY RUN DONE
+n4 (7c6733dfca) build: BUILD-OK
+/usr/lib64/lustre/tests/llapi_scan_changelog_test loads:  liblustreapi.so.1 => /tmp/arm1009n4/lib/liblustreapi.so.1 (0x00007fc65d180000)
+bound lfs is NEW's
+SANITY_RC=0
+PASS 18  FAIL 0  SKIP 0
+cleanup rc=0
+lustre-* fixtures untouched
+== end 2026-10-17 15:32:39
+SANITY RUN DONE
+RECHECK DONE

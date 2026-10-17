@@ -52,7 +52,9 @@ the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
   -errno regression), 68288 hang claim DECLINED after a lab check (root
   open with MDT0000 down: 11 ms), 4 suggestions HELD for the user.
   Tips after pass 5: fork-1014 f9034db8d7, 69501 c04f587561, 69502
-  ef203223ca, 69503 cb22fe163b, 68726 7c6733dfca.  Sweep 18/18 again.
+  ef203223ca, 69503 cb22fe163b, 68726 7c6733dfca.  Sweep 18/18 again;
+  sanity scan list 24/0 at f9034db8d7 and 18/0 at 7c6733dfca. READY TO
+  ASK FOR THE PUSH (re-parent 69700/69728/69729 with it).
   69700/69728/69729 sit on the OLD 68160/68288 -- re-parent at push time.
 - **10-15 evening: polling RESTARTED.  adilger on 69728 PS1 (no vote):**
   prefers `--bandwidth` (-W, as lfs migrate/mirror resync) -- two
