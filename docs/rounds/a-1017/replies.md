@@ -27,4 +27,7 @@ only when declining).  Thread ids are the root comment ids.
 | 68417 | 4205536b_8b56e27e | Done. |
 | 68726 | 9954f2b7_fc17ba8b | Done. |
 | 69501 | 2019ab14_b1a379e6 | Done. |
+| 69502 | 3c794599_c46c0b3f | Done. |
+| 69502 | 86500a8b_90ecd953 | Done. |
+| 69502 | 94da9534_83ebfc3f | Done. |
 | 68726 | 43e4332a_1d7ecc36 | USER DECISION: a sizeof() static_assert in liblustreapi_scan_batch.c would fail the build of whichever of 68726 / 68288 (LLAPI_SCAN_OWNER grows the record) lands second. Right failure, but it ties landing order. |
