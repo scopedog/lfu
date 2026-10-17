@@ -14,6 +14,9 @@ the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
   **NOT pushed:** 69700, 69728, 69729 still sit on the OLD 68160 PS37 /
   68288 PS30 (outdated parent).  69728 respin owes $SECONDS x2 and the
   RATE metavar (promised to adilger 10-16); --speed still unanswered.
+  User 10-17: "wrt 69729, let's wait for Andreas' reply" -- HOLD until
+  adilger answers (asked the user whether 69728 was meant: the --speed
+  question is on 69728; 69729 is the IGIF root and has no open thread).
   Held lreview suggestions: docs/rounds/a-1017/lreview.md.
 - **10-17 polling RESTARTED** (gpoll under Monitor, 25 min ticks).  The
   10-14 fork patchsets finished testing overnight.  **Enforced failures:
