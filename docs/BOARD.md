@@ -6,6 +6,8 @@ the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
 
 ## 2026-10-10 day: CI triage + AI round on the 10-10 PS -- START HERE
 
+- **10-17 15:44 69728 PS1** dne-part-4 sanity-quota 12a/13 "dd failed" =
+  LU-19908; linked + retested.
 - **10-17 ~16:00 PUSHED (user: "ok, push and post replies"):** the 18
   of the tree, tags a1017-pushed-*: trunk f9034db8d7 (68156 PS37 ...
   69500), 69501/69502 PS9 (ef203223ca), 69503 (cb22fe163b), 68726 PS6
