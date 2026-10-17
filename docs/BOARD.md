@@ -15,7 +15,10 @@ the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
   68288 PS30 (outdated parent).  69728 respin owes $SECONDS x2 and the
   RATE metavar (promised to adilger 10-16); --speed still unanswered.
   User 10-17: HOLD 69728 (--max-rate / --speed) until adilger answers
-  ("69728, not 69729. The --speed one").
+  ("69728, not 69729. The --speed one").  69700 and 69729 re-parented
+  LOCALLY, unpushed: rate-1017 b0d98641fe on 68160 PS38 (fcbf2ccd31),
+  igif-1017 88eadd607f on 68288 PS31 (9cfddeaaf3); patch-ids identical to
+  the pushed PS, both build; lab (tests/lab-1017 10-reparent) running.
   Held lreview suggestions: docs/rounds/a-1017/lreview.md.
 - **10-17 polling RESTARTED** (gpoll under Monitor, 25 min ticks).  The
   10-14 fork patchsets finished testing overnight.  **Enforced failures:
