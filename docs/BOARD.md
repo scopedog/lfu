@@ -19,7 +19,7 @@ the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
   (68418) = LU-19778; sanity-quota 2 (68419) = LU-15879; sanity-quota
   3a/12a/13 (69500) = LU-18382 + LU-19908; sanityn cleanup d80b
   migrate_dir (69502, 68156) = LU-9827.
-  **HELD, no ticket (told the user):** 68156 dne-zfs-part-5
+  **HELD, no ticket -> RETESTED 10-17 (user: "just retest"; 68156 under LU-9827, 68159 under LU-20834, Maloo needs a ticket):** 68156 dne-zfs-part-5
   lustre-rsync-test 2c "differences found" ("Only in .../clients", dbench;
   LU-16489 Resolved, LU-11993 is rc=-2) -- sanityn half linked LU-9827 but
   the session NOT retested; 68159 review-ldiskfs-ubuntu
