@@ -14,7 +14,7 @@ the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
   adilger on 68726 PS6 (zero-copy? drop callback?): user DECIDED to
   ABANDON 68726 and design a new in-kernel API that fits LNet RDMA
   (caller buffer pinned as bulk target, flat records, accessors) for
-  2.19; user posts the reply.  PR 186 checked: no FFI, shells out to
+  2.19; reply POSTED by user, 68726 ABANDONED 10-17.  PR 186 checked: no FFI, shells out to
   lfs find -- nothing uses llapi_scan_next().  Owed static_assert note
   DROPPED.  Later: split test16 (lfsp_got) out as its own change.
   Keep 68726 in gpoll until adilger answers.
