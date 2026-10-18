@@ -10,7 +10,7 @@ the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
   node libtool (ltmain.sh missing), BUILD posted, now Verified+1.
   adilger on 69729 PS2: "read ROOT by name?" + man paragraph too long --
   user POSTED replies (cost argument; Done.).  Man trim LOCAL, unpushed:
-  igif-1017 54da857f6c (PS2 = tag a1017-69729-ps2); needs PS3.
+  igif-1017 a685db7d4a (PS2 = tag a1017-69729-ps2); needs PS3.
   adilger on 68726 PS6 (batch vs callback API, drop callback before
   2.18?) -- UNANSWERED, user's call.
 - **10-17 ~17:55 polling STOPPED (user).**  Last seen: Jenkins Verified+1

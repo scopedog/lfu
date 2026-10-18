@@ -2,7 +2,7 @@
 
 **POSTED by the user 10-17 evening** on PS2. The trim (54da857f6c) is still LOCAL: the "Done." needs PS3 to be true.
 
-Local: igif-1017 54da857f6c (man paragraph trimmed); PS2 = a1017-69729-ps2.
+Local: igif-1017 a685db7d4a (man paragraph trimmed); PS2 = a1017-69729-ps2.
 
 ## 5ad694d4 (change level) "Why not just read the ROOT/ inode directly by name at startup?"
 
