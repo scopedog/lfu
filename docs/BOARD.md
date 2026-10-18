@@ -11,8 +11,13 @@ the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
   adilger on 69729 PS2: "read ROOT by name?" + man paragraph too long --
   user POSTED replies (cost argument; Done.).  Man trim PUSHED as 69729 PS3 (tag a1017-pushed-69729-ps3):
   igif-1017 a9e9c7faf2 (PS2 = tag a1017-69729-ps2); lreview 1 low nit fixed.
-  adilger on 68726 PS6 (batch vs callback API, drop callback before
-  2.18?) -- UNANSWERED, user's call.
+  adilger on 68726 PS6 (zero-copy? drop callback?): user DECIDED to
+  ABANDON 68726 and design a new in-kernel API that fits LNet RDMA
+  (caller buffer pinned as bulk target, flat records, accessors) for
+  2.19; user posts the reply.  PR 186 checked: no FFI, shells out to
+  lfs find -- nothing uses llapi_scan_next().  Owed static_assert note
+  DROPPED.  Later: split test16 (lfsp_got) out as its own change.
+  Keep 68726 in gpoll until adilger answers.
 - **10-17 ~17:55 polling STOPPED (user).**  Last seen: Jenkins Verified+1
   on the new PS through 69500 (68156-68163, 68288, 68417-68419, 69443,
   69500); smatch clean; checkpatch counts unchanged from the previous PS.
