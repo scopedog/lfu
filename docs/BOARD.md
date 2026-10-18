@@ -6,6 +6,12 @@ the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
 
 ## 2026-10-10 day: CI triage + AI round on the 10-10 PS -- START HERE
 
+- **10-17 late: polling STOPPED (user: "leave it for tomorrow").**
+  Seen-state in gerrit-poll/seen.json.  Open for 10-18: 69729 PS3 CI
+  (Verified+1, smatch/checkpatch clean, Maloo pending); 69728 held for
+  adilger --speed, local fixes at maxrate-1017 (lreview owed at push);
+  RDMA design memo docs/local/rdma-scan-api.md to review (then Artem);
+  test16 (lfsp_got) split-out owed.  No lab instances running.
 - **10-17 night 69728 PS1 AI review (2):** both fixed LOCALLY,
   maxrate-1017 5ef08dee17 (~/lfs-maxrate-1015) re-parented on 69700 PS3:
   fp_max_rate takes fp_unused_u32 (struct size unchanged);
