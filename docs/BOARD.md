@@ -6,6 +6,13 @@ the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
 
 ## 2026-10-10 day: CI triage + AI round on the 10-10 PS -- START HERE
 
+- **10-17 night 69728 PS1 AI review (2):** both fixed LOCALLY,
+  maxrate-1017 5ef08dee17 (~/lfs-maxrate-1015) re-parented on 69700 PS3:
+  fp_max_rate takes fp_unused_u32 (struct size unchanged);
+  fp_max_rate_set so a walk refuses --max-rate 0 too (+ test).  Builds,
+  the four CLI cases checked, checkpatch clean.  No lreview yet (do it at
+  push time; --speed rename pending).  Replies: a-1017/replies-69728-ps1.md.
+  Maloo on 69728 PS1 now all passed (dne-part-4 retest Verified+1).
 - **10-17 evening polling RESTARTED.**  69700 PS3 el10.2 build failure =
   node libtool (ltmain.sh missing), BUILD posted, now Verified+1.
   adilger on 69729 PS2: "read ROOT by name?" + man paragraph too long --
