@@ -10,7 +10,8 @@ the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
   on the new PS through 69500 (68156-68163, 68288, 68417-68419, 69443,
   69500); smatch clean; checkpatch counts unchanged from the previous PS.
   No Maloo sessions or AI review on the 10-17 PS yet.  Seen-state in
-  gerrit-poll/seen.json.  69728 HELD for adilger (--speed).
+  gerrit-poll/seen.json.  69728 HELD for adilger (--speed).  Lab VM
+  rhel9.7-server-mgs-mds-clone shut down (idle, nothing mounted).
 - **10-17 15:44 69728 PS1** dne-part-4 sanity-quota 12a/13 "dd failed" =
   LU-19908; linked + retested.
 - **10-17 ~16:00 PUSHED (user: "ok, push and post replies"):** the 18
