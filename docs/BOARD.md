@@ -18,6 +18,11 @@ the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
   lfs find -- nothing uses llapi_scan_next().  Owed static_assert note
   DROPPED.  Later: split test16 (lfsp_got) out as its own change.
   Keep 68726 in gpoll until adilger answers.
+  10-17 night: time split measured (bench-data/2026-10-17: server
+  build 72% warm / 96% cold, client copies 3%); GCP lab DELETED.
+  Design memo docs/local/rdma-scan-api.md (local): slices with an end
+  + K in flight first, field selection/filter, pinned caller pages,
+  flat records + accessors last (wire format with Artem).
 - **10-17 ~17:55 polling STOPPED (user).**  Last seen: Jenkins Verified+1
   on the new PS through 69500 (68156-68163, 68288, 68417-68419, 69443,
   69500); smatch clean; checkpatch counts unchanged from the previous PS.
