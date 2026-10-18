@@ -1,0 +1,9 @@
+// client: time inside ptlrpc_queue_wait() (request out, server, bulk, reply)
+kprobe:ptlrpc_queue_wait /comm == "rsplit"/ { @s[tid] = nsecs; }
+kretprobe:ptlrpc_queue_wait /@s[tid]/ {
+	@qw_ns = sum(nsecs - @s[tid]); @qw_n = count(); delete(@s[tid]);
+}
+kprobe:mdc_iocontrol /comm == "rsplit"/ { @i[tid] = nsecs; }
+kretprobe:mdc_iocontrol /@i[tid]/ {
+	@mdc_ns = sum(nsecs - @i[tid]); @mdc_n = count(); delete(@i[tid]);
+}

@@ -1,0 +1,9 @@
+// server: the OBD_IDX_READ handler, and the record build inside it
+kprobe:tgt_obd_idx_read { @h[tid] = nsecs; }
+kretprobe:tgt_obd_idx_read /@h[tid]/ {
+	@handler_ns = sum(nsecs - @h[tid]); @handler_n = count(); delete(@h[tid]);
+}
+kprobe:dt_index_read { @b[tid] = nsecs; }
+kretprobe:dt_index_read /@b[tid]/ {
+	@build_ns = sum(nsecs - @b[tid]); @build_n = count(); delete(@b[tid]);
+}

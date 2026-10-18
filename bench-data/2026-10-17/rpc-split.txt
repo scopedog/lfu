@@ -1,0 +1,56 @@
+0
+== 2026-10-18T04:26:58+00:00 version 2.17.58_70_gc9903b6
+== net: 	Speed: 23000Mb/s mtu 1460
+raw cold 1 wall 4.2356 ioctl 4.2355 parse 0.0000 rpcs 206 pages 52636 recs 1000104 recbytes 0 ioctl_min_ms 3.056 ioctl_max_ms 29.364
+   cli: @mdc_n: 206 @mdc_ns: 4234210808 @qw_n: 206 @qw_ns: 4211192480 
+   srv: @build_n: 206 @build_ns: 4048365046 @handler_n: 206 @handler_ns: 4171567865 
+parse cold 1 wall 5.5207 ioctl 5.5130 parse 0.0057 rpcs 206 pages 52636 recs 1000104 recbytes 208017280 ioctl_min_ms 10.936 ioctl_max_ms 30.269
+scanone cold 1 wall 5.5745 1000017 rc=0
+raw warm 1 wall 0.7373 ioctl 0.7372 parse 0.0000 rpcs 206 pages 52636 recs 1000104 recbytes 0 ioctl_min_ms 2.415 ioctl_max_ms 5.018
+   cli: @mdc_n: 206 @mdc_ns: 736285244 @qw_n: 206 @qw_ns: 714195674 
+   srv: @build_n: 206 @build_ns: 581094397 @handler_n: 206 @handler_ns: 681274546 
+parse warm 1 wall 0.7355 ioctl 0.7284 parse 0.0051 rpcs 206 pages 52636 recs 1000104 recbytes 208017280 ioctl_min_ms 2.303 ioctl_max_ms 4.131
+scanone warm 1 wall 0.7965 1000017 rc=0
+raw cold 2 wall 5.5228 ioctl 5.5226 parse 0.0000 rpcs 206 pages 52636 recs 1000104 recbytes 0 ioctl_min_ms 11.508 ioctl_max_ms 31.141
+   cli: @mdc_n: 206 @mdc_ns: 5520982708 @qw_n: 206 @qw_ns: 5497251109 
+   srv: @build_n: 206 @build_ns: 5328148335 @handler_n: 206 @handler_ns: 5456286771 
+parse cold 2 wall 5.5187 ioctl 5.5110 parse 0.0057 rpcs 206 pages 52636 recs 1000104 recbytes 208017280 ioctl_min_ms 10.130 ioctl_max_ms 28.607
+scanone cold 2 wall 5.5765 1000017 rc=0
+raw warm 2 wall 0.7350 ioctl 0.7348 parse 0.0000 rpcs 206 pages 52636 recs 1000104 recbytes 0 ioctl_min_ms 2.365 ioctl_max_ms 4.675
+   cli: @mdc_n: 206 @mdc_ns: 733599038 @qw_n: 206 @qw_ns: 711620866 
+   srv: @build_n: 206 @build_ns: 580874056 @handler_n: 206 @handler_ns: 680555133 
+parse warm 2 wall 0.7351 ioctl 0.7275 parse 0.0056 rpcs 206 pages 52636 recs 1000104 recbytes 208017280 ioctl_min_ms 2.307 ioctl_max_ms 4.029
+scanone warm 2 wall 0.8027 1000017 rc=0
+raw cold 3 wall 5.5188 ioctl 5.5186 parse 0.0000 rpcs 206 pages 52636 recs 1000104 recbytes 0 ioctl_min_ms 10.488 ioctl_max_ms 49.633
+   cli: @mdc_n: 206 @mdc_ns: 5517148561 @qw_n: 206 @qw_ns: 5493305698 
+   srv: @build_n: 206 @build_ns: 5324137806 @handler_n: 206 @handler_ns: 5451784435 
+parse cold 3 wall 5.5207 ioctl 5.5133 parse 0.0054 rpcs 206 pages 52636 recs 1000104 recbytes 208017280 ioctl_min_ms 10.932 ioctl_max_ms 29.029
+scanone cold 3 wall 5.5763 1000017 rc=0
+raw warm 3 wall 0.7335 ioctl 0.7333 parse 0.0000 rpcs 206 pages 52636 recs 1000104 recbytes 0 ioctl_min_ms 2.319 ioctl_max_ms 4.902
+   cli: @mdc_n: 206 @mdc_ns: 732112587 @qw_n: 206 @qw_ns: 708366854 
+   srv: @build_n: 206 @build_ns: 576018587 @handler_n: 206 @handler_ns: 673316347 
+parse warm 3 wall 0.7414 ioctl 0.7336 parse 0.0058 rpcs 206 pages 52636 recs 1000104 recbytes 208017280 ioctl_min_ms 2.339 ioctl_max_ms 4.442
+scanone warm 3 wall 0.8049 1000017 rc=0
+raw cold 4 wall 5.5202 ioctl 5.5201 parse 0.0000 rpcs 206 pages 52636 recs 1000104 recbytes 0 ioctl_min_ms 11.647 ioctl_max_ms 28.570
+   cli: @mdc_n: 206 @mdc_ns: 5518750309 @qw_n: 206 @qw_ns: 5494271841 
+   srv: @build_n: 206 @build_ns: 5326578700 @handler_n: 206 @handler_ns: 5451441738 
+parse cold 4 wall 5.5215 ioctl 5.5142 parse 0.0053 rpcs 206 pages 52636 recs 1000104 recbytes 208017280 ioctl_min_ms 10.146 ioctl_max_ms 29.019
+scanone cold 4 wall 5.5713 1000017 rc=0
+raw warm 4 wall 0.7397 ioctl 0.7396 parse 0.0000 rpcs 206 pages 52636 recs 1000104 recbytes 0 ioctl_min_ms 2.344 ioctl_max_ms 4.893
+   cli: @mdc_n: 206 @mdc_ns: 738441372 @qw_n: 206 @qw_ns: 714820637 
+   srv: @build_n: 206 @build_ns: 580912868 @handler_n: 206 @handler_ns: 680497942 
+parse warm 4 wall 0.7367 ioctl 0.7295 parse 0.0053 rpcs 206 pages 52636 recs 1000104 recbytes 208017280 ioctl_min_ms 2.295 ioctl_max_ms 4.342
+scanone warm 4 wall 0.7977 1000017 rc=0
+raw cold 5 wall 5.5182 ioctl 5.5181 parse 0.0000 rpcs 206 pages 52636 recs 1000104 recbytes 0 ioctl_min_ms 10.627 ioctl_max_ms 32.353
+   cli: @mdc_n: 206 @mdc_ns: 5516680713 @qw_n: 206 @qw_ns: 5493160863 
+   srv: @build_n: 206 @build_ns: 5327647032 @handler_n: 206 @handler_ns: 5453382706 
+parse cold 5 wall 5.5287 ioctl 5.5211 parse 0.0056 rpcs 206 pages 52636 recs 1000104 recbytes 208017280 ioctl_min_ms 10.011 ioctl_max_ms 33.196
+scanone cold 5 wall 5.5745 1000017 rc=0
+raw warm 5 wall 0.7331 ioctl 0.7330 parse 0.0000 rpcs 206 pages 52636 recs 1000104 recbytes 0 ioctl_min_ms 2.315 ioctl_max_ms 5.115
+   cli: @mdc_n: 206 @mdc_ns: 731602155 @qw_n: 206 @qw_ns: 709015984 
+   srv: @build_n: 206 @build_ns: 577812001 @handler_n: 206 @handler_ns: 676941175 
+parse warm 5 wall 0.7397 ioctl 0.7323 parse 0.0055 rpcs 206 pages 52636 recs 1000104 recbytes 208017280 ioctl_min_ms 2.241 ioctl_max_ms 4.295
+scanone warm 5 wall 0.8028 1000017 rc=0
+SPLIT DONE
+
+[exited with code 0]
