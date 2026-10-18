@@ -9,8 +9,8 @@ the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
 - **10-17 evening polling RESTARTED.**  69700 PS3 el10.2 build failure =
   node libtool (ltmain.sh missing), BUILD posted, now Verified+1.
   adilger on 69729 PS2: "read ROOT by name?" + man paragraph too long --
-  user POSTED replies (cost argument; Done.).  Man trim LOCAL, unpushed:
-  igif-1017 a685db7d4a (PS2 = tag a1017-69729-ps2); needs PS3.
+  user POSTED replies (cost argument; Done.).  Man trim PUSHED as 69729 PS3 (tag a1017-pushed-69729-ps3):
+  igif-1017 a9e9c7faf2 (PS2 = tag a1017-69729-ps2); lreview 1 low nit fixed.
   adilger on 68726 PS6 (batch vs callback API, drop callback before
   2.18?) -- UNANSWERED, user's call.
 - **10-17 ~17:55 polling STOPPED (user).**  Last seen: Jenkins Verified+1

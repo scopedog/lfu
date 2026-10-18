@@ -1,6 +1,6 @@
 # 69729 PS2 -- adilger 10-17, replies for the next PS (held, not posted)
 
-**POSTED by the user 10-17 evening** on PS2. The trim (54da857f6c) is still LOCAL: the "Done." needs PS3 to be true.
+**POSTED by the user 10-17 evening** on PS2. Trim PUSHED as PS3 a9e9c7faf2 10-17.
 
 Local: igif-1017 a685db7d4a (man paragraph trimmed); PS2 = a1017-69729-ps2.
 
