@@ -1,0 +1,47 @@
+3ee121a15a -> b39fe0036b LU-20606 llapi: scan an ldiskfs target directly  tree +msg
+ab51ae86d5 -> b6965589b8 LU-20649 llapi: add llapi_scan_changelog()       tree
+e30c9f3e0d -> e110e04298 LU-20650 llapi: fill a scan record for one FID   tree
+cee2e73f90 -> 2c0c7b9d4c LU-20611 llapi: split cb_find_init's decider out tree
+b775d5bfc2 -> d31f2a614a LU-20611 lfs: share find's predicate parsing     tree
+086ddf4179 -> 8b702fb79d LU-20611 llapi: run find over a device scan      tree +msg
+2c56137a8a -> a819503be7 LU-20611 lfs: find over a target, with --device  tree +msg
+d571f6bc9d -> 17ddebfc30 LU-20613 llapi: add a ZFS backend to llapi_scan_ tree
+83f20c99e3 -> 79849a4d64 LU-20637 llapi: name a device scan's objects     tree +msg
+9535d530a4 -> c6c7d60d3d LU-20650 lfs: add find --since, from the changel tree
+30e906185a -> e15bd01ed1 LU-20650 lfs: add find --changelog, the log as s tree
+07b1fc5ddd -> 021f3bb0f0 LU-20650 lfs: add find --since-cookie, a per-MDT tree
+f1e075a834 -> 1ba8b15e45 LU-20650 lfs: find --since-cookie, check each MD tree
+8afc606951 -> b4279c1085 LU-20650 lfs: find --since, warn when the log wa tree
+32071ca21c -> 72eb151136 LU-20613 build: compile libscan_zfs.c as libzpoo tree
+f7d6d85424 -> d69322da98 LU-20650 llapi: pass FID and nlink to llapi_scan tree
+28edbfcf96 -> 936f796a67 LU-20650 lfs: filter find --since candidates bef tree
+77c70ab428 -> 5614d614c2 LU-20606 llapi: limit a scan's rate              tree
+8e2c7b2e2b -> daa5c651cd LU-20606 lfs: find --device --max-rate           tree
+f2ff082958 -> 98b7fb8720 LU-20637 llapi: find the root of an upgraded fil tree
+fork-1014 8afc606951 -> b4279c1085
+fork-69501 f7d6d85424 -> d69322da98
+fork-69502 28edbfcf96 -> 936f796a67
+fork-69503 32071ca21c -> 72eb151136
+rate-1017 77c70ab428 -> 5614d614c2
+igif-1017 f2ff082958 -> 98b7fb8720
+maxrate-1017 8e2c7b2e2b -> daa5c651cd
+HITS LU-20606 llapi: scan an ldiskfs target directly    A3-gi-pre A3-mk-pre A3-mk-pre2 A3-base:conf-sanity.sh A3-tool-rm A3-base:llapi_test_utils.c A3-base:llapi_test_utils.h A5 msg-m156-artem msg-m156-tests
+HITS LU-20649 llapi: add llapi_scan_changelog()         A3-gi-pre A3-mk-pre A3-mk-pre2 A3-base:conf-sanity.sh A3-tool-rm A3-base:llapi_test_utils.c A3-base:llapi_test_utils.h A5
+HITS LU-20650 llapi: fill a scan record for one FID     A3-gi-pre A3-mk-pre A3-mk-pre2 A3-base:conf-sanity.sh A3-tool-rm A3-base:llapi_test_utils.c A3-base:llapi_test_utils.h A5
+HITS LU-20611 llapi: split cb_find_init's decider out   A3-gi-pre A3-mk-pre A3-mk-pre2 A3-base:conf-sanity.sh A3-tool-rm A3-base:llapi_test_utils.c A3-base:llapi_test_utils.h A5
+HITS LU-20611 lfs: share find's predicate parsing       A3-gi-pre A3-mk-pre A3-mk-pre2 A3-base:conf-sanity.sh A3-tool-rm A3-base:llapi_test_utils.c A3-base:llapi_test_utils.h A5
+HITS LU-20611 llapi: run find over a device scan        A2-find1 A2-fd3 A3-gi-pre A3-mk-pre A3-mk-pre2 A3-base:conf-sanity.sh A3-tool-rm A3-base:llapi_test_utils.c A3-base:llapi_test_utils.h A2-56Ea A2-layout A2-layout-inc A2-letters A2-F A2-O A2-Ofile A2-Odir A2-helpers A2-want A5 A2-decl msg-m159-printf
+HITS LU-20611 lfs: find over a target, with --device    A2-find1 A2-find1-160 A2-fd3 A3-300a-locals A3-300a-striped A3-300a-loclient A3-300a-l160 A3-300b-loc160 A3-300a-lodev A3-300b-setup A3-300b-check160 A3-tool-hdr A3-tool-list160 A3-tool-usage160 A3-tool-main1 A3-tool-getopt160 A3-tool-main2 A3-tool-main3 A2-56Ea A2-layout A2-layout-inc A2-letters A2-F A2-O A2-Ofile A2-Odir A2-helpers A2-want A5 A2-decl msg-m160-tests
+HITS LU-20613 llapi: add a ZFS backend to llapi_scan_de A2-find1 A2-find1-160 A2-fd3 A3-mk163 A3-300a-locals A3-300a-striped A3-300a-loclient A3-300a-l163 A3-300b-loc163 A3-300a-lodev A3-300b-setup A3-300b-check163 A3-tool-hdr A3-tool-list163 A3-tool-usage163 A3-tool-main1 A3-tool-getopt163 A3-tool-main2 A3-tool-main3 A2-56Ea A2-layout A2-layout-inc A2-letters A2-F A2-O A2-Ofile A2-Odir A2-helpers A2-want A5 A2-decl
+HITS LU-20637 llapi: name a device scan's objects       A2-find1 A2-find1-288 A2-fd3 A2-fd3-288 A3-mk163 A3-300a-locals A3-300a-striped A3-300a-loclient A3-300a-l163 A3-300b-loc163 A3-300a-lodev A3-300b-setup A3-300b-check163 A3-tool-hdr A3-tool-list163 A3-tool-usage163 A3-tool-main1 A3-tool-getopt163 A3-tool-main2 A3-tool-main3 A2-56Ea A2-layout A2-layout-inc A2-letters A2-F A2-F288 A2-O A2-Ofile A2-Odir A2-helpers A2-want A2-want288 A5 A2-decl msg-m288-owner
+HITS LU-20650 lfs: add find --since, from the changelog A2-find1 A2-find1-288 A2-fd3 A2-fd3-288 A3-mk163 A3-300a-locals A3-300a-striped A3-300a-loclient A3-300a-l163 A3-300b-loc163 A3-300a-lodev A3-300b-setup A3-300b-check163 A3-tool-hdr A3-tool-list163 A3-tool-usage163 A3-tool-main1 A3-tool-getopt163 A3-tool-main2 A3-tool-main3 A2-56Ea A2-layout A2-layout-inc A2-letters A2-F A2-F288 A2-O A2-Ofile A2-Odir A2-helpers A2-want A2-want288 A5 A2-decl
+HITS LU-20650 lfs: add find --changelog, the log as sou A2-find1 A2-find1-288 A2-fd3 A2-fd3-288 A3-mk163 A3-300a-locals A3-300a-striped A3-300a-loclient A3-300a-l163 A3-300b-loc163 A3-300a-lodev A3-300b-setup A3-300b-check163 A3-tool-hdr A3-tool-list163 A3-tool-usage163 A3-tool-main1 A3-tool-getopt163 A3-tool-main2 A3-tool-main3 A2-56Ea A2-layout A2-layout-inc A2-letters A2-F A2-F288 A2-O A2-Ofile A2-Odir A2-helpers A2-want A2-want288 A5 A2-decl
+HITS LU-20650 lfs: add find --since-cookie, a per-MDT a A2-find1 A2-find1-288 A2-fd3 A2-fd3-288 A3-mk163 A3-300a-locals A3-300a-striped A3-300a-loclient A3-300a-l163 A3-300b-loc163 A3-300a-lodev A3-300b-setup A3-300b-check163 A3-tool-hdr A3-tool-list163 A3-tool-usage163 A3-tool-main1 A3-tool-getopt163 A3-tool-main2 A3-tool-main3 A2-56Ea A2-layout A2-layout-inc A2-letters A2-F A2-F288 A2-O A2-Ofile A2-Odir A2-helpers A2-want A2-want288 A5 A2-decl
+HITS LU-20650 lfs: find --since-cookie, check each MDT  A2-find1 A2-find1-288 A2-fd3 A2-fd3-288 A3-mk163 A3-300a-locals A3-300a-striped A3-300a-loclient A3-300a-l163 A3-300b-loc163 A3-300a-lodev A3-300b-setup A3-300b-check163 A3-tool-hdr A3-tool-list163 A3-tool-usage163 A3-tool-main1 A3-tool-getopt163 A3-tool-main2 A3-tool-main3 A2-56Ea A2-layout A2-layout-inc A2-letters A2-F A2-F288 A2-O A2-Ofile A2-Odir A2-helpers A2-want A2-want288 A5 A2-decl
+HITS LU-20650 lfs: find --since, warn when the log was  A2-find1 A2-find1-288 A2-fd3 A2-fd3-288 A3-mk163 A3-300a-locals A3-300a-striped A3-300a-loclient A3-300a-l163 A3-300b-loc163 A3-300a-lodev A3-300b-setup A3-300b-check163 A3-tool-hdr A3-tool-list163 A3-tool-usage163 A3-tool-main1 A3-tool-getopt163 A3-tool-main2 A3-tool-main3 A2-56Ea A2-layout A2-layout-inc A2-letters A2-F A2-F288 A2-O A2-Ofile A2-Odir A2-helpers A2-want A2-want288 A5 A2-decl
+HITS LU-20613 build: compile libscan_zfs.c as libzpool  A2-find1 A2-find1-160 A2-fd3 A3-mk163 A3-300a-locals A3-300a-striped A3-300a-loclient A3-300a-l163 A3-300b-loc163 A3-300a-lodev A3-300b-setup A3-300b-check163 A3-tool-hdr A3-tool-list163 A3-tool-usage163 A3-tool-main1 A3-tool-getopt163 A3-tool-main2 A3-tool-main3 A2-56Ea A2-layout A2-layout-inc A2-letters A2-F A2-O A2-Ofile A2-Odir A2-helpers A2-want A5 A2-decl
+HITS LU-20650 llapi: pass FID and nlink to llapi_scan_f A2-find1 A2-find1-288 A2-fd3 A2-fd3-288 A3-mk163 A3-300a-locals A3-300a-striped A3-300a-loclient A3-300a-l163 A3-300b-loc163 A3-300a-lodev A3-300b-setup A3-300b-check163 A3-tool-hdr A3-tool-list163 A3-tool-usage163 A3-tool-main1 A3-tool-getopt163 A3-tool-main2 A3-tool-main3 A2-56Ea A2-layout A2-layout-inc A2-letters A2-F A2-F288 A2-O A2-Ofile A2-Odir A2-helpers A2-want A2-want288 A5 A2-decl
+HITS LU-20650 lfs: filter find --since candidates befor A2-find1 A2-find1-288 A2-fd3 A2-fd3-288 A3-mk163 A3-300a-locals A3-300a-striped A3-300a-loclient A3-300a-l163 A3-300b-loc163 A3-300a-lodev A3-300b-setup A3-300b-check163 A3-tool-hdr A3-tool-list163 A3-tool-usage163 A3-tool-main1 A3-tool-getopt163 A3-tool-main2 A3-tool-main3 A2-56Ea A2-layout A2-layout-inc A2-letters A2-F A2-F288 A2-O A2-Ofile A2-Odir A2-helpers A2-want A2-want288 A5 A2-decl
+HITS LU-20606 llapi: limit a scan's rate                A2-find1 A2-find1-160 A2-fd3 A3-300a-locals A3-300a-striped A3-300a-loclient A3-300a-l160 A3-300b-loc160 A3-300a-lodev A3-300b-setup A3-300b-check160 A3-tool-hdr A3-tool-list160 A3-tool-usage160 A3-tool-main1 A3-tool-getopt160 A3-tool-main2 A3-tool-main3 A2-56Ea A2-layout A2-layout-inc A2-letters A2-F A2-O A2-Ofile A2-Odir A2-helpers A2-want A5 A2-decl
+HITS LU-20606 lfs: find --device --max-rate             A2-find1 A2-find1-160 A2-fd3 A3-300a-locals A3-300a-striped A3-300a-loclient A3-300a-l160 A3-300b-loc160 A3-300a-lodev A3-300b-setup A3-300b-check160 A3-tool-hdr A3-tool-list160 A3-tool-usage160 A3-tool-main1 A3-tool-getopt160 A3-tool-main2 A3-tool-main3 A2-56Ea A2-layout A2-layout-inc A2-letters A2-F A2-O A2-Ofile A2-Odir A2-helpers A2-want A5 A2-decl
+HITS LU-20637 llapi: find the root of an upgraded files A2-find1 A2-find1-288 A2-fd3 A2-fd3-288 A3-mk163 A3-300a-locals A3-300a-striped A3-300a-loclient A3-300a-l163 A3-300b-loc163 A3-300a-lodev A3-300b-setup A3-300b-check163 A3-tool-hdr A3-tool-list163 A3-tool-usage163 A3-tool-main1 A3-tool-getopt163 A3-tool-main2 A3-tool-main3 A2-56Ea A2-layout A2-layout-inc A2-letters A2-F A2-F288 A2-O A2-Ofile A2-Odir A2-helpers A2-want A2-want288 A5 A2-decl

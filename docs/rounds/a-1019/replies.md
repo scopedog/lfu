@@ -24,3 +24,12 @@ inline thread, so there is nothing to reply to or resolve. If a note is
 wanted on the next PS: "160Ac now has a DNE block (MDSCOUNT > 1): a file on
 MDT0001 moves only that MDT's anchor, and a --changelog MDT0001 run keeps
 MDT0000's line."
+
+## adilger 68156 (2026-10-19 21:03 UTC), drafts, NOT posted
+
+- a59a8bba_15a65561 (#A1): Done.
+- 4bbe6d43_25750cd3 (#A2): Done. -printf %LF on an OST object now prints the file's MDT FID from trusted.fid (in LU-20637, where the scan reads it), and nothing for an object no file owns yet. New %LO prints the OST object FIDs like %Lo: "[fid,fid]" per component on a walk or MDT scan, "[own fid]" on an OST scan. lfsr_fid stays the object's own FID.
+- 92f32c7a_a6060b9e (#A3): Done. conf-sanity 300a/300b and llapi_scan_device_test moved to the lfs find --device patch. The FID check now uses lfs find --device -printf; the tool only checks what lfs find cannot show (stats, threads, filter).
+- c2744717_0990f0e0 (#A4): Done.
+- 69637d7f_1669b4b7 (#A5): Done.
+- 4257d2cf_59026163 (#A6): no reply needed.

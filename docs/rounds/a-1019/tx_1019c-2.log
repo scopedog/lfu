@@ -1,0 +1,37 @@
+8b702fb79d -> 0751092444 LU-20611 llapi: run find over a device scan      tree
+a819503be7 -> ab2cf69fe0 LU-20611 lfs: find over a target, with --device  tree
+17ddebfc30 -> 48a6b6d5c9 LU-20613 llapi: add a ZFS backend to llapi_scan_ tree
+79849a4d64 -> 4e053e7953 LU-20637 llapi: name a device scan's objects     tree
+c6c7d60d3d -> a2d0f6e748 LU-20650 lfs: add find --since, from the changel tree
+e15bd01ed1 -> 68642f8f11 LU-20650 lfs: add find --changelog, the log as s tree
+021f3bb0f0 -> 1a0fba4fb3 LU-20650 lfs: add find --since-cookie, a per-MDT tree
+1ba8b15e45 -> 0cdde3c598 LU-20650 lfs: find --since-cookie, check each MD tree
+b4279c1085 -> 7b24dd3149 LU-20650 lfs: find --since, warn when the log wa tree
+72eb151136 -> 185bb93cf6 LU-20613 build: compile libscan_zfs.c as libzpoo tree
+d69322da98 -> 9ffadff6c0 LU-20650 llapi: pass FID and nlink to llapi_scan tree
+936f796a67 -> d973a4f179 LU-20650 lfs: filter find --since candidates bef tree
+5614d614c2 -> 7aac33ca4a LU-20606 llapi: limit a scan's rate              tree
+daa5c651cd -> 7d61eb12e0 LU-20606 lfs: find --device --max-rate           tree
+98b7fb8720 -> 56ea5cdf37 LU-20637 llapi: find the root of an upgraded fil tree
+fork-1014 b4279c1085 -> 7b24dd3149
+fork-69501 d69322da98 -> 9ffadff6c0
+fork-69502 936f796a67 -> d973a4f179
+fork-69503 72eb151136 -> 185bb93cf6
+rate-1017 5614d614c2 -> 7aac33ca4a
+igif-1017 98b7fb8720 -> 56ea5cdf37
+maxrate-1017 daa5c651cd -> 7d61eb12e0
+HITS LU-20611 llapi: run find over a device scan        A2-valid
+HITS LU-20611 lfs: find over a target, with --device    A2-valid
+HITS LU-20613 llapi: add a ZFS backend to llapi_scan_de A2-valid
+HITS LU-20637 llapi: name a device scan's objects       A2-valid
+HITS LU-20650 lfs: add find --since, from the changelog A2-valid
+HITS LU-20650 lfs: add find --changelog, the log as sou A2-valid
+HITS LU-20650 lfs: add find --since-cookie, a per-MDT a A2-valid
+HITS LU-20650 lfs: find --since-cookie, check each MDT  A2-valid
+HITS LU-20650 lfs: find --since, warn when the log was  A2-valid
+HITS LU-20613 build: compile libscan_zfs.c as libzpool  A2-valid
+HITS LU-20650 llapi: pass FID and nlink to llapi_scan_f A2-valid
+HITS LU-20650 lfs: filter find --since candidates befor A2-valid
+HITS LU-20606 llapi: limit a scan's rate                A2-valid
+HITS LU-20606 lfs: find --device --max-rate             A2-valid
+HITS LU-20637 llapi: find the root of an upgraded files A2-valid

@@ -33,7 +33,8 @@ FIND1 = 'Documentation/man1/lfs-find.1'
 FD3 = 'Documentation/man3/llapi_find_device.3'
 
 # files a commit may not change against master but that a transform reads
-ALWAYS = (FIND1, SAN)
+LA = 'lustre/utils/liblustreapi.c'
+ALWAYS = (FIND1, SAN, LA)
 
 
 def base(path):
@@ -256,6 +257,17 @@ int layout_ost_fid_get(const struct llapi_layout *layout,
 	return ostid_to_fid(fid, &obj->l_ost_oi, obj->l_ost_idx);
 }
 ''', lambda a: C159 in a))
+
+R.append(('A2-layout-inc', LAY,
+'''#include <linux/lustre/lustre_idl.h>
+''',
+'''#include <linux/lustre/lustre_idl.h>
+#include <linux/lustre/lustre_ostid.h>
+''', lambda a: C159 in a))
+
+R.append(('A2-valid', LA,
+'''	char *valid_fmt_lustre = "aAcFhioPpS";''',
+'''	char *valid_fmt_lustre = "aAcFhiOoPpS";''', lambda a: C159 in a))
 
 R.append(('A2-decl', IH,
 '''void layout_swab_lov_user_md(struct lov_user_md *lum, int lum_size);
@@ -502,11 +514,13 @@ r'''	$LFS find $DIR/$tdir -type f -printf "%LF\n" | sort > $file_fids
 	# and each file's OST object FIDs, which the MDT has in its layout;
 	# the striped file's are checked against lfs getstripe
 	$LFS find $DIR/$tdir -type f -printf "%LF %LO\n" | sort > $lo_fids
+	local sfid=$($LFS path2fid $DIR/$tdir/striped | tr -d '[]')
 	local ofids=$($LFS getstripe -y $DIR/$tdir/striped |
 		      awk '/l_fid:/ { printf "%s%s", s, $2; s = "," }')
 
-	grep -qxF -- "$($LFS path2fid $DIR/$tdir/striped | tr -d '[]') \
-[$ofids]" $lo_fids || error "%LO of striped is not [$ofids]"
+	[[ -n "$ofids" ]] || error "no OST objects for $DIR/$tdir/striped"
+	grep -qxF -- "$sfid [$ofids]" $lo_fids ||
+		error "%LO of striped is not [$ofids]: $(grep $sfid $lo_fids)"
 ''', None))
 
 # the -l list becomes lfs find --device -printf %LF (both forms)
@@ -640,7 +654,7 @@ def b_check(zfs):
                 'read from\n\t# its trusted.fid, and %LO the object itself')
     else:
         what = '# lfs find over the same OST: %LO is each object\'s own FID'
-    search = ' ${odir:+--search $odir}' if zfs else ''
+    search = ' \\\n\t\t\t${odir:+--search $odir}' if zfs else ''
     skip = ('''		[[ "$ost1_FSTYPE" == zfs ]] && zfs_scan_unbuilt $scan_err &&
 			skip "lfs has no zfs scan backend in this build"
 ''' if zfs else '')

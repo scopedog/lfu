@@ -1,0 +1,25 @@
+== b39fe0036b LU-20606 llapi: scan an ldiskfs target directly old=5 new=5
+== b6965589b8 LU-20649 llapi: add llapi_scan_changelog() old=5 new=5
+== e110e04298 LU-20650 llapi: fill a scan record for one FID old=3 new=3
+== 2c0c7b9d4c LU-20611 llapi: split cb_find_init's decider out old=0 new=0
+== d31f2a614a LU-20611 lfs: share find's predicate parsing old=15 new=15
+== 0751092444 LU-20611 llapi: run find over a device scan old=3 new=5
+3a4,5
+> WARNING: Non-standard section: BASH COMPLETION
+> WARNING: Option header for short opt only should be of the following format: .B[IR]? -SHORT_OPT [ARGS]
+== ab2cf69fe0 LU-20611 lfs: find over a target, with --device old=2 new=3
+0a1
+> WARNING: added, moved or deleted file(s), does MAINTAINERS need updating?
+== 48a6b6d5c9 LU-20613 llapi: add a ZFS backend to llapi_scan_d old=6 new=6
+== 4e053e7953 LU-20637 llapi: name a device scan's objects old=9 new=9
+== a2d0f6e748 LU-20650 lfs: add find --since, from the changelo old=4 new=4
+== 68642f8f11 LU-20650 lfs: add find --changelog, the log as so old=2 new=2
+== 1a0fba4fb3 LU-20650 lfs: add find --since-cookie, a per-MDT  old=2 new=2
+== 0cdde3c598 LU-20650 lfs: find --since-cookie, check each MDT old=2 new=2
+== 7b24dd3149 LU-20650 lfs: find --since, warn when the log was old=2 new=2
+== 9ffadff6c0 LU-20650 llapi: pass FID and nlink to llapi_scan_ old=1 new=1
+== d973a4f179 LU-20650 lfs: filter find --since candidates befo old=0 new=0
+== 185bb93cf6 LU-20613 build: compile libscan_zfs.c as libzpool old=0 new=0
+== 7aac33ca4a LU-20606 llapi: limit a scan's rate old=2 new=2
+== 7d61eb12e0 LU-20606 lfs: find --device --max-rate old=2 new=2
+== 56ea5cdf37 LU-20637 llapi: find the root of an upgraded file old=2 new=2

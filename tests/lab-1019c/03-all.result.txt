@@ -1,0 +1,71 @@
+##### lib=t script=t tag=t-300 ONLY=300a 300b
+== start 2026-10-19 15:13:27 lib=t (b4279c1085) script=t ONLY=300a 300b
+lfs loads:  liblustreapi.so.1 => /tmp/arm1019ct/lib/liblustreapi.so.1 (0x00007fb456b4e000)
+lib md5: 4eedc1deda77  plugin: scan_osd_ldiskfs.so
+CS_RC=0
+Writer error: failed to resolve Netlink family id
+Writer error: failed to resolve Netlink family id
+error: find: name one target, not 2
+error: find: --device given twice
+PASS 300a (36s)
+PASS 300b (23s)
+lfs find: warning: unrecognized format directive: '%LO'
+lfs find: warning: unrecognized format directive: '%LO'
+scanned 107 objects; found all 103 visible FIDs
+lfs find --type f found all 101 files
+lfs find: warning: unrecognized format directive: '%LO'
+lfs find: warning: unrecognized format directive: '%LO'
+== end 2026-10-19 15:15:23
+CONF RUN DONE
+##### lib=c script=c tag=c-300 ONLY=300a 300b
+== start 2026-10-19 15:15:23 lib=c (a819503be7) script=c ONLY=300a 300b
+lfs loads:  liblustreapi.so.1 => /tmp/arm1019cc/lib/liblustreapi.so.1 (0x00007fb02e9c5000)
+lib md5: 283f953d0576  plugin: scan_osd_ldiskfs.so
+CS_RC=0
+Writer error: failed to resolve Netlink family id
+Writer error: failed to resolve Netlink family id
+error: find: name one target, not 2
+error: find: --device given twice
+PASS 300a (41s)
+PASS 300b (18s)
+lfs find: warning: unrecognized format directive: '%LO'
+lfs find: warning: unrecognized format directive: '%LO'
+scanned 107 objects; found all 103 visible FIDs
+lfs find --type f found all 101 files
+lfs find: warning: unrecognized format directive: '%LO'
+lfs find: warning: unrecognized format directive: '%LO'
+== end 2026-10-19 15:17:26
+CONF RUN DONE
+##### lib=o script=t tag=o-300 ONLY=300a 300b
+== start 2026-10-19 15:17:26 lib=o (8afc606951) script=t ONLY=300a 300b
+lfs loads:  liblustreapi.so.1 => /tmp/arm1019co/lib/liblustreapi.so.1 (0x00007ff537149000)
+lib md5: 38478207daa4  plugin: scan_osd_ldiskfs.so
+CS_RC=1
+Writer error: failed to resolve Netlink family id
+Writer error: failed to resolve Netlink family id
+FAIL 300a (17s)
+lfs find: warning: unrecognized format directive: '%LO'
+lfs find: warning: unrecognized format directive: '%LO'
+ conf-sanity test_300a: @@@@@@ FAIL: %LO of striped is not [0x240000400:0x86:0x0]: 0x200000bd1:0x67:0x0 %LO 
+== end 2026-10-19 15:18:37
+CONF RUN DONE
+##### lib=t script=t tag=t-300r ONLY=300a 300b
+== start 2026-10-19 15:18:37 lib=t (b4279c1085) script=t ONLY=300a 300b
+lfs loads:  liblustreapi.so.1 => /tmp/arm1019ct/lib/liblustreapi.so.1 (0x00007f4f5512e000)
+lib md5: 4eedc1deda77  plugin: scan_osd_ldiskfs.so
+CS_RC=0
+Writer error: failed to resolve Netlink family id
+Writer error: failed to resolve Netlink family id
+error: find: name one target, not 2
+error: find: --device given twice
+PASS 300a (39s)
+PASS 300b (25s)
+lfs find: warning: unrecognized format directive: '%LO'
+lfs find: warning: unrecognized format directive: '%LO'
+scanned 107 objects; found all 103 visible FIDs
+lfs find --type f found all 101 files
+lfs find: warning: unrecognized format directive: '%LO'
+lfs find: warning: unrecognized format directive: '%LO'
+== end 2026-10-19 15:20:42
+CONF RUN DONE
+LAB 1019c DONE
