@@ -17,3 +17,10 @@ in this round (#1 #2 #5 #6 #7 #8 #9). #3 #4 #10 #11 #12 wait for the user.
 
 ## 68419
 - 11b505e3_37d86a3b (#9): Done.
+
+## 68419 (#10, PS24 patch-set message suggestion)
+No comment id: the suggestion is in the AI's patch-set message, not an
+inline thread, so there is nothing to reply to or resolve. If a note is
+wanted on the next PS: "160Ac now has a DNE block (MDSCOUNT > 1): a file on
+MDT0001 moves only that MDT's anchor, and a --changelog MDT0001 run keeps
+MDT0000's line."

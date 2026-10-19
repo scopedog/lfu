@@ -1,0 +1,41 @@
+== start 2026-10-19 14:45:00 m=ee61b3f6dd mf=6ea0abfcd9
+loaded version: [2.17.58_65_g8618869]
+enable_foreign_dir: 1
+foreign_symlink_enable: 0
+m lfs loads:  liblustreapi.so.1 => /tmp/arm1018m/lib/liblustreapi.so.1 (0x00007fe559aad000)  pfind.c md5 31e05384c3
+mf lfs loads:  liblustreapi.so.1 => /tmp/arm1018mf/lib/liblustreapi.so.1 (0x00007f51ea6ca000)  pfind.c md5 774721fd33
+-- fixture:
+   dir: lmv_stripe_count: 0 lmv_stripe_offset: 0 lmv_hash_type: none 
+   sdir: lmv_stripe_count: 2 lmv_stripe_offset: 0 lmv_hash_type: fnv_1a_64 mdtidx		 FID[seq:oid:ver]      0		 [0x200000400:0x2:0x0]		      1		 [0x240000401:0x2:0x0]		 
+   fdir_sym: lfm_value:     'cc8b5a4c-ff2f-4919-a6f7-87afd74b4eae.ds'  
+   fdir_none: lfm_value:     'cc8b5a4c-ff2f-4919-a6f7-87afd74b4eae.dn'  
+   file: /mnt/lfst/fn/file lmm_stripe_count:  1 lmm_stripe_size:   4194304 lmm_pattern:       raid0 
+   ffile_sym: lfm_value:     'cc8b5a4c-ff2f-4919-a6f7-87afd74b4eae.fs'  
+   ffile_none: lfm_value:     'cc8b5a4c-ff2f-4919-a6f7-87afd74b4eae.fn'  
+run1 m: lfs find $D --foreign  ->  [./ffile_none ./ffile_sym ./sdir]
+run1 m: lfs find $D --foreign=symlink  ->  [./ffile_sym]
+run1 m: lfs find $D --foreign=none  ->  [./ffile_none ./sdir]
+run1 m: lfs find $D ! --foreign  ->  [. ./dir ./fdir_none ./fdir_sym ./file]
+run1 m: lfs find $D ! --foreign=symlink  ->  [. ./dir ./ffile_none ./sdir]
+run1 m: lfs find $D ! --foreign=none  ->  [. ./dir ./ffile_sym]
+run1 mf: lfs find $D --foreign  ->  [./fdir_none ./fdir_sym ./ffile_none ./ffile_sym]
+run1 mf: lfs find $D --foreign=symlink  ->  [./fdir_sym ./ffile_sym]
+run1 mf: lfs find $D --foreign=none  ->  [./fdir_none ./ffile_none]
+run1 mf: lfs find $D ! --foreign  ->  [. ./dir ./file ./sdir]
+run1 mf: lfs find $D ! --foreign=symlink  ->  [. ./dir ./fdir_none ./ffile_none]
+run1 mf: lfs find $D ! --foreign=none  ->  [. ./dir ./fdir_sym ./ffile_sym]
+run2 m: lfs find $D --foreign  ->  [./ffile_none ./ffile_sym ./sdir]
+run2 m: lfs find $D --foreign=symlink  ->  [./ffile_sym]
+run2 m: lfs find $D --foreign=none  ->  [./ffile_none ./sdir]
+run2 m: lfs find $D ! --foreign  ->  [. ./dir ./fdir_none ./fdir_sym ./file]
+run2 m: lfs find $D ! --foreign=symlink  ->  [. ./dir ./ffile_none ./sdir]
+run2 m: lfs find $D ! --foreign=none  ->  [. ./dir ./ffile_sym]
+run2 mf: lfs find $D --foreign  ->  [./fdir_none ./fdir_sym ./ffile_none ./ffile_sym]
+run2 mf: lfs find $D --foreign=symlink  ->  [./fdir_sym ./ffile_sym]
+run2 mf: lfs find $D --foreign=none  ->  [./fdir_none ./ffile_none]
+run2 mf: lfs find $D ! --foreign  ->  [. ./dir ./file ./sdir]
+run2 mf: lfs find $D ! --foreign=symlink  ->  [. ./dir ./fdir_none ./ffile_none]
+run2 mf: lfs find $D ! --foreign=none  ->  [. ./dir ./fdir_sym ./ffile_sym]
+cleanup rc=0
+== end 2026-10-19 14:46:04
+FOREIGN-NEG DONE

@@ -1,0 +1,125 @@
+##### arm=t tag=t-ac2 MDSCOUNT=2 ONLY=160Ac
+== start 2026-10-19 14:53:01 arm=t (8afc606951) ONLY=160Ac MDSCOUNT=2
+loaded version: [2.17.58_65_g8618869]
+bound /tmp/lab1019b-t/lustre/tests/.libs/llapi_scan_test over /usr/lib64/lustre/tests/llapi_scan_test
+  llapi_scan_test ld.so:  liblustreapi.so.1 => /tmp/arm1019bt/lib/liblustreapi.so.1 (0x00007fcc4779c000)
+bound /tmp/lab1019b-t/lustre/tests/.libs/llapi_scan_changelog_test over /usr/lib64/lustre/tests/llapi_scan_changelog_test
+  llapi_scan_changelog_test ld.so:  liblustreapi.so.1 => /tmp/arm1019bt/lib/liblustreapi.so.1 (0x00007fd1a3eb1000)
+lfs ld.so:  liblustreapi.so.1 => /tmp/arm1019bt/lib/liblustreapi.so.1 (0x00007f3c51471000)
+arm lib md5: be814efc73f7
+SANITY_RC=0
+PASS 1  FAIL 0  SKIP 0
+PASS 160Ac (19s)
+cleanup rc=0
+== end 2026-10-19 14:54:27
+##### arm=x tag=x-ac2 MDSCOUNT=2 ONLY=160Ac
+== start 2026-10-19 14:54:27 arm=x (8afc606951+broken) ONLY=160Ac MDSCOUNT=2
+loaded version: [2.17.58_65_g8618869]
+bound /tmp/lab1019b-x/lustre/tests/.libs/llapi_scan_test over /usr/lib64/lustre/tests/llapi_scan_test
+  llapi_scan_test ld.so:  liblustreapi.so.1 => /tmp/arm1019bx/lib/liblustreapi.so.1 (0x00007f7f90e34000)
+bound /tmp/lab1019b-x/lustre/tests/.libs/llapi_scan_changelog_test over /usr/lib64/lustre/tests/llapi_scan_changelog_test
+  llapi_scan_changelog_test ld.so:  liblustreapi.so.1 => /tmp/arm1019bx/lib/liblustreapi.so.1 (0x00007f36cbd9f000)
+lfs ld.so:  liblustreapi.so.1 => /tmp/arm1019bx/lib/liblustreapi.so.1 (0x00007f8ef6d29000)
+arm lib md5: bcaef0bc5986
+SANITY_RC=1
+PASS 0  FAIL 2  SKIP 0
+FAIL 160Ac (19s)
+sanity: FAIL: test_160Ac the MDT0001 run moved MDT0000: # lfs find --since-cookie for lfst under /mnt/lfst/d160Ac.sanity
+cleanup rc=0
+== end 2026-10-19 14:55:54
+##### arm=a tag=a-ac2 MDSCOUNT=2 ONLY=160Ac
+== start 2026-10-19 14:55:54 arm=a (07b1fc5ddd) ONLY=160Ac MDSCOUNT=2
+loaded version: [2.17.58_65_g8618869]
+bound /tmp/lab1019b-a/lustre/tests/.libs/llapi_scan_test over /usr/lib64/lustre/tests/llapi_scan_test
+  llapi_scan_test ld.so:  liblustreapi.so.1 => /tmp/arm1019ba/lib/liblustreapi.so.1 (0x00007f0c8cc8e000)
+bound /tmp/lab1019b-a/lustre/tests/.libs/llapi_scan_changelog_test over /usr/lib64/lustre/tests/llapi_scan_changelog_test
+  llapi_scan_changelog_test ld.so:  liblustreapi.so.1 => /tmp/arm1019ba/lib/liblustreapi.so.1 (0x00007f4b59f6b000)
+lfs ld.so:  liblustreapi.so.1 => /tmp/arm1019ba/lib/liblustreapi.so.1 (0x00007fa39ce2b000)
+arm lib md5: 45b922da65cc
+SANITY_RC=0
+PASS 1  FAIL 0  SKIP 0
+PASS 160Ac (18s)
+cleanup rc=0
+== end 2026-10-19 14:57:34
+##### arm=x tag=x-ac2b MDSCOUNT=2 ONLY=160Ac
+== start 2026-10-19 14:57:34 arm=x (8afc606951+broken) ONLY=160Ac MDSCOUNT=2
+loaded version: [2.17.58_65_g8618869]
+bound /tmp/lab1019b-x/lustre/tests/.libs/llapi_scan_test over /usr/lib64/lustre/tests/llapi_scan_test
+  llapi_scan_test ld.so:  liblustreapi.so.1 => /tmp/arm1019bx/lib/liblustreapi.so.1 (0x00007f1c65e9d000)
+bound /tmp/lab1019b-x/lustre/tests/.libs/llapi_scan_changelog_test over /usr/lib64/lustre/tests/llapi_scan_changelog_test
+  llapi_scan_changelog_test ld.so:  liblustreapi.so.1 => /tmp/arm1019bx/lib/liblustreapi.so.1 (0x00007f1b07b4d000)
+lfs ld.so:  liblustreapi.so.1 => /tmp/arm1019bx/lib/liblustreapi.so.1 (0x00007fc9474c5000)
+arm lib md5: bcaef0bc5986
+SANITY_RC=1
+PASS 0  FAIL 2  SKIP 0
+FAIL 160Ac (19s)
+sanity: FAIL: test_160Ac the MDT0001 run moved MDT0000: # lfs find --since-cookie for lfst under /mnt/lfst/d160Ac.sanity
+cleanup rc=0
+== end 2026-10-19 14:59:05
+##### arm=t tag=t-ac2b MDSCOUNT=2 ONLY=160Ac
+== start 2026-10-19 14:59:05 arm=t (8afc606951) ONLY=160Ac MDSCOUNT=2
+loaded version: [2.17.58_65_g8618869]
+bound /tmp/lab1019b-t/lustre/tests/.libs/llapi_scan_test over /usr/lib64/lustre/tests/llapi_scan_test
+  llapi_scan_test ld.so:  liblustreapi.so.1 => /tmp/arm1019bt/lib/liblustreapi.so.1 (0x00007f240076c000)
+bound /tmp/lab1019b-t/lustre/tests/.libs/llapi_scan_changelog_test over /usr/lib64/lustre/tests/llapi_scan_changelog_test
+  llapi_scan_changelog_test ld.so:  liblustreapi.so.1 => /tmp/arm1019bt/lib/liblustreapi.so.1 (0x00007ff9353b8000)
+lfs ld.so:  liblustreapi.so.1 => /tmp/arm1019bt/lib/liblustreapi.so.1 (0x00007fd913316000)
+arm lib md5: be814efc73f7
+SANITY_RC=0
+PASS 1  FAIL 0  SKIP 0
+PASS 160Ac (19s)
+cleanup rc=0
+== end 2026-10-19 15:00:38
+##### arm=t tag=t-all2 MDSCOUNT=2 ONLY=160Aa 160Ab 160Ac 160Ad 160Ae 160Af
+== start 2026-10-19 15:00:38 arm=t (8afc606951) ONLY=160Aa 160Ab 160Ac 160Ad 160Ae 160Af MDSCOUNT=2
+loaded version: [2.17.58_65_g8618869]
+bound /tmp/lab1019b-t/lustre/tests/.libs/llapi_scan_test over /usr/lib64/lustre/tests/llapi_scan_test
+  llapi_scan_test ld.so:  liblustreapi.so.1 => /tmp/arm1019bt/lib/liblustreapi.so.1 (0x00007f7f779f6000)
+bound /tmp/lab1019b-t/lustre/tests/.libs/llapi_scan_changelog_test over /usr/lib64/lustre/tests/llapi_scan_changelog_test
+  llapi_scan_changelog_test ld.so:  liblustreapi.so.1 => /tmp/arm1019bt/lib/liblustreapi.so.1 (0x00007f6b74a74000)
+lfs ld.so:  liblustreapi.so.1 => /tmp/arm1019bt/lib/liblustreapi.so.1 (0x00007fbffe277000)
+arm lib md5: be814efc73f7
+SANITY_RC=0
+PASS 6  FAIL 0  SKIP 0
+PASS 160Aa (18s)
+PASS 160Ab (8s)
+PASS 160Ac (19s)
+PASS 160Ad (3s)
+PASS 160Ae (2s)
+PASS 160Af (3s)
+cleanup rc=0
+== end 2026-10-19 15:02:41
+##### arm=t tag=t-all1 MDSCOUNT=1 ONLY=160Aa 160Ab 160Ac 160Ad 160Ae 160Af
+== start 2026-10-19 15:02:41 arm=t (8afc606951) ONLY=160Aa 160Ab 160Ac 160Ad 160Ae 160Af MDSCOUNT=1
+loaded version: [2.17.58_65_g8618869]
+bound /tmp/lab1019b-t/lustre/tests/.libs/llapi_scan_test over /usr/lib64/lustre/tests/llapi_scan_test
+  llapi_scan_test ld.so:  liblustreapi.so.1 => /tmp/arm1019bt/lib/liblustreapi.so.1 (0x00007fe647300000)
+bound /tmp/lab1019b-t/lustre/tests/.libs/llapi_scan_changelog_test over /usr/lib64/lustre/tests/llapi_scan_changelog_test
+  llapi_scan_changelog_test ld.so:  liblustreapi.so.1 => /tmp/arm1019bt/lib/liblustreapi.so.1 (0x00007fb3682b0000)
+lfs ld.so:  liblustreapi.so.1 => /tmp/arm1019bt/lib/liblustreapi.so.1 (0x00007f707c607000)
+arm lib md5: be814efc73f7
+SANITY_RC=0
+PASS 6  FAIL 0  SKIP 0
+PASS 160Aa (18s)
+PASS 160Ab (8s)
+PASS 160Ac (15s)
+PASS 160Ad (2s)
+PASS 160Ae (3s)
+PASS 160Af (2s)
+cleanup rc=0
+== end 2026-10-19 15:04:28
+##### arm=a tag=a-ac1 MDSCOUNT=1 ONLY=160Ac
+== start 2026-10-19 15:04:28 arm=a (07b1fc5ddd) ONLY=160Ac MDSCOUNT=1
+loaded version: [2.17.58_65_g8618869]
+bound /tmp/lab1019b-a/lustre/tests/.libs/llapi_scan_test over /usr/lib64/lustre/tests/llapi_scan_test
+  llapi_scan_test ld.so:  liblustreapi.so.1 => /tmp/arm1019ba/lib/liblustreapi.so.1 (0x00007f654fafb000)
+bound /tmp/lab1019b-a/lustre/tests/.libs/llapi_scan_changelog_test over /usr/lib64/lustre/tests/llapi_scan_changelog_test
+  llapi_scan_changelog_test ld.so:  liblustreapi.so.1 => /tmp/arm1019ba/lib/liblustreapi.so.1 (0x00007f0986f2d000)
+lfs ld.so:  liblustreapi.so.1 => /tmp/arm1019ba/lib/liblustreapi.so.1 (0x00007fa3d56a1000)
+arm lib md5: 45b922da65cc
+SANITY_RC=0
+PASS 1  FAIL 0  SKIP 0
+PASS 160Ac (15s)
+cleanup rc=0
+== end 2026-10-19 15:05:38
+LAB 1019b DONE

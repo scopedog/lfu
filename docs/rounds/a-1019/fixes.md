@@ -91,3 +91,76 @@ test17 llapi_scan_fid). 56Ea..56El + 56Eea: 17/17 PASS.
 - lreview (not run, by instruction).
 - Nothing pushed, no replies posted. Drafts in replies.md.
 - docs/rounds/a-1019 and tests/lab-1019 are not committed to the lfu repo.
+
+---
+
+# #10 (68419 PS24, patch-set message): a DNE block in 160Ac (10-19 evening)
+
+User 10-19: do it this round. Applied LOCALLY, unpushed, backups i1019-<branch>
+(all seven branches tagged; only fork-1014 moved).
+
+## The AI's assumption, confirmed first (VM, MDSCOUNT=2, arm = fork-1014 ce898ad309)
+
+`tests/lab-1019b/11-dne-confirm.sh`, raw `11-dne-confirm.result.txt`. Cookie
+under /mnt/lfst, d0/e0 on MDT0000, m1/* on MDT0001 (`lfs mkdir -i 1`):
+
+    path run            -> lfst-MDT0000 1; lfst-MDT0001 2
+    touch e0, m1/e1
+    --changelog lfst-MDT0001 --since-cookie   -> prints m1/e1 only
+                        -> lfst-MDT0000 1; lfst-MDT0001 3   (MDT0000 line kept)
+    path run            -> prints e0 only; lfst-MDT0000 2; lfst-MDT0001 3
+
+So yes: a run that reads one MDT writes the other MDT's line back unchanged
+(find_cookie_write() folds `reached[]` into the `starts[]` it read, indexed by
+MDT number). One correction to the AI's sketch: `--changelog` on a subtree is
+refused ("names the filesystem, not a subtree; give /mnt/lfst, or add
+--resolve"), and the cookie is bound to its root, so the test's MDT0001 run
+is `lfs find $DIR/$tdir --changelog $FSNAME-MDT0001 --resolve --since-cookie`.
+That form was checked too: m1/d2 only, MDT0000 line kept.
+
+## The change (tx_1019b.py through forktx4.py, log forktx4b.log)
+
+68419 only: 160Ac gains `if (( MDSCOUNT > 1 ))` at its end, with its own
+cookie `$ck.dne`. A file on MDT0001 moves only MDT0001's line; a
+`--changelog MDT0001 --resolve` run returns only m1/d2 and leaves MDT0000's
+line as it was; the next path run returns d0 only. Commit message gains one
+paragraph saying so. The commit already carries `Test-Parameters: ...
+ONLY=160Ac mdscount=2 mdtcount=4`, so CI runs the block with no new session.
+The 1-MDT run is unchanged (no skip(): the rest of 160Ac still applies).
+
+| branch | before (i1019-*) | after |
+|---|---|---|
+| fork-1014 | ce898ad309 | **8afc606951** (68419 07b1fc5ddd, 69443 f1e075a834, 69500 8afc606951) |
+| fork-69501 / 69502 / 69503 | f7d6d85424 / 28edbfcf96 / 32071ca21c | unchanged (fork below 68419) |
+| rate-1017 / igif-1017 / maxrate-1017 | 77c70ab428 / f2ff082958 / 8e2c7b2e2b | unchanged (fork below 68419) |
+
+Checks: each new commit differs from its old one in lustre/tests/sanity.sh
+only (so the C build is the already-swept one); commit count 14 = 14;
+Change-Ids intact; transform idempotent on the new tree and message; build
+sweep 30e906185a..8afc606951 build=0 hdr=0 tests=0 sh=0 for all three
+(sweep-b.log); `bash -n` sanity.sh ok at each; checkpatch 68419 identical
+to before (0 errors, the two known man-page warnings; 1604 lines vs 1557),
+69443/69500 identical too; no new message line over 75 columns.
+
+## Lab (VM started 14:44, shut down ~15:06; modules 2.17.58_65_g8618869)
+
+`tests/lab-1019b/00-pack.sh .. 03-all.sh`, raw `03-all.result.txt`. Arms,
+userspace only, lfs RPATH to the arm's own lib (ld.so line in every run):
+
+| arm | commit | liblustreapi md5 |
+|---|---|---|
+| a | 68419 07b1fc5ddd | 45b922da65cc |
+| t | fork-1014 8afc606951 | be814efc73f7 |
+| x | t with one line broken: `starts[i] = reached[i];` for `starts[mdts[i]] = reached[i];` (position for MDT number) | bcaef0bc5986 |
+
+| run | MDSCOUNT | result |
+|---|---|---|
+| t 160Ac | 2 | PASS (twice, alternated with x) |
+| x 160Ac | 2 | **FAIL** twice: "the MDT0001 run moved MDT0000": cookie `MDT0000 2; MDT0001 1` |
+| a 160Ac | 2 | PASS |
+| t 160Aa-Af | 2 | 6/6 PASS |
+| t 160Aa-Af | 1 | 6/6 PASS |
+| a 160Ac | 1 | PASS |
+
+The x FAIL is also the proof that the block runs under MDSCOUNT=2 (same
+sanity.sh as t). Not done: lreview of the new 68419 (owed with the others).
