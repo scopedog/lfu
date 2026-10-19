@@ -1,0 +1,19 @@
+173609941f->294ae8f76b old=2 new=2 LU-20611 lfs: find over a target, with --device
+1d8a135f15->8530b4b78c old=15 new=15 LU-20611 lfs: share find's predicate parsing
+349200d1f3->a9325bba59 old=2 new=2 LU-20650 lfs: find --since-cookie, check each MD
+42a710b1a2->ebb261441e old=0 new=0 LU-20611 llapi: split cb_find_init's decider out
+42e87c3edd->eaa00c0b17 old=3 new=3 LU-20611 llapi: run find over a device scan
+4f34eaa891->62bd565110 old=2 new=2 LU-20606 lfs: find --device --max-rate
+70fe887ec9->62cdd0b157 old=6 new=6 LU-20613 llapi: add a ZFS backend to llapi_scan_
+7226f8e9c9->43cb2e0167 old=2 new=2 LU-20650 lfs: add find --changelog, the log as s
+75a9e281ee->08ad951a4f old=0 new=0 LU-20613 build: compile libscan_zfs.c as libzpoo
+80f74c85f8->d1688b30b0 old=5 new=5 LU-20649 llapi: add llapi_scan_changelog()
+8d3fa175b9->c6e3975286 old=4 new=4 LU-20650 lfs: add find --since, from the changel
+97fe968464->0798e095e9 old=9 new=9 LU-20637 llapi: name a device scan's objects
+9809c43c05->ee4609ee75 old=0 new=0 LU-20650 lfs: filter find --since candidates bef
+b933db95a4->8c31e38c34 old=0 new=0 LU-20637 llapi: find the root of an upgraded fil
+c052e2849b->6e240c6728 old=3 new=3 LU-20650 llapi: fill a scan record for one FID
+d3d136dd29->11fd879e26 old=1 new=1 LU-20650 llapi: pass FID and nlink to llapi_scan
+d9cc93e608->998c55bb90 old=2 new=2 LU-20650 lfs: find --since, warn when the log wa
+e7d922e474->8923d31cf4 old=2 new=2 LU-20650 lfs: add find --since-cookie, a per-MDT
+ffde81226e->4d35b0b1b0 old=2 new=2 LU-20606 llapi: limit a scan's rate

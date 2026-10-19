@@ -1,0 +1,53 @@
+== start 2026-10-18 17:09:35 PRED=[-mtime -1] EXTRA=0 NR=5
+loaded version: [2.17.58_65_g8618869]
+fixture: 100000 files, 101 dirs
+arm m lib md5 36f670ffc0c9
+arm pw lib md5 af701aa8c011
+== warm-up
+m w0 rc=0 wall=4.977 main_ticks(u s)=[22 170] lines=100101 md5=7878f63c lib=/tmp/lab1018-m/lustre/utils/.libs/liblustreapi.so.1.0.0 
+pw w1 rc=0 wall=4.767 main_ticks(u s)=[0 0] lines=100101 md5=7878f63c lib=/tmp/lab1018-pw/lustre/utils/.libs/liblustreapi.so.1.0.0 
+== cold (cold = mdc lock LRU cleared before each run)
+m cold-m-1 rc=0 wall=4.880 main_ticks(u s)=[24 186] lines=100101 md5=7878f63c lib=/tmp/lab1018-m/lustre/utils/.libs/liblustreapi.so.1.0.0 
+m cold-m-1 TIME wall=4.75 user=0.32 sys=4.11
+pw cold-pw-1 rc=0 wall=4.739 main_ticks(u s)=[] lines=100101 md5=7878f63c lib=/tmp/lab1018-pw/lustre/utils/.libs/liblustreapi.so.1.0.0 
+pw cold-pw-1 TIME wall=3.99 user=0.19 sys=3.06
+m cold-m-2 rc=0 wall=4.765 main_ticks(u s)=[22 164] lines=100101 md5=7878f63c lib=/tmp/lab1018-m/lustre/utils/.libs/liblustreapi.so.1.0.0 
+m cold-m-2 TIME wall=4.82 user=0.38 sys=4.16
+pw cold-pw-2 rc=0 wall=4.704 main_ticks(u s)=[0 0] lines=100101 md5=7878f63c lib=/tmp/lab1018-pw/lustre/utils/.libs/liblustreapi.so.1.0.0 
+pw cold-pw-2 TIME wall=4.05 user=0.23 sys=3.02
+m cold-m-3 rc=0 wall=4.814 main_ticks(u s)=[22 169] lines=100101 md5=7878f63c lib=/tmp/lab1018-m/lustre/utils/.libs/liblustreapi.so.1.0.0 
+m cold-m-3 TIME wall=4.85 user=0.40 sys=4.32
+pw cold-pw-3 rc=0 wall=4.705 main_ticks(u s)=[0 0] lines=100101 md5=7878f63c lib=/tmp/lab1018-pw/lustre/utils/.libs/liblustreapi.so.1.0.0 
+pw cold-pw-3 TIME wall=4.17 user=0.25 sys=3.12
+m cold-m-4 rc=0 wall=4.865 main_ticks(u s)=[20 175] lines=100101 md5=7878f63c lib=/tmp/lab1018-m/lustre/utils/.libs/liblustreapi.so.1.0.0 
+m cold-m-4 TIME wall=4.83 user=0.38 sys=4.31
+pw cold-pw-4 rc=0 wall=4.720 main_ticks(u s)=[0 0] lines=100101 md5=7878f63c lib=/tmp/lab1018-pw/lustre/utils/.libs/liblustreapi.so.1.0.0 
+pw cold-pw-4 TIME wall=4.09 user=0.20 sys=3.09
+m cold-m-5 rc=0 wall=4.779 main_ticks(u s)=[25 165] lines=100101 md5=7878f63c lib=/tmp/lab1018-m/lustre/utils/.libs/liblustreapi.so.1.0.0 
+m cold-m-5 TIME wall=4.87 user=0.38 sys=4.41
+pw cold-pw-5 rc=0 wall=4.779 main_ticks(u s)=[0 0] lines=100101 md5=7878f63c lib=/tmp/lab1018-pw/lustre/utils/.libs/liblustreapi.so.1.0.0 
+pw cold-pw-5 TIME wall=4.08 user=0.23 sys=3.03
+== warm (cold = mdc lock LRU cleared before each run)
+m warm-m-1 rc=0 wall=4.690 main_ticks(u s)=[20 151] lines=100101 md5=7878f63c lib=/tmp/lab1018-m/lustre/utils/.libs/liblustreapi.so.1.0.0 
+m warm-m-1 TIME wall=4.77 user=0.42 sys=4.20
+pw warm-pw-1 rc=0 wall=4.661 main_ticks(u s)=[0 0] lines=100101 md5=7878f63c lib=/tmp/lab1018-pw/lustre/utils/.libs/liblustreapi.so.1.0.0 
+pw warm-pw-1 TIME wall=3.98 user=0.20 sys=3.00
+m warm-m-2 rc=0 wall=4.761 main_ticks(u s)=[23 178] lines=100101 md5=7878f63c lib=/tmp/lab1018-m/lustre/utils/.libs/liblustreapi.so.1.0.0 
+m warm-m-2 TIME wall=4.74 user=0.40 sys=4.17
+pw warm-pw-2 rc=0 wall=4.681 main_ticks(u s)=[0 0] lines=100101 md5=7878f63c lib=/tmp/lab1018-pw/lustre/utils/.libs/liblustreapi.so.1.0.0 
+pw warm-pw-2 TIME wall=4.13 user=0.20 sys=2.82
+m warm-m-3 rc=0 wall=4.890 main_ticks(u s)=[21 167] lines=100101 md5=7878f63c lib=/tmp/lab1018-m/lustre/utils/.libs/liblustreapi.so.1.0.0 
+m warm-m-3 TIME wall=4.89 user=0.39 sys=4.26
+pw warm-pw-3 rc=0 wall=4.766 main_ticks(u s)=[0 0] lines=100101 md5=7878f63c lib=/tmp/lab1018-pw/lustre/utils/.libs/liblustreapi.so.1.0.0 
+pw warm-pw-3 TIME wall=4.28 user=0.16 sys=2.71
+m warm-m-4 rc=0 wall=4.852 main_ticks(u s)=[24 181] lines=100101 md5=7878f63c lib=/tmp/lab1018-m/lustre/utils/.libs/liblustreapi.so.1.0.0 
+m warm-m-4 TIME wall=4.86 user=0.39 sys=4.23
+pw warm-pw-4 rc=0 wall=4.799 main_ticks(u s)=[0 0] lines=100101 md5=7878f63c lib=/tmp/lab1018-pw/lustre/utils/.libs/liblustreapi.so.1.0.0 
+pw warm-pw-4 TIME wall=4.31 user=0.17 sys=2.70
+m warm-m-5 rc=0 wall=4.806 main_ticks(u s)=[19 165] lines=100101 md5=7878f63c lib=/tmp/lab1018-m/lustre/utils/.libs/liblustreapi.so.1.0.0 
+m warm-m-5 TIME wall=4.90 user=0.41 sys=4.31
+pw warm-pw-5 rc=0 wall=4.781 main_ticks(u s)=[0 0] lines=100101 md5=7878f63c lib=/tmp/lab1018-pw/lustre/utils/.libs/liblustreapi.so.1.0.0 
+pw warm-pw-5 TIME wall=4.39 user=0.17 sys=2.61
+cleanup rc=0
+== end 2026-10-18 17:14:23
+BENCH DONE

@@ -1,0 +1,41 @@
+Summary: lfs find --foreign gives the wrong answer for foreign and striped directories
+
+Component: utils (lfs, liblustreapi)
+Affects: 2.14.53 and later, master (ee61b3f6dd)
+
+{{find_check_foreign()}} in {{lustre/utils/liblustreapi_pfind.c}} tests a directory's LMV the wrong way round. A foreign directory is taken as not foreign, and a striped directory (whose LMV is not foreign) is taken as foreign. So {{lfs find --foreign}} skips foreign directories and prints striped ones, and {{lfs find ! --foreign}} does the opposite. Plain directories have no LMV and are decided earlier, so they come out right, which is likely why this was not seen. No test runs {{lfs find --foreign}}.
+
+The negation was lost in baba1fd07a ("LU-14489 utils: fix 'lfs find --mdt-count'"), which changed
+{noformat}
+if (lfm->lfm_magic != LMV_MAGIC_FOREIGN) {
+{noformat}
+to
+{noformat}
+if (lmv_is_foreign(lfm->lfm_magic)) {
+{noformat}
+The regular-file branch just above still has {{!= LOV_USER_MAGIC_FOREIGN}}.
+
+Reproducer (2 MDTs):
+{noformat}
+lfs mkdir -i 0 /mnt/lustre/fr
+lfs mkdir --foreign=none --xattr=$(uuidgen) --flags=0xda05 /mnt/lustre/fr/fdir
+lfs setstripe --foreign=none --xattr=$(uuidgen) --flags=0xda05 /mnt/lustre/fr/ffile
+lfs mkdir -c 2 /mnt/lustre/fr/sdir
+mkdir /mnt/lustre/fr/dir; touch /mnt/lustre/fr/file /mnt/lustre/fr/sdir/f
+{noformat}
+
+Stock master:
+{noformat}
+lfs find fr --foreign                  ->  ffile sdir
+lfs find fr ! --foreign                ->  . dir fdir file sdir/f
+lfs find fr --foreign=none -type d     ->  sdir
+{noformat}
+
+Expected (with the fix):
+{noformat}
+lfs find fr --foreign                  ->  fdir ffile
+lfs find fr ! --foreign                ->  . dir file sdir sdir/f
+lfs find fr --foreign=none -type d     ->  fdir
+{noformat}
+
+The fix restores the negation, {{!lmv_is_foreign(lfm->lfm_magic)}}, and adds sanity {{test_27Kf}}.

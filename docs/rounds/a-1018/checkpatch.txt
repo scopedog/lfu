@@ -1,0 +1,20 @@
+9a5ba1d20d LU-20606 llapi: scan an ldiskfs target dir old=5 new=5
+ab5b91126f LU-20649 llapi: add llapi_scan_changelog() old=5 new=5
+bacb6c3c8c LU-20650 llapi: fill a scan record for one old=3 new=3
+2b24c83ecc LU-20611 llapi: split cb_find_init's decid old=0 new=0
+eba27ca5dc LU-20611 lfs: share find's predicate parsi old=15 new=15
+9eb0237d62 LU-20611 llapi: run find over a device sca old=3 new=3
+fcbf2ccd31 LU-20611 lfs: find over a target, with --d old=2 new=2
+2ee402aae0 LU-20613 llapi: add a ZFS backend to llapi old=6 new=6
+9cfddeaaf3 LU-20637 llapi: name a device scan's objec old=8 new=9
+286c9a20fa LU-20650 lfs: add find --since, from the c old=4 new=4
+6a65c5f87e LU-20650 lfs: add find --changelog, the lo old=2 new=2
+c7440bf581 LU-20650 lfs: add find --since-cookie, a p old=2 new=2
+3a7bd23244 LU-20650 lfs: find --since-cookie, check e old=2 new=2
+f9034db8d7 LU-20650 lfs: find --since, warn when the  old=2 new=2 (rerun at d9cc93e608 below)
+cb22fe163b LU-20613 build: compile libscan_zfs.c as l old=0 new=0
+c04f587561 LU-20650 llapi: pass FID and nlink to llap old=1 new=1
+ef203223ca LU-20650 lfs: filter find --since candidat old=0 new=0
+a9e9c7faf2 LU-20637 llapi: find the root of an upgrad old=0 new=0
+b0d98641fe LU-20606 llapi: limit a scan's rate        old=2 new=2
+5ef08dee17 LU-20606 lfs: find --device --max-rate     old=2 new=2

@@ -1,0 +1,160 @@
+ 1:  4f2824972c =  1:  4f2824972c LU-20606 llapi: scan an ldiskfs target directly
+ 2:  80f74c85f8 !  2:  d1688b30b0 LU-20649 llapi: add llapi_scan_changelog()
+    @@ Commit message
+     
+         Flags:
+         - LLAPI_SCAN_CL_F_RESOLVE fills the object's own attributes through a
+    -      client mount: one O_PATH open by FID and a statx() per object. It
+    +      client mount: one O_PATH open by FID and a statx() or two per
+    +      object. It
+           fills only what the record lacks. The demand mask decides if the
+           lookup runs at all. It needs CAP_DAC_READ_SEARCH and is refused with
+           -EPERM without it. The project id, layout, LMV and HSM state are not
+    @@ Documentation/man3/llapi_scan_changelog.3 (new)
+     +credentials, so it says who acted and not who owns the object, which is what
+     +.I lfsr_stx.stx_uid
+     +means in every scanner that fills it. Only a resolve can answer the owner.
+    ++The
+    ++.I lfsr_name
+    ++of a
+    ++.B CL_MARK
+    ++record is the name of the MDT that wrote it.
+     +.LP
+     +A record has
+     +.B no
+ 3:  c052e2849b !  3:  6e240c6728 LU-20650 llapi: fill a scan record for one FID
+    @@ Documentation/man3/llapi_scan_fid.3 (new)
+     +.BR llapi_fid2path_at (3).
+     +.TP 15
+     +.B -EACCES
+    -+the object, if it is a directory, or else its parent could not be opened for
+    -+reading. Only a caller without
+    ++the object, or a directory on the way to it, could not be searched or opened.
+    ++A caller without
+     +.B CAP_DAC_READ_SEARCH
+    -+on a mount with
+    -+.B -o user_fid2path
+    -+meets this: the FID lookup itself checks no permission. A
+    -+.I lfsp_want
+    -+naming no field this call gathers opens nothing and is not affected.
+    ++(on a mount with
+    ++.BR "-o user_fid2path" ),
+    ++or root on a client with root squash, can meet this. The FID lookup itself
+    ++checks no permission.
+     +.TP 15
+     +.B -EBADF
+     +.I mnt_fd
+ 4:  42a710b1a2 =  4:  ebb261441e LU-20611 llapi: split cb_find_init's decider out
+ 5:  1d8a135f15 =  5:  8530b4b78c LU-20611 lfs: share find's predicate parsing
+ 6:  42e87c3edd =  6:  eaa00c0b17 LU-20611 llapi: run find over a device scan
+ 7:  173609941f =  7:  294ae8f76b LU-20611 lfs: find over a target, with --device
+ 8:  70fe887ec9 =  8:  62cdd0b157 LU-20613 llapi: add a ZFS backend to llapi_scan_device()
+ 9:  97fe968464 =  9:  0798e095e9 LU-20637 llapi: name a device scan's objects
+10:  8d3fa175b9 = 10:  c6e3975286 LU-20650 lfs: add find --since, from the changelog
+11:  7226f8e9c9 = 11:  43cb2e0167 LU-20650 lfs: add find --changelog, the log as source
+12:  e7d922e474 ! 12:  8923d31cf4 LU-20650 lfs: add find --since-cookie, a per-MDT anchor
+    @@ Documentation/man3/llapi_find_since.3: is NULL,
+     -names one of them.
+     +names one of them. Also for a cookie that is not a
+     +regular file (a symbolic link is not one), that was written for another
+    -+filesystem or another search root, or that has text in it but no line that
+    ++filesystem or another search root, that names no search root in its header,
+    ++or that has text in it but no line that
+     +.B lfs find
+    -+writes.
+    ++writes, and for an empty cookie name.
+      .IP
+      Two more belong to
+      .I fp_changelog_mdt
+13:  349200d1f3 <  -:  ---------- LU-20650 lfs: find --since-cookie, check each MDT when read
+ -:  ---------- > 13:  a9325bba59 LU-20650 lfs: find --since-cookie, check each MDT when read
+14:  d9cc93e608 ! 14:  998c55bb90 LU-20650 lfs: find --since, warn when the log was cleared
+    @@ Commit message
+         past the clear warns, for a time and for an index, and that a window
+         inside what the log holds does not.
+     
+    -    If the read of the oldest record fails, the run stops as it does
+    -    when the scan itself fails.
+    +    If the read of the oldest record fails, that MDT is not scanned, and
+    +    the run goes on and fails at the end, as when the scan itself fails.
+     
+         Signed-off-by: Hiroshi Nishida <hnishida@thelustrecollective.com>
+         Change-Id: I71daafd4258551afbe8b430e81b820d7a8c7137b
+    @@ lustre/utils/liblustreapi_pfind.c: static int find_cookie_purged(const char *mdt
+      	if (oldest == NULL)
+      		oldest = &first;
+     -	rc = find_cl_first(mdtname, 0, oldest);
+    ++	rc = find_cl_first(mdtname, 0, oldest, NULL);
+    + 	if (rc < 0)
+    + 		return rc;
+    + 	if (*oldest > anchor + 1) {
+    +@@ lustre/utils/liblustreapi_pfind.c: static int find_cookie_was_empty(const char *mdtname, const char *cookie,
+    + {
+    + 	int rc;
+    + 
+    +-	rc = find_cl_first(mdtname, 0, oldest);
+     +	rc = find_cl_first(mdtname, 0, oldest, NULL);
+      	if (rc < 0) {
+      		llapi_error(LLAPI_MSG_ERROR, rc,
+      			    "cannot read the changelog of '%s'", mdtname);
+    -@@ lustre/utils/liblustreapi_pfind.c: static int find_cookie_was_empty(const char *mdtname, const char *cookie)
+    - 	__u64 oldest;
+    - 	int rc;
+    +@@ lustre/utils/liblustreapi_pfind.c: static int find_cookie_recheck(const char *mdtname, __u64 anchor, __u64 seen,
+    + 	if (anchor != 0)
+    + 		return find_cookie_purged(mdtname, anchor, cookie, NULL);
+      
+     -	rc = find_cl_first(mdtname, 0, &oldest);
+     +	rc = find_cl_first(mdtname, 0, &oldest, NULL);
+    - 	if (rc < 0) {
+    - 		llapi_error(LLAPI_MSG_ERROR, rc,
+    - 			    "cannot read the changelog of '%s'", mdtname);
+    + 	if (rc < 0 || oldest == seen)
+    + 		return rc;
+    + 	llapi_error(LLAPI_MSG_ERROR | LLAPI_MSG_NO_ERRNO, -ESTALE,
+     @@ lustre/utils/liblustreapi_pfind.c: static int find_cookie_check(const char *fsname, const char *cookie,
+      		 * it.  Once the new log grows past the anchor this cannot be
+      		 * seen from indexes alone.
+    @@ lustre/utils/liblustreapi_pfind.c: static int find_cookie_check(const char *fsna
+      				llapi_error(LLAPI_MSG_ERROR, rc,
+      					    "cannot read the changelog of '%s'",
+     @@ lustre/utils/liblustreapi_pfind.c: int llapi_find_since(const char *path, struct find_param *param)
+    - 				break;
+    - 		}
+    + 		if (rc == -ESTALE)
+    + 			break;
+      
+    --		rc = llapi_scan_changelog(&sc, find_since_cand_cb, &st);
+    -+		rc = find_since_gap(param, st.fss_since, mdtname);
+     +		if (rc == 0)
+    -+			rc = llapi_scan_changelog(&sc, find_since_cand_cb,
+    -+						  &st);
+    - 		if (rc < 0) {
+    - 			llapi_error(LLAPI_MSG_ERROR, rc,
+    - 				    "cannot read the changelog of '%s'",
+    ++			rc = find_since_gap(param, st.fss_since, mdtname);
+    + 		if (rc == 0)
+    + 			rc = llapi_scan_changelog(&sc, find_since_cand_cb,
+    + 						  &st);
+### fork-69502
+1:  d3d136dd29 = 1:  11fd879e26 LU-20650 llapi: pass FID and nlink to llapi_scan_fid() filter
+2:  9809c43c05 = 2:  ee4609ee75 LU-20650 lfs: filter find --since candidates before the gather
+### fork-69503
+1:  75a9e281ee = 1:  08ad951a4f LU-20613 build: compile libscan_zfs.c as libzpool is built
+### maxrate-1017
+1:  ffde81226e = 1:  4d35b0b1b0 LU-20606 llapi: limit a scan's rate
+2:  4f34eaa891 = 2:  62bd565110 LU-20606 lfs: find --device --max-rate
+### igif-1017
+1:  b933db95a4 ! 1:  8c31e38c34 LU-20637 llapi: find the root of an upgraded filesystem
+    @@ lustre/utils/liblustreapi_pfind.c: static int find_device_cb(const struct llapi_
+     -	 * stopping at LU_ROOT_FID without a lookup.  An OST leaves the flag
+     -	 * clear, so --fid2path names its objects through the mount.
+     +	 * Built, not non-empty: an MDT other than MDT0000 whose files all
+    -+	 * sit in the filesystem root ends the pre-pass with dm_used == 0 --
+    -+	 * it has no directory with a linkea -- and composing still answers,
+    ++	 * sit in the filesystem root usually ends the pre-pass with
+    ++	 * dm_used == 0 (no directory with a linkea, unless LFSCK made
+    ++	 * lost+found/MDT000N there), and composing still answers,
+     +	 * scan_dirmap_path() stopping at LU_ROOT_FID without a lookup.  An
+     +	 * OST leaves the flag clear, so --fid2path names its objects through
+     +	 * the mount.

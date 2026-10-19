@@ -1,0 +1,5 @@
+  pw (18be8e2356) make -k errors in: libmount_utils_zfs.c mount_utils.h 
+-rwxr-xr-x. 1 nishida nishida  719040 17:07:03 /tmp/lab1018-pw/lustre/utils/.libs/lfs
+-rwxr-xr-x. 1 nishida nishida 1179280 17:07:03 /tmp/lab1018-pw/lustre/utils/.libs/liblustreapi.so.1.0.0
+ 0x000000000000000f (RPATH)              Library rpath: [/tmp/arm1018pw/lib]
+BUILD-OK

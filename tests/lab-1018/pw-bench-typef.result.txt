@@ -1,0 +1,108 @@
+== start 2026-10-18 17:07:35
+loaded version: [2.17.58_65_g8618869]
+fixture: 100000 files, 101 dirs
+arm m lib md5 36f670ffc0c9
+arm pw lib md5 af701aa8c011
+== warm-up
+m w0 rc=0 wall=0.242 main_ticks(u s)=[3 18] lines=100000 md5=732bd3d7 lib=/tmp/lab1018-m/lustre/utils/.libs/liblustreapi.so.1.0.0 
+pw w1 rc=0 wall=0.242 main_ticks(u s)=[0 0] lines=100000 md5=732bd3d7 lib=/tmp/lab1018-pw/lustre/utils/.libs/liblustreapi.so.1.0.0 
+== cold (cold = mdc lock LRU cleared before each run)
+m cold-m-1 rc=0 wall=0.264 main_ticks(u s)=[2 17] lines=100000 md5=732bd3d7 lib=/tmp/lab1018-m/lustre/utils/.libs/liblustreapi.so.1.0.0 
+m cold-m-1 TIME wall=0.24 user=0.07 sys=0.49
+pw cold-pw-1 rc=0 wall=0.251 main_ticks(u s)=[0 0] lines=100000 md5=732bd3d7 lib=/tmp/lab1018-pw/lustre/utils/.libs/liblustreapi.so.1.0.0 
+pw cold-pw-1 TIME wall=0.26 user=0.05 sys=0.34
+m cold-m-2 rc=0 wall=0.299 main_ticks(u s)=[3 20] lines=100000 md5=732bd3d7 lib=/tmp/lab1018-m/lustre/utils/.libs/liblustreapi.so.1.0.0 
+m cold-m-2 TIME wall=0.23 user=0.06 sys=0.48
+pw cold-pw-2 rc=0 wall=0.253 main_ticks(u s)=[0 0] lines=100000 md5=732bd3d7 lib=/tmp/lab1018-pw/lustre/utils/.libs/liblustreapi.so.1.0.0 
+pw cold-pw-2 TIME wall=0.25 user=0.03 sys=0.31
+m cold-m-3 rc=0 wall=0.253 main_ticks(u s)=[3 16] lines=100000 md5=732bd3d7 lib=/tmp/lab1018-m/lustre/utils/.libs/liblustreapi.so.1.0.0 
+m cold-m-3 TIME wall=0.24 user=0.08 sys=0.48
+pw cold-pw-3 rc=0 wall=0.248 main_ticks(u s)=[0 0] lines=100000 md5=732bd3d7 lib=/tmp/lab1018-pw/lustre/utils/.libs/liblustreapi.so.1.0.0 
+pw cold-pw-3 TIME wall=0.24 user=0.05 sys=0.30
+m cold-m-4 rc=0 wall=0.249 main_ticks(u s)=[2 15] lines=100000 md5=732bd3d7 lib=/tmp/lab1018-m/lustre/utils/.libs/liblustreapi.so.1.0.0 
+m cold-m-4 TIME wall=0.23 user=0.07 sys=0.45
+pw cold-pw-4 rc=0 wall=0.254 main_ticks(u s)=[0 0] lines=100000 md5=732bd3d7 lib=/tmp/lab1018-pw/lustre/utils/.libs/liblustreapi.so.1.0.0 
+pw cold-pw-4 TIME wall=0.24 user=0.03 sys=0.31
+m cold-m-5 rc=0 wall=0.251 main_ticks(u s)=[3 17] lines=100000 md5=732bd3d7 lib=/tmp/lab1018-m/lustre/utils/.libs/liblustreapi.so.1.0.0 
+m cold-m-5 TIME wall=0.23 user=0.06 sys=0.47
+pw cold-pw-5 rc=0 wall=0.267 main_ticks(u s)=[0 0] lines=100000 md5=732bd3d7 lib=/tmp/lab1018-pw/lustre/utils/.libs/liblustreapi.so.1.0.0 
+pw cold-pw-5 TIME wall=0.23 user=0.05 sys=0.29
+m cold-m-6 rc=0 wall=0.266 main_ticks(u s)=[3 19] lines=100000 md5=732bd3d7 lib=/tmp/lab1018-m/lustre/utils/.libs/liblustreapi.so.1.0.0 
+m cold-m-6 TIME wall=0.27 user=0.07 sys=0.54
+pw cold-pw-6 rc=0 wall=0.253 main_ticks(u s)=[0 0] lines=100000 md5=732bd3d7 lib=/tmp/lab1018-pw/lustre/utils/.libs/liblustreapi.so.1.0.0 
+pw cold-pw-6 TIME wall=0.24 user=0.03 sys=0.33
+== warm (cold = mdc lock LRU cleared before each run)
+m warm-m-1 rc=0 wall=0.232 main_ticks(u s)=[] lines=100000 md5=732bd3d7 lib=/tmp/lab1018-m/lustre/utils/.libs/liblustreapi.so.1.0.0 
+m warm-m-1 TIME wall=0.22 user=0.08 sys=0.45
+pw warm-pw-1 rc=0 wall=0.256 main_ticks(u s)=[0 0] lines=100000 md5=732bd3d7 lib=/tmp/lab1018-pw/lustre/utils/.libs/liblustreapi.so.1.0.0 
+pw warm-pw-1 TIME wall=0.23 user=0.04 sys=0.33
+m warm-m-2 rc=0 wall=0.254 main_ticks(u s)=[2 19] lines=100000 md5=732bd3d7 lib=/tmp/lab1018-m/lustre/utils/.libs/liblustreapi.so.1.0.0 
+m warm-m-2 TIME wall=0.23 user=0.06 sys=0.38
+pw warm-pw-2 rc=0 wall=0.255 main_ticks(u s)=[0 0] lines=100000 md5=732bd3d7 lib=/tmp/lab1018-pw/lustre/utils/.libs/liblustreapi.so.1.0.0 
+pw warm-pw-2 TIME wall=0.23 user=0.05 sys=0.30
+m warm-m-3 rc=0 wall=0.267 main_ticks(u s)=[2 20] lines=100000 md5=732bd3d7 lib=/tmp/lab1018-m/lustre/utils/.libs/liblustreapi.so.1.0.0 
+m warm-m-3 TIME wall=0.22 user=0.05 sys=0.43
+pw warm-pw-3 rc=0 wall=0.254 main_ticks(u s)=[0 0] lines=100000 md5=732bd3d7 lib=/tmp/lab1018-pw/lustre/utils/.libs/liblustreapi.so.1.0.0 
+pw warm-pw-3 TIME wall=0.23 user=0.05 sys=0.32
+m warm-m-4 rc=0 wall=0.243 main_ticks(u s)=[2 17] lines=100000 md5=732bd3d7 lib=/tmp/lab1018-m/lustre/utils/.libs/liblustreapi.so.1.0.0 
+m warm-m-4 TIME wall=0.21 user=0.07 sys=0.44
+pw warm-pw-4 rc=0 wall=0.247 main_ticks(u s)=[0 0] lines=100000 md5=732bd3d7 lib=/tmp/lab1018-pw/lustre/utils/.libs/liblustreapi.so.1.0.0 
+pw warm-pw-4 TIME wall=0.24 user=0.04 sys=0.31
+m warm-m-5 rc=0 wall=0.252 main_ticks(u s)=[3 17] lines=100000 md5=732bd3d7 lib=/tmp/lab1018-m/lustre/utils/.libs/liblustreapi.so.1.0.0 
+m warm-m-5 TIME wall=0.22 user=0.07 sys=0.45
+pw warm-pw-5 rc=0 wall=0.252 main_ticks(u s)=[0 0] lines=100000 md5=732bd3d7 lib=/tmp/lab1018-pw/lustre/utils/.libs/liblustreapi.so.1.0.0 
+pw warm-pw-5 TIME wall=0.23 user=0.04 sys=0.33
+m warm-m-6 rc=0 wall=0.256 main_ticks(u s)=[2 17] lines=100000 md5=732bd3d7 lib=/tmp/lab1018-m/lustre/utils/.libs/liblustreapi.so.1.0.0 
+m warm-m-6 TIME wall=0.22 user=0.08 sys=0.43
+pw warm-pw-6 rc=0 wall=0.258 main_ticks(u s)=[0 0] lines=100000 md5=732bd3d7 lib=/tmp/lab1018-pw/lustre/utils/.libs/liblustreapi.so.1.0.0 
+pw warm-pw-6 TIME wall=0.24 user=0.06 sys=0.31
+== shutdown path (LLAPI_FAIL_PFIND_SEM)
+m fail-m-1 rc=5 wall=0.061 main_ticks(u s)=[] lines=1263 md5=e72e433c lib=
+   err: lfs: failed for '/mnt/lfst/pw': Input/output error 
+pw fail-pw-1 rc=5 wall=0.061 main_ticks(u s)=[] lines=993 md5=6ea7ca1d lib=
+   err: lfs: failed for '/mnt/lfst/pw': Input/output error 
+m fail-m-2 rc=5 wall=0.061 main_ticks(u s)=[] lines=951 md5=326ad00b lib=
+   err: lfs: failed for '/mnt/lfst/pw': Input/output error 
+pw fail-pw-2 rc=5 wall=0.061 main_ticks(u s)=[] lines=1428 md5=38b80cd4 lib=
+   err: lfs: failed for '/mnt/lfst/pw': Input/output error 
+m fail-m-3 rc=5 wall=0.061 main_ticks(u s)=[] lines=1586 md5=08162e12 lib=
+   err: lfs: failed for '/mnt/lfst/pw': Input/output error 
+pw fail-pw-3 rc=5 wall=0.061 main_ticks(u s)=[] lines=1302 md5=15ce8ce1 lib=
+   err: lfs: failed for '/mnt/lfst/pw': Input/output error 
+m fail-m-4 rc=5 wall=0.061 main_ticks(u s)=[] lines=1109 md5=33226796 lib=
+   err: lfs: failed for '/mnt/lfst/pw': Input/output error 
+pw fail-pw-4 rc=5 wall=0.060 main_ticks(u s)=[] lines=1000 md5=9ccd1662 lib=
+   err: lfs: failed for '/mnt/lfst/pw': Input/output error 
+m fail-m-5 rc=5 wall=0.060 main_ticks(u s)=[] lines=1015 md5=6c5f4c7e lib=
+   err: lfs: failed for '/mnt/lfst/pw': Input/output error 
+pw fail-pw-5 rc=5 wall=0.060 main_ticks(u s)=[] lines=1108 md5=d726da4b lib=
+   err: lfs: failed for '/mnt/lfst/pw': Input/output error 
+m fail-m-6 rc=5 wall=0.060 main_ticks(u s)=[] lines=1000 md5=9ccd1662 lib=
+   err: lfs: failed for '/mnt/lfst/pw': Input/output error 
+pw fail-pw-6 rc=5 wall=0.061 main_ticks(u s)=[] lines=1447 md5=3f75c534 lib=
+   err: lfs: failed for '/mnt/lfst/pw': Input/output error 
+m fail-m-7 rc=5 wall=0.060 main_ticks(u s)=[] lines=1638 md5=acea621d lib=
+   err: lfs: failed for '/mnt/lfst/pw': Input/output error 
+pw fail-pw-7 rc=5 wall=0.060 main_ticks(u s)=[] lines=1306 md5=15772f82 lib=
+   err: lfs: failed for '/mnt/lfst/pw': Input/output error 
+m fail-m-8 rc=5 wall=0.060 main_ticks(u s)=[] lines=1000 md5=9ccd1662 lib=
+   err: lfs: failed for '/mnt/lfst/pw': Input/output error 
+pw fail-pw-8 rc=5 wall=0.060 main_ticks(u s)=[] lines=701 md5=73242236 lib=
+   err: lfs: failed for '/mnt/lfst/pw': Input/output error 
+m fail-m-9 rc=5 wall=0.061 main_ticks(u s)=[] lines=1518 md5=9d580797 lib=
+   err: lfs: failed for '/mnt/lfst/pw': Input/output error 
+pw fail-pw-9 rc=5 wall=0.060 main_ticks(u s)=[] lines=1479 md5=411c5e6d lib=
+   err: lfs: failed for '/mnt/lfst/pw': Input/output error 
+m fail-m-10 rc=5 wall=0.061 main_ticks(u s)=[] lines=1072 md5=1582afd1 lib=
+   err: lfs: failed for '/mnt/lfst/pw': Input/output error 
+pw fail-pw-10 rc=5 wall=0.060 main_ticks(u s)=[] lines=1361 md5=f786dfcf lib=
+   err: lfs: failed for '/mnt/lfst/pw': Input/output error 
+== hang probe: 200 small finds per thread count on the fix
+threads=2 runs=50 nonzero=0
+threads=4 runs=50 nonzero=0
+threads=8 runs=50 nonzero=0
+threads=16 runs=50 nonzero=0
+threads=1 lines=100000
+cleanup rc=0
+== end 2026-10-18 17:09:09
+BENCH DONE

@@ -1,0 +1,79 @@
+##### recheck0 h1
+== start 2026-10-18 16:53:54 arm=h (de3b3921a0) tag=h1
+lfs ld.so:  liblustreapi.so.1 => /tmp/arm1018h/lib/liblustreapi.so.1 (0x00007fbfd381a000)
+arm lib md5 475e6cac2be4, 'when the search began' in it: 2, 'has been purged since' (pass d): 2
+dirs: big on MDT0, one on MDT1
+other changelog user: MDT0000 cl1, MDT0001 cl1
+-- logs before run1: MDT0000 0 recs, first ; MDT0001 0 recs, first 
+-- [A] run1 rc=0 err=[] cookie: lfst-MDT0000 0;lfst-MDT0001 0;
+   before run2: MDT0000 8000 recs, first 1 01CREAT; MDT0001 10 recs, first 1 01CREAT
+   lfs pid 40809 wchan=pipe_write after 4 polls; first line: /mnt/lfst/r/big/a_name_long_enough_to_fill_the_pipe_quickly_0
+   maps: /tmp/arm1018h/lib/liblustreapi.so.1.0.0 
+   fds: changelog-lfst-MDT0000 
+     #0  0x00007f3bc64ff127 in write () from /lib64/libc.so.6
+     #1  0x00007f3bc6482fbd in _IO_file_write@@GLIBC_2.2.5 () from /lib64/libc.so.6
+     #2  0x00007f3bc6482086 in new_do_write () from /lib64/libc.so.6
+     #3  0x00007f3bc6484119 in __GI__IO_do_write () from /lib64/libc.so.6
+     #4  0x00007f3bc6484553 in __GI__IO_file_overflow () from /lib64/libc.so.6
+     #5  0x00007f3bc64619f3 in __vfprintf_internal () from /lib64/libc.so.6
+     #6  0x00007f3bc67f9672 in llapi_printf (level=level@entry=LLAPI_MSG_NORMAL, fmt=fmt@entry=0x7f3bc683051e "%s%c") at liblustreapi.c:184
+     #7  0x00007f3bc681591f in find_decide (fc=fc@entry=0x7fff73a64400, param=param@entry=0x19342a0) at liblustreapi_pfind.c:3638
+     #8  0x00007f3bc68184bd in find_since_rec_cb (rec=0x7fff73a64480, rec@entry=0x7fff73a668b0, data=data@entry=0x7fff73a6b650) at liblustreapi_pfind.c:6012
+     #9  0x00007f3bc681fbe0 in llapi_scan_fid (mnt_fd=4, mnt_path=<optimized out>, fid=fid@entry=0x7fff73a6b170, sp=<optimized out>, sp@entry=0x7fff73a6adc0, cb
+     #10 0x00007f3bc68189fe in find_since_cand_cb (rec=0x7fff73a6b060, data=0x7fff73a6b650) at liblustreapi_pfind.c:6505
+     #11 0x00007f3bc68205b7 in scan_cl_deliver (sl=sl@entry=0x194d420, o=o@entry=0x19a5d50, keyed=keyed@entry=true) at liblustreapi_scan_changelog.c:610
+   cleared MDT0001 then touched kept while lfs is blocked: MDT0001 2 recs, first 11 01CREAT
+   run2 rc=0 lines=4001 big=4000 lost=0 kept=1
+   stderr: lfs find: 'lfst-MDT0001' started at 1 when the search began and has been purged since, and now starts at 11: records purged during the run may be missing from the answer
+   cookie after run2: lfst-MDT0000 8000;lfst-MDT0001 12;
+   run3 rc=0 lines=0 lost=0 kept=0
+   cookie after run3: lfst-MDT0000 8000;lfst-MDT0001 12;
+-- logs before pass B: MDT0000 0 recs, first ; MDT0001 0 recs, first 
+-- [B] run1 rc=0 err=[] cookie: lfst-MDT0000 0;lfst-MDT0001 0;
+   before run2: MDT0000 8000 recs, first 8001 01CREAT; MDT0001 10 recs, first 13 01CREAT
+   lfs pid 40996 wchan=pipe_write after 4 polls; first line: /mnt/lfst/r/big2/a_name_long_enough_to_fill_the_pipe_quickly_0
+   maps: /tmp/arm1018h/lib/liblustreapi.so.1.0.0 
+   fds: changelog-lfst-MDT0000 
+     #0  0x00007fc7a16ff127 in write () from /lib64/libc.so.6
+     #1  0x00007fc7a1682fbd in _IO_file_write@@GLIBC_2.2.5 () from /lib64/libc.so.6
+     #2  0x00007fc7a1682086 in new_do_write () from /lib64/libc.so.6
+     #3  0x00007fc7a1684119 in __GI__IO_do_write () from /lib64/libc.so.6
+     #4  0x00007fc7a1684553 in __GI__IO_file_overflow () from /lib64/libc.so.6
+     #5  0x00007fc7a16619f3 in __vfprintf_internal () from /lib64/libc.so.6
+     #6  0x00007fc7a1b0d672 in llapi_printf (level=level@entry=LLAPI_MSG_NORMAL, fmt=fmt@entry=0x7fc7a1b4451e "%s%c") at liblustreapi.c:184
+     #7  0x00007fc7a1b2991f in find_decide (fc=fc@entry=0x7ffc8d4fff90, param=param@entry=0xc842a0) at liblustreapi_pfind.c:3638
+     #8  0x00007fc7a1b2c4bd in find_since_rec_cb (rec=0x7ffc8d500010, rec@entry=0x7ffc8d502440, data=data@entry=0x7ffc8d5071e0) at liblustreapi_pfind.c:6012
+     #9  0x00007fc7a1b33be0 in llapi_scan_fid (mnt_fd=4, mnt_path=<optimized out>, fid=fid@entry=0x7ffc8d506d00, sp=<optimized out>, sp@entry=0x7ffc8d506950, cb
+     #10 0x00007fc7a1b2c9fe in find_since_cand_cb (rec=0x7ffc8d506bf0, data=0x7ffc8d5071e0) at liblustreapi_pfind.c:6505
+     #11 0x00007fc7a1b345b7 in scan_cl_deliver (sl=sl@entry=0xc9d420, o=o@entry=0xcf4a50, keyed=keyed@entry=true) at liblustreapi_scan_changelog.c:610
+   cleared MDT0001 while lfs is blocked: MDT0001 0 recs, first 
+   run2 rc=0 lines=4000 big=4000 lost=0 kept=0
+   stderr: lfs find: 'lfst-MDT0000' starts at 8001 and was empty when '/tmp/lab1018-rc0-h1/ck.B' was written: any records purged since then are not in the answer
+   stderr: lfs find: 'lfst-MDT0001' starts at 13 and was empty when '/tmp/lab1018-rc0-h1/ck.B' was written: any records purged since then are not in the answer
+   stderr: lfs find: 'lfst-MDT0001' started at 13 when the search began and has been purged since, and is now empty: records purged during the run may be missing from the answer
+   cookie after run2: lfst-MDT0000 16000;lfst-MDT0001 0;
+   run3 rc=0 lines=0 lost=0 kept=0
+   cookie after run3: lfst-MDT0000 16000;lfst-MDT0001 0;
+lfst-MDT0000: Deregistered changelog user #1
+lfst-MDT0001: Deregistered changelog user #1
+cleanup rc=0
+== end 2026-10-18 16:55:11
+RECHECK0 DONE
+##### 160A* lib=h script=h
+== start 2026-10-18 16:55:12 lib=h (de3b3921a0) script=h ONLY=160Aa 160Ab 160Ac 160Ad 160Ae 160Af
+loaded version: [2.17.58_65_g8618869]
+lfs ld.so says:  liblustreapi.so.1 => /tmp/arm1018h/lib/liblustreapi.so.1 (0x00007f2ef21ff000)
+lfs pid 46240 maps: /tmp/arm1018h/lib/liblustreapi.so.1.0.0 
+arm lib md5: 475e6cac2be4  'was empty when' in it: 1
+SANITY_RC=0
+PASS 6  FAIL 0  SKIP 0
+PASS 160Aa (17s)
+PASS 160Ab (9s)
+PASS 160Ac (15s)
+PASS 160Ad (2s)
+PASS 160Ae (3s)
+PASS 160Af (2s)
+cleanup rc=0
+== end 2026-10-18 16:57:12
+SANITY RUN DONE
+LAB 1018 F DONE

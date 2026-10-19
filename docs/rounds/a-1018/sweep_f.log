@@ -1,0 +1,15 @@
+SWEEP 294ae8f76b..aeb51b77f8, 2 commits in /home/nishida/lrv2-sweep
+dfa074ae7d build=0 hdr=0 tests=0 sh=0  LU-20606 llapi: limit a scan's rate
+aeb51b77f8 build=0 hdr=0 tests=0 sh=0  LU-20606 lfs: find --device --max-rate
+SWEEP-DONE
+SWEEP 8923d31cf4..de3b3921a0, 2 commits in /home/nishida/lrv2-sweep
+1340232dfb build=0 hdr=0 tests=0 sh=0  LU-20650 lfs: find --since-cookie, check each
+de3b3921a0 build=0 hdr=0 tests=0 sh=0  LU-20650 lfs: find --since, warn when the log
+SWEEP-DONE
+SWEEP 0798e095e9..571df89aec, 1 commits in /home/nishida/lrv2-sweep
+571df89aec build=0 hdr=0 tests=0 sh=0  LU-20637 llapi: find the root of an upgraded 
+SWEEP-DONE
+ALL-DONE
+SWEEP 0798e095e9..d102567272, 1 commits in /home/nishida/lrv2-sweep
+d102567272 build=0 hdr=0 tests=0 sh=0  LU-20637 llapi: find the root of an upgraded 
+SWEEP-DONE

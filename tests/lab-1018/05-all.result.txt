@@ -1,0 +1,139 @@
+##### 160Ac lib=o script=n
+== start 2026-10-18 14:34:25 lib=o (f9034db8d7) script=n ONLY=160Ac
+loaded version: [2.17.58_65_g8618869]
+lfs ld.so says:  liblustreapi.so.1 => /tmp/arm1018o/lib/liblustreapi.so.1 (0x00007f19878bc000)
+lfs pid 43911 maps: /tmp/arm1018o/lib/liblustreapi.so.1.0.0 
+arm lib md5: c2158f09c43e  'was empty when' in it: 0
+SANITY_RC=1
+PASS 0  FAIL 2  SKIP 0
+FAIL 160Ac (11s)
+sanity: FAIL: test_160Ac an empty log left no line: # lfs find --since-cookie for lfst under /mnt/lfst/d160Ac.sanity
+cleanup rc=0
+== end 2026-10-18 14:35:50
+SANITY RUN DONE
+##### 160Ac lib=n script=n
+== start 2026-10-18 14:35:50 lib=n (d9cc93e608) script=n ONLY=160Ac
+loaded version: [2.17.58_65_g8618869]
+lfs ld.so says:  liblustreapi.so.1 => /tmp/arm1018n/lib/liblustreapi.so.1 (0x00007f90fe6e0000)
+lfs pid 52904 maps: /tmp/arm1018n/lib/liblustreapi.so.1.0.0 
+arm lib md5: 2fc85d6309ff  'was empty when' in it: 1
+SANITY_RC=0
+PASS 1  FAIL 0  SKIP 0
+PASS 160Ac (14s)
+cleanup rc=0
+== end 2026-10-18 14:37:30
+SANITY RUN DONE
+##### cookie hand-check
+== start 2026-10-18 14:37:30 o=f9034db8d7 n=d9cc93e608
+o lfs loads:  liblustreapi.so.1 => /tmp/arm1018o/lib/liblustreapi.so.1 (0x00007fbdd2938000)
+n lfs loads:  liblustreapi.so.1 => /tmp/arm1018n/lib/liblustreapi.so.1 (0x00007f2c4c179000)
+other user: MDT0000 cl1, MDT0001 cl1
+-- log after clear: MDT0000 0 recs, MDT0001 0 recs
+-- run1 o rc=0 out=[]
+   cookie o:
+     # lfs find --since-cookie for lfst under /mnt/lfst/ck
+-- run1 n rc=0 out=[]
+   cookie n:
+     # lfs find --since-cookie for lfst under /mnt/lfst/ck
+     lfst-MDT0000 0
+     lfst-MDT0001 0
+   rewrote cookie o: 
+   rewrote cookie n: lfst-MDT0000 0;lfst-MDT0001 0;
+-- before purge: MDT0000 10 recs, first 4 01CREAT 21:37:57.397002286 2026.10.18 0x0 t=[0x200000402:0
+-- after purge+kept: MDT0000 14 01CREAT 21:38:01.428062580 2026.10.18 0x0 t=[0x200000402:0x8:0x0] j=touch.0 ef=0x13 u=0:0 nid=0@lo p=[0x200000402:0x1:0x0] kept|15 11CLOSE 21:38:01.428889699 2026.10.18 0x42 t=[0x200000402:0x8:0x0]
+-- run2 o rc=0
+     /mnt/lfst/ck/kept
+   cookie after: lfst-MDT0000 15;
+-- run2 n rc=0
+     lfs find: 'lfst-MDT0000' starts at 14 and was empty when '/tmp/lab1018-cookie/ck2.n' was written: any records purged since then are not in the answer
+     /mnt/lfst/ck/kept
+   cookie after: lfst-MDT0000 15;lfst-MDT0001 0;
+lfst-MDT0000: Deregistered changelog user #1
+lfst-MDT0001: Deregistered changelog user #1
+cleanup rc=0
+== end 2026-10-18 14:38:41
+COOKIE DONE
+##### 160A* lib=n
+== start 2026-10-18 14:38:41 lib=n (d9cc93e608) script=n ONLY=160Aa 160Ab 160Ac 160Ad 160Ae 160Af
+loaded version: [2.17.58_65_g8618869]
+lfs ld.so says:  liblustreapi.so.1 => /tmp/arm1018n/lib/liblustreapi.so.1 (0x00007f0fbf145000)
+lfs pid 67270 maps: /tmp/arm1018n/lib/liblustreapi.so.1.0.0 
+arm lib md5: 2fc85d6309ff  'was empty when' in it: 1
+SANITY_RC=0
+PASS 6  FAIL 0  SKIP 0
+PASS 160Aa (17s)
+PASS 160Ab (9s)
+PASS 160Ac (14s)
+PASS 160Ad (3s)
+PASS 160Ae (2s)
+PASS 160Af (3s)
+cleanup rc=0
+== end 2026-10-18 14:40:45
+SANITY RUN DONE
+##### foreign
+== start 2026-10-18 14:40:45 m=ee61b3f6dd mf=6ea0abfcd9
+enable_foreign_dir: 1
+m lfs loads:  liblustreapi.so.1 => /tmp/arm1018m/lib/liblustreapi.so.1 (0x00007efee3a9e000)
+mf lfs loads:  liblustreapi.so.1 => /tmp/arm1018mf/lib/liblustreapi.so.1 (0x00007ff023024000)
+-- fixture:
+   fdir: lfm_value:     'bbf2c83e-c65d-4192-ad22-5b3be0e9bc3e'  
+   sdir: lmv_stripe_count: 2 lmv_stripe_offset: 0 lmv_hash_type: fnv_1a_64 mdtidx		 FID[seq:oid:ver]      0		 [0x200000400:0x2:0x0]		 
+   dir: lmv_stripe_count: 0 lmv_stripe_offset: 0 lmv_hash_type: none 
+   ffile: lfm_value:     'bbf2c83e-c65d-4192-ad22-5b3be0e9bc3e'  
+run1 m: lfs find $D --foreign  ->  [./ffile ./sdir]
+run1 m: lfs find $D ! --foreign  ->  [. ./dir ./fdir ./file ./sdir/f]
+run1 m: lfs find $D --foreign -type d  ->  [./sdir]
+run1 m: lfs find $D ! --foreign -type d  ->  [. ./dir ./fdir]
+run1 m: lfs find $D --foreign=none -type d  ->  [./sdir]
+run1 m: lfs find $D --foreign=symlink  ->  []
+run1 mf: lfs find $D --foreign  ->  [./fdir ./ffile]
+run1 mf: lfs find $D ! --foreign  ->  [. ./dir ./file ./sdir ./sdir/f]
+run1 mf: lfs find $D --foreign -type d  ->  [./fdir]
+run1 mf: lfs find $D ! --foreign -type d  ->  [. ./dir ./sdir]
+run1 mf: lfs find $D --foreign=none -type d  ->  [./fdir]
+run1 mf: lfs find $D --foreign=symlink  ->  []
+run2 m: lfs find $D --foreign  ->  [./ffile ./sdir]
+run2 m: lfs find $D ! --foreign  ->  [. ./dir ./fdir ./file ./sdir/f]
+run2 m: lfs find $D --foreign -type d  ->  [./sdir]
+run2 m: lfs find $D ! --foreign -type d  ->  [. ./dir ./fdir]
+run2 m: lfs find $D --foreign=none -type d  ->  [./sdir]
+run2 m: lfs find $D --foreign=symlink  ->  []
+run2 mf: lfs find $D --foreign  ->  [./fdir ./ffile]
+run2 mf: lfs find $D ! --foreign  ->  [. ./dir ./file ./sdir ./sdir/f]
+run2 mf: lfs find $D --foreign -type d  ->  [./fdir]
+run2 mf: lfs find $D ! --foreign -type d  ->  [. ./dir ./sdir]
+run2 mf: lfs find $D --foreign=none -type d  ->  [./fdir]
+run2 mf: lfs find $D --foreign=symlink  ->  []
+cleanup rc=0
+== end 2026-10-18 14:41:40
+FOREIGN DONE
+##### 27K lib=m script=mf
+== start 2026-10-18 14:41:40 lib=m (ee61b3f6dd) script=mf ONLY=27K 27Ke 27Kf
+loaded version: [2.17.58_65_g8618869]
+lfs ld.so says:  liblustreapi.so.1 => /tmp/arm1018m/lib/liblustreapi.so.1 (0x00007fdea8dc7000)
+lfs pid 83580 maps: /tmp/arm1018m/lib/liblustreapi.so.1.0.0 
+arm lib md5: 36f670ffc0c9  'was empty when' in it: 0
+SANITY_RC=1
+PASS 2  FAIL 2  SKIP 0
+PASS 27K (0s)
+PASS 27Ke (1s)
+FAIL 27Kf (0s)
+sanity: FAIL: test_27Kf --foreign found '/mnt/lfst/d27Kf.sanity/ffile /mnt/lfst/d27Kf.sanity/sdir'
+cleanup rc=0
+== end 2026-10-18 14:42:51
+SANITY RUN DONE
+##### 27K lib=mf script=mf
+== start 2026-10-18 14:42:51 lib=mf (6ea0abfcd9) script=mf ONLY=27K 27Ke 27Kf
+loaded version: [2.17.58_65_g8618869]
+lfs ld.so says:  liblustreapi.so.1 => /tmp/arm1018mf/lib/liblustreapi.so.1 (0x00007f959eeed000)
+lfs pid 92666 maps: /tmp/arm1018mf/lib/liblustreapi.so.1.0.0 
+arm lib md5: d0eb5540bdf7  'was empty when' in it: 0
+SANITY_RC=0
+PASS 3  FAIL 0  SKIP 0
+PASS 27K (0s)
+PASS 27Ke (0s)
+PASS 27Kf (1s)
+cleanup rc=0
+== end 2026-10-18 14:43:58
+SANITY RUN DONE
+LAB 1018 DONE

@@ -1,0 +1,47 @@
+Component: utils (liblustreapi)
+Since: LU-17814 (e505e7dbfb "utils: Add work unit management")
+
+h3. Current behaviour
+
+{{pfind_param_callback()}} in {{lustre/utils/liblustreapi_pfind.c}} waits for the parallel find workers like this:
+
+{noformat}
+	while (ll_atomic_fetch_add(&queue->fwq_active_units, 0) > 0) {
+		/* if a worker hit an error, it forces shutdown... */
+		if (queue->fwq_shutdown)
+			cleanup_work_queue(queue);
+		else
+			sched_yield();
+	}
+{noformat}
+
+The workers spend most of their time waiting on the MDS, so {{sched_yield()}} returns at once and the main thread spins on a CPU for the whole walk. After a worker sets {{fwq_shutdown}}, the loop also spins taking {{fwq_lock}} in {{cleanup_work_queue()}} until the in-flight units finish.
+
+This hits every {{lfs find}}, not only runs with {{--threads}}: {{calculate_default_thread_count()}} never returns less than 4, so {{lfs find}} always goes through {{parallel_find()}}. Other {{llapi_find()}} callers with {{fp_thread_count > 1}} are hit too.
+
+h3. Measured cost
+
+Single VM (4 vCPU, RHEL 9.7, MGS/MDT/OST/client on one node, 2 MDTs, 2 OSTs), 100 directories x 1000 files. Stock master vs the fix, same {{lfs}} binary, library picked with {{LD_PRELOAD}} and checked in {{/proc/<pid>/maps}}. Arms alternated, 5 or 6 pairs each, MDC lock LRU cleared before each run for "cold". CPU is user+sys from {{/usr/bin/time}}; main-thread CPU is from {{/proc/<pid>/task/<pid>/stat}}.
+
+{noformat}
+lfs find DIR --threads 4 -mtime -1    (stats every file)
+             wall (median)   process CPU   main thread CPU
+cold stock       4.83 s         4.69 s         1.91 s
+cold fixed       4.08 s         3.26 s         0.00 s
+warm stock       4.86 s         4.62 s         1.88 s
+warm fixed       4.28 s         2.87 s         0.00 s
+
+lfs find DIR --threads 4 -type f      (readdir only, short walk)
+cold stock       0.23 s         0.55 s         0.20 s
+cold fixed       0.24 s         0.34 s         0.00 s
+{noformat}
+
+Every pair moved the same way: process CPU -1.2 to -1.9 s and wall -0.5 to -0.8 s per {{-mtime}} run. On this node the spinner competes with the workers and the local MDS for the 4 CPUs, so it gets about 40% of a core and slows the walk. On a client with a remote MDS, where the CPUs are idle, we expect it to take a full core (not measured). Output was identical in all runs (100101 lines, same sorted md5).
+
+h3. Fix
+
+Add {{fwq_done_cond}} to {{struct find_work_queue}}. A worker takes {{fwq_lock}} for its decrement of {{fwq_active_units}} and signals the condvar when it finishes the last unit or after a shutdown. The main thread sleeps on it under the same lock, so the wakeup cannot be lost. On shutdown it drains the queue only when something is queued, then sleeps again. The counter stays atomic because {{work_unit_create_and_add()}} still increments it outside the lock.
+
+{{struct find_work_queue}} is in the public {{lustreapi.h}}, so the new field changes its size. Inside the tree it is only built on the stack in {{parallel_find()}}.
+
+With {{LLAPI_FAIL_LOC=LLAPI_FAIL_PFIND_SEM}} the fixed {{lfs find}} still exits with "Input/output error" (10 of 10 runs, 0.06 s, no hang). 200 short finds at 2 to 16 threads all finished. Sanity 56* on the fixed build: 87 pass, 0 fail, 1 skip (56xc, needs space), including 56Ek.

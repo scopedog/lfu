@@ -1,0 +1,84 @@
+From 08940f0ac9ddfc9c2af91b3f8de57555bca811ec Mon Sep 17 00:00:00 2001
+From: Hiroshi Nishida <hnishida@thelustrecollective.com>
+Date: Sun, 18 Oct 2026 14:32:19 -0700
+Subject: [PATCH] LU-20988 utils: fix 'lfs find --foreign' on directories
+
+find_check_foreign() tests a directory's LMV the wrong way round.
+A foreign directory is taken as not foreign, so --foreign skips it
+and '! --foreign' prints it. A striped directory, whose LMV is not
+foreign, is taken as foreign and matched by --foreign.
+
+A plain directory has no LMV and is decided before this check, so
+only foreign and striped directories are affected.
+
+Restore the negation lost when the test moved to lmv_is_foreign().
+Add sanity test_27Kf for both kinds of directory.
+
+Fixes: baba1fd07a97 ("LU-14489 utils: fix 'lfs find --mdt-count'")
+Signed-off-by: Hiroshi Nishida <hnishida@thelustrecollective.com>
+Change-Id: I9df5e011d017919ec513e85d5709c082950f2a4f
+---
+ lustre/tests/sanity.sh            | 33 +++++++++++++++++++++++++++++++
+ lustre/utils/liblustreapi_pfind.c |  2 +-
+ 2 files changed, 34 insertions(+), 1 deletion(-)
+
+diff --git a/lustre/tests/sanity.sh b/lustre/tests/sanity.sh
+index 2baf49b0dc..d7410f0aa3 100755
+--- a/lustre/tests/sanity.sh
++++ b/lustre/tests/sanity.sh
+@@ -3304,6 +3304,39 @@ test_27Ke() {
+ }
+ run_test 27Ke "test enable_foreign_dir and enable_foreign_dir_gid"
+ 
++test_27Kf() {
++	(( $MDS1_VERSION >= $(version_code v2_12_53-15-gfdad38781c) )) ||
++		skip "Need MDS >= 2.12.53.15 for foreign LMV directory"
++
++	local uuid=$(cat /proc/sys/kernel/random/uuid)
++	local found
++	local want
++
++	mkdir_on_mdt0 $DIR/$tdir || error "mkdir $tdir failed"
++	$LFS mkdir --foreign=none --xattr=$uuid --flags=0xda05 \
++		$DIR/$tdir/fdir || error "create foreign dir failed"
++	$LFS setstripe --foreign=none --xattr=$uuid --flags=0xda05 \
++		$DIR/$tdir/ffile || error "create foreign file failed"
++	mkdir $DIR/$tdir/dir || error "mkdir dir failed"
++	touch $DIR/$tdir/file || error "touch file failed"
++	want="$DIR/$tdir $DIR/$tdir/dir $DIR/$tdir/file"
++	# a striped directory has an LMV that is not foreign
++	if (( MDSCOUNT >= 2 )); then
++		$LFS mkdir -c 2 $DIR/$tdir/sdir || error "mkdir sdir failed"
++		want+=" $DIR/$tdir/sdir"
++	fi
++
++	found=$($LFS find $DIR/$tdir --foreign | sort | xargs)
++	[[ "$found" == "$DIR/$tdir/fdir $DIR/$tdir/ffile" ]] ||
++		error "--foreign found '$found'"
++	found=$($LFS find $DIR/$tdir --foreign=none -type d | xargs)
++	[[ "$found" == "$DIR/$tdir/fdir" ]] ||
++		error "--foreign=none -type d found '$found'"
++	found=$($LFS find $DIR/$tdir ! --foreign | sort | xargs)
++	[[ "$found" == "$want" ]] || error "! --foreign found '$found'"
++}
++run_test 27Kf "lfs find --foreign on directories"
++
+ test_27L() {
+ 	remote_mds_nodsh && skip "remote MDS with nodsh"
+ 
+diff --git a/lustre/utils/liblustreapi_pfind.c b/lustre/utils/liblustreapi_pfind.c
+index 9f8941532e..c198106e5f 100644
+--- a/lustre/utils/liblustreapi_pfind.c
++++ b/lustre/utils/liblustreapi_pfind.c
+@@ -971,7 +971,7 @@ static int find_check_foreign(struct find_param *param)
+ 		struct lmv_foreign_md *lfm;
+ 
+ 		lfm = (void *)param->fp_lmv_md;
+-		if (lmv_is_foreign(lfm->lfm_magic)) {
++		if (!lmv_is_foreign(lfm->lfm_magic)) {
+ 			if (param->fp_foreign_type == LU_FOREIGN_TYPE_UNKNOWN)
+ 				return param->fp_exclude_foreign ? 1 : -1;
+ 			return -1;
+-- 
+2.43.0
+

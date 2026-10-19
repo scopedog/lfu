@@ -1,0 +1,17 @@
+  o (f9034db8d7) make -k errors in: libmount_utils_zfs.c mount_utils.h 
+-rwxr-xr-x. 1 nishida nishida  750992 14:33:01 /tmp/lab1018-o/lustre/utils/.libs/lfs
+-rwxr-xr-x. 1 nishida nishida 1416816 14:33:01 /tmp/lab1018-o/lustre/utils/.libs/liblustreapi.so.1.0.0
+ 0x000000000000000f (RPATH)              Library rpath: [/tmp/arm1018o/lib]
+  n (d9cc93e608) make -k errors in: libmount_utils_zfs.c mount_utils.h 
+-rwxr-xr-x. 1 nishida nishida  750992 14:33:22 /tmp/lab1018-n/lustre/utils/.libs/lfs
+-rwxr-xr-x. 1 nishida nishida 1418168 14:33:22 /tmp/lab1018-n/lustre/utils/.libs/liblustreapi.so.1.0.0
+ 0x000000000000000f (RPATH)              Library rpath: [/tmp/arm1018n/lib]
+  m (ee61b3f6dd) make -k errors in: libmount_utils_zfs.c mount_utils.h 
+-rwxr-xr-x. 1 nishida nishida  719008 14:33:43 /tmp/lab1018-m/lustre/utils/.libs/lfs
+-rwxr-xr-x. 1 nishida nishida 1179056 14:33:43 /tmp/lab1018-m/lustre/utils/.libs/liblustreapi.so.1.0.0
+ 0x000000000000000f (RPATH)              Library rpath: [/tmp/arm1018m/lib]
+  mf (6ea0abfcd9) make -k errors in: libmount_utils_zfs.c mount_utils.h 
+-rwxr-xr-x. 1 nishida nishida  719016 14:34:04 /tmp/lab1018-mf/lustre/utils/.libs/lfs
+-rwxr-xr-x. 1 nishida nishida 1179192 14:34:03 /tmp/lab1018-mf/lustre/utils/.libs/liblustreapi.so.1.0.0
+ 0x000000000000000f (RPATH)              Library rpath: [/tmp/arm1018mf/lib]
+BUILD-OK

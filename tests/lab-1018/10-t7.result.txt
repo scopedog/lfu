@@ -1,0 +1,47 @@
+== start 2026-10-18 16:52:36
+total: 3000 create in 0.57 seconds: 5271.08 ops/second
+cleanup rc=0
+inodes to tear: 2000, first 189 last 2411
+debugfs rc=0 errors: 0
+torn sample: Mode:  0644
+e2fsck -fn rc=4 (expected non-zero on torn)
+r0 test bin: POSIX shell script, ASCII text executabl; lib: 
+r0 lib md5 c9b26d77c2
+r1 test bin: POSIX shell script, ASCII text executabl; lib: 
+r1 lib md5 2fa87b9cc2
+--- pass 1 arm r0 clean
+ test0 @1792367609: llapi_scan_device delivers records off the target .......... pass
+ test7 @1792367610: lfsp_max_rate paces a scan of the target, losing nothing ... pass
+rc=0  plugin opened: /tmp/arm1018r0/lib/lustre/scan_osd_ldiskfs.so 
+--- pass 1 arm r0 torn
+ test0 @1792367610: llapi_scan_device delivers records off the target .......... pass
+lt-llapi_scan_device_test: llapi_scan_device_test.c:442: test7: assertion 'took >= least * 0.95' failed: 3261 objects at 6522/s took 0.198s, at least 0.500s expected
+ test7 @1792367610: lfsp_max_rate paces a scan of the target, losing nothing ... fail (exit status 1)
+rc=1  plugin opened: /tmp/arm1018r0/lib/lustre/scan_osd_ldiskfs.so 
+--- pass 1 arm r1 clean
+ test0 @1792367610: llapi_scan_device delivers records off the target .......... pass
+ test7 @1792367610: lfsp_max_rate paces a scan of the target, losing nothing ... pass
+rc=0  plugin opened: /tmp/arm1018r1/lib/lustre/scan_osd_ldiskfs.so 
+--- pass 1 arm r1 torn
+ test0 @1792367610: llapi_scan_device delivers records off the target .......... pass
+ test7 @1792367611: lfsp_max_rate paces a scan of the target, losing nothing ... pass
+rc=0  plugin opened: /tmp/arm1018r1/lib/lustre/scan_osd_ldiskfs.so 
+--- pass 2 arm r0 clean
+ test0 @1792367611: llapi_scan_device delivers records off the target .......... pass
+ test7 @1792367612: lfsp_max_rate paces a scan of the target, losing nothing ... pass
+rc=0  plugin opened: /tmp/arm1018r0/lib/lustre/scan_osd_ldiskfs.so 
+--- pass 2 arm r0 torn
+ test0 @1792367612: llapi_scan_device delivers records off the target .......... pass
+lt-llapi_scan_device_test: llapi_scan_device_test.c:442: test7: assertion 'took >= least * 0.95' failed: 3261 objects at 6522/s took 0.198s, at least 0.500s expected
+ test7 @1792367612: lfsp_max_rate paces a scan of the target, losing nothing ... fail (exit status 1)
+rc=1  plugin opened: /tmp/arm1018r0/lib/lustre/scan_osd_ldiskfs.so 
+--- pass 2 arm r1 clean
+ test0 @1792367612: llapi_scan_device delivers records off the target .......... pass
+ test7 @1792367612: lfsp_max_rate paces a scan of the target, losing nothing ... pass
+rc=0  plugin opened: /tmp/arm1018r1/lib/lustre/scan_osd_ldiskfs.so 
+--- pass 2 arm r1 torn
+ test0 @1792367612: llapi_scan_device delivers records off the target .......... pass
+ test7 @1792367613: lfsp_max_rate paces a scan of the target, losing nothing ... pass
+rc=0  plugin opened: /tmp/arm1018r1/lib/lustre/scan_osd_ldiskfs.so 
+== end 2026-10-18 16:53:33
+T7 DONE

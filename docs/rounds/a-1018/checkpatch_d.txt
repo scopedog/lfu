@@ -1,0 +1,10 @@
+1f843bef66->df82f49a83 old=2 new=2 LU-20650 lfs: find --since-cookie, check each MD
+WARNING: Option header for short opt only should be of the following format: .B[IR]? -SHORT_OPT [ARGS]
+WARNING: Non-standard section: BASH COMPLETION
+total: 0 errors, 2 warnings, 0 checks, 1279 lines checked, spelling check not done
+total: 0 errors, 0 warnings, 256 lines checked
+2794517e21->26f7c0b1f6 old=2 new=2 LU-20650 lfs: find --since, warn when the log wa
+WARNING: Option header for short opt only should be of the following format: .B[IR]? -SHORT_OPT [ARGS]
+WARNING: Non-standard section: BASH COMPLETION
+total: 0 errors, 2 warnings, 0 checks, 1279 lines checked, spelling check not done
+total: 0 errors, 0 warnings, 255 lines checked

@@ -19,7 +19,9 @@ CHANGES = [68094,68095,68156,68157,68158,68159,68160,68163,68231,68288,68340,
            64945, 65026,  # LU-20050 sepol pair; 64945 landed 10-12
            # not ours: laisiyao's OI scrub refactor, reviewed 10-11 for
            # adilger; watched for the owner's reply
-           65449]
+           65449,
+           69795,  # LU-20988 lfs find --foreign fix, standalone, 10-18
+           69796]  # LU-20989 pfind: sleep, not spin, while workers run, 10-19
 Q = " OR ".join("change:%d" % c for c in CHANGES)
 
 def fetch():

@@ -6,6 +6,33 @@ the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
 
 ## 2026-10-10 day: CI triage + AI round on the 10-10 PS -- START HERE
 
+- **10-19 17:00 JST: polling STOPPED (user: finish at 17:00).**  Last
+  poll quiet.  All 19 series PS + 69795 + 69796 are Jenkins Verified+1;
+  Maloo and AI review on the new PS still to come.  Seen-state in
+  gerrit-poll/seen.json (69795, 69796 added to CHANGES).  Lab VM shut off.
+- **10-18/19 round a-1018 (docs/rounds/a-1018/):**
+  - 15 Maloo sessions linked + retested (2 sanity-lfsck on EX-14175 /
+    LU-13459 by user OK).
+  - AI round of 21: triage.md; 17 fixed, #3 #5 #7 declined, #19 no reply
+    (user).  lreview on every changed commit (lreview.md); lab A/B in
+    lab.md, tests/lab-1018/.
+  - 69443: an anchor-0 MDT purged before OR during the run WARNS and
+    continues (user), cookie advances; first-run mid-run purge
+    documented in "Not caught".
+  - 69700: pre-filter skips (torn read) now paced; spin-wait comment
+    split out as LU-20989.  69729: IGIF root needs --internal,
+    documented in lfs-find.1 only (adilger asked llapi page trimmed).
+  - **PUSHED 10-19** (tags a1018-pushed-*): trunk 103aef57d1 (68156 PS38
+    ... 69500 PS10), 69501-69503 PS10, 69700 PS4, 69729 PS4.  22 AI
+    replies + the 69700 spin reply posted, verified resolved.
+  - Build-farm breakage 10-19 (random files missing in rpmbuild trees):
+    BUILD on 68157/68158/68159/68415/68416, all Verified+1 after.
+  - **New upstream changes:** LU-20988 / 69795 (lfs find --foreign
+    inverted on dirs since LU-14489); LU-20989 / 69796 (pfind main
+    thread sleeps instead of spinning; Improvement, no Fixes:).
+  - Open: 69728 held for adilger --speed (now on outdated 69700 parent);
+    69700 test19 lreview nit left (user); RDMA memo review; test16 split;
+    owed upstream tickets unchanged.
 - **10-17 late: polling STOPPED (user: "leave it for tomorrow").**
   Seen-state in gerrit-poll/seen.json.  Open for 10-18: 69729 PS3 CI
   (Verified+1, smatch/checkpatch clean, Maloo pending); 69728 held for
