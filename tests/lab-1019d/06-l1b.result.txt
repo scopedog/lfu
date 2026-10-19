@@ -1,0 +1,18 @@
+== start 2026-10-19 16:51:39
+loads:  /tmp/lab1019d-t/lustre/utils/.libs/liblustreapi.so.1 (0x00007f69b1ed9000)
+1) cl1 mask=MARK,CREAT, mdd mask: MARK 
+  lib o (7b24dd3149): rc=0 CREAT=3
+  lib t (9d3b9c8d7e): rc=0 (none)
+2) mdd mask: MARK CREAT MKDIR HLINK SLINK MKNOD UNLNK RMDIR RENME RNMTO CLOSE LYOUT TRUNC SATTR XATTR HSM MTIME CTIME MIGRT FLRW RESYNC 
+  lib o (7b24dd3149): rc=0 CREAT=6 UNLNK=3 CLOSE=3 SATTR=3
+  lib t (9d3b9c8d7e): rc=0 UNLNK=3
+3) control user cl2 -m all
+  lib o (7b24dd3149): rc=0 UNLNK=3
+  lib t (9d3b9c8d7e): rc=0 UNLNK=3
+   and all types for cl2:
+  lib o (7b24dd3149): rc=0 CREAT=6 UNLNK=3 CLOSE=3 SATTR=3
+  lib t (9d3b9c8d7e): rc=0 CREAT=6 UNLNK=3 CLOSE=3 SATTR=3
+lfsl-MDT0000: Deregistered changelog user #1
+lfsl-MDT0000: Deregistered changelog user #2
+== end 2026-10-19 16:52:01
+L1B DONE

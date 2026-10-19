@@ -1,0 +1,90 @@
+# a-1019 lreview fixes (LOCAL, UNPUSHED)
+
+Applied 2026-10-19 by `forktx5.py b39fe0036b tx_1019d.py` in ~/lfs-fork-1014.
+Backups before the rewrite: tags `k1019-<branch>`. Nothing pushed, nothing
+posted, lreview not run.
+
+## New tips
+
+| branch | before (k1019-*) | after |
+|---|---|---|
+| fork-1014 | 7b24dd3149 | 9d3b9c8d7e |
+| fork-69501 | 9ffadff6c0 | 7934cb6d70 |
+| fork-69502 | d973a4f179 | 35866766af |
+| fork-69503 | 185bb93cf6 | 25f6ef456e |
+| rate-1017 | 7aac33ca4a | 5b00f2b723 |
+| maxrate-1017 | 7d61eb12e0 | f6e216d6f8 |
+| igif-1017 | 56ea5cdf37 | d34b11ba53 |
+
+Trunk: 68156 e1bb15d00b, 68415 cf05bc2f92, 68416 97e9c05426, 68157 8647d144f9,
+68158 a56c0078cf, 68159 0c8e6792be, 68160 03dd154c6c, 68163 5cfcf11173,
+68288 349e577e02, 68417 085109cd90, 68418 3e7553d2ce, 68419 d9ad0e9e1b,
+69443 4207f10947, 69500 9d3b9c8d7e.
+
+**Content changed** (range-diff `!`): 68156, 68415, 68159, 68160, 68163,
+68288, 68419, and 69729 (igif, its own sentence in llapi_find_device.3 now
+carries the F1 text). Every other commit is `=` (reparented only): 68416,
+68157, 68158, 68417, 68418, 69443, 69500, 69501, 69502, 69503, 69700, 69728.
+Commit counts and Change-Id sets unchanged on all 7 branches. 68419's own
+diff got smaller: the reflow restores two lines 68418 already had.
+
+## Per item
+
+| # | change | result |
+|---|---|---|
+| L1 | 68415 | VERIFIED (mdc_changelog.c: `crs_user_mask = in & out`, filters only if nonzero). Read loop drops a record whose type is not in lfsc_type_mask, after the endrec check and before ss_seen. Man caveat removed; entry now says only these types are delivered and the client filters where the two masks overlap. New test11 (asks CL_UNLINK; only UNLINK must come, and some must); sanity 56Eea runs it a second time with a user registered `-m creat`. Msg bullet updated. |
+| L4 | 68419 | Three comment paragraphs reflowed (find_since_filter_cb, "What happens next", llapi_find_since() Return:). All three are in 68419's diff, so 68418 is untouched. |
+| B1 | 68156 | VERIFIED in osd_handler.c: osd_create() without od_index_in_idif stores `ostid_to_fid(.., 0)`; osd_check_lma() takes an LMA IDIF with index 0 as old and compares it rebuilt with the real index. New scan_idif_set_index() puts tt_index back (OST label with index, idx != 0, fid_is_idif, idx in FID == 0). One line in llapi_scan_device.3 (CLS_OST_OBJ) and one msg bullet. |
+| B2 | 68156 | VERIFIED (scan_errcode() maps every unmapped ext2fs error to -EIO; bitmap read; calloc -> -ENOMEM). -EIO lists superblock, group descriptors, inode bitmap, inode table (68163's ZFS version too); -ENOMEM added. |
+| B3 | 68156 | fid_is_root() returns bool. |
+| C2 | 68159 | Example: "the regular files over a gigabyte ... a file whose size the MDT does not hold ... is counted as undecided and not printed". |
+| D1 | 68160 | VERIFIED (lfs_find_label_is() needs '-' before the role). Message: `'%s' is not a target name like FSNAME-MDT0000 or FSNAME-OST0000`. |
+| E1 | 68163 | The two paragraphs (autotest/Test-Parameters, weak slot/131d) removed from the message. Rest kept. |
+| F1 | 68288 | VERIFIED (--fid2path on an MDT uses the same dirmap, scan_dirmap_path() returns -ENOENT at sd_encrypted, no mount fallback when fc_dirmap is set). lfs-find.1: "On an MDT, neither option names an object below an encrypted directory"; llapi_find_device.3 NOTES list adds it. |
+| F2 | 68288 | lfs_find_device() refuses -printf with --paths/--fid2path once, beside --xattr; library check kept. One msg sentence. |
+
+Nothing declined after verification.
+
+## Checks
+
+- Script idempotent: a second DRY pass over the new tips maps every tip to itself.
+- Build sweep (`sweep_d.sh`, sweep_d-dry.log): `SWEEP ee61b3f6dd..9d3b9c8d7e, 14 commits` + 69501/69502, 69503, 69700/69728, 69729 -- 20/20 build=0 hdr=0 tests=0 sh=0. (Swept the dry refs; the real run produced the same shas.)
+- checkpatch per changed commit (checkpatch_d.txt): the finding set of every commit is identical to before.
+- groff -ww: no new warnings on lfs-find.1 (1 old), llapi_find_device.3, llapi_scan_changelog.3, llapi_scan_device.3 at all four leaf tips.
+- Range-diff: range-diff-d.txt (trunk); leaves all `=` except 69729.
+
+## Lab
+
+**B1, lift-and-compare** (tests/lab-1019d/b1/): scan_idif_set_index() lifted
+from the new file, compared with the OSD's own computation (fid_to_ostid +
+ostid_to_fid lifted from lustre/include/lustre_fid.h). Old (raw LMA) differs
+from the OSD on 4 inputs, new on 1: an OST label without an index, which the
+scan cannot know (documented "from the target's label").
+
+**B1, real image, host, no root** (b1/image.sh): ext4 labelled lfst-OST0003,
+LMAs written with debugfs, real ldiskfs plugin, `lfs find --device -printf %LO`:
+
+    old: [0x100000000:0x1234:0x0] [0x100000001:0x5:0x0] [0x100030000:0x99:0x0] [0x2c0000401:0x10:0x0]
+    new: [0x100030000:0x1234:0x0] [0x100030001:0x5:0x0] [0x100030000:0x99:0x0] [0x2c0000401:0x10:0x0]
+
+Controls (same image as lfst-OST0000 and lfst-MDT0003): old == new.
+
+**VM** (rhel9.7-server-mgs-mds-clone, arms t = 9d3b9c8d7e, o = 7b24dd3149; VM shut down after):
+
+- L1 A/B (06-l1b.result.txt), user cl1 `-m creat`, ask CL_UNLINK only:
+  - mdd mask MARK only (no UNLNK record exists): o `CREAT=3`, t none.
+  - mdd mask with UNLNK: o `CREAT=6 UNLNK=3 CLOSE=3 SATTR=3`, t `UNLNK=3`.
+  - control, user `-m all`: both `UNLNK=3`; mask 0: both identical.
+  - (04-l1.sh, first try: test11 failed on BOTH arms -- the fixture had no
+    UNLNK records, so the "some UNLINK" assert fired first. Fixture, not code.)
+- F2/D1 by hand, 2 MDTs + 2 OSTs: `--local --paths -printf`, `--local --fid2path -printf`, `--fsname --paths -printf`: o prints the library error + "failed for" per target (2, 4, 2 times), t one line, rc 95 both. `--target MDT0000`: new wording.
+- sanity 56E* (16 PASS, 2 SKIP need 2 MDTs) incl. 56Eea with test11 run twice (second with `-m creat` user cl2): PASS.
+- sanity 160Aa-Af: 6/6 on MDSCOUNT=1 and 6/6 on MDSCOUNT=2.
+- conf-sanity 300a 300b: PASS.
+
+## Notes for the push-ask
+
+- 69729 (igif) gets a new patchset for a text-only change (F1 in its own rewrite of the NOTES sentence).
+- test11 needs UNLINK records in the log; in 56Eea the `-m ALL` user keeps them. The sanity block skips the second run below MDS 2.17.0 (as test9 does).
+- .TH dates were not bumped (consistent with the previous rounds).
+- Owed before a push: lreview of the changed commits (68156, 68415, 68159, 68160, 68163, 68288, 68419, 69729).

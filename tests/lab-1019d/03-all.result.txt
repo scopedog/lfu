@@ -1,0 +1,152 @@
+##### L1 A/B
+== start 2026-10-19 16:41:22
+user cl1: cl1                               0 (0) mask=MARK,CREAT
+mdd changelog_mask: MARK 
+--- lib o (7b24dd3149):  /tmp/lab1019d-o/lustre/utils/.libs/liblustreapi.so.1 (0x00007fa41d0b8000)
+llapi_scan_changelog_test: llapi_scan_changelog_test.c:832: test11: assertion 'res.cr_types & (1ULL << CL_UNLINK)' failed: the mask delivered no CL_UNLINK, though a file was unlinked
+ test11 @1792453305: lfsc_type_mask holds outside the user's own mask .......... fail (exit status 1)
+TEST11_RC_o=1
+--- lib t (9d3b9c8d7e):  /tmp/lab1019d-t/lustre/utils/.libs/liblustreapi.so.1 (0x00007f22a4578000)
+llapi_scan_changelog_test: llapi_scan_changelog_test.c:832: test11: assertion 'res.cr_types & (1ULL << CL_UNLINK)' failed: the mask delivered no CL_UNLINK, though a file was unlinked
+ test11 @1792453305: lfsc_type_mask holds outside the user's own mask .......... fail (exit status 1)
+TEST11_RC_t=1
+lfsl-MDT0000: Deregistered changelog user #1
+== end 2026-10-19 16:41:45
+L1 DONE
+##### F2/D1 hand
+== start 2026-10-19 16:42:09
+targets: osd-ldiskfs.lfsf-MDT0000.mntdev osd-ldiskfs.lfsf-MDT0001.mntdev osd-ldiskfs.lfsf-OST0000.mntdev osd-ldiskfs.lfsf-OST0001.mntdev 
+--- arm o (7b24dd3149)
++ lfs find --local --mdt --paths -printf '%p\n'
+# lfsf-MDT0000 (/dev/mapper/mds1_flakey)
+lfs find: -printf cannot be used with --paths or --fid2path
+lfs: failed for '/dev/mapper/mds1_flakey': Operation not supported
+# lfsf-MDT0001 (/dev/mapper/mds2_flakey)
+lfs find: -printf cannot be used with --paths or --fid2path
+lfs: failed for '/dev/mapper/mds2_flakey': Operation not supported
+rc=95
++ lfs find --local --fid2path /mnt/lfsf -printf '%LF\n'
+# lfsf-MDT0000 (/dev/mapper/mds1_flakey)
+lfs find: -printf cannot be used with --paths or --fid2path
+lfs: failed for '/dev/mapper/mds1_flakey': Operation not supported
+# lfsf-MDT0001 (/dev/mapper/mds2_flakey)
+lfs find: -printf cannot be used with --paths or --fid2path
+lfs: failed for '/dev/mapper/mds2_flakey': Operation not supported
+# lfsf-OST0000 (/dev/mapper/ost1_flakey)
+lfs find: -printf cannot be used with --paths or --fid2path
+lfs: failed for '/dev/mapper/ost1_flakey': Operation not supported
+# lfsf-OST0001 (/dev/mapper/ost2_flakey)
+lfs find: -printf cannot be used with --paths or --fid2path
+lfs: failed for '/dev/mapper/ost2_flakey': Operation not supported
+rc=95
++ lfs find --fsname lfsf --paths -printf '%p\n'
+# lfsf-MDT0000 (/dev/mapper/mds1_flakey)
+lfs find: -printf cannot be used with --paths or --fid2path
+lfs: failed for '/dev/mapper/mds1_flakey': Operation not supported
+# lfsf-MDT0001 (/dev/mapper/mds2_flakey)
+lfs find: -printf cannot be used with --paths or --fid2path
+lfs: failed for '/dev/mapper/mds2_flakey': Operation not supported
+rc=95
++ lfs find --target MDT0000
+find: 'MDT0000' is not an MDT or an OST
+rc=22
+--- arm t (9d3b9c8d7e)
++ lfs find --local --mdt --paths -printf '%p\n'
+find: -printf cannot be used with --paths or --fid2path
+rc=95
++ lfs find --local --fid2path /mnt/lfsf -printf '%LF\n'
+find: -printf cannot be used with --paths or --fid2path
+rc=95
++ lfs find --fsname lfsf --paths -printf '%p\n'
+find: -printf cannot be used with --paths or --fid2path
+rc=95
++ lfs find --target MDT0000
+find: 'MDT0000' is not a target name like FSNAME-MDT0000 or FSNAME-OST0000
+rc=22
+== end 2026-10-19 16:42:30
+F2 DONE
+##### sanity arm=t tag=t-56E MDSCOUNT=1 ONLY=56Ea 56Eaa 56Eab 56Eb 56Ebb 56Ec 56Ed 56Eda 56Edb 56Ef 56Eg 56Eh 56Ei 56Ej 56Ek 56El 56Eea
+== start 2026-10-19 16:43:08 arm=t (9d3b9c8d7e) ONLY=56Ea 56Eaa 56Eab 56Eb 56Ebb 56Ec 56Ed 56Eda 56Edb 56Ef 56Eg 56Eh 56Ei 56Ej 56Ek 56El 56Eea MDSCOUNT=1
+loaded version: [2.17.58_65_g8618869]
+bound /tmp/lab1019d-t/lustre/tests/.libs/llapi_scan_test over /usr/lib64/lustre/tests/llapi_scan_test
+  llapi_scan_test ld.so:  liblustreapi.so.1 => /tmp/arm1019dt/lib/liblustreapi.so.1 (0x00007fbe82768000)
+bound /tmp/lab1019d-t/lustre/tests/.libs/llapi_scan_changelog_test over /usr/lib64/lustre/tests/llapi_scan_changelog_test
+  llapi_scan_changelog_test ld.so:  liblustreapi.so.1 => /tmp/arm1019dt/lib/liblustreapi.so.1 (0x00007f1695562000)
+lfs ld.so:  liblustreapi.so.1 => /tmp/arm1019dt/lib/liblustreapi.so.1 (0x00007f53b8932000)
+arm lib md5: db8a0d0d7d48
+SANITY_RC=0
+PASS 16  FAIL 0  SKIP 2
+PASS 56Ea (7s)
+PASS 56Eaa (0s)
+PASS 56Eab (0s)
+PASS 56Eb (0s)
+PASS 56Ebb (1s)
+PASS 56Ec (0s)
+PASS 56Ed (1s)
+PASS 56Eda (0s)
+ SKIP: sanity test_56Edb needs >= 2 MDTs
+SKIP 56Edb (1s)
+PASS 56Ef (0s)
+PASS 56Eg (0s)
+PASS 56Eh (9s)
+PASS 56Ei (1s)
+PASS 56Ej (0s)
+PASS 56Ek (0s)
+PASS 56El (0s)
+PASS 56Eea (9s)
+cleanup rc=0
+== end 2026-10-19 16:44:57
+##### sanity arm=t tag=t-160A1 MDSCOUNT=1 ONLY=160Aa 160Ab 160Ac 160Ad 160Ae 160Af
+== start 2026-10-19 16:44:57 arm=t (9d3b9c8d7e) ONLY=160Aa 160Ab 160Ac 160Ad 160Ae 160Af MDSCOUNT=1
+loaded version: [2.17.58_65_g8618869]
+bound /tmp/lab1019d-t/lustre/tests/.libs/llapi_scan_test over /usr/lib64/lustre/tests/llapi_scan_test
+  llapi_scan_test ld.so:  liblustreapi.so.1 => /tmp/arm1019dt/lib/liblustreapi.so.1 (0x00007fd8e0ed0000)
+bound /tmp/lab1019d-t/lustre/tests/.libs/llapi_scan_changelog_test over /usr/lib64/lustre/tests/llapi_scan_changelog_test
+  llapi_scan_changelog_test ld.so:  liblustreapi.so.1 => /tmp/arm1019dt/lib/liblustreapi.so.1 (0x00007f1445e28000)
+lfs ld.so:  liblustreapi.so.1 => /tmp/arm1019dt/lib/liblustreapi.so.1 (0x00007f8b83441000)
+arm lib md5: db8a0d0d7d48
+SANITY_RC=0
+PASS 6  FAIL 0  SKIP 0
+PASS 160Aa (18s)
+PASS 160Ab (8s)
+PASS 160Ac (15s)
+PASS 160Ad (2s)
+PASS 160Ae (3s)
+PASS 160Af (2s)
+cleanup rc=0
+== end 2026-10-19 16:46:43
+##### sanity arm=t tag=t-160A2 MDSCOUNT=2 ONLY=160Aa 160Ab 160Ac 160Ad 160Ae 160Af
+== start 2026-10-19 16:46:43 arm=t (9d3b9c8d7e) ONLY=160Aa 160Ab 160Ac 160Ad 160Ae 160Af MDSCOUNT=2
+loaded version: [2.17.58_65_g8618869]
+bound /tmp/lab1019d-t/lustre/tests/.libs/llapi_scan_test over /usr/lib64/lustre/tests/llapi_scan_test
+  llapi_scan_test ld.so:  liblustreapi.so.1 => /tmp/arm1019dt/lib/liblustreapi.so.1 (0x00007fb3bc592000)
+bound /tmp/lab1019d-t/lustre/tests/.libs/llapi_scan_changelog_test over /usr/lib64/lustre/tests/llapi_scan_changelog_test
+  llapi_scan_changelog_test ld.so:  liblustreapi.so.1 => /tmp/arm1019dt/lib/liblustreapi.so.1 (0x00007fc9d2dd2000)
+lfs ld.so:  liblustreapi.so.1 => /tmp/arm1019dt/lib/liblustreapi.so.1 (0x00007f5530cc5000)
+arm lib md5: db8a0d0d7d48
+SANITY_RC=0
+PASS 6  FAIL 0  SKIP 0
+PASS 160Aa (18s)
+PASS 160Ab (8s)
+PASS 160Ac (19s)
+PASS 160Ad (3s)
+PASS 160Ae (2s)
+PASS 160Af (3s)
+cleanup rc=0
+== end 2026-10-19 16:48:44
+##### conf lib=t script=t tag=t-300 ONLY=300a 300b
+== start 2026-10-19 16:48:44 lib=t (9d3b9c8d7e) script=t ONLY=300a 300b
+lfs loads:  liblustreapi.so.1 => /tmp/arm1019dt/lib/liblustreapi.so.1 (0x00007f81b28ce000)
+lib md5: db8a0d0d7d48  plugin: scan_osd_ldiskfs.so
+CS_RC=0
+Writer error: failed to resolve Netlink family id
+Writer error: failed to resolve Netlink family id
+error: find: name one target, not 2
+error: find: --device given twice
+PASS 300a (40s)
+PASS 300b (23s)
+scanned 107 objects; found all 103 visible FIDs
+lfs find --type f found all 101 files
+== end 2026-10-19 16:50:42
+CONF RUN DONE
+LAB 1019d DONE

@@ -1,0 +1,15 @@
+  t (9d3b9c8d7e) PLUGIN_DIR in lib: /tmp/arm1019dt/lib/lustre/scan_osd_%s.so
+  t type-mask drop in lib: 1  test11: 1
+-rwxr-xr-x. 1 nishida nishida   96416 16:40:48 /tmp/lab1019d-t/lustre/tests/.libs/llapi_scan_changelog_test
+-rwxr-xr-x. 1 nishida nishida  751040 16:40:47 /tmp/lab1019d-t/lustre/utils/.libs/lfs
+-rwxr-xr-x. 1 nishida nishida 1421376 16:40:46 /tmp/lab1019d-t/lustre/utils/.libs/liblustreapi.so.1.0.0
+db8a0d0d7d48
+db8a0d0d7d48
+  o (7b24dd3149) PLUGIN_DIR in lib: /tmp/arm1019do/lib/lustre/scan_osd_%s.so
+  o type-mask drop in lib: 0  test11: 0
+-rwxr-xr-x. 1 nishida nishida   95520 16:41:10 /tmp/lab1019d-o/lustre/tests/.libs/llapi_scan_changelog_test
+-rwxr-xr-x. 1 nishida nishida  751000 16:41:08 /tmp/lab1019d-o/lustre/utils/.libs/lfs
+-rwxr-xr-x. 1 nishida nishida 1420216 16:41:08 /tmp/lab1019d-o/lustre/utils/.libs/liblustreapi.so.1.0.0
+e3d585179e55
+e3d585179e55
+BUILD-OK

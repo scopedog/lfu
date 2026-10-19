@@ -1,0 +1,47 @@
+b39fe0036b -> e1bb15d00b LU-20606 llapi: scan an ldiskfs target directly  tree +msg
+b6965589b8 -> cf05bc2f92 LU-20649 llapi: add llapi_scan_changelog()       tree +msg
+e110e04298 -> 97e9c05426 LU-20650 llapi: fill a scan record for one FID   tree
+2c0c7b9d4c -> 8647d144f9 LU-20611 llapi: split cb_find_init's decider out tree
+d31f2a614a -> a56c0078cf LU-20611 lfs: share find's predicate parsing     tree
+0751092444 -> 0c8e6792be LU-20611 llapi: run find over a device scan      tree
+ab2cf69fe0 -> 03dd154c6c LU-20611 lfs: find over a target, with --device  tree
+48a6b6d5c9 -> 5cfcf11173 LU-20613 llapi: add a ZFS backend to llapi_scan_ tree +msg
+4e053e7953 -> 349e577e02 LU-20637 llapi: name a device scan's objects     tree +msg
+a2d0f6e748 -> 085109cd90 LU-20650 lfs: add find --since, from the changel tree
+68642f8f11 -> 3e7553d2ce LU-20650 lfs: add find --changelog, the log as s tree
+1a0fba4fb3 -> d9ad0e9e1b LU-20650 lfs: add find --since-cookie, a per-MDT tree
+0cdde3c598 -> 4207f10947 LU-20650 lfs: find --since-cookie, check each MD tree
+7b24dd3149 -> 9d3b9c8d7e LU-20650 lfs: find --since, warn when the log wa tree
+185bb93cf6 -> 25f6ef456e LU-20613 build: compile libscan_zfs.c as libzpoo tree
+9ffadff6c0 -> 7934cb6d70 LU-20650 llapi: pass FID and nlink to llapi_scan tree
+d973a4f179 -> 35866766af LU-20650 lfs: filter find --since candidates bef tree
+7aac33ca4a -> 5b00f2b723 LU-20606 llapi: limit a scan's rate              tree
+7d61eb12e0 -> f6e216d6f8 LU-20606 lfs: find --device --max-rate           tree
+56ea5cdf37 -> d34b11ba53 LU-20637 llapi: find the root of an upgraded fil tree
+fork-1014 7b24dd3149 -> 9d3b9c8d7e
+fork-69501 9ffadff6c0 -> 7934cb6d70
+fork-69502 d973a4f179 -> 35866766af
+fork-69503 185bb93cf6 -> 25f6ef456e
+rate-1017 7aac33ca4a -> 5b00f2b723
+igif-1017 56ea5cdf37 -> d34b11ba53
+maxrate-1017 7d61eb12e0 -> f6e216d6f8
+HITS LU-20606 llapi: scan an ldiskfs target directly    B1-man B2-eio156 B2-enomem B3 B1-helper B1-call msg-B1
+HITS LU-20649 llapi: add llapi_scan_changelog()         L1-man B1-man B2-eio156 B2-enomem B3 L1-t-hdr L1-t-case L1-t-reg L1-san L1-loop B1-helper B1-call msg-L1
+HITS LU-20650 llapi: fill a scan record for one FID     L1-man B1-man B2-eio156 B2-enomem B3 L1-t-hdr L1-t-case L1-t-reg L1-san L1-loop B1-helper B1-call
+HITS LU-20611 llapi: split cb_find_init's decider out   L1-man B1-man B2-eio156 B2-enomem B3 L1-t-hdr L1-t-case L1-t-reg L1-san L1-loop B1-helper B1-call
+HITS LU-20611 lfs: share find's predicate parsing       L1-man B1-man B2-eio156 B2-enomem B3 L1-t-hdr L1-t-case L1-t-reg L1-san L1-loop B1-helper B1-call
+HITS LU-20611 llapi: run find over a device scan        C2 L1-man B1-man B2-eio156 B2-enomem B3 L1-t-hdr L1-t-case L1-t-reg L1-san L1-loop B1-helper B1-call
+HITS LU-20611 lfs: find over a target, with --device    C2 L1-man B1-man B2-eio156 B2-enomem B3 L1-t-hdr L1-t-case L1-t-reg L1-san D1 L1-loop B1-helper B1-call
+HITS LU-20613 llapi: add a ZFS backend to llapi_scan_de C2 L1-man B1-man B2-eio163 B2-enomem B3 L1-t-hdr L1-t-case L1-t-reg L1-san D1 L1-loop B1-helper B1-call msg-E1
+HITS LU-20637 llapi: name a device scan's objects       F1-find1 C2 F1-fd3 L1-man B1-man B2-eio163 B2-enomem B3 L1-t-hdr L1-t-case L1-t-reg L1-san D1 F2 L1-loop B1-helper B1-call msg-F2
+HITS LU-20650 lfs: add find --since, from the changelog F1-find1 C2 F1-fd3 L1-man B1-man B2-eio163 B2-enomem B3 L1-t-hdr L1-t-case L1-t-reg L1-san D1 F2 L1-loop B1-helper B1-call
+HITS LU-20650 lfs: add find --changelog, the log as sou F1-find1 C2 F1-fd3 L1-man B1-man B2-eio163 B2-enomem B3 L1-t-hdr L1-t-case L1-t-reg L1-san D1 F2 L1-loop B1-helper B1-call
+HITS LU-20650 lfs: add find --since-cookie, a per-MDT a F1-find1 C2 F1-fd3 L1-man B1-man B2-eio163 B2-enomem B3 L1-t-hdr L1-t-case L1-t-reg L1-san D1 F2 L4-filter L4-next L4-return L1-loop B1-helper B1-call
+HITS LU-20650 lfs: find --since-cookie, check each MDT  F1-find1 C2 F1-fd3 L1-man B1-man B2-eio163 B2-enomem B3 L1-t-hdr L1-t-case L1-t-reg L1-san D1 F2 L4-filter L4-next L4-return L1-loop B1-helper B1-call
+HITS LU-20650 lfs: find --since, warn when the log was  F1-find1 C2 F1-fd3 L1-man B1-man B2-eio163 B2-enomem B3 L1-t-hdr L1-t-case L1-t-reg L1-san D1 F2 L4-filter L4-next L4-return L1-loop B1-helper B1-call
+HITS LU-20613 build: compile libscan_zfs.c as libzpool  C2 L1-man B1-man B2-eio163 B2-enomem B3 L1-t-hdr L1-t-case L1-t-reg L1-san D1 L1-loop B1-helper B1-call
+HITS LU-20650 llapi: pass FID and nlink to llapi_scan_f F1-find1 C2 F1-fd3 L1-man B1-man B2-eio163 B2-enomem B3 L1-t-hdr L1-t-case L1-t-reg L1-san D1 F2 L1-loop B1-helper B1-call
+HITS LU-20650 lfs: filter find --since candidates befor F1-find1 C2 F1-fd3 L1-man B1-man B2-eio163 B2-enomem B3 L1-t-hdr L1-t-case L1-t-reg L1-san D1 F2 L1-loop B1-helper B1-call
+HITS LU-20606 llapi: limit a scan's rate                C2 L1-man B1-man B2-eio156 B2-enomem B3 L1-t-hdr L1-t-case L1-t-reg L1-san D1 L1-loop B1-helper B1-call
+HITS LU-20606 lfs: find --device --max-rate             C2 L1-man B1-man B2-eio156 B2-enomem B3 L1-t-hdr L1-t-case L1-t-reg L1-san D1 L1-loop B1-helper B1-call
+HITS LU-20637 llapi: find the root of an upgraded files F1-find1 C2 F1-fd3-729 L1-man B1-man B2-eio163 B2-enomem B3 L1-t-hdr L1-t-case L1-t-reg L1-san D1 F2 L1-loop B1-helper B1-call
