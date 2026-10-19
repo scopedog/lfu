@@ -21,7 +21,8 @@ CHANGES = [68094,68095,68156,68157,68158,68159,68160,68163,68231,68288,68340,
            # adilger; watched for the owner's reply
            65449,
            69795,  # LU-20988 lfs find --foreign fix, standalone, 10-18
-           69796]  # LU-20989 pfind: sleep, not spin, while workers run, 10-19
+           69796,  # LU-20989 pfind: sleep, not spin, while workers run, 10-19
+           69744]  # not ours: sbuisson LU-20971; if it lands first, 69796 must wake fwq_done_cond
 Q = " OR ".join("change:%d" % c for c in CHANGES)
 
 def fetch():

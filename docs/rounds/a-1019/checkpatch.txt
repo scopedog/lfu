@@ -1,0 +1,20 @@
+== 4f2824972c -> 3ee121a15a  LU-20606 llapi: scan an ldiskfs target directly
+   old: total: 0 errors, 0 warnings, 1 checks, 564 lines checked, spelling check not done total: 0 errors, 0 warnings, 1 checks, 212 lines checked, spelling check not done total: 0 errors, 3 warnings, 3973 lines checked 
+   new: total: 0 errors, 0 warnings, 1 checks, 564 lines checked, spelling check not done total: 0 errors, 0 warnings, 1 checks, 212 lines checked, spelling check not done total: 0 errors, 3 warnings, 3981 lines checked 
+   findings diff: none
+== d1688b30b0 -> ab51ae86d5  LU-20649 llapi: add llapi_scan_changelog()
+   old: total: 0 errors, 0 warnings, 2 checks, 662 lines checked, spelling check not done total: 0 errors, 0 warnings, 1 checks, 212 lines checked, spelling check not done total: 0 errors, 2 warnings, 3341 lines checked 
+   new: total: 0 errors, 0 warnings, 2 checks, 662 lines checked, spelling check not done total: 0 errors, 0 warnings, 1 checks, 212 lines checked, spelling check not done total: 0 errors, 2 warnings, 3380 lines checked 
+   findings diff: none
+== 6e240c6728 -> e30c9f3e0d  LU-20650 llapi: fill a scan record for one FID
+   old: total: 0 errors, 0 warnings, 1 checks, 339 lines checked, spelling check not done total: 0 errors, 0 warnings, 1 checks, 212 lines checked, spelling check not done total: 0 errors, 1 warnings, 989 lines checked 
+   new: total: 0 errors, 0 warnings, 1 checks, 339 lines checked, spelling check not done total: 0 errors, 0 warnings, 1 checks, 212 lines checked, spelling check not done total: 0 errors, 1 warnings, 1007 lines checked 
+   findings diff: none
+== 0798e095e9 -> 83f20c99e3  LU-20637 llapi: name a device scan's objects
+   old: total: 0 errors, 2 warnings, 0 checks, 1281 lines checked, spelling check not done total: 0 errors, 0 warnings, 2 checks, 662 lines checked, spelling check not done total: 0 errors, 0 warnings, 1 checks, 339 lines checked, spelling check not done total: 0 errors, 0 warnings, 1 checks, 564 lines checked, spelling check not done total: 0 errors, 0 warnings, 1 checks, 190 lines checked, spelling check not done total: 0 errors, 0 warnings, 1 checks, 212 lines checked, spelling check not done total: 0 errors, 1 warnings, 2974 lines checked 
+   new: total: 0 errors, 2 warnings, 0 checks, 1281 lines checked, spelling check not done total: 0 errors, 0 warnings, 2 checks, 662 lines checked, spelling check not done total: 0 errors, 0 warnings, 1 checks, 339 lines checked, spelling check not done total: 0 errors, 0 warnings, 1 checks, 564 lines checked, spelling check not done total: 0 errors, 0 warnings, 1 checks, 190 lines checked, spelling check not done total: 0 errors, 0 warnings, 1 checks, 212 lines checked, spelling check not done total: 0 errors, 1 warnings, 2973 lines checked 
+   findings diff: none
+== 8923d31cf4 -> 09f86d9452  LU-20650 lfs: add find --since-cookie, a per-MDT anchor
+   old: total: 0 errors, 2 warnings, 0 checks, 1281 lines checked, spelling check not done total: 0 errors, 0 warnings, 1557 lines checked 
+   new: total: 0 errors, 2 warnings, 0 checks, 1281 lines checked, spelling check not done total: 0 errors, 0 warnings, 1557 lines checked 
+   findings diff: none

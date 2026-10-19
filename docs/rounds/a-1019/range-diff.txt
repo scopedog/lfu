@@ -1,0 +1,1580 @@
+### fork-1014
+ 1:  4f2824972c !  1:  3ee121a15a LU-20606 llapi: scan an ldiskfs target directly
+    @@ lustre/utils/lustreapi_internal.h
+      
+      struct cYAML;
+     @@ lustre/utils/lustreapi_internal.h: struct llapi_scan_rec;
+    + #define LLAPI_SCAN_PARAM_MAX_SIZE	4096
+    + /* every lfsp_flags bit a namespace scan knows.  One mask per scanner, so that
+    +  * a flag only one of them can act on cannot be quietly accepted by the other.
+    ++ * The exception is LLAPI_SCAN_F_STOP_ON_ERROR: a device scan accepts it and
+    ++ * ignores it, as llapi_scan_device(3) says.
+    +  * Deliberately not public: a caller that built against an "all flags" value
+    +  * would mean a different set of bits by it than the library it is linked
+       * against.
+       */
+      #define LLAPI_SCAN_F_KNOWN_NS	(LLAPI_SCAN_F_STOP_ON_ERROR)
+    @@ lustre/utils/lustreapi_internal.h: static inline void scan_param_report_got(cons
+     +	 LLAPI_SCAN_INO | LLAPI_SCAN_PARENT | LLAPI_SCAN_LINKEA |	\
+     +	 LLAPI_SCAN_LMA | LLAPI_SCAN_CLASS)
+     +/* and what only one kind of target has, so a scan of the other never
+    -+ * answers for it: the layout, the directory stripe, the lazy SOM size, the
+    -+ * MDT index and the linkea with the parent it names are the MDT's.
+    ++ * answers for it: the layout, the directory stripe, the HSM state, the lazy
+    ++ * SOM size, the MDT index and the linkea with the parent it names are the
+    ++ * MDT's.
+     + */
+     +#define LLAPI_SCAN_WANT_MDT_ONLY					\
+     +	(LLAPI_SCAN_LAYOUT | LLAPI_SCAN_LMV | LLAPI_SCAN_LMV_FOREIGN |	\
+ 2:  d1688b30b0 !  2:  ab51ae86d5 LU-20649 llapi: add llapi_scan_changelog()
+    @@ Commit message
+     
+         Flags:
+         - LLAPI_SCAN_CL_F_RESOLVE fills the object's own attributes through a
+    -      client mount: one O_PATH open by FID and a statx() or two per
+    -      object. It
+    -      fills only what the record lacks. The demand mask decides if the
+    +      client mount: one O_PATH open by FID and a statx() or two per object.
+    +      It fills only what the record lacks. The demand mask decides if the
+           lookup runs at all. It needs CAP_DAC_READ_SEARCH and is refused with
+           -EPERM without it. The project id, layout, LMV and HSM state are not
+           filled.
+    @@ Documentation/man3/llapi_scan_changelog.3 (new)
+     +.TP
+     +.I lfsc_user
+     +The registered Changelog user, as
+    -+.BR cl1 .
+    ++.B cl1
+    ++or
+    ++.BR cl1-name .
+     +Required by
+    -+.BR LLAPI_SCAN_CL_F_CLEAR .
+    ++.BR LLAPI_SCAN_CL_F_CLEAR ,
+    ++which refuses any other form, such as a bare number or name.
+     +Registering one is an MDS-side operation and is the caller's:
+     +.B lctl --device
+     +.I mdtname
+    @@ Documentation/man3/llapi_scan_changelog.3 (new)
+     +.B LLAPI_SCAN_CL_F_CLEAR
+     +without
+     +.IR lfsc_user ;
+    ++.B LLAPI_SCAN_CL_F_CLEAR
+    ++with an
+    ++.I lfsc_user
+    ++other than
+    ++.BI cl N
+    ++or
+    ++.BI cl N - name ;
+     +.B LLAPI_SCAN_CL_F_ONCE
+     +without
+     +.BR LLAPI_SCAN_CL_F_COALESCE ;
+    @@ lustre/tests/llapi_scan_changelog_test.c (new)
+     +static void test4(void)
+     +{
+     +	struct llapi_scan_changelog_param sc;
+    ++	static const char *const bad_users[] = { "1", "cl", "cl1x", "name",
+    ++						  NULL };
+     +	struct cl_result res = { 0 };
+     +	int rc;
+    ++	int i;
+     +
+     +	/* the library says so on its own; the test knows already */
+     +	llapi_msg_set_level(LLAPI_MSG_OFF);
+    @@ lustre/tests/llapi_scan_changelog_test.c (new)
+     +	rc = llapi_scan_changelog(&sc, cl_cb, &res);
+     +	ASSERTF(rc == -EINVAL, "clear without a user returned %d", rc);
+     +
+    ++	/* a clear takes only cl<N>, so these fail before any record */
+    ++	for (i = 0; bad_users[i] != NULL; i++) {
+    ++		param_init(&sc);
+    ++		sc.lfsc_flags = LLAPI_SCAN_CL_F_CLEAR;
+    ++		sc.lfsc_user = bad_users[i];
+    ++		rc = llapi_scan_changelog(&sc, cl_cb, &res);
+    ++		ASSERTF(rc == -EINVAL, "clear with user '%s' returned %d",
+    ++			bad_users[i], rc);
+    ++		ASSERTF(res.cr_records == 0,
+    ++			"clear with user '%s' delivered %u records",
+    ++			bad_users[i], res.cr_records);
+    ++	}
+    ++
+     +	param_init(&sc);
+     +	sc.lfsc_flags = LLAPI_SCAN_CL_F_ONCE;
+     +	rc = llapi_scan_changelog(&sc, cl_cb, &res);
+    @@ lustre/tests/llapi_scan_changelog_test.c (new)
+     +
+     +	llapi_msg_set_level(LLAPI_MSG_ERROR);
+     +
+    -+	printf("  ten bad calls refused with -EINVAL\n");
+    ++	printf("  fourteen bad calls refused with -EINVAL\n");
+     +}
+     +
+     +/*
+    @@ lustre/utils/liblustreapi_scan_changelog.c (new)
+     + * delivered so far and drops those repeats, at a FID per distinct object.
+     + */
+     +
+    ++#include <ctype.h>
+     +#include <errno.h>
+     +#include <fcntl.h>
+     +#include <stdbool.h>
+    @@ lustre/utils/liblustreapi_scan_changelog.c (new)
+     +	}
+     +}
+     +
+    ++/* the MDS clears only by "cl<N>"; llapi_changelog_clear() drops a "-name" */
+    ++static bool scan_cl_user_is_id(const char *user)
+    ++{
+    ++	if (user == NULL || strncmp(user, "cl", 2) != 0 ||
+    ++	    !isdigit((unsigned char)user[2]))
+    ++		return false;
+    ++	for (user += 2; isdigit((unsigned char)*user); user++)
+    ++		;
+    ++	return *user == '\0' || *user == '-';
+    ++}
+    ++
+     +/**
+     + * llapi_scan_changelog() - an Object Stream from one MDT's changelog
+     + * @sc: what to read and what to answer for
+    @@ lustre/utils/liblustreapi_scan_changelog.c (new)
+     +	 * own memory would be read past its end.  llapi_scan_device() defers
+     +	 * its own lfsp_stats check for the same reason.
+     +	 */
+    -+	if ((scl.lfsc_flags & LLAPI_SCAN_CL_F_CLEAR) && scl.lfsc_user == NULL)
+    ++	if ((scl.lfsc_flags & LLAPI_SCAN_CL_F_CLEAR) &&
+    ++	    !scan_cl_user_is_id(scl.lfsc_user))
+     +		return -EINVAL;
+     +	if ((scl.lfsc_flags & LLAPI_SCAN_CL_F_RESOLVE) && scl.lfsc_mnt == NULL)
+     +		return -EINVAL;
+ 3:  6e240c6728 !  3:  e30c9f3e0d LU-20650 llapi: fill a scan record for one FID
+    @@ Commit message
+         for the other three scanners, and the call returns 0 rather than
+         handing that value back to a caller testing `if (rc)`.  The gather
+         runs against a pathname, so the FID it found is checked against the
+    -    one asked for, and a record never describes a different object.
+    +    one asked for, on the getinfo and on any descriptor the gather opened.
+         -ESTALE is what is left when the name still holds another object after
+         the lookup is repeated (below): a shard's or an OST object's FID, a
+         name off Lustre, or V1-only client modules.  A name unlinked and
+    @@ Documentation/man3/llapi_scan_fid.3 (new)
+     +name is relative to it. The opens that gather a project id, HSM state and a
+     +regular file's MDT index are still made by pathname, through
+     +.IR mnt_path .
+    ++A regular file opened this way is checked against
+    ++.I fid
+    ++too. A special file's project id is read through its parent and name, and
+    ++is not checked.
+     +.LP
+     +.I mnt_path
+     +is that mount's path and is required, but it is only the spelling: it is what
+    @@ Documentation/man3/llapi_scan_fid.3 (new)
+     +.\" Added in commit v2_17_57-xxx-gxxxxxxxxx
+     +.SH SEE ALSO
+     +.BR llapi_fid2path (3),
+    ++.BR llapi_fid2path_at (3),
+    ++.BR llapi_path2fid (3),
+    ++.BR llapi_root_path_open (3),
+     +.BR llapi_scan_changelog (3),
+     +.BR llapi_scan_device (3),
+     +.BR llapi_scan_namespace (3),
+    @@ lustre/utils/liblustreapi_scan.c: int llapi_scan_namespace(const char *path, con
+     + * answer -ENOENT or a path relative to that root instead.
+     + * scan_rec_gather() still opens by pathname for LLAPI_SCAN_PROJID,
+     + * LLAPI_SCAN_HSM and a regular file's LLAPI_SCAN_MDT_INDEX, so for those
+    -+ * @mnt_path does decide what is read.
+    ++ * @mnt_path does decide what is read.  A regular file opened this way is
+    ++ * checked against @fid too, and a mismatch is -ESTALE.  A special file's
+    ++ * project id is read through its parent and name, and is not checked.
+     + * @mnt_path is what the record's lfsr_path is built from, so a wrong one
+     + * mislabels the answer.
+     + *
+    @@ lustre/utils/liblustreapi_scan.c: int llapi_scan_namespace(const char *path, con
+     +		rc = -ESTALE;
+     +		goto out;
+     +	}
+    ++	/* the gather opens a regular file again by name: check that too */
+    ++	if (fd >= 0) {
+    ++		struct lu_fid ofid;
+    ++
+    ++		if (llapi_fd2fid(fd, &ofid) != 0 || !lu_fid_eq(&ofid, fid)) {
+    ++			rc = -ESTALE;
+    ++			goto out;
+    ++		}
+    ++	}
+     +
+     +	ours = false;
+     +	rc = cb(&rec, data);
+ 4:  ebb261441e =  4:  cee2e73f90 LU-20611 llapi: split cb_find_init's decider out
+ 5:  8530b4b78c =  5:  b775d5bfc2 LU-20611 lfs: share find's predicate parsing
+ 6:  eaa00c0b17 =  6:  086ddf4179 LU-20611 llapi: run find over a device scan
+ 7:  294ae8f76b =  7:  2c56137a8a LU-20611 lfs: find over a target, with --device
+ 8:  62cdd0b157 =  8:  d571f6bc9d LU-20613 llapi: add a ZFS backend to llapi_scan_device()
+ 9:  0798e095e9 !  9:  83f20c99e3 LU-20637 llapi: name a device scan's objects
+    @@ lustre/utils/lustreapi_internal.h: static inline void scan_param_report_got(cons
+     +	 LLAPI_SCAN_LMA | LLAPI_SCAN_CLASS |				\
+     +	 LLAPI_SCAN_OWNER)
+      /* and what only one kind of target has, so a scan of the other never
+    -- * answers for it: the layout, the directory stripe, the lazy SOM size, the
+    -- * MDT index and the linkea with the parent it names are the MDT's.
+    -+ * answers for it: the layout, the directory stripe, the HSM state, the lazy
+    -+ * SOM size, the MDT index and the linkea with the parent it names are the
+    +  * answers for it: the layout, the directory stripe, the HSM state, the lazy
+    +  * SOM size, the MDT index and the linkea with the parent it names are the
+    +- * MDT's.
+     + * MDT's, and an OST data object's owner is the OST's.
+       */
+      #define LLAPI_SCAN_WANT_MDT_ONLY					\
+10:  c6e3975286 = 10:  9535d530a4 LU-20650 lfs: add find --since, from the changelog
+11:  43cb2e0167 = 11:  30e906185a LU-20650 lfs: add find --changelog, the log as source
+12:  8923d31cf4 ! 12:  09f86d9452 LU-20650 lfs: add find --since-cookie, a per-MDT anchor
+    @@ Commit message
+         holds "MDT0000 0", then makes and purges records and checks that the
+         next run warns and still finds the record made after the purge.
+     
+    -    Five changes to lfs-find.1 cover all three options.  --since-cookie
+    -    moves up beside --since in SYNOPSIS and OPTIONS: it is the other way
+    -    to say where a --since search starts, where --changelog is a different
+    -    source.  TIME's spellings are given in full -- set_since() takes
+    -    eight of them, and its error text offers one the page would otherwise
+    -    not list -- and seconds are optional wherever a time appears.  And the
+    -    -name paragraph says which name a match is tested against under
+    -    --changelog: the one carried by the object's latest event that
+    -    carried a name in the same burst, so a file created as f and then
+    -    written and closed still matches -name f, its CL_CLOSE naming
+    -    nothing.  And the --since-cookie paragraph documents the refusal of a
+    -    restarted log, which this patch implements, and says
+    -    the stale check is made before the search starts, so a purge on a
+    -    later MDT during it is not caught.  EXAMPLES gains a plain --since
+    -    search.
+    +    lfs-find.1 documents --since-cookie in SYNOPSIS, OPTIONS, the list
+    +    of options a target scan refuses, and EXAMPLES.  Its OPTIONS entry
+    +    sits beside --since: it is the other way to say where a --since
+    +    search starts, where --changelog is a different source.  The entry
+    +    documents the refusal of a restarted log, which this patch
+    +    implements, and says the stale check is made before the search
+    +    starts, so a purge on a later MDT during it is not caught.  TIME's
+    +    spellings are given in full -- set_since() takes eight of them, and
+    +    its error text offers one the page would otherwise not list -- and
+    +    seconds are optional wherever a time appears.  The -name paragraph
+    +    says which name a match is tested against under --changelog: the one
+    +    carried by the object's latest event that carried a name in the same
+    +    burst, so a file created as f and then written and closed still
+    +    matches -name f, its CL_CLOSE naming nothing.  EXAMPLES also gains a
+    +    plain --since search.
+     
+         Test-Parameters: testlist=sanity env=ONLY=56
+         Test-Parameters: testlist=sanity env=ONLY=160Ac mdscount=2 mdtcount=4
+13:  143add57d0 = 13:  76ccbe8fad LU-20650 lfs: find --since-cookie, check each MDT when read
+14:  103aef57d1 = 14:  ce898ad309 LU-20650 lfs: find --since, warn when the log was cleared
+### fork-69501
+ 1:  4f2824972c !  1:  3ee121a15a LU-20606 llapi: scan an ldiskfs target directly
+    @@ lustre/utils/lustreapi_internal.h
+      
+      struct cYAML;
+     @@ lustre/utils/lustreapi_internal.h: struct llapi_scan_rec;
+    + #define LLAPI_SCAN_PARAM_MAX_SIZE	4096
+    + /* every lfsp_flags bit a namespace scan knows.  One mask per scanner, so that
+    +  * a flag only one of them can act on cannot be quietly accepted by the other.
+    ++ * The exception is LLAPI_SCAN_F_STOP_ON_ERROR: a device scan accepts it and
+    ++ * ignores it, as llapi_scan_device(3) says.
+    +  * Deliberately not public: a caller that built against an "all flags" value
+    +  * would mean a different set of bits by it than the library it is linked
+       * against.
+       */
+      #define LLAPI_SCAN_F_KNOWN_NS	(LLAPI_SCAN_F_STOP_ON_ERROR)
+    @@ lustre/utils/lustreapi_internal.h: static inline void scan_param_report_got(cons
+     +	 LLAPI_SCAN_INO | LLAPI_SCAN_PARENT | LLAPI_SCAN_LINKEA |	\
+     +	 LLAPI_SCAN_LMA | LLAPI_SCAN_CLASS)
+     +/* and what only one kind of target has, so a scan of the other never
+    -+ * answers for it: the layout, the directory stripe, the lazy SOM size, the
+    -+ * MDT index and the linkea with the parent it names are the MDT's.
+    ++ * answers for it: the layout, the directory stripe, the HSM state, the lazy
+    ++ * SOM size, the MDT index and the linkea with the parent it names are the
+    ++ * MDT's.
+     + */
+     +#define LLAPI_SCAN_WANT_MDT_ONLY					\
+     +	(LLAPI_SCAN_LAYOUT | LLAPI_SCAN_LMV | LLAPI_SCAN_LMV_FOREIGN |	\
+ 2:  d1688b30b0 !  2:  ab51ae86d5 LU-20649 llapi: add llapi_scan_changelog()
+    @@ Commit message
+     
+         Flags:
+         - LLAPI_SCAN_CL_F_RESOLVE fills the object's own attributes through a
+    -      client mount: one O_PATH open by FID and a statx() or two per
+    -      object. It
+    -      fills only what the record lacks. The demand mask decides if the
+    +      client mount: one O_PATH open by FID and a statx() or two per object.
+    +      It fills only what the record lacks. The demand mask decides if the
+           lookup runs at all. It needs CAP_DAC_READ_SEARCH and is refused with
+           -EPERM without it. The project id, layout, LMV and HSM state are not
+           filled.
+    @@ Documentation/man3/llapi_scan_changelog.3 (new)
+     +.TP
+     +.I lfsc_user
+     +The registered Changelog user, as
+    -+.BR cl1 .
+    ++.B cl1
+    ++or
+    ++.BR cl1-name .
+     +Required by
+    -+.BR LLAPI_SCAN_CL_F_CLEAR .
+    ++.BR LLAPI_SCAN_CL_F_CLEAR ,
+    ++which refuses any other form, such as a bare number or name.
+     +Registering one is an MDS-side operation and is the caller's:
+     +.B lctl --device
+     +.I mdtname
+    @@ Documentation/man3/llapi_scan_changelog.3 (new)
+     +.B LLAPI_SCAN_CL_F_CLEAR
+     +without
+     +.IR lfsc_user ;
+    ++.B LLAPI_SCAN_CL_F_CLEAR
+    ++with an
+    ++.I lfsc_user
+    ++other than
+    ++.BI cl N
+    ++or
+    ++.BI cl N - name ;
+     +.B LLAPI_SCAN_CL_F_ONCE
+     +without
+     +.BR LLAPI_SCAN_CL_F_COALESCE ;
+    @@ lustre/tests/llapi_scan_changelog_test.c (new)
+     +static void test4(void)
+     +{
+     +	struct llapi_scan_changelog_param sc;
+    ++	static const char *const bad_users[] = { "1", "cl", "cl1x", "name",
+    ++						  NULL };
+     +	struct cl_result res = { 0 };
+     +	int rc;
+    ++	int i;
+     +
+     +	/* the library says so on its own; the test knows already */
+     +	llapi_msg_set_level(LLAPI_MSG_OFF);
+    @@ lustre/tests/llapi_scan_changelog_test.c (new)
+     +	rc = llapi_scan_changelog(&sc, cl_cb, &res);
+     +	ASSERTF(rc == -EINVAL, "clear without a user returned %d", rc);
+     +
+    ++	/* a clear takes only cl<N>, so these fail before any record */
+    ++	for (i = 0; bad_users[i] != NULL; i++) {
+    ++		param_init(&sc);
+    ++		sc.lfsc_flags = LLAPI_SCAN_CL_F_CLEAR;
+    ++		sc.lfsc_user = bad_users[i];
+    ++		rc = llapi_scan_changelog(&sc, cl_cb, &res);
+    ++		ASSERTF(rc == -EINVAL, "clear with user '%s' returned %d",
+    ++			bad_users[i], rc);
+    ++		ASSERTF(res.cr_records == 0,
+    ++			"clear with user '%s' delivered %u records",
+    ++			bad_users[i], res.cr_records);
+    ++	}
+    ++
+     +	param_init(&sc);
+     +	sc.lfsc_flags = LLAPI_SCAN_CL_F_ONCE;
+     +	rc = llapi_scan_changelog(&sc, cl_cb, &res);
+    @@ lustre/tests/llapi_scan_changelog_test.c (new)
+     +
+     +	llapi_msg_set_level(LLAPI_MSG_ERROR);
+     +
+    -+	printf("  ten bad calls refused with -EINVAL\n");
+    ++	printf("  fourteen bad calls refused with -EINVAL\n");
+     +}
+     +
+     +/*
+    @@ lustre/utils/liblustreapi_scan_changelog.c (new)
+     + * delivered so far and drops those repeats, at a FID per distinct object.
+     + */
+     +
+    ++#include <ctype.h>
+     +#include <errno.h>
+     +#include <fcntl.h>
+     +#include <stdbool.h>
+    @@ lustre/utils/liblustreapi_scan_changelog.c (new)
+     +	}
+     +}
+     +
+    ++/* the MDS clears only by "cl<N>"; llapi_changelog_clear() drops a "-name" */
+    ++static bool scan_cl_user_is_id(const char *user)
+    ++{
+    ++	if (user == NULL || strncmp(user, "cl", 2) != 0 ||
+    ++	    !isdigit((unsigned char)user[2]))
+    ++		return false;
+    ++	for (user += 2; isdigit((unsigned char)*user); user++)
+    ++		;
+    ++	return *user == '\0' || *user == '-';
+    ++}
+    ++
+     +/**
+     + * llapi_scan_changelog() - an Object Stream from one MDT's changelog
+     + * @sc: what to read and what to answer for
+    @@ lustre/utils/liblustreapi_scan_changelog.c (new)
+     +	 * own memory would be read past its end.  llapi_scan_device() defers
+     +	 * its own lfsp_stats check for the same reason.
+     +	 */
+    -+	if ((scl.lfsc_flags & LLAPI_SCAN_CL_F_CLEAR) && scl.lfsc_user == NULL)
+    ++	if ((scl.lfsc_flags & LLAPI_SCAN_CL_F_CLEAR) &&
+    ++	    !scan_cl_user_is_id(scl.lfsc_user))
+     +		return -EINVAL;
+     +	if ((scl.lfsc_flags & LLAPI_SCAN_CL_F_RESOLVE) && scl.lfsc_mnt == NULL)
+     +		return -EINVAL;
+ 3:  6e240c6728 !  3:  e30c9f3e0d LU-20650 llapi: fill a scan record for one FID
+    @@ Commit message
+         for the other three scanners, and the call returns 0 rather than
+         handing that value back to a caller testing `if (rc)`.  The gather
+         runs against a pathname, so the FID it found is checked against the
+    -    one asked for, and a record never describes a different object.
+    +    one asked for, on the getinfo and on any descriptor the gather opened.
+         -ESTALE is what is left when the name still holds another object after
+         the lookup is repeated (below): a shard's or an OST object's FID, a
+         name off Lustre, or V1-only client modules.  A name unlinked and
+    @@ Documentation/man3/llapi_scan_fid.3 (new)
+     +name is relative to it. The opens that gather a project id, HSM state and a
+     +regular file's MDT index are still made by pathname, through
+     +.IR mnt_path .
+    ++A regular file opened this way is checked against
+    ++.I fid
+    ++too. A special file's project id is read through its parent and name, and
+    ++is not checked.
+     +.LP
+     +.I mnt_path
+     +is that mount's path and is required, but it is only the spelling: it is what
+    @@ Documentation/man3/llapi_scan_fid.3 (new)
+     +.\" Added in commit v2_17_57-xxx-gxxxxxxxxx
+     +.SH SEE ALSO
+     +.BR llapi_fid2path (3),
+    ++.BR llapi_fid2path_at (3),
+    ++.BR llapi_path2fid (3),
+    ++.BR llapi_root_path_open (3),
+     +.BR llapi_scan_changelog (3),
+     +.BR llapi_scan_device (3),
+     +.BR llapi_scan_namespace (3),
+    @@ lustre/utils/liblustreapi_scan.c: int llapi_scan_namespace(const char *path, con
+     + * answer -ENOENT or a path relative to that root instead.
+     + * scan_rec_gather() still opens by pathname for LLAPI_SCAN_PROJID,
+     + * LLAPI_SCAN_HSM and a regular file's LLAPI_SCAN_MDT_INDEX, so for those
+    -+ * @mnt_path does decide what is read.
+    ++ * @mnt_path does decide what is read.  A regular file opened this way is
+    ++ * checked against @fid too, and a mismatch is -ESTALE.  A special file's
+    ++ * project id is read through its parent and name, and is not checked.
+     + * @mnt_path is what the record's lfsr_path is built from, so a wrong one
+     + * mislabels the answer.
+     + *
+    @@ lustre/utils/liblustreapi_scan.c: int llapi_scan_namespace(const char *path, con
+     +		rc = -ESTALE;
+     +		goto out;
+     +	}
+    ++	/* the gather opens a regular file again by name: check that too */
+    ++	if (fd >= 0) {
+    ++		struct lu_fid ofid;
+    ++
+    ++		if (llapi_fd2fid(fd, &ofid) != 0 || !lu_fid_eq(&ofid, fid)) {
+    ++			rc = -ESTALE;
+    ++			goto out;
+    ++		}
+    ++	}
+     +
+     +	ours = false;
+     +	rc = cb(&rec, data);
+ 4:  ebb261441e =  4:  cee2e73f90 LU-20611 llapi: split cb_find_init's decider out
+ 5:  8530b4b78c =  5:  b775d5bfc2 LU-20611 lfs: share find's predicate parsing
+ 6:  eaa00c0b17 =  6:  086ddf4179 LU-20611 llapi: run find over a device scan
+ 7:  294ae8f76b =  7:  2c56137a8a LU-20611 lfs: find over a target, with --device
+ 8:  62cdd0b157 =  8:  d571f6bc9d LU-20613 llapi: add a ZFS backend to llapi_scan_device()
+ 9:  0798e095e9 !  9:  83f20c99e3 LU-20637 llapi: name a device scan's objects
+    @@ lustre/utils/lustreapi_internal.h: static inline void scan_param_report_got(cons
+     +	 LLAPI_SCAN_LMA | LLAPI_SCAN_CLASS |				\
+     +	 LLAPI_SCAN_OWNER)
+      /* and what only one kind of target has, so a scan of the other never
+    -- * answers for it: the layout, the directory stripe, the lazy SOM size, the
+    -- * MDT index and the linkea with the parent it names are the MDT's.
+    -+ * answers for it: the layout, the directory stripe, the HSM state, the lazy
+    -+ * SOM size, the MDT index and the linkea with the parent it names are the
+    +  * answers for it: the layout, the directory stripe, the HSM state, the lazy
+    +  * SOM size, the MDT index and the linkea with the parent it names are the
+    +- * MDT's.
+     + * MDT's, and an OST data object's owner is the OST's.
+       */
+      #define LLAPI_SCAN_WANT_MDT_ONLY					\
+10:  c6e3975286 = 10:  9535d530a4 LU-20650 lfs: add find --since, from the changelog
+11:  11fd879e26 = 11:  f7d6d85424 LU-20650 llapi: pass FID and nlink to llapi_scan_fid() filter
+### fork-69502
+ 1:  4f2824972c !  1:  3ee121a15a LU-20606 llapi: scan an ldiskfs target directly
+    @@ lustre/utils/lustreapi_internal.h
+      
+      struct cYAML;
+     @@ lustre/utils/lustreapi_internal.h: struct llapi_scan_rec;
+    + #define LLAPI_SCAN_PARAM_MAX_SIZE	4096
+    + /* every lfsp_flags bit a namespace scan knows.  One mask per scanner, so that
+    +  * a flag only one of them can act on cannot be quietly accepted by the other.
+    ++ * The exception is LLAPI_SCAN_F_STOP_ON_ERROR: a device scan accepts it and
+    ++ * ignores it, as llapi_scan_device(3) says.
+    +  * Deliberately not public: a caller that built against an "all flags" value
+    +  * would mean a different set of bits by it than the library it is linked
+       * against.
+       */
+      #define LLAPI_SCAN_F_KNOWN_NS	(LLAPI_SCAN_F_STOP_ON_ERROR)
+    @@ lustre/utils/lustreapi_internal.h: static inline void scan_param_report_got(cons
+     +	 LLAPI_SCAN_INO | LLAPI_SCAN_PARENT | LLAPI_SCAN_LINKEA |	\
+     +	 LLAPI_SCAN_LMA | LLAPI_SCAN_CLASS)
+     +/* and what only one kind of target has, so a scan of the other never
+    -+ * answers for it: the layout, the directory stripe, the lazy SOM size, the
+    -+ * MDT index and the linkea with the parent it names are the MDT's.
+    ++ * answers for it: the layout, the directory stripe, the HSM state, the lazy
+    ++ * SOM size, the MDT index and the linkea with the parent it names are the
+    ++ * MDT's.
+     + */
+     +#define LLAPI_SCAN_WANT_MDT_ONLY					\
+     +	(LLAPI_SCAN_LAYOUT | LLAPI_SCAN_LMV | LLAPI_SCAN_LMV_FOREIGN |	\
+ 2:  d1688b30b0 !  2:  ab51ae86d5 LU-20649 llapi: add llapi_scan_changelog()
+    @@ Commit message
+     
+         Flags:
+         - LLAPI_SCAN_CL_F_RESOLVE fills the object's own attributes through a
+    -      client mount: one O_PATH open by FID and a statx() or two per
+    -      object. It
+    -      fills only what the record lacks. The demand mask decides if the
+    +      client mount: one O_PATH open by FID and a statx() or two per object.
+    +      It fills only what the record lacks. The demand mask decides if the
+           lookup runs at all. It needs CAP_DAC_READ_SEARCH and is refused with
+           -EPERM without it. The project id, layout, LMV and HSM state are not
+           filled.
+    @@ Documentation/man3/llapi_scan_changelog.3 (new)
+     +.TP
+     +.I lfsc_user
+     +The registered Changelog user, as
+    -+.BR cl1 .
+    ++.B cl1
+    ++or
+    ++.BR cl1-name .
+     +Required by
+    -+.BR LLAPI_SCAN_CL_F_CLEAR .
+    ++.BR LLAPI_SCAN_CL_F_CLEAR ,
+    ++which refuses any other form, such as a bare number or name.
+     +Registering one is an MDS-side operation and is the caller's:
+     +.B lctl --device
+     +.I mdtname
+    @@ Documentation/man3/llapi_scan_changelog.3 (new)
+     +.B LLAPI_SCAN_CL_F_CLEAR
+     +without
+     +.IR lfsc_user ;
+    ++.B LLAPI_SCAN_CL_F_CLEAR
+    ++with an
+    ++.I lfsc_user
+    ++other than
+    ++.BI cl N
+    ++or
+    ++.BI cl N - name ;
+     +.B LLAPI_SCAN_CL_F_ONCE
+     +without
+     +.BR LLAPI_SCAN_CL_F_COALESCE ;
+    @@ lustre/tests/llapi_scan_changelog_test.c (new)
+     +static void test4(void)
+     +{
+     +	struct llapi_scan_changelog_param sc;
+    ++	static const char *const bad_users[] = { "1", "cl", "cl1x", "name",
+    ++						  NULL };
+     +	struct cl_result res = { 0 };
+     +	int rc;
+    ++	int i;
+     +
+     +	/* the library says so on its own; the test knows already */
+     +	llapi_msg_set_level(LLAPI_MSG_OFF);
+    @@ lustre/tests/llapi_scan_changelog_test.c (new)
+     +	rc = llapi_scan_changelog(&sc, cl_cb, &res);
+     +	ASSERTF(rc == -EINVAL, "clear without a user returned %d", rc);
+     +
+    ++	/* a clear takes only cl<N>, so these fail before any record */
+    ++	for (i = 0; bad_users[i] != NULL; i++) {
+    ++		param_init(&sc);
+    ++		sc.lfsc_flags = LLAPI_SCAN_CL_F_CLEAR;
+    ++		sc.lfsc_user = bad_users[i];
+    ++		rc = llapi_scan_changelog(&sc, cl_cb, &res);
+    ++		ASSERTF(rc == -EINVAL, "clear with user '%s' returned %d",
+    ++			bad_users[i], rc);
+    ++		ASSERTF(res.cr_records == 0,
+    ++			"clear with user '%s' delivered %u records",
+    ++			bad_users[i], res.cr_records);
+    ++	}
+    ++
+     +	param_init(&sc);
+     +	sc.lfsc_flags = LLAPI_SCAN_CL_F_ONCE;
+     +	rc = llapi_scan_changelog(&sc, cl_cb, &res);
+    @@ lustre/tests/llapi_scan_changelog_test.c (new)
+     +
+     +	llapi_msg_set_level(LLAPI_MSG_ERROR);
+     +
+    -+	printf("  ten bad calls refused with -EINVAL\n");
+    ++	printf("  fourteen bad calls refused with -EINVAL\n");
+     +}
+     +
+     +/*
+    @@ lustre/utils/liblustreapi_scan_changelog.c (new)
+     + * delivered so far and drops those repeats, at a FID per distinct object.
+     + */
+     +
+    ++#include <ctype.h>
+     +#include <errno.h>
+     +#include <fcntl.h>
+     +#include <stdbool.h>
+    @@ lustre/utils/liblustreapi_scan_changelog.c (new)
+     +	}
+     +}
+     +
+    ++/* the MDS clears only by "cl<N>"; llapi_changelog_clear() drops a "-name" */
+    ++static bool scan_cl_user_is_id(const char *user)
+    ++{
+    ++	if (user == NULL || strncmp(user, "cl", 2) != 0 ||
+    ++	    !isdigit((unsigned char)user[2]))
+    ++		return false;
+    ++	for (user += 2; isdigit((unsigned char)*user); user++)
+    ++		;
+    ++	return *user == '\0' || *user == '-';
+    ++}
+    ++
+     +/**
+     + * llapi_scan_changelog() - an Object Stream from one MDT's changelog
+     + * @sc: what to read and what to answer for
+    @@ lustre/utils/liblustreapi_scan_changelog.c (new)
+     +	 * own memory would be read past its end.  llapi_scan_device() defers
+     +	 * its own lfsp_stats check for the same reason.
+     +	 */
+    -+	if ((scl.lfsc_flags & LLAPI_SCAN_CL_F_CLEAR) && scl.lfsc_user == NULL)
+    ++	if ((scl.lfsc_flags & LLAPI_SCAN_CL_F_CLEAR) &&
+    ++	    !scan_cl_user_is_id(scl.lfsc_user))
+     +		return -EINVAL;
+     +	if ((scl.lfsc_flags & LLAPI_SCAN_CL_F_RESOLVE) && scl.lfsc_mnt == NULL)
+     +		return -EINVAL;
+ 3:  6e240c6728 !  3:  e30c9f3e0d LU-20650 llapi: fill a scan record for one FID
+    @@ Commit message
+         for the other three scanners, and the call returns 0 rather than
+         handing that value back to a caller testing `if (rc)`.  The gather
+         runs against a pathname, so the FID it found is checked against the
+    -    one asked for, and a record never describes a different object.
+    +    one asked for, on the getinfo and on any descriptor the gather opened.
+         -ESTALE is what is left when the name still holds another object after
+         the lookup is repeated (below): a shard's or an OST object's FID, a
+         name off Lustre, or V1-only client modules.  A name unlinked and
+    @@ Documentation/man3/llapi_scan_fid.3 (new)
+     +name is relative to it. The opens that gather a project id, HSM state and a
+     +regular file's MDT index are still made by pathname, through
+     +.IR mnt_path .
+    ++A regular file opened this way is checked against
+    ++.I fid
+    ++too. A special file's project id is read through its parent and name, and
+    ++is not checked.
+     +.LP
+     +.I mnt_path
+     +is that mount's path and is required, but it is only the spelling: it is what
+    @@ Documentation/man3/llapi_scan_fid.3 (new)
+     +.\" Added in commit v2_17_57-xxx-gxxxxxxxxx
+     +.SH SEE ALSO
+     +.BR llapi_fid2path (3),
+    ++.BR llapi_fid2path_at (3),
+    ++.BR llapi_path2fid (3),
+    ++.BR llapi_root_path_open (3),
+     +.BR llapi_scan_changelog (3),
+     +.BR llapi_scan_device (3),
+     +.BR llapi_scan_namespace (3),
+    @@ lustre/utils/liblustreapi_scan.c: int llapi_scan_namespace(const char *path, con
+     + * answer -ENOENT or a path relative to that root instead.
+     + * scan_rec_gather() still opens by pathname for LLAPI_SCAN_PROJID,
+     + * LLAPI_SCAN_HSM and a regular file's LLAPI_SCAN_MDT_INDEX, so for those
+    -+ * @mnt_path does decide what is read.
+    ++ * @mnt_path does decide what is read.  A regular file opened this way is
+    ++ * checked against @fid too, and a mismatch is -ESTALE.  A special file's
+    ++ * project id is read through its parent and name, and is not checked.
+     + * @mnt_path is what the record's lfsr_path is built from, so a wrong one
+     + * mislabels the answer.
+     + *
+    @@ lustre/utils/liblustreapi_scan.c: int llapi_scan_namespace(const char *path, con
+     +		rc = -ESTALE;
+     +		goto out;
+     +	}
+    ++	/* the gather opens a regular file again by name: check that too */
+    ++	if (fd >= 0) {
+    ++		struct lu_fid ofid;
+    ++
+    ++		if (llapi_fd2fid(fd, &ofid) != 0 || !lu_fid_eq(&ofid, fid)) {
+    ++			rc = -ESTALE;
+    ++			goto out;
+    ++		}
+    ++	}
+     +
+     +	ours = false;
+     +	rc = cb(&rec, data);
+ 4:  ebb261441e =  4:  cee2e73f90 LU-20611 llapi: split cb_find_init's decider out
+ 5:  8530b4b78c =  5:  b775d5bfc2 LU-20611 lfs: share find's predicate parsing
+ 6:  eaa00c0b17 =  6:  086ddf4179 LU-20611 llapi: run find over a device scan
+ 7:  294ae8f76b =  7:  2c56137a8a LU-20611 lfs: find over a target, with --device
+ 8:  62cdd0b157 =  8:  d571f6bc9d LU-20613 llapi: add a ZFS backend to llapi_scan_device()
+ 9:  0798e095e9 !  9:  83f20c99e3 LU-20637 llapi: name a device scan's objects
+    @@ lustre/utils/lustreapi_internal.h: static inline void scan_param_report_got(cons
+     +	 LLAPI_SCAN_LMA | LLAPI_SCAN_CLASS |				\
+     +	 LLAPI_SCAN_OWNER)
+      /* and what only one kind of target has, so a scan of the other never
+    -- * answers for it: the layout, the directory stripe, the lazy SOM size, the
+    -- * MDT index and the linkea with the parent it names are the MDT's.
+    -+ * answers for it: the layout, the directory stripe, the HSM state, the lazy
+    -+ * SOM size, the MDT index and the linkea with the parent it names are the
+    +  * answers for it: the layout, the directory stripe, the HSM state, the lazy
+    +  * SOM size, the MDT index and the linkea with the parent it names are the
+    +- * MDT's.
+     + * MDT's, and an OST data object's owner is the OST's.
+       */
+      #define LLAPI_SCAN_WANT_MDT_ONLY					\
+10:  c6e3975286 = 10:  9535d530a4 LU-20650 lfs: add find --since, from the changelog
+11:  11fd879e26 = 11:  f7d6d85424 LU-20650 llapi: pass FID and nlink to llapi_scan_fid() filter
+12:  ee4609ee75 = 12:  28edbfcf96 LU-20650 lfs: filter find --since candidates before the gather
+### fork-69503
+ 1:  4f2824972c !  1:  3ee121a15a LU-20606 llapi: scan an ldiskfs target directly
+    @@ lustre/utils/lustreapi_internal.h
+      
+      struct cYAML;
+     @@ lustre/utils/lustreapi_internal.h: struct llapi_scan_rec;
+    + #define LLAPI_SCAN_PARAM_MAX_SIZE	4096
+    + /* every lfsp_flags bit a namespace scan knows.  One mask per scanner, so that
+    +  * a flag only one of them can act on cannot be quietly accepted by the other.
+    ++ * The exception is LLAPI_SCAN_F_STOP_ON_ERROR: a device scan accepts it and
+    ++ * ignores it, as llapi_scan_device(3) says.
+    +  * Deliberately not public: a caller that built against an "all flags" value
+    +  * would mean a different set of bits by it than the library it is linked
+       * against.
+       */
+      #define LLAPI_SCAN_F_KNOWN_NS	(LLAPI_SCAN_F_STOP_ON_ERROR)
+    @@ lustre/utils/lustreapi_internal.h: static inline void scan_param_report_got(cons
+     +	 LLAPI_SCAN_INO | LLAPI_SCAN_PARENT | LLAPI_SCAN_LINKEA |	\
+     +	 LLAPI_SCAN_LMA | LLAPI_SCAN_CLASS)
+     +/* and what only one kind of target has, so a scan of the other never
+    -+ * answers for it: the layout, the directory stripe, the lazy SOM size, the
+    -+ * MDT index and the linkea with the parent it names are the MDT's.
+    ++ * answers for it: the layout, the directory stripe, the HSM state, the lazy
+    ++ * SOM size, the MDT index and the linkea with the parent it names are the
+    ++ * MDT's.
+     + */
+     +#define LLAPI_SCAN_WANT_MDT_ONLY					\
+     +	(LLAPI_SCAN_LAYOUT | LLAPI_SCAN_LMV | LLAPI_SCAN_LMV_FOREIGN |	\
+ 2:  d1688b30b0 !  2:  ab51ae86d5 LU-20649 llapi: add llapi_scan_changelog()
+    @@ Commit message
+     
+         Flags:
+         - LLAPI_SCAN_CL_F_RESOLVE fills the object's own attributes through a
+    -      client mount: one O_PATH open by FID and a statx() or two per
+    -      object. It
+    -      fills only what the record lacks. The demand mask decides if the
+    +      client mount: one O_PATH open by FID and a statx() or two per object.
+    +      It fills only what the record lacks. The demand mask decides if the
+           lookup runs at all. It needs CAP_DAC_READ_SEARCH and is refused with
+           -EPERM without it. The project id, layout, LMV and HSM state are not
+           filled.
+    @@ Documentation/man3/llapi_scan_changelog.3 (new)
+     +.TP
+     +.I lfsc_user
+     +The registered Changelog user, as
+    -+.BR cl1 .
+    ++.B cl1
+    ++or
+    ++.BR cl1-name .
+     +Required by
+    -+.BR LLAPI_SCAN_CL_F_CLEAR .
+    ++.BR LLAPI_SCAN_CL_F_CLEAR ,
+    ++which refuses any other form, such as a bare number or name.
+     +Registering one is an MDS-side operation and is the caller's:
+     +.B lctl --device
+     +.I mdtname
+    @@ Documentation/man3/llapi_scan_changelog.3 (new)
+     +.B LLAPI_SCAN_CL_F_CLEAR
+     +without
+     +.IR lfsc_user ;
+    ++.B LLAPI_SCAN_CL_F_CLEAR
+    ++with an
+    ++.I lfsc_user
+    ++other than
+    ++.BI cl N
+    ++or
+    ++.BI cl N - name ;
+     +.B LLAPI_SCAN_CL_F_ONCE
+     +without
+     +.BR LLAPI_SCAN_CL_F_COALESCE ;
+    @@ lustre/tests/llapi_scan_changelog_test.c (new)
+     +static void test4(void)
+     +{
+     +	struct llapi_scan_changelog_param sc;
+    ++	static const char *const bad_users[] = { "1", "cl", "cl1x", "name",
+    ++						  NULL };
+     +	struct cl_result res = { 0 };
+     +	int rc;
+    ++	int i;
+     +
+     +	/* the library says so on its own; the test knows already */
+     +	llapi_msg_set_level(LLAPI_MSG_OFF);
+    @@ lustre/tests/llapi_scan_changelog_test.c (new)
+     +	rc = llapi_scan_changelog(&sc, cl_cb, &res);
+     +	ASSERTF(rc == -EINVAL, "clear without a user returned %d", rc);
+     +
+    ++	/* a clear takes only cl<N>, so these fail before any record */
+    ++	for (i = 0; bad_users[i] != NULL; i++) {
+    ++		param_init(&sc);
+    ++		sc.lfsc_flags = LLAPI_SCAN_CL_F_CLEAR;
+    ++		sc.lfsc_user = bad_users[i];
+    ++		rc = llapi_scan_changelog(&sc, cl_cb, &res);
+    ++		ASSERTF(rc == -EINVAL, "clear with user '%s' returned %d",
+    ++			bad_users[i], rc);
+    ++		ASSERTF(res.cr_records == 0,
+    ++			"clear with user '%s' delivered %u records",
+    ++			bad_users[i], res.cr_records);
+    ++	}
+    ++
+     +	param_init(&sc);
+     +	sc.lfsc_flags = LLAPI_SCAN_CL_F_ONCE;
+     +	rc = llapi_scan_changelog(&sc, cl_cb, &res);
+    @@ lustre/tests/llapi_scan_changelog_test.c (new)
+     +
+     +	llapi_msg_set_level(LLAPI_MSG_ERROR);
+     +
+    -+	printf("  ten bad calls refused with -EINVAL\n");
+    ++	printf("  fourteen bad calls refused with -EINVAL\n");
+     +}
+     +
+     +/*
+    @@ lustre/utils/liblustreapi_scan_changelog.c (new)
+     + * delivered so far and drops those repeats, at a FID per distinct object.
+     + */
+     +
+    ++#include <ctype.h>
+     +#include <errno.h>
+     +#include <fcntl.h>
+     +#include <stdbool.h>
+    @@ lustre/utils/liblustreapi_scan_changelog.c (new)
+     +	}
+     +}
+     +
+    ++/* the MDS clears only by "cl<N>"; llapi_changelog_clear() drops a "-name" */
+    ++static bool scan_cl_user_is_id(const char *user)
+    ++{
+    ++	if (user == NULL || strncmp(user, "cl", 2) != 0 ||
+    ++	    !isdigit((unsigned char)user[2]))
+    ++		return false;
+    ++	for (user += 2; isdigit((unsigned char)*user); user++)
+    ++		;
+    ++	return *user == '\0' || *user == '-';
+    ++}
+    ++
+     +/**
+     + * llapi_scan_changelog() - an Object Stream from one MDT's changelog
+     + * @sc: what to read and what to answer for
+    @@ lustre/utils/liblustreapi_scan_changelog.c (new)
+     +	 * own memory would be read past its end.  llapi_scan_device() defers
+     +	 * its own lfsp_stats check for the same reason.
+     +	 */
+    -+	if ((scl.lfsc_flags & LLAPI_SCAN_CL_F_CLEAR) && scl.lfsc_user == NULL)
+    ++	if ((scl.lfsc_flags & LLAPI_SCAN_CL_F_CLEAR) &&
+    ++	    !scan_cl_user_is_id(scl.lfsc_user))
+     +		return -EINVAL;
+     +	if ((scl.lfsc_flags & LLAPI_SCAN_CL_F_RESOLVE) && scl.lfsc_mnt == NULL)
+     +		return -EINVAL;
+ 3:  6e240c6728 !  3:  e30c9f3e0d LU-20650 llapi: fill a scan record for one FID
+    @@ Commit message
+         for the other three scanners, and the call returns 0 rather than
+         handing that value back to a caller testing `if (rc)`.  The gather
+         runs against a pathname, so the FID it found is checked against the
+    -    one asked for, and a record never describes a different object.
+    +    one asked for, on the getinfo and on any descriptor the gather opened.
+         -ESTALE is what is left when the name still holds another object after
+         the lookup is repeated (below): a shard's or an OST object's FID, a
+         name off Lustre, or V1-only client modules.  A name unlinked and
+    @@ Documentation/man3/llapi_scan_fid.3 (new)
+     +name is relative to it. The opens that gather a project id, HSM state and a
+     +regular file's MDT index are still made by pathname, through
+     +.IR mnt_path .
+    ++A regular file opened this way is checked against
+    ++.I fid
+    ++too. A special file's project id is read through its parent and name, and
+    ++is not checked.
+     +.LP
+     +.I mnt_path
+     +is that mount's path and is required, but it is only the spelling: it is what
+    @@ Documentation/man3/llapi_scan_fid.3 (new)
+     +.\" Added in commit v2_17_57-xxx-gxxxxxxxxx
+     +.SH SEE ALSO
+     +.BR llapi_fid2path (3),
+    ++.BR llapi_fid2path_at (3),
+    ++.BR llapi_path2fid (3),
+    ++.BR llapi_root_path_open (3),
+     +.BR llapi_scan_changelog (3),
+     +.BR llapi_scan_device (3),
+     +.BR llapi_scan_namespace (3),
+    @@ lustre/utils/liblustreapi_scan.c: int llapi_scan_namespace(const char *path, con
+     + * answer -ENOENT or a path relative to that root instead.
+     + * scan_rec_gather() still opens by pathname for LLAPI_SCAN_PROJID,
+     + * LLAPI_SCAN_HSM and a regular file's LLAPI_SCAN_MDT_INDEX, so for those
+    -+ * @mnt_path does decide what is read.
+    ++ * @mnt_path does decide what is read.  A regular file opened this way is
+    ++ * checked against @fid too, and a mismatch is -ESTALE.  A special file's
+    ++ * project id is read through its parent and name, and is not checked.
+     + * @mnt_path is what the record's lfsr_path is built from, so a wrong one
+     + * mislabels the answer.
+     + *
+    @@ lustre/utils/liblustreapi_scan.c: int llapi_scan_namespace(const char *path, con
+     +		rc = -ESTALE;
+     +		goto out;
+     +	}
+    ++	/* the gather opens a regular file again by name: check that too */
+    ++	if (fd >= 0) {
+    ++		struct lu_fid ofid;
+    ++
+    ++		if (llapi_fd2fid(fd, &ofid) != 0 || !lu_fid_eq(&ofid, fid)) {
+    ++			rc = -ESTALE;
+    ++			goto out;
+    ++		}
+    ++	}
+     +
+     +	ours = false;
+     +	rc = cb(&rec, data);
+ 4:  ebb261441e =  4:  cee2e73f90 LU-20611 llapi: split cb_find_init's decider out
+ 5:  8530b4b78c =  5:  b775d5bfc2 LU-20611 lfs: share find's predicate parsing
+ 6:  eaa00c0b17 =  6:  086ddf4179 LU-20611 llapi: run find over a device scan
+ 7:  294ae8f76b =  7:  2c56137a8a LU-20611 lfs: find over a target, with --device
+ 8:  62cdd0b157 =  8:  d571f6bc9d LU-20613 llapi: add a ZFS backend to llapi_scan_device()
+ 9:  08ad951a4f =  9:  32071ca21c LU-20613 build: compile libscan_zfs.c as libzpool is built
+### rate-1017
+1:  4f2824972c ! 1:  3ee121a15a LU-20606 llapi: scan an ldiskfs target directly
+    @@ lustre/utils/lustreapi_internal.h
+      
+      struct cYAML;
+     @@ lustre/utils/lustreapi_internal.h: struct llapi_scan_rec;
+    + #define LLAPI_SCAN_PARAM_MAX_SIZE	4096
+    + /* every lfsp_flags bit a namespace scan knows.  One mask per scanner, so that
+    +  * a flag only one of them can act on cannot be quietly accepted by the other.
+    ++ * The exception is LLAPI_SCAN_F_STOP_ON_ERROR: a device scan accepts it and
+    ++ * ignores it, as llapi_scan_device(3) says.
+    +  * Deliberately not public: a caller that built against an "all flags" value
+    +  * would mean a different set of bits by it than the library it is linked
+       * against.
+       */
+      #define LLAPI_SCAN_F_KNOWN_NS	(LLAPI_SCAN_F_STOP_ON_ERROR)
+    @@ lustre/utils/lustreapi_internal.h: static inline void scan_param_report_got(cons
+     +	 LLAPI_SCAN_INO | LLAPI_SCAN_PARENT | LLAPI_SCAN_LINKEA |	\
+     +	 LLAPI_SCAN_LMA | LLAPI_SCAN_CLASS)
+     +/* and what only one kind of target has, so a scan of the other never
+    -+ * answers for it: the layout, the directory stripe, the lazy SOM size, the
+    -+ * MDT index and the linkea with the parent it names are the MDT's.
+    ++ * answers for it: the layout, the directory stripe, the HSM state, the lazy
+    ++ * SOM size, the MDT index and the linkea with the parent it names are the
+    ++ * MDT's.
+     + */
+     +#define LLAPI_SCAN_WANT_MDT_ONLY					\
+     +	(LLAPI_SCAN_LAYOUT | LLAPI_SCAN_LMV | LLAPI_SCAN_LMV_FOREIGN |	\
+2:  d1688b30b0 ! 2:  ab51ae86d5 LU-20649 llapi: add llapi_scan_changelog()
+    @@ Commit message
+     
+         Flags:
+         - LLAPI_SCAN_CL_F_RESOLVE fills the object's own attributes through a
+    -      client mount: one O_PATH open by FID and a statx() or two per
+    -      object. It
+    -      fills only what the record lacks. The demand mask decides if the
+    +      client mount: one O_PATH open by FID and a statx() or two per object.
+    +      It fills only what the record lacks. The demand mask decides if the
+           lookup runs at all. It needs CAP_DAC_READ_SEARCH and is refused with
+           -EPERM without it. The project id, layout, LMV and HSM state are not
+           filled.
+    @@ Documentation/man3/llapi_scan_changelog.3 (new)
+     +.TP
+     +.I lfsc_user
+     +The registered Changelog user, as
+    -+.BR cl1 .
+    ++.B cl1
+    ++or
+    ++.BR cl1-name .
+     +Required by
+    -+.BR LLAPI_SCAN_CL_F_CLEAR .
+    ++.BR LLAPI_SCAN_CL_F_CLEAR ,
+    ++which refuses any other form, such as a bare number or name.
+     +Registering one is an MDS-side operation and is the caller's:
+     +.B lctl --device
+     +.I mdtname
+    @@ Documentation/man3/llapi_scan_changelog.3 (new)
+     +.B LLAPI_SCAN_CL_F_CLEAR
+     +without
+     +.IR lfsc_user ;
+    ++.B LLAPI_SCAN_CL_F_CLEAR
+    ++with an
+    ++.I lfsc_user
+    ++other than
+    ++.BI cl N
+    ++or
+    ++.BI cl N - name ;
+     +.B LLAPI_SCAN_CL_F_ONCE
+     +without
+     +.BR LLAPI_SCAN_CL_F_COALESCE ;
+    @@ lustre/tests/llapi_scan_changelog_test.c (new)
+     +static void test4(void)
+     +{
+     +	struct llapi_scan_changelog_param sc;
+    ++	static const char *const bad_users[] = { "1", "cl", "cl1x", "name",
+    ++						  NULL };
+     +	struct cl_result res = { 0 };
+     +	int rc;
+    ++	int i;
+     +
+     +	/* the library says so on its own; the test knows already */
+     +	llapi_msg_set_level(LLAPI_MSG_OFF);
+    @@ lustre/tests/llapi_scan_changelog_test.c (new)
+     +	rc = llapi_scan_changelog(&sc, cl_cb, &res);
+     +	ASSERTF(rc == -EINVAL, "clear without a user returned %d", rc);
+     +
+    ++	/* a clear takes only cl<N>, so these fail before any record */
+    ++	for (i = 0; bad_users[i] != NULL; i++) {
+    ++		param_init(&sc);
+    ++		sc.lfsc_flags = LLAPI_SCAN_CL_F_CLEAR;
+    ++		sc.lfsc_user = bad_users[i];
+    ++		rc = llapi_scan_changelog(&sc, cl_cb, &res);
+    ++		ASSERTF(rc == -EINVAL, "clear with user '%s' returned %d",
+    ++			bad_users[i], rc);
+    ++		ASSERTF(res.cr_records == 0,
+    ++			"clear with user '%s' delivered %u records",
+    ++			bad_users[i], res.cr_records);
+    ++	}
+    ++
+     +	param_init(&sc);
+     +	sc.lfsc_flags = LLAPI_SCAN_CL_F_ONCE;
+     +	rc = llapi_scan_changelog(&sc, cl_cb, &res);
+    @@ lustre/tests/llapi_scan_changelog_test.c (new)
+     +
+     +	llapi_msg_set_level(LLAPI_MSG_ERROR);
+     +
+    -+	printf("  ten bad calls refused with -EINVAL\n");
+    ++	printf("  fourteen bad calls refused with -EINVAL\n");
+     +}
+     +
+     +/*
+    @@ lustre/utils/liblustreapi_scan_changelog.c (new)
+     + * delivered so far and drops those repeats, at a FID per distinct object.
+     + */
+     +
+    ++#include <ctype.h>
+     +#include <errno.h>
+     +#include <fcntl.h>
+     +#include <stdbool.h>
+    @@ lustre/utils/liblustreapi_scan_changelog.c (new)
+     +	}
+     +}
+     +
+    ++/* the MDS clears only by "cl<N>"; llapi_changelog_clear() drops a "-name" */
+    ++static bool scan_cl_user_is_id(const char *user)
+    ++{
+    ++	if (user == NULL || strncmp(user, "cl", 2) != 0 ||
+    ++	    !isdigit((unsigned char)user[2]))
+    ++		return false;
+    ++	for (user += 2; isdigit((unsigned char)*user); user++)
+    ++		;
+    ++	return *user == '\0' || *user == '-';
+    ++}
+    ++
+     +/**
+     + * llapi_scan_changelog() - an Object Stream from one MDT's changelog
+     + * @sc: what to read and what to answer for
+    @@ lustre/utils/liblustreapi_scan_changelog.c (new)
+     +	 * own memory would be read past its end.  llapi_scan_device() defers
+     +	 * its own lfsp_stats check for the same reason.
+     +	 */
+    -+	if ((scl.lfsc_flags & LLAPI_SCAN_CL_F_CLEAR) && scl.lfsc_user == NULL)
+    ++	if ((scl.lfsc_flags & LLAPI_SCAN_CL_F_CLEAR) &&
+    ++	    !scan_cl_user_is_id(scl.lfsc_user))
+     +		return -EINVAL;
+     +	if ((scl.lfsc_flags & LLAPI_SCAN_CL_F_RESOLVE) && scl.lfsc_mnt == NULL)
+     +		return -EINVAL;
+3:  6e240c6728 ! 3:  e30c9f3e0d LU-20650 llapi: fill a scan record for one FID
+    @@ Commit message
+         for the other three scanners, and the call returns 0 rather than
+         handing that value back to a caller testing `if (rc)`.  The gather
+         runs against a pathname, so the FID it found is checked against the
+    -    one asked for, and a record never describes a different object.
+    +    one asked for, on the getinfo and on any descriptor the gather opened.
+         -ESTALE is what is left when the name still holds another object after
+         the lookup is repeated (below): a shard's or an OST object's FID, a
+         name off Lustre, or V1-only client modules.  A name unlinked and
+    @@ Documentation/man3/llapi_scan_fid.3 (new)
+     +name is relative to it. The opens that gather a project id, HSM state and a
+     +regular file's MDT index are still made by pathname, through
+     +.IR mnt_path .
+    ++A regular file opened this way is checked against
+    ++.I fid
+    ++too. A special file's project id is read through its parent and name, and
+    ++is not checked.
+     +.LP
+     +.I mnt_path
+     +is that mount's path and is required, but it is only the spelling: it is what
+    @@ Documentation/man3/llapi_scan_fid.3 (new)
+     +.\" Added in commit v2_17_57-xxx-gxxxxxxxxx
+     +.SH SEE ALSO
+     +.BR llapi_fid2path (3),
+    ++.BR llapi_fid2path_at (3),
+    ++.BR llapi_path2fid (3),
+    ++.BR llapi_root_path_open (3),
+     +.BR llapi_scan_changelog (3),
+     +.BR llapi_scan_device (3),
+     +.BR llapi_scan_namespace (3),
+    @@ lustre/utils/liblustreapi_scan.c: int llapi_scan_namespace(const char *path, con
+     + * answer -ENOENT or a path relative to that root instead.
+     + * scan_rec_gather() still opens by pathname for LLAPI_SCAN_PROJID,
+     + * LLAPI_SCAN_HSM and a regular file's LLAPI_SCAN_MDT_INDEX, so for those
+    -+ * @mnt_path does decide what is read.
+    ++ * @mnt_path does decide what is read.  A regular file opened this way is
+    ++ * checked against @fid too, and a mismatch is -ESTALE.  A special file's
+    ++ * project id is read through its parent and name, and is not checked.
+     + * @mnt_path is what the record's lfsr_path is built from, so a wrong one
+     + * mislabels the answer.
+     + *
+    @@ lustre/utils/liblustreapi_scan.c: int llapi_scan_namespace(const char *path, con
+     +		rc = -ESTALE;
+     +		goto out;
+     +	}
+    ++	/* the gather opens a regular file again by name: check that too */
+    ++	if (fd >= 0) {
+    ++		struct lu_fid ofid;
+    ++
+    ++		if (llapi_fd2fid(fd, &ofid) != 0 || !lu_fid_eq(&ofid, fid)) {
+    ++			rc = -ESTALE;
+    ++			goto out;
+    ++		}
+    ++	}
+     +
+     +	ours = false;
+     +	rc = cb(&rec, data);
+4:  ebb261441e = 4:  cee2e73f90 LU-20611 llapi: split cb_find_init's decider out
+5:  8530b4b78c = 5:  b775d5bfc2 LU-20611 lfs: share find's predicate parsing
+6:  eaa00c0b17 = 6:  086ddf4179 LU-20611 llapi: run find over a device scan
+7:  294ae8f76b = 7:  2c56137a8a LU-20611 lfs: find over a target, with --device
+8:  dfa074ae7d = 8:  77c70ab428 LU-20606 llapi: limit a scan's rate
+### igif-1017
+ 1:  4f2824972c !  1:  3ee121a15a LU-20606 llapi: scan an ldiskfs target directly
+    @@ lustre/utils/lustreapi_internal.h
+      
+      struct cYAML;
+     @@ lustre/utils/lustreapi_internal.h: struct llapi_scan_rec;
+    + #define LLAPI_SCAN_PARAM_MAX_SIZE	4096
+    + /* every lfsp_flags bit a namespace scan knows.  One mask per scanner, so that
+    +  * a flag only one of them can act on cannot be quietly accepted by the other.
+    ++ * The exception is LLAPI_SCAN_F_STOP_ON_ERROR: a device scan accepts it and
+    ++ * ignores it, as llapi_scan_device(3) says.
+    +  * Deliberately not public: a caller that built against an "all flags" value
+    +  * would mean a different set of bits by it than the library it is linked
+       * against.
+       */
+      #define LLAPI_SCAN_F_KNOWN_NS	(LLAPI_SCAN_F_STOP_ON_ERROR)
+    @@ lustre/utils/lustreapi_internal.h: static inline void scan_param_report_got(cons
+     +	 LLAPI_SCAN_INO | LLAPI_SCAN_PARENT | LLAPI_SCAN_LINKEA |	\
+     +	 LLAPI_SCAN_LMA | LLAPI_SCAN_CLASS)
+     +/* and what only one kind of target has, so a scan of the other never
+    -+ * answers for it: the layout, the directory stripe, the lazy SOM size, the
+    -+ * MDT index and the linkea with the parent it names are the MDT's.
+    ++ * answers for it: the layout, the directory stripe, the HSM state, the lazy
+    ++ * SOM size, the MDT index and the linkea with the parent it names are the
+    ++ * MDT's.
+     + */
+     +#define LLAPI_SCAN_WANT_MDT_ONLY					\
+     +	(LLAPI_SCAN_LAYOUT | LLAPI_SCAN_LMV | LLAPI_SCAN_LMV_FOREIGN |	\
+ 2:  d1688b30b0 !  2:  ab51ae86d5 LU-20649 llapi: add llapi_scan_changelog()
+    @@ Commit message
+     
+         Flags:
+         - LLAPI_SCAN_CL_F_RESOLVE fills the object's own attributes through a
+    -      client mount: one O_PATH open by FID and a statx() or two per
+    -      object. It
+    -      fills only what the record lacks. The demand mask decides if the
+    +      client mount: one O_PATH open by FID and a statx() or two per object.
+    +      It fills only what the record lacks. The demand mask decides if the
+           lookup runs at all. It needs CAP_DAC_READ_SEARCH and is refused with
+           -EPERM without it. The project id, layout, LMV and HSM state are not
+           filled.
+    @@ Documentation/man3/llapi_scan_changelog.3 (new)
+     +.TP
+     +.I lfsc_user
+     +The registered Changelog user, as
+    -+.BR cl1 .
+    ++.B cl1
+    ++or
+    ++.BR cl1-name .
+     +Required by
+    -+.BR LLAPI_SCAN_CL_F_CLEAR .
+    ++.BR LLAPI_SCAN_CL_F_CLEAR ,
+    ++which refuses any other form, such as a bare number or name.
+     +Registering one is an MDS-side operation and is the caller's:
+     +.B lctl --device
+     +.I mdtname
+    @@ Documentation/man3/llapi_scan_changelog.3 (new)
+     +.B LLAPI_SCAN_CL_F_CLEAR
+     +without
+     +.IR lfsc_user ;
+    ++.B LLAPI_SCAN_CL_F_CLEAR
+    ++with an
+    ++.I lfsc_user
+    ++other than
+    ++.BI cl N
+    ++or
+    ++.BI cl N - name ;
+     +.B LLAPI_SCAN_CL_F_ONCE
+     +without
+     +.BR LLAPI_SCAN_CL_F_COALESCE ;
+    @@ lustre/tests/llapi_scan_changelog_test.c (new)
+     +static void test4(void)
+     +{
+     +	struct llapi_scan_changelog_param sc;
+    ++	static const char *const bad_users[] = { "1", "cl", "cl1x", "name",
+    ++						  NULL };
+     +	struct cl_result res = { 0 };
+     +	int rc;
+    ++	int i;
+     +
+     +	/* the library says so on its own; the test knows already */
+     +	llapi_msg_set_level(LLAPI_MSG_OFF);
+    @@ lustre/tests/llapi_scan_changelog_test.c (new)
+     +	rc = llapi_scan_changelog(&sc, cl_cb, &res);
+     +	ASSERTF(rc == -EINVAL, "clear without a user returned %d", rc);
+     +
+    ++	/* a clear takes only cl<N>, so these fail before any record */
+    ++	for (i = 0; bad_users[i] != NULL; i++) {
+    ++		param_init(&sc);
+    ++		sc.lfsc_flags = LLAPI_SCAN_CL_F_CLEAR;
+    ++		sc.lfsc_user = bad_users[i];
+    ++		rc = llapi_scan_changelog(&sc, cl_cb, &res);
+    ++		ASSERTF(rc == -EINVAL, "clear with user '%s' returned %d",
+    ++			bad_users[i], rc);
+    ++		ASSERTF(res.cr_records == 0,
+    ++			"clear with user '%s' delivered %u records",
+    ++			bad_users[i], res.cr_records);
+    ++	}
+    ++
+     +	param_init(&sc);
+     +	sc.lfsc_flags = LLAPI_SCAN_CL_F_ONCE;
+     +	rc = llapi_scan_changelog(&sc, cl_cb, &res);
+    @@ lustre/tests/llapi_scan_changelog_test.c (new)
+     +
+     +	llapi_msg_set_level(LLAPI_MSG_ERROR);
+     +
+    -+	printf("  ten bad calls refused with -EINVAL\n");
+    ++	printf("  fourteen bad calls refused with -EINVAL\n");
+     +}
+     +
+     +/*
+    @@ lustre/utils/liblustreapi_scan_changelog.c (new)
+     + * delivered so far and drops those repeats, at a FID per distinct object.
+     + */
+     +
+    ++#include <ctype.h>
+     +#include <errno.h>
+     +#include <fcntl.h>
+     +#include <stdbool.h>
+    @@ lustre/utils/liblustreapi_scan_changelog.c (new)
+     +	}
+     +}
+     +
+    ++/* the MDS clears only by "cl<N>"; llapi_changelog_clear() drops a "-name" */
+    ++static bool scan_cl_user_is_id(const char *user)
+    ++{
+    ++	if (user == NULL || strncmp(user, "cl", 2) != 0 ||
+    ++	    !isdigit((unsigned char)user[2]))
+    ++		return false;
+    ++	for (user += 2; isdigit((unsigned char)*user); user++)
+    ++		;
+    ++	return *user == '\0' || *user == '-';
+    ++}
+    ++
+     +/**
+     + * llapi_scan_changelog() - an Object Stream from one MDT's changelog
+     + * @sc: what to read and what to answer for
+    @@ lustre/utils/liblustreapi_scan_changelog.c (new)
+     +	 * own memory would be read past its end.  llapi_scan_device() defers
+     +	 * its own lfsp_stats check for the same reason.
+     +	 */
+    -+	if ((scl.lfsc_flags & LLAPI_SCAN_CL_F_CLEAR) && scl.lfsc_user == NULL)
+    ++	if ((scl.lfsc_flags & LLAPI_SCAN_CL_F_CLEAR) &&
+    ++	    !scan_cl_user_is_id(scl.lfsc_user))
+     +		return -EINVAL;
+     +	if ((scl.lfsc_flags & LLAPI_SCAN_CL_F_RESOLVE) && scl.lfsc_mnt == NULL)
+     +		return -EINVAL;
+ 3:  6e240c6728 !  3:  e30c9f3e0d LU-20650 llapi: fill a scan record for one FID
+    @@ Commit message
+         for the other three scanners, and the call returns 0 rather than
+         handing that value back to a caller testing `if (rc)`.  The gather
+         runs against a pathname, so the FID it found is checked against the
+    -    one asked for, and a record never describes a different object.
+    +    one asked for, on the getinfo and on any descriptor the gather opened.
+         -ESTALE is what is left when the name still holds another object after
+         the lookup is repeated (below): a shard's or an OST object's FID, a
+         name off Lustre, or V1-only client modules.  A name unlinked and
+    @@ Documentation/man3/llapi_scan_fid.3 (new)
+     +name is relative to it. The opens that gather a project id, HSM state and a
+     +regular file's MDT index are still made by pathname, through
+     +.IR mnt_path .
+    ++A regular file opened this way is checked against
+    ++.I fid
+    ++too. A special file's project id is read through its parent and name, and
+    ++is not checked.
+     +.LP
+     +.I mnt_path
+     +is that mount's path and is required, but it is only the spelling: it is what
+    @@ Documentation/man3/llapi_scan_fid.3 (new)
+     +.\" Added in commit v2_17_57-xxx-gxxxxxxxxx
+     +.SH SEE ALSO
+     +.BR llapi_fid2path (3),
+    ++.BR llapi_fid2path_at (3),
+    ++.BR llapi_path2fid (3),
+    ++.BR llapi_root_path_open (3),
+     +.BR llapi_scan_changelog (3),
+     +.BR llapi_scan_device (3),
+     +.BR llapi_scan_namespace (3),
+    @@ lustre/utils/liblustreapi_scan.c: int llapi_scan_namespace(const char *path, con
+     + * answer -ENOENT or a path relative to that root instead.
+     + * scan_rec_gather() still opens by pathname for LLAPI_SCAN_PROJID,
+     + * LLAPI_SCAN_HSM and a regular file's LLAPI_SCAN_MDT_INDEX, so for those
+    -+ * @mnt_path does decide what is read.
+    ++ * @mnt_path does decide what is read.  A regular file opened this way is
+    ++ * checked against @fid too, and a mismatch is -ESTALE.  A special file's
+    ++ * project id is read through its parent and name, and is not checked.
+     + * @mnt_path is what the record's lfsr_path is built from, so a wrong one
+     + * mislabels the answer.
+     + *
+    @@ lustre/utils/liblustreapi_scan.c: int llapi_scan_namespace(const char *path, con
+     +		rc = -ESTALE;
+     +		goto out;
+     +	}
+    ++	/* the gather opens a regular file again by name: check that too */
+    ++	if (fd >= 0) {
+    ++		struct lu_fid ofid;
+    ++
+    ++		if (llapi_fd2fid(fd, &ofid) != 0 || !lu_fid_eq(&ofid, fid)) {
+    ++			rc = -ESTALE;
+    ++			goto out;
+    ++		}
+    ++	}
+     +
+     +	ours = false;
+     +	rc = cb(&rec, data);
+ 4:  ebb261441e =  4:  cee2e73f90 LU-20611 llapi: split cb_find_init's decider out
+ 5:  8530b4b78c =  5:  b775d5bfc2 LU-20611 lfs: share find's predicate parsing
+ 6:  eaa00c0b17 =  6:  086ddf4179 LU-20611 llapi: run find over a device scan
+ 7:  294ae8f76b =  7:  2c56137a8a LU-20611 lfs: find over a target, with --device
+ 8:  62cdd0b157 =  8:  d571f6bc9d LU-20613 llapi: add a ZFS backend to llapi_scan_device()
+ 9:  0798e095e9 !  9:  83f20c99e3 LU-20637 llapi: name a device scan's objects
+    @@ lustre/utils/lustreapi_internal.h: static inline void scan_param_report_got(cons
+     +	 LLAPI_SCAN_LMA | LLAPI_SCAN_CLASS |				\
+     +	 LLAPI_SCAN_OWNER)
+      /* and what only one kind of target has, so a scan of the other never
+    -- * answers for it: the layout, the directory stripe, the lazy SOM size, the
+    -- * MDT index and the linkea with the parent it names are the MDT's.
+    -+ * answers for it: the layout, the directory stripe, the HSM state, the lazy
+    -+ * SOM size, the MDT index and the linkea with the parent it names are the
+    +  * answers for it: the layout, the directory stripe, the HSM state, the lazy
+    +  * SOM size, the MDT index and the linkea with the parent it names are the
+    +- * MDT's.
+     + * MDT's, and an OST data object's owner is the OST's.
+       */
+      #define LLAPI_SCAN_WANT_MDT_ONLY					\
+10:  7b4c5ebc8a = 10:  f2ff082958 LU-20637 llapi: find the root of an upgraded filesystem
+### maxrate-1017
+ 1:  4f2824972c !  1:  3ee121a15a LU-20606 llapi: scan an ldiskfs target directly
+    @@ lustre/utils/lustreapi_internal.h
+      
+      struct cYAML;
+     @@ lustre/utils/lustreapi_internal.h: struct llapi_scan_rec;
+    + #define LLAPI_SCAN_PARAM_MAX_SIZE	4096
+    + /* every lfsp_flags bit a namespace scan knows.  One mask per scanner, so that
+    +  * a flag only one of them can act on cannot be quietly accepted by the other.
+    ++ * The exception is LLAPI_SCAN_F_STOP_ON_ERROR: a device scan accepts it and
+    ++ * ignores it, as llapi_scan_device(3) says.
+    +  * Deliberately not public: a caller that built against an "all flags" value
+    +  * would mean a different set of bits by it than the library it is linked
+       * against.
+       */
+      #define LLAPI_SCAN_F_KNOWN_NS	(LLAPI_SCAN_F_STOP_ON_ERROR)
+    @@ lustre/utils/lustreapi_internal.h: static inline void scan_param_report_got(cons
+     +	 LLAPI_SCAN_INO | LLAPI_SCAN_PARENT | LLAPI_SCAN_LINKEA |	\
+     +	 LLAPI_SCAN_LMA | LLAPI_SCAN_CLASS)
+     +/* and what only one kind of target has, so a scan of the other never
+    -+ * answers for it: the layout, the directory stripe, the lazy SOM size, the
+    -+ * MDT index and the linkea with the parent it names are the MDT's.
+    ++ * answers for it: the layout, the directory stripe, the HSM state, the lazy
+    ++ * SOM size, the MDT index and the linkea with the parent it names are the
+    ++ * MDT's.
+     + */
+     +#define LLAPI_SCAN_WANT_MDT_ONLY					\
+     +	(LLAPI_SCAN_LAYOUT | LLAPI_SCAN_LMV | LLAPI_SCAN_LMV_FOREIGN |	\
+ 2:  d1688b30b0 !  2:  ab51ae86d5 LU-20649 llapi: add llapi_scan_changelog()
+    @@ Commit message
+     
+         Flags:
+         - LLAPI_SCAN_CL_F_RESOLVE fills the object's own attributes through a
+    -      client mount: one O_PATH open by FID and a statx() or two per
+    -      object. It
+    -      fills only what the record lacks. The demand mask decides if the
+    +      client mount: one O_PATH open by FID and a statx() or two per object.
+    +      It fills only what the record lacks. The demand mask decides if the
+           lookup runs at all. It needs CAP_DAC_READ_SEARCH and is refused with
+           -EPERM without it. The project id, layout, LMV and HSM state are not
+           filled.
+    @@ Documentation/man3/llapi_scan_changelog.3 (new)
+     +.TP
+     +.I lfsc_user
+     +The registered Changelog user, as
+    -+.BR cl1 .
+    ++.B cl1
+    ++or
+    ++.BR cl1-name .
+     +Required by
+    -+.BR LLAPI_SCAN_CL_F_CLEAR .
+    ++.BR LLAPI_SCAN_CL_F_CLEAR ,
+    ++which refuses any other form, such as a bare number or name.
+     +Registering one is an MDS-side operation and is the caller's:
+     +.B lctl --device
+     +.I mdtname
+    @@ Documentation/man3/llapi_scan_changelog.3 (new)
+     +.B LLAPI_SCAN_CL_F_CLEAR
+     +without
+     +.IR lfsc_user ;
+    ++.B LLAPI_SCAN_CL_F_CLEAR
+    ++with an
+    ++.I lfsc_user
+    ++other than
+    ++.BI cl N
+    ++or
+    ++.BI cl N - name ;
+     +.B LLAPI_SCAN_CL_F_ONCE
+     +without
+     +.BR LLAPI_SCAN_CL_F_COALESCE ;
+    @@ lustre/tests/llapi_scan_changelog_test.c (new)
+     +static void test4(void)
+     +{
+     +	struct llapi_scan_changelog_param sc;
+    ++	static const char *const bad_users[] = { "1", "cl", "cl1x", "name",
+    ++						  NULL };
+     +	struct cl_result res = { 0 };
+     +	int rc;
+    ++	int i;
+     +
+     +	/* the library says so on its own; the test knows already */
+     +	llapi_msg_set_level(LLAPI_MSG_OFF);
+    @@ lustre/tests/llapi_scan_changelog_test.c (new)
+     +	rc = llapi_scan_changelog(&sc, cl_cb, &res);
+     +	ASSERTF(rc == -EINVAL, "clear without a user returned %d", rc);
+     +
+    ++	/* a clear takes only cl<N>, so these fail before any record */
+    ++	for (i = 0; bad_users[i] != NULL; i++) {
+    ++		param_init(&sc);
+    ++		sc.lfsc_flags = LLAPI_SCAN_CL_F_CLEAR;
+    ++		sc.lfsc_user = bad_users[i];
+    ++		rc = llapi_scan_changelog(&sc, cl_cb, &res);
+    ++		ASSERTF(rc == -EINVAL, "clear with user '%s' returned %d",
+    ++			bad_users[i], rc);
+    ++		ASSERTF(res.cr_records == 0,
+    ++			"clear with user '%s' delivered %u records",
+    ++			bad_users[i], res.cr_records);
+    ++	}
+    ++
+     +	param_init(&sc);
+     +	sc.lfsc_flags = LLAPI_SCAN_CL_F_ONCE;
+     +	rc = llapi_scan_changelog(&sc, cl_cb, &res);
+    @@ lustre/tests/llapi_scan_changelog_test.c (new)
+     +
+     +	llapi_msg_set_level(LLAPI_MSG_ERROR);
+     +
+    -+	printf("  ten bad calls refused with -EINVAL\n");
+    ++	printf("  fourteen bad calls refused with -EINVAL\n");
+     +}
+     +
+     +/*
+    @@ lustre/utils/liblustreapi_scan_changelog.c (new)
+     + * delivered so far and drops those repeats, at a FID per distinct object.
+     + */
+     +
+    ++#include <ctype.h>
+     +#include <errno.h>
+     +#include <fcntl.h>
+     +#include <stdbool.h>
+    @@ lustre/utils/liblustreapi_scan_changelog.c (new)
+     +	}
+     +}
+     +
+    ++/* the MDS clears only by "cl<N>"; llapi_changelog_clear() drops a "-name" */
+    ++static bool scan_cl_user_is_id(const char *user)
+    ++{
+    ++	if (user == NULL || strncmp(user, "cl", 2) != 0 ||
+    ++	    !isdigit((unsigned char)user[2]))
+    ++		return false;
+    ++	for (user += 2; isdigit((unsigned char)*user); user++)
+    ++		;
+    ++	return *user == '\0' || *user == '-';
+    ++}
+    ++
+     +/**
+     + * llapi_scan_changelog() - an Object Stream from one MDT's changelog
+     + * @sc: what to read and what to answer for
+    @@ lustre/utils/liblustreapi_scan_changelog.c (new)
+     +	 * own memory would be read past its end.  llapi_scan_device() defers
+     +	 * its own lfsp_stats check for the same reason.
+     +	 */
+    -+	if ((scl.lfsc_flags & LLAPI_SCAN_CL_F_CLEAR) && scl.lfsc_user == NULL)
+    ++	if ((scl.lfsc_flags & LLAPI_SCAN_CL_F_CLEAR) &&
+    ++	    !scan_cl_user_is_id(scl.lfsc_user))
+     +		return -EINVAL;
+     +	if ((scl.lfsc_flags & LLAPI_SCAN_CL_F_RESOLVE) && scl.lfsc_mnt == NULL)
+     +		return -EINVAL;
+ 3:  6e240c6728 !  3:  e30c9f3e0d LU-20650 llapi: fill a scan record for one FID
+    @@ Commit message
+         for the other three scanners, and the call returns 0 rather than
+         handing that value back to a caller testing `if (rc)`.  The gather
+         runs against a pathname, so the FID it found is checked against the
+    -    one asked for, and a record never describes a different object.
+    +    one asked for, on the getinfo and on any descriptor the gather opened.
+         -ESTALE is what is left when the name still holds another object after
+         the lookup is repeated (below): a shard's or an OST object's FID, a
+         name off Lustre, or V1-only client modules.  A name unlinked and
+    @@ Documentation/man3/llapi_scan_fid.3 (new)
+     +name is relative to it. The opens that gather a project id, HSM state and a
+     +regular file's MDT index are still made by pathname, through
+     +.IR mnt_path .
+    ++A regular file opened this way is checked against
+    ++.I fid
+    ++too. A special file's project id is read through its parent and name, and
+    ++is not checked.
+     +.LP
+     +.I mnt_path
+     +is that mount's path and is required, but it is only the spelling: it is what
+    @@ Documentation/man3/llapi_scan_fid.3 (new)
+     +.\" Added in commit v2_17_57-xxx-gxxxxxxxxx
+     +.SH SEE ALSO
+     +.BR llapi_fid2path (3),
+    ++.BR llapi_fid2path_at (3),
+    ++.BR llapi_path2fid (3),
+    ++.BR llapi_root_path_open (3),
+     +.BR llapi_scan_changelog (3),
+     +.BR llapi_scan_device (3),
+     +.BR llapi_scan_namespace (3),
+    @@ lustre/utils/liblustreapi_scan.c: int llapi_scan_namespace(const char *path, con
+     + * answer -ENOENT or a path relative to that root instead.
+     + * scan_rec_gather() still opens by pathname for LLAPI_SCAN_PROJID,
+     + * LLAPI_SCAN_HSM and a regular file's LLAPI_SCAN_MDT_INDEX, so for those
+    -+ * @mnt_path does decide what is read.
+    ++ * @mnt_path does decide what is read.  A regular file opened this way is
+    ++ * checked against @fid too, and a mismatch is -ESTALE.  A special file's
+    ++ * project id is read through its parent and name, and is not checked.
+     + * @mnt_path is what the record's lfsr_path is built from, so a wrong one
+     + * mislabels the answer.
+     + *
+    @@ lustre/utils/liblustreapi_scan.c: int llapi_scan_namespace(const char *path, con
+     +		rc = -ESTALE;
+     +		goto out;
+     +	}
+    ++	/* the gather opens a regular file again by name: check that too */
+    ++	if (fd >= 0) {
+    ++		struct lu_fid ofid;
+    ++
+    ++		if (llapi_fd2fid(fd, &ofid) != 0 || !lu_fid_eq(&ofid, fid)) {
+    ++			rc = -ESTALE;
+    ++			goto out;
+    ++		}
+    ++	}
+     +
+     +	ours = false;
+     +	rc = cb(&rec, data);
+ 4:  ebb261441e =  4:  cee2e73f90 LU-20611 llapi: split cb_find_init's decider out
+ 5:  8530b4b78c =  5:  b775d5bfc2 LU-20611 lfs: share find's predicate parsing
+ 6:  eaa00c0b17 =  6:  086ddf4179 LU-20611 llapi: run find over a device scan
+ 7:  294ae8f76b =  7:  2c56137a8a LU-20611 lfs: find over a target, with --device
+ 8:  dfa074ae7d =  8:  77c70ab428 LU-20606 llapi: limit a scan's rate
+ 9:  aeb51b77f8 =  9:  8e2c7b2e2b LU-20606 lfs: find --device --max-rate

@@ -1,0 +1,47 @@
+4f2824972c -> 3ee121a15a LU-20606 llapi: scan an ldiskfs target directly  tree
+d1688b30b0 -> ab51ae86d5 LU-20649 llapi: add llapi_scan_changelog()       tree +msg
+6e240c6728 -> e30c9f3e0d LU-20650 llapi: fill a scan record for one FID   tree +msg
+ebb261441e -> cee2e73f90 LU-20611 llapi: split cb_find_init's decider out tree
+8530b4b78c -> b775d5bfc2 LU-20611 lfs: share find's predicate parsing     tree
+eaa00c0b17 -> 086ddf4179 LU-20611 llapi: run find over a device scan      tree
+294ae8f76b -> 2c56137a8a LU-20611 lfs: find over a target, with --device  tree
+62cdd0b157 -> d571f6bc9d LU-20613 llapi: add a ZFS backend to llapi_scan_ tree
+0798e095e9 -> 83f20c99e3 LU-20637 llapi: name a device scan's objects     tree
+c6e3975286 -> 9535d530a4 LU-20650 lfs: add find --since, from the changel tree
+43cb2e0167 -> 30e906185a LU-20650 lfs: add find --changelog, the log as s tree
+8923d31cf4 -> 09f86d9452 LU-20650 lfs: add find --since-cookie, a per-MDT tree +msg
+143add57d0 -> 76ccbe8fad LU-20650 lfs: find --since-cookie, check each MD tree
+103aef57d1 -> ce898ad309 LU-20650 lfs: find --since, warn when the log wa tree
+08ad951a4f -> 32071ca21c LU-20613 build: compile libscan_zfs.c as libzpoo tree
+11fd879e26 -> f7d6d85424 LU-20650 llapi: pass FID and nlink to llapi_scan tree
+ee4609ee75 -> 28edbfcf96 LU-20650 lfs: filter find --since candidates bef tree
+dfa074ae7d -> 77c70ab428 LU-20606 llapi: limit a scan's rate              tree
+aeb51b77f8 -> 8e2c7b2e2b LU-20606 lfs: find --device --max-rate           tree
+7b4c5ebc8a -> f2ff082958 LU-20637 llapi: find the root of an upgraded fil tree
+fork-1014 103aef57d1 -> ce898ad309
+fork-69501 11fd879e26 -> f7d6d85424
+fork-69502 ee4609ee75 -> 28edbfcf96
+fork-69503 08ad951a4f -> 32071ca21c
+rate-1017 dfa074ae7d -> 77c70ab428
+igif-1017 7b4c5ebc8a -> f2ff082958
+maxrate-1017 aeb51b77f8 -> 8e2c7b2e2b
+HITS LU-20606 llapi: scan an ldiskfs target directly              1 2
+HITS LU-20649 llapi: add llapi_scan_changelog()                   6man 6err 6tdecl 6tcase 6tcount 6inc 6fn 6chk 1 2 msg5
+HITS LU-20650 llapi: fill a scan record for one FID               6man 6err 7 8man 6tdecl 6tcase 6tcount 8code 8doc 6inc 6fn 6chk 1 2 msg8
+HITS LU-20611 llapi: split cb_find_init's decider out             6man 6err 7 8man 6tdecl 6tcase 6tcount 8code 8doc 6inc 6fn 6chk 1 2
+HITS LU-20611 lfs: share find's predicate parsing                 6man 6err 7 8man 6tdecl 6tcase 6tcount 8code 8doc 6inc 6fn 6chk 1 2
+HITS LU-20611 llapi: run find over a device scan                  6man 6err 7 8man 6tdecl 6tcase 6tcount 8code 8doc 6inc 6fn 6chk 1 2
+HITS LU-20611 lfs: find over a target, with --device              6man 6err 7 8man 6tdecl 6tcase 6tcount 8code 8doc 6inc 6fn 6chk 1 2
+HITS LU-20613 llapi: add a ZFS backend to llapi_scan_device()     6man 6err 7 8man 6tdecl 6tcase 6tcount 8code 8doc 6inc 6fn 6chk 1 2
+HITS LU-20637 llapi: name a device scan's objects                 6man 6err 7 8man 6tdecl 6tcase 6tcount 8code 8doc 6inc 6fn 6chk 1
+HITS LU-20650 lfs: add find --since, from the changelog           6man 6err 7 8man 6tdecl 6tcase 6tcount 8code 8doc 6inc 6fn 6chk 1
+HITS LU-20650 lfs: add find --changelog, the log as source        6man 6err 7 8man 6tdecl 6tcase 6tcount 8code 8doc 6inc 6fn 6chk 1
+HITS LU-20650 lfs: add find --since-cookie, a per-MDT anchor      6man 6err 7 8man 6tdecl 6tcase 6tcount 8code 8doc 6inc 6fn 6chk 1 msg9
+HITS LU-20650 lfs: find --since-cookie, check each MDT when read  6man 6err 7 8man 6tdecl 6tcase 6tcount 8code 8doc 6inc 6fn 6chk 1
+HITS LU-20650 lfs: find --since, warn when the log was cleared    6man 6err 7 8man 6tdecl 6tcase 6tcount 8code 8doc 6inc 6fn 6chk 1
+HITS LU-20613 build: compile libscan_zfs.c as libzpool is built   6man 6err 7 8man 6tdecl 6tcase 6tcount 8code 8doc 6inc 6fn 6chk 1 2
+HITS LU-20650 llapi: pass FID and nlink to llapi_scan_fid() filte 6man 6err 7 8man 6tdecl 6tcase 6tcount 8code 8doc 6inc 6fn 6chk 1
+HITS LU-20650 lfs: filter find --since candidates before the gath 6man 6err 7 8man 6tdecl 6tcase 6tcount 8code 8doc 6inc 6fn 6chk 1
+HITS LU-20606 llapi: limit a scan's rate                          6man 6err 7 8man 6tdecl 6tcase 6tcount 8code 8doc 6inc 6fn 6chk 1 2
+HITS LU-20606 lfs: find --device --max-rate                       6man 6err 7 8man 6tdecl 6tcase 6tcount 8code 8doc 6inc 6fn 6chk 1 2
+HITS LU-20637 llapi: find the root of an upgraded filesystem      6man 6err 7 8man 6tdecl 6tcase 6tcount 8code 8doc 6inc 6fn 6chk 1

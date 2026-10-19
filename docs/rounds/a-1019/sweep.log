@@ -1,0 +1,56 @@
+SWEEP ee61b3f6dd..ce898ad309, 14 commits in /home/nishida/lrv2-sweep
+3ee121a15a build=0 hdr=0 tests=0 sh=0  LU-20606 llapi: scan an ldiskfs target direct
+ab51ae86d5 build=0 hdr=0 tests=0 sh=0  LU-20649 llapi: add llapi_scan_changelog()
+e30c9f3e0d build=0 hdr=0 tests=0 sh=0  LU-20650 llapi: fill a scan record for one FI
+cee2e73f90 build=0 hdr=0 tests=0 sh=0  LU-20611 llapi: split cb_find_init's decider 
+b775d5bfc2 build=0 hdr=0 tests=0 sh=0  LU-20611 lfs: share find's predicate parsing
+086ddf4179 build=0 hdr=0 tests=0 sh=0  LU-20611 llapi: run find over a device scan
+2c56137a8a build=0 hdr=0 tests=0 sh=0  LU-20611 lfs: find over a target, with --devi
+d571f6bc9d build=0 hdr=0 tests=0 sh=0  LU-20613 llapi: add a ZFS backend to llapi_sc
+83f20c99e3 build=0 hdr=0 tests=0 sh=0  LU-20637 llapi: name a device scan's objects
+9535d530a4 build=0 hdr=0 tests=0 sh=0  LU-20650 lfs: add find --since, from the chan
+30e906185a build=0 hdr=0 tests=0 sh=0  LU-20650 lfs: add find --changelog, the log a
+09f86d9452 build=0 hdr=0 tests=0 sh=0  LU-20650 lfs: add find --since-cookie, a per-
+76ccbe8fad build=0 hdr=0 tests=0 sh=0  LU-20650 lfs: find --since-cookie, check each
+ce898ad309 build=0 hdr=0 tests=0 sh=0  LU-20650 lfs: find --since, warn when the log
+SWEEP-DONE
+SWEEP 30e906185a..28edbfcf96, 2 commits in /home/nishida/lrv2-sweep
+f7d6d85424 build=0 hdr=0 tests=0 sh=0  LU-20650 llapi: pass FID and nlink to llapi_s
+28edbfcf96 build=0 hdr=0 tests=0 sh=0  LU-20650 lfs: filter find --since candidates 
+SWEEP-DONE
+SWEEP d571f6bc9d..32071ca21c, 1 commits in /home/nishida/lrv2-sweep
+32071ca21c build=0 hdr=0 tests=0 sh=0  LU-20613 build: compile libscan_zfs.c as libz
+SWEEP-DONE
+SWEEP 2c56137a8a..8e2c7b2e2b, 2 commits in /home/nishida/lrv2-sweep
+77c70ab428 build=0 hdr=0 tests=0 sh=0  LU-20606 llapi: limit a scan's rate
+8e2c7b2e2b build=0 hdr=0 tests=0 sh=0  LU-20606 lfs: find --device --max-rate
+SWEEP-DONE
+SWEEP 83f20c99e3..f2ff082958, 1 commits in /home/nishida/lrv2-sweep
+f2ff082958 build=0 hdr=0 tests=0 sh=0  LU-20637 llapi: find the root of an upgraded 
+SWEEP-DONE
+3ee121a15a ldiskfs=0
+ab51ae86d5 ldiskfs=0
+e30c9f3e0d ldiskfs=0
+cee2e73f90 ldiskfs=0
+b775d5bfc2 ldiskfs=0
+086ddf4179 ldiskfs=0
+2c56137a8a ldiskfs=0
+d571f6bc9d ldiskfs=0
+83f20c99e3 ldiskfs=0
+9535d530a4 ldiskfs=0
+30e906185a ldiskfs=0
+09f86d9452 ldiskfs=0
+76ccbe8fad ldiskfs=0
+ce898ad309 ldiskfs=0
+f7d6d85424 ldiskfs=0
+28edbfcf96 ldiskfs=0
+32071ca21c ldiskfs=0
+77c70ab428 ldiskfs=0
+8e2c7b2e2b ldiskfs=0
+f2ff082958 ldiskfs=0
+conf-sanity sh ok at fork-1014
+conf-sanity sh ok at fork-69502
+conf-sanity sh ok at fork-69503
+conf-sanity sh ok at maxrate-1017
+conf-sanity sh ok at igif-1017
+ALL-DONE
