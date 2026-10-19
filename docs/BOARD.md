@@ -6,9 +6,10 @@ the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
 
 ## 2026-10-10 day: CI triage + AI round on the 10-10 PS -- START HERE
 
-- **NEXT SESSION FIRST: review 69744** (sbuisson, LU-20971 pfind work unit
+- **69744 REVIEWED 10-19, CR+1 posted** (sbuisson, LU-20971 pfind work unit
   path buffer overflow -- likely our owed --thread-count heap bug; same
-  code as 69796).  Ask before posting.
+  code as 69796).  If it lands before 69796, 69796 must broadcast
+  fwq_done_cond in its new ENOMEM exit of find_worker().
 - **10-19 17:00 JST: polling STOPPED (user: finish at 17:00).**  Last
   poll quiet.  All 19 series PS + 69795 + 69796 are Jenkins Verified+1;
   Maloo and AI review on the new PS still to come.  Seen-state in
