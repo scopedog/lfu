@@ -1,0 +1,31 @@
+SWEEP 47d5221ea5..7a246f3eff, 8 commits in /home/nishida/lfs-sweep-1020
+a087d7acdc build=0 hdr=0 tests=0 sh=0  LU-20611 lfs: find over a target, with --devi
+36978be1c4 build=0 hdr=0 tests=0 sh=0  LU-20613 llapi: add a ZFS backend to llapi_sc
+023630cf66 build=0 hdr=0 tests=0 sh=0  LU-20637 llapi: name a device scan's objects
+c4e7602db5 build=0 hdr=0 tests=0 sh=0  LU-20650 lfs: add find --since, from the chan
+15d2fce776 build=0 hdr=0 tests=0 sh=0  LU-20650 lfs: add find --changelog, the log a
+0f9b013492 build=0 hdr=0 tests=0 sh=0  LU-20650 lfs: add find --since-cookie, a per-
+aa9680ddcb build=0 hdr=0 tests=0 sh=0  LU-20650 lfs: find --since-cookie, check each
+7a246f3eff build=0 hdr=0 tests=0 sh=0  LU-20650 lfs: find --since, warn when the log
+SWEEP-DONE
+SWEEP c4e7602db5..fa286b2a07, 1 commits in /home/nishida/lfs-sweep-1020
+fa286b2a07 build=0 hdr=0 tests=0 sh=0  LU-20650 llapi: pass FID and nlink to llapi_s
+SWEEP-DONE
+SWEEP c4e7602db5..74af233406, 2 commits in /home/nishida/lfs-sweep-1020
+fa286b2a07 build=0 hdr=0 tests=0 sh=0  LU-20650 llapi: pass FID and nlink to llapi_s
+74af233406 build=0 hdr=0 tests=0 sh=0  LU-20650 lfs: filter find --since candidates 
+SWEEP-DONE
+SWEEP 36978be1c4..7d4a616c9d, 1 commits in /home/nishida/lfs-sweep-1020
+7d4a616c9d build=0 hdr=0 tests=0 sh=0  LU-20613 build: compile libscan_zfs.c as libz
+SWEEP-DONE
+SWEEP a087d7acdc..f7384fedf4, 1 commits in /home/nishida/lfs-sweep-1020
+f7384fedf4 build=0 hdr=0 tests=0 sh=0  LU-20606 llapi: limit a scan's rate
+SWEEP-DONE
+SWEEP a087d7acdc..05667eb4c6, 2 commits in /home/nishida/lfs-sweep-1020
+f7384fedf4 build=0 hdr=0 tests=0 sh=0  LU-20606 llapi: limit a scan's rate
+05667eb4c6 build=0 hdr=0 tests=0 sh=0  LU-20606 lfs: find --device --max-rate
+SWEEP-DONE
+SWEEP 023630cf66..1b58085835, 1 commits in /home/nishida/lfs-sweep-1020
+1b58085835 build=0 hdr=0 tests=0 sh=0  LU-20637 llapi: find the root of an upgraded 
+SWEEP-DONE
+ALL-DONE

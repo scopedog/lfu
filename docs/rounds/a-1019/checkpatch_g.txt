@@ -1,0 +1,12 @@
+== a3b2e9dbac
+      1 total: 0 errors, 1 warnings, 1632 lines checked
+      1 total: 0 errors, 2 warnings, 0 checks, 1299 lines checked, spelling check not done
+      1 WARNING: added, moved or deleted file(s), does MAINTAINERS need updating?
+      1 WARNING: Non-standard section: BASH COMPLETION
+      1 WARNING: Option header for short opt only should be of the following format: .B[IR]? -SHORT_OPT [ARGS]
+== a087d7acdc
+      1 total: 0 errors, 1 warnings, 1680 lines checked
+      1 total: 0 errors, 2 warnings, 0 checks, 1299 lines checked, spelling check not done
+      1 WARNING: added, moved or deleted file(s), does MAINTAINERS need updating?
+      1 WARNING: Non-standard section: BASH COMPLETION
+      1 WARNING: Option header for short opt only should be of the following format: .B[IR]? -SHORT_OPT [ARGS]

@@ -1,0 +1,993 @@
+1:  a3b2e9dbac ! 1:  a087d7acdc LU-20611 lfs: find over a target, with --device
+    @@ Commit message
+         the targets of the other type, which those options cannot name.
+         ENOTSUP does not end a sweep either: an OST cannot answer everything an
+         MDT can, and a node may serve a kind of target this build cannot read.
+    +    Only an MDT answers the layout options, so a sweep that reads an MDT
+    +    skips the OSTs: a node that serves an MDT and an OST answers --pool in
+    +    full and exits 0. With no MDT to read, or with --ost, each OST still
+    +    fails.
+     
+         Without the scan backend from the server package, llapi_find_device()
+         fails with ENOTSUP and says why. This is what a client gets.
+    @@ Commit message
+         --internal only adds objects. test_300c runs --local with --ost
+         on ost1's node and with --mdt on mds1's while the targets are mounted,
+         and checks that each finds objects. Where mds1 and ost1 are one
+    -    ldiskfs node it also checks that each reads only targets of its type.
+    +    ldiskfs node it also checks that each reads only targets of its type,
+    +    that --local --stripe-count skips the OST and succeeds, and that
+    +    --target on the OST refuses it.
+         --local, --target and --fsname run again after everything is stopped,
+         and each must report what it could not find; an invalid --fsname is
+         refused. The plain-argument form is checked only when the MDT is a
+    @@ Documentation/man1/lfs-find.1: The regular expressions must match the complete a
+     +.BR --fsname ,
+     +a sweep skips the targets of the other kind rather than failing on them,
+     +and refuses the two options together, since no target would be left.
+    ++Only an MDT answers the layout options, such as
+    ++.B --pool
+    ++and
+    ++.BR --stripe-count ,
+    ++so a sweep that reads an MDT skips the OSTs.
+    ++With no MDT to read, or with
+    ++.BR --ost ,
+    ++each OST fails as one that cannot answer them.
+     +.TP
+     +.B --internal
+     +Also report the objects a target keeps for itself,
+    @@ lustre/tests/conf-sanity.sh: test_250() {
+     +		cat $scan_err
+     +		error "lfs find --local --mdt $mdtsvc read an OST"
+     +	fi
+    ++
+    ++	# only an MDT answers a layout option, so the sweep skips the OST
+    ++	do_facet mds1 "$LFS find --local --stripe-count 1 --type f" \
+    ++		> $scan_out 2> $scan_err || {
+    ++		cat $scan_err
+    ++		error "lfs find --local --stripe-count 1 failed"
+    ++	}
+    ++	[[ -s $scan_out ]] ||
+    ++		error "lfs find --local --stripe-count 1 found nothing"
+    ++	if grep -q -- "-OST" $scan_err; then
+    ++		cat $scan_err
+    ++		error "lfs find --local --stripe-count 1 read an OST"
+    ++	fi
+    ++	# but an OST named alone still refuses it
+    ++	do_facet mds1 "$LFS find --target $ostsvc --stripe-count 1" \
+    ++		> /dev/null 2>&1 &&
+    ++		error "lfs find --target $ostsvc --stripe-count 1 succeeded"
+    ++	return 0
+     +}
+     +run_test 300c "lfs find --local --ost or --mdt reads only that type"
+     +
+    @@ lustre/utils/lfs.c: static int calculate_default_thread_count(const char *path)
+     +	return false;
+     +}
+     +
+    ++/* the options only a layout answers, as find_asks_layout() in the library */
+    ++static bool lfs_find_asks_layout(const struct find_param *param)
+    ++{
+    ++	return param->fp_check_pool || param->fp_check_stripe_count ||
+    ++	       param->fp_check_stripe_size || param->fp_check_layout ||
+    ++	       param->fp_check_comp_count || param->fp_check_comp_end ||
+    ++	       param->fp_check_comp_start || param->fp_check_comp_flags ||
+    ++	       param->fp_check_mirror_count || param->fp_check_foreign ||
+    ++	       param->fp_check_mirror_state || param->fp_check_ext_size;
+    ++}
+    ++
+     +/*
+     + * lfs find over a target's own objects, read off its device by
+     + * llapi_find_device(3).  One target per invocation, except for the sweeps
+    @@ lustre/utils/lfs.c: static int calculate_default_thread_count(const char *path)
+     + * fails and say so in the return value, so that a partial sweep is not taken
+     + * for a whole one.
+     + *
+    -+ * A sweep skips the targets --ost or --mdt cannot name.  ENOTSUP does not
+    -+ * end it: an OST cannot answer everything an MDT can, and a node may serve
+    -+ * a kind of target this build has no backend for.
+    ++ * A sweep skips the targets --ost or --mdt cannot name, and the OSTs when
+    ++ * an MDT is there to answer the layout options.  ENOTSUP does not end it:
+    ++ * an OST cannot answer everything an MDT can, and a node may serve a kind
+    ++ * of target this build has no backend for.
+     + */
+     +static int lfs_find_device(char **argv, struct find_param *param,
+     +			   int pathstart, int pathend)
+    @@ lustre/utils/lfs.c: static int calculate_default_thread_count(const char *path)
+     +	struct lfs_find_target *tgts = NULL;
+     +	struct lfs_find_target one = { 0 };
+     +	const char *device = param->fp_device;
+    ++	bool skip_ost = false;
+     +	int scanned = 0;
+     +	int ret = 0;
+     +	int named;
+    @@ lustre/utils/lfs.c: static int calculate_default_thread_count(const char *path)
+     +		}
+     +	}
+     +
+    ++	/* with no MDT, or with --ost, each OST says why it cannot answer */
+    ++	if (tgts != &one && param->fp_target == NULL &&
+    ++	    param->fp_obd_uuid == NULL && lfs_find_asks_layout(param)) {
+    ++		for (i = 0; i < nr; i++)
+    ++			skip_ost |= lfs_find_label_is(tgts[i].lt_name, "MDT");
+    ++	}
+    ++
+     +	for (i = 0; i < nr; i++) {
+     +		int rc;
+     +
+    @@ lustre/utils/lfs.c: static int calculate_default_thread_count(const char *path)
+     +		     (param->fp_mdt_uuid != NULL &&
+     +		      !lfs_find_label_is(tgts[i].lt_name, "MDT"))))
+     +			continue;
+    ++		if (skip_ost && lfs_find_label_is(tgts[i].lt_name, "OST"))
+    ++			continue;
+     +		scanned++;
+     +
+     +		if (nr > 1)
+2:  4637f31c47 = 2:  36978be1c4 LU-20613 llapi: add a ZFS backend to llapi_scan_device()
+3:  a775233eef ! 3:  023630cf66 LU-20637 llapi: name a device scan's objects
+    @@ lustre/utils/lfs.c: static int lfs_find_device(char **argv, struct find_param *p
+      	struct lfs_find_target one = { 0 };
+     +	char mnt_fs[MAX_OBD_NAME + 1] = "";
+      	const char *device = param->fp_device;
+    + 	bool skip_ost = false;
+      	int scanned = 0;
+    - 	int ret = 0;
+     @@ lustre/utils/lfs.c: static int lfs_find_device(char **argv, struct find_param *param,
+      			argv[0], named);
+      		return CMD_HELP;
+    @@ lustre/utils/lfs.c: static int lfs_find_device(char **argv, struct find_param *p
+     +		     ((param->fp_mdt_uuid != NULL || param->fp_paths) &&
+      		      !lfs_find_label_is(tgts[i].lt_name, "MDT"))))
+      			continue;
+    - 		scanned++;
+    + 		if (skip_ost && lfs_find_label_is(tgts[i].lt_name, "OST"))
+     @@ lustre/utils/lfs.c: static int lfs_find(int argc, char **argv)
+      		ret = lfs_find_device(argv, param, pathstart, pathend);
+      		goto err;
+4:  8544c1d6ba = 4:  c4e7602db5 LU-20650 lfs: add find --since, from the changelog
+5:  d2f392f33f ! 5:  15d2fce776 LU-20650 lfs: add find --changelog, the log as source
+    @@ lustre/utils/lfs.c: static int lfs_find_device(char **argv, struct find_param *p
+      	char mnt_fs[MAX_OBD_NAME + 1] = "";
+      	const char *device = param->fp_device;
+     +	const char *what = NULL;
+    + 	bool skip_ost = false;
+      	int scanned = 0;
+      	int ret = 0;
+    - 	int named;
+     @@ lustre/utils/lfs.c: static int lfs_find_device(char **argv, struct find_param *param,
+      			argv[0]);
+      		return -ENOTSUP;
+6:  3fa29803eb = 6:  0f9b013492 LU-20650 lfs: add find --since-cookie, a per-MDT anchor
+7:  12c3903cd7 = 7:  aa9680ddcb LU-20650 lfs: find --since-cookie, check each MDT when read
+8:  14292fa6fc = 8:  7a246f3eff LU-20650 lfs: find --since, warn when the log was cleared
+1:  a3b2e9dbac ! 1:  a087d7acdc LU-20611 lfs: find over a target, with --device
+    @@ Commit message
+         the targets of the other type, which those options cannot name.
+         ENOTSUP does not end a sweep either: an OST cannot answer everything an
+         MDT can, and a node may serve a kind of target this build cannot read.
+    +    Only an MDT answers the layout options, so a sweep that reads an MDT
+    +    skips the OSTs: a node that serves an MDT and an OST answers --pool in
+    +    full and exits 0. With no MDT to read, or with --ost, each OST still
+    +    fails.
+     
+         Without the scan backend from the server package, llapi_find_device()
+         fails with ENOTSUP and says why. This is what a client gets.
+    @@ Commit message
+         --internal only adds objects. test_300c runs --local with --ost
+         on ost1's node and with --mdt on mds1's while the targets are mounted,
+         and checks that each finds objects. Where mds1 and ost1 are one
+    -    ldiskfs node it also checks that each reads only targets of its type.
+    +    ldiskfs node it also checks that each reads only targets of its type,
+    +    that --local --stripe-count skips the OST and succeeds, and that
+    +    --target on the OST refuses it.
+         --local, --target and --fsname run again after everything is stopped,
+         and each must report what it could not find; an invalid --fsname is
+         refused. The plain-argument form is checked only when the MDT is a
+    @@ Documentation/man1/lfs-find.1: The regular expressions must match the complete a
+     +.BR --fsname ,
+     +a sweep skips the targets of the other kind rather than failing on them,
+     +and refuses the two options together, since no target would be left.
+    ++Only an MDT answers the layout options, such as
+    ++.B --pool
+    ++and
+    ++.BR --stripe-count ,
+    ++so a sweep that reads an MDT skips the OSTs.
+    ++With no MDT to read, or with
+    ++.BR --ost ,
+    ++each OST fails as one that cannot answer them.
+     +.TP
+     +.B --internal
+     +Also report the objects a target keeps for itself,
+    @@ lustre/tests/conf-sanity.sh: test_250() {
+     +		cat $scan_err
+     +		error "lfs find --local --mdt $mdtsvc read an OST"
+     +	fi
+    ++
+    ++	# only an MDT answers a layout option, so the sweep skips the OST
+    ++	do_facet mds1 "$LFS find --local --stripe-count 1 --type f" \
+    ++		> $scan_out 2> $scan_err || {
+    ++		cat $scan_err
+    ++		error "lfs find --local --stripe-count 1 failed"
+    ++	}
+    ++	[[ -s $scan_out ]] ||
+    ++		error "lfs find --local --stripe-count 1 found nothing"
+    ++	if grep -q -- "-OST" $scan_err; then
+    ++		cat $scan_err
+    ++		error "lfs find --local --stripe-count 1 read an OST"
+    ++	fi
+    ++	# but an OST named alone still refuses it
+    ++	do_facet mds1 "$LFS find --target $ostsvc --stripe-count 1" \
+    ++		> /dev/null 2>&1 &&
+    ++		error "lfs find --target $ostsvc --stripe-count 1 succeeded"
+    ++	return 0
+     +}
+     +run_test 300c "lfs find --local --ost or --mdt reads only that type"
+     +
+    @@ lustre/utils/lfs.c: static int calculate_default_thread_count(const char *path)
+     +	return false;
+     +}
+     +
+    ++/* the options only a layout answers, as find_asks_layout() in the library */
+    ++static bool lfs_find_asks_layout(const struct find_param *param)
+    ++{
+    ++	return param->fp_check_pool || param->fp_check_stripe_count ||
+    ++	       param->fp_check_stripe_size || param->fp_check_layout ||
+    ++	       param->fp_check_comp_count || param->fp_check_comp_end ||
+    ++	       param->fp_check_comp_start || param->fp_check_comp_flags ||
+    ++	       param->fp_check_mirror_count || param->fp_check_foreign ||
+    ++	       param->fp_check_mirror_state || param->fp_check_ext_size;
+    ++}
+    ++
+     +/*
+     + * lfs find over a target's own objects, read off its device by
+     + * llapi_find_device(3).  One target per invocation, except for the sweeps
+    @@ lustre/utils/lfs.c: static int calculate_default_thread_count(const char *path)
+     + * fails and say so in the return value, so that a partial sweep is not taken
+     + * for a whole one.
+     + *
+    -+ * A sweep skips the targets --ost or --mdt cannot name.  ENOTSUP does not
+    -+ * end it: an OST cannot answer everything an MDT can, and a node may serve
+    -+ * a kind of target this build has no backend for.
+    ++ * A sweep skips the targets --ost or --mdt cannot name, and the OSTs when
+    ++ * an MDT is there to answer the layout options.  ENOTSUP does not end it:
+    ++ * an OST cannot answer everything an MDT can, and a node may serve a kind
+    ++ * of target this build has no backend for.
+     + */
+     +static int lfs_find_device(char **argv, struct find_param *param,
+     +			   int pathstart, int pathend)
+    @@ lustre/utils/lfs.c: static int calculate_default_thread_count(const char *path)
+     +	struct lfs_find_target *tgts = NULL;
+     +	struct lfs_find_target one = { 0 };
+     +	const char *device = param->fp_device;
+    ++	bool skip_ost = false;
+     +	int scanned = 0;
+     +	int ret = 0;
+     +	int named;
+    @@ lustre/utils/lfs.c: static int calculate_default_thread_count(const char *path)
+     +		}
+     +	}
+     +
+    ++	/* with no MDT, or with --ost, each OST says why it cannot answer */
+    ++	if (tgts != &one && param->fp_target == NULL &&
+    ++	    param->fp_obd_uuid == NULL && lfs_find_asks_layout(param)) {
+    ++		for (i = 0; i < nr; i++)
+    ++			skip_ost |= lfs_find_label_is(tgts[i].lt_name, "MDT");
+    ++	}
+    ++
+     +	for (i = 0; i < nr; i++) {
+     +		int rc;
+     +
+    @@ lustre/utils/lfs.c: static int calculate_default_thread_count(const char *path)
+     +		     (param->fp_mdt_uuid != NULL &&
+     +		      !lfs_find_label_is(tgts[i].lt_name, "MDT"))))
+     +			continue;
+    ++		if (skip_ost && lfs_find_label_is(tgts[i].lt_name, "OST"))
+    ++			continue;
+     +		scanned++;
+     +
+     +		if (nr > 1)
+2:  4637f31c47 = 2:  36978be1c4 LU-20613 llapi: add a ZFS backend to llapi_scan_device()
+3:  a775233eef ! 3:  023630cf66 LU-20637 llapi: name a device scan's objects
+    @@ lustre/utils/lfs.c: static int lfs_find_device(char **argv, struct find_param *p
+      	struct lfs_find_target one = { 0 };
+     +	char mnt_fs[MAX_OBD_NAME + 1] = "";
+      	const char *device = param->fp_device;
+    + 	bool skip_ost = false;
+      	int scanned = 0;
+    - 	int ret = 0;
+     @@ lustre/utils/lfs.c: static int lfs_find_device(char **argv, struct find_param *param,
+      			argv[0], named);
+      		return CMD_HELP;
+    @@ lustre/utils/lfs.c: static int lfs_find_device(char **argv, struct find_param *p
+     +		     ((param->fp_mdt_uuid != NULL || param->fp_paths) &&
+      		      !lfs_find_label_is(tgts[i].lt_name, "MDT"))))
+      			continue;
+    - 		scanned++;
+    + 		if (skip_ost && lfs_find_label_is(tgts[i].lt_name, "OST"))
+     @@ lustre/utils/lfs.c: static int lfs_find(int argc, char **argv)
+      		ret = lfs_find_device(argv, param, pathstart, pathend);
+      		goto err;
+4:  8544c1d6ba = 4:  c4e7602db5 LU-20650 lfs: add find --since, from the changelog
+5:  4322f54548 = 5:  fa286b2a07 LU-20650 llapi: pass FID and nlink to llapi_scan_fid() filter
+1:  a3b2e9dbac ! 1:  a087d7acdc LU-20611 lfs: find over a target, with --device
+    @@ Commit message
+         the targets of the other type, which those options cannot name.
+         ENOTSUP does not end a sweep either: an OST cannot answer everything an
+         MDT can, and a node may serve a kind of target this build cannot read.
+    +    Only an MDT answers the layout options, so a sweep that reads an MDT
+    +    skips the OSTs: a node that serves an MDT and an OST answers --pool in
+    +    full and exits 0. With no MDT to read, or with --ost, each OST still
+    +    fails.
+     
+         Without the scan backend from the server package, llapi_find_device()
+         fails with ENOTSUP and says why. This is what a client gets.
+    @@ Commit message
+         --internal only adds objects. test_300c runs --local with --ost
+         on ost1's node and with --mdt on mds1's while the targets are mounted,
+         and checks that each finds objects. Where mds1 and ost1 are one
+    -    ldiskfs node it also checks that each reads only targets of its type.
+    +    ldiskfs node it also checks that each reads only targets of its type,
+    +    that --local --stripe-count skips the OST and succeeds, and that
+    +    --target on the OST refuses it.
+         --local, --target and --fsname run again after everything is stopped,
+         and each must report what it could not find; an invalid --fsname is
+         refused. The plain-argument form is checked only when the MDT is a
+    @@ Documentation/man1/lfs-find.1: The regular expressions must match the complete a
+     +.BR --fsname ,
+     +a sweep skips the targets of the other kind rather than failing on them,
+     +and refuses the two options together, since no target would be left.
+    ++Only an MDT answers the layout options, such as
+    ++.B --pool
+    ++and
+    ++.BR --stripe-count ,
+    ++so a sweep that reads an MDT skips the OSTs.
+    ++With no MDT to read, or with
+    ++.BR --ost ,
+    ++each OST fails as one that cannot answer them.
+     +.TP
+     +.B --internal
+     +Also report the objects a target keeps for itself,
+    @@ lustre/tests/conf-sanity.sh: test_250() {
+     +		cat $scan_err
+     +		error "lfs find --local --mdt $mdtsvc read an OST"
+     +	fi
+    ++
+    ++	# only an MDT answers a layout option, so the sweep skips the OST
+    ++	do_facet mds1 "$LFS find --local --stripe-count 1 --type f" \
+    ++		> $scan_out 2> $scan_err || {
+    ++		cat $scan_err
+    ++		error "lfs find --local --stripe-count 1 failed"
+    ++	}
+    ++	[[ -s $scan_out ]] ||
+    ++		error "lfs find --local --stripe-count 1 found nothing"
+    ++	if grep -q -- "-OST" $scan_err; then
+    ++		cat $scan_err
+    ++		error "lfs find --local --stripe-count 1 read an OST"
+    ++	fi
+    ++	# but an OST named alone still refuses it
+    ++	do_facet mds1 "$LFS find --target $ostsvc --stripe-count 1" \
+    ++		> /dev/null 2>&1 &&
+    ++		error "lfs find --target $ostsvc --stripe-count 1 succeeded"
+    ++	return 0
+     +}
+     +run_test 300c "lfs find --local --ost or --mdt reads only that type"
+     +
+    @@ lustre/utils/lfs.c: static int calculate_default_thread_count(const char *path)
+     +	return false;
+     +}
+     +
+    ++/* the options only a layout answers, as find_asks_layout() in the library */
+    ++static bool lfs_find_asks_layout(const struct find_param *param)
+    ++{
+    ++	return param->fp_check_pool || param->fp_check_stripe_count ||
+    ++	       param->fp_check_stripe_size || param->fp_check_layout ||
+    ++	       param->fp_check_comp_count || param->fp_check_comp_end ||
+    ++	       param->fp_check_comp_start || param->fp_check_comp_flags ||
+    ++	       param->fp_check_mirror_count || param->fp_check_foreign ||
+    ++	       param->fp_check_mirror_state || param->fp_check_ext_size;
+    ++}
+    ++
+     +/*
+     + * lfs find over a target's own objects, read off its device by
+     + * llapi_find_device(3).  One target per invocation, except for the sweeps
+    @@ lustre/utils/lfs.c: static int calculate_default_thread_count(const char *path)
+     + * fails and say so in the return value, so that a partial sweep is not taken
+     + * for a whole one.
+     + *
+    -+ * A sweep skips the targets --ost or --mdt cannot name.  ENOTSUP does not
+    -+ * end it: an OST cannot answer everything an MDT can, and a node may serve
+    -+ * a kind of target this build has no backend for.
+    ++ * A sweep skips the targets --ost or --mdt cannot name, and the OSTs when
+    ++ * an MDT is there to answer the layout options.  ENOTSUP does not end it:
+    ++ * an OST cannot answer everything an MDT can, and a node may serve a kind
+    ++ * of target this build has no backend for.
+     + */
+     +static int lfs_find_device(char **argv, struct find_param *param,
+     +			   int pathstart, int pathend)
+    @@ lustre/utils/lfs.c: static int calculate_default_thread_count(const char *path)
+     +	struct lfs_find_target *tgts = NULL;
+     +	struct lfs_find_target one = { 0 };
+     +	const char *device = param->fp_device;
+    ++	bool skip_ost = false;
+     +	int scanned = 0;
+     +	int ret = 0;
+     +	int named;
+    @@ lustre/utils/lfs.c: static int calculate_default_thread_count(const char *path)
+     +		}
+     +	}
+     +
+    ++	/* with no MDT, or with --ost, each OST says why it cannot answer */
+    ++	if (tgts != &one && param->fp_target == NULL &&
+    ++	    param->fp_obd_uuid == NULL && lfs_find_asks_layout(param)) {
+    ++		for (i = 0; i < nr; i++)
+    ++			skip_ost |= lfs_find_label_is(tgts[i].lt_name, "MDT");
+    ++	}
+    ++
+     +	for (i = 0; i < nr; i++) {
+     +		int rc;
+     +
+    @@ lustre/utils/lfs.c: static int calculate_default_thread_count(const char *path)
+     +		     (param->fp_mdt_uuid != NULL &&
+     +		      !lfs_find_label_is(tgts[i].lt_name, "MDT"))))
+     +			continue;
+    ++		if (skip_ost && lfs_find_label_is(tgts[i].lt_name, "OST"))
+    ++			continue;
+     +		scanned++;
+     +
+     +		if (nr > 1)
+2:  4637f31c47 = 2:  36978be1c4 LU-20613 llapi: add a ZFS backend to llapi_scan_device()
+3:  a775233eef ! 3:  023630cf66 LU-20637 llapi: name a device scan's objects
+    @@ lustre/utils/lfs.c: static int lfs_find_device(char **argv, struct find_param *p
+      	struct lfs_find_target one = { 0 };
+     +	char mnt_fs[MAX_OBD_NAME + 1] = "";
+      	const char *device = param->fp_device;
+    + 	bool skip_ost = false;
+      	int scanned = 0;
+    - 	int ret = 0;
+     @@ lustre/utils/lfs.c: static int lfs_find_device(char **argv, struct find_param *param,
+      			argv[0], named);
+      		return CMD_HELP;
+    @@ lustre/utils/lfs.c: static int lfs_find_device(char **argv, struct find_param *p
+     +		     ((param->fp_mdt_uuid != NULL || param->fp_paths) &&
+      		      !lfs_find_label_is(tgts[i].lt_name, "MDT"))))
+      			continue;
+    - 		scanned++;
+    + 		if (skip_ost && lfs_find_label_is(tgts[i].lt_name, "OST"))
+     @@ lustre/utils/lfs.c: static int lfs_find(int argc, char **argv)
+      		ret = lfs_find_device(argv, param, pathstart, pathend);
+      		goto err;
+4:  8544c1d6ba = 4:  c4e7602db5 LU-20650 lfs: add find --since, from the changelog
+5:  4322f54548 = 5:  fa286b2a07 LU-20650 llapi: pass FID and nlink to llapi_scan_fid() filter
+6:  cfc0ed9365 = 6:  74af233406 LU-20650 lfs: filter find --since candidates before the gather
+1:  a3b2e9dbac ! 1:  a087d7acdc LU-20611 lfs: find over a target, with --device
+    @@ Commit message
+         the targets of the other type, which those options cannot name.
+         ENOTSUP does not end a sweep either: an OST cannot answer everything an
+         MDT can, and a node may serve a kind of target this build cannot read.
+    +    Only an MDT answers the layout options, so a sweep that reads an MDT
+    +    skips the OSTs: a node that serves an MDT and an OST answers --pool in
+    +    full and exits 0. With no MDT to read, or with --ost, each OST still
+    +    fails.
+     
+         Without the scan backend from the server package, llapi_find_device()
+         fails with ENOTSUP and says why. This is what a client gets.
+    @@ Commit message
+         --internal only adds objects. test_300c runs --local with --ost
+         on ost1's node and with --mdt on mds1's while the targets are mounted,
+         and checks that each finds objects. Where mds1 and ost1 are one
+    -    ldiskfs node it also checks that each reads only targets of its type.
+    +    ldiskfs node it also checks that each reads only targets of its type,
+    +    that --local --stripe-count skips the OST and succeeds, and that
+    +    --target on the OST refuses it.
+         --local, --target and --fsname run again after everything is stopped,
+         and each must report what it could not find; an invalid --fsname is
+         refused. The plain-argument form is checked only when the MDT is a
+    @@ Documentation/man1/lfs-find.1: The regular expressions must match the complete a
+     +.BR --fsname ,
+     +a sweep skips the targets of the other kind rather than failing on them,
+     +and refuses the two options together, since no target would be left.
+    ++Only an MDT answers the layout options, such as
+    ++.B --pool
+    ++and
+    ++.BR --stripe-count ,
+    ++so a sweep that reads an MDT skips the OSTs.
+    ++With no MDT to read, or with
+    ++.BR --ost ,
+    ++each OST fails as one that cannot answer them.
+     +.TP
+     +.B --internal
+     +Also report the objects a target keeps for itself,
+    @@ lustre/tests/conf-sanity.sh: test_250() {
+     +		cat $scan_err
+     +		error "lfs find --local --mdt $mdtsvc read an OST"
+     +	fi
+    ++
+    ++	# only an MDT answers a layout option, so the sweep skips the OST
+    ++	do_facet mds1 "$LFS find --local --stripe-count 1 --type f" \
+    ++		> $scan_out 2> $scan_err || {
+    ++		cat $scan_err
+    ++		error "lfs find --local --stripe-count 1 failed"
+    ++	}
+    ++	[[ -s $scan_out ]] ||
+    ++		error "lfs find --local --stripe-count 1 found nothing"
+    ++	if grep -q -- "-OST" $scan_err; then
+    ++		cat $scan_err
+    ++		error "lfs find --local --stripe-count 1 read an OST"
+    ++	fi
+    ++	# but an OST named alone still refuses it
+    ++	do_facet mds1 "$LFS find --target $ostsvc --stripe-count 1" \
+    ++		> /dev/null 2>&1 &&
+    ++		error "lfs find --target $ostsvc --stripe-count 1 succeeded"
+    ++	return 0
+     +}
+     +run_test 300c "lfs find --local --ost or --mdt reads only that type"
+     +
+    @@ lustre/utils/lfs.c: static int calculate_default_thread_count(const char *path)
+     +	return false;
+     +}
+     +
+    ++/* the options only a layout answers, as find_asks_layout() in the library */
+    ++static bool lfs_find_asks_layout(const struct find_param *param)
+    ++{
+    ++	return param->fp_check_pool || param->fp_check_stripe_count ||
+    ++	       param->fp_check_stripe_size || param->fp_check_layout ||
+    ++	       param->fp_check_comp_count || param->fp_check_comp_end ||
+    ++	       param->fp_check_comp_start || param->fp_check_comp_flags ||
+    ++	       param->fp_check_mirror_count || param->fp_check_foreign ||
+    ++	       param->fp_check_mirror_state || param->fp_check_ext_size;
+    ++}
+    ++
+     +/*
+     + * lfs find over a target's own objects, read off its device by
+     + * llapi_find_device(3).  One target per invocation, except for the sweeps
+    @@ lustre/utils/lfs.c: static int calculate_default_thread_count(const char *path)
+     + * fails and say so in the return value, so that a partial sweep is not taken
+     + * for a whole one.
+     + *
+    -+ * A sweep skips the targets --ost or --mdt cannot name.  ENOTSUP does not
+    -+ * end it: an OST cannot answer everything an MDT can, and a node may serve
+    -+ * a kind of target this build has no backend for.
+    ++ * A sweep skips the targets --ost or --mdt cannot name, and the OSTs when
+    ++ * an MDT is there to answer the layout options.  ENOTSUP does not end it:
+    ++ * an OST cannot answer everything an MDT can, and a node may serve a kind
+    ++ * of target this build has no backend for.
+     + */
+     +static int lfs_find_device(char **argv, struct find_param *param,
+     +			   int pathstart, int pathend)
+    @@ lustre/utils/lfs.c: static int calculate_default_thread_count(const char *path)
+     +	struct lfs_find_target *tgts = NULL;
+     +	struct lfs_find_target one = { 0 };
+     +	const char *device = param->fp_device;
+    ++	bool skip_ost = false;
+     +	int scanned = 0;
+     +	int ret = 0;
+     +	int named;
+    @@ lustre/utils/lfs.c: static int calculate_default_thread_count(const char *path)
+     +		}
+     +	}
+     +
+    ++	/* with no MDT, or with --ost, each OST says why it cannot answer */
+    ++	if (tgts != &one && param->fp_target == NULL &&
+    ++	    param->fp_obd_uuid == NULL && lfs_find_asks_layout(param)) {
+    ++		for (i = 0; i < nr; i++)
+    ++			skip_ost |= lfs_find_label_is(tgts[i].lt_name, "MDT");
+    ++	}
+    ++
+     +	for (i = 0; i < nr; i++) {
+     +		int rc;
+     +
+    @@ lustre/utils/lfs.c: static int calculate_default_thread_count(const char *path)
+     +		     (param->fp_mdt_uuid != NULL &&
+     +		      !lfs_find_label_is(tgts[i].lt_name, "MDT"))))
+     +			continue;
+    ++		if (skip_ost && lfs_find_label_is(tgts[i].lt_name, "OST"))
+    ++			continue;
+     +		scanned++;
+     +
+     +		if (nr > 1)
+2:  4637f31c47 = 2:  36978be1c4 LU-20613 llapi: add a ZFS backend to llapi_scan_device()
+3:  362886bf33 = 3:  7d4a616c9d LU-20613 build: compile libscan_zfs.c as libzpool is built
+1:  a3b2e9dbac ! 1:  a087d7acdc LU-20611 lfs: find over a target, with --device
+    @@ Commit message
+         the targets of the other type, which those options cannot name.
+         ENOTSUP does not end a sweep either: an OST cannot answer everything an
+         MDT can, and a node may serve a kind of target this build cannot read.
+    +    Only an MDT answers the layout options, so a sweep that reads an MDT
+    +    skips the OSTs: a node that serves an MDT and an OST answers --pool in
+    +    full and exits 0. With no MDT to read, or with --ost, each OST still
+    +    fails.
+     
+         Without the scan backend from the server package, llapi_find_device()
+         fails with ENOTSUP and says why. This is what a client gets.
+    @@ Commit message
+         --internal only adds objects. test_300c runs --local with --ost
+         on ost1's node and with --mdt on mds1's while the targets are mounted,
+         and checks that each finds objects. Where mds1 and ost1 are one
+    -    ldiskfs node it also checks that each reads only targets of its type.
+    +    ldiskfs node it also checks that each reads only targets of its type,
+    +    that --local --stripe-count skips the OST and succeeds, and that
+    +    --target on the OST refuses it.
+         --local, --target and --fsname run again after everything is stopped,
+         and each must report what it could not find; an invalid --fsname is
+         refused. The plain-argument form is checked only when the MDT is a
+    @@ Documentation/man1/lfs-find.1: The regular expressions must match the complete a
+     +.BR --fsname ,
+     +a sweep skips the targets of the other kind rather than failing on them,
+     +and refuses the two options together, since no target would be left.
+    ++Only an MDT answers the layout options, such as
+    ++.B --pool
+    ++and
+    ++.BR --stripe-count ,
+    ++so a sweep that reads an MDT skips the OSTs.
+    ++With no MDT to read, or with
+    ++.BR --ost ,
+    ++each OST fails as one that cannot answer them.
+     +.TP
+     +.B --internal
+     +Also report the objects a target keeps for itself,
+    @@ lustre/tests/conf-sanity.sh: test_250() {
+     +		cat $scan_err
+     +		error "lfs find --local --mdt $mdtsvc read an OST"
+     +	fi
+    ++
+    ++	# only an MDT answers a layout option, so the sweep skips the OST
+    ++	do_facet mds1 "$LFS find --local --stripe-count 1 --type f" \
+    ++		> $scan_out 2> $scan_err || {
+    ++		cat $scan_err
+    ++		error "lfs find --local --stripe-count 1 failed"
+    ++	}
+    ++	[[ -s $scan_out ]] ||
+    ++		error "lfs find --local --stripe-count 1 found nothing"
+    ++	if grep -q -- "-OST" $scan_err; then
+    ++		cat $scan_err
+    ++		error "lfs find --local --stripe-count 1 read an OST"
+    ++	fi
+    ++	# but an OST named alone still refuses it
+    ++	do_facet mds1 "$LFS find --target $ostsvc --stripe-count 1" \
+    ++		> /dev/null 2>&1 &&
+    ++		error "lfs find --target $ostsvc --stripe-count 1 succeeded"
+    ++	return 0
+     +}
+     +run_test 300c "lfs find --local --ost or --mdt reads only that type"
+     +
+    @@ lustre/utils/lfs.c: static int calculate_default_thread_count(const char *path)
+     +	return false;
+     +}
+     +
+    ++/* the options only a layout answers, as find_asks_layout() in the library */
+    ++static bool lfs_find_asks_layout(const struct find_param *param)
+    ++{
+    ++	return param->fp_check_pool || param->fp_check_stripe_count ||
+    ++	       param->fp_check_stripe_size || param->fp_check_layout ||
+    ++	       param->fp_check_comp_count || param->fp_check_comp_end ||
+    ++	       param->fp_check_comp_start || param->fp_check_comp_flags ||
+    ++	       param->fp_check_mirror_count || param->fp_check_foreign ||
+    ++	       param->fp_check_mirror_state || param->fp_check_ext_size;
+    ++}
+    ++
+     +/*
+     + * lfs find over a target's own objects, read off its device by
+     + * llapi_find_device(3).  One target per invocation, except for the sweeps
+    @@ lustre/utils/lfs.c: static int calculate_default_thread_count(const char *path)
+     + * fails and say so in the return value, so that a partial sweep is not taken
+     + * for a whole one.
+     + *
+    -+ * A sweep skips the targets --ost or --mdt cannot name.  ENOTSUP does not
+    -+ * end it: an OST cannot answer everything an MDT can, and a node may serve
+    -+ * a kind of target this build has no backend for.
+    ++ * A sweep skips the targets --ost or --mdt cannot name, and the OSTs when
+    ++ * an MDT is there to answer the layout options.  ENOTSUP does not end it:
+    ++ * an OST cannot answer everything an MDT can, and a node may serve a kind
+    ++ * of target this build has no backend for.
+     + */
+     +static int lfs_find_device(char **argv, struct find_param *param,
+     +			   int pathstart, int pathend)
+    @@ lustre/utils/lfs.c: static int calculate_default_thread_count(const char *path)
+     +	struct lfs_find_target *tgts = NULL;
+     +	struct lfs_find_target one = { 0 };
+     +	const char *device = param->fp_device;
+    ++	bool skip_ost = false;
+     +	int scanned = 0;
+     +	int ret = 0;
+     +	int named;
+    @@ lustre/utils/lfs.c: static int calculate_default_thread_count(const char *path)
+     +		}
+     +	}
+     +
+    ++	/* with no MDT, or with --ost, each OST says why it cannot answer */
+    ++	if (tgts != &one && param->fp_target == NULL &&
+    ++	    param->fp_obd_uuid == NULL && lfs_find_asks_layout(param)) {
+    ++		for (i = 0; i < nr; i++)
+    ++			skip_ost |= lfs_find_label_is(tgts[i].lt_name, "MDT");
+    ++	}
+    ++
+     +	for (i = 0; i < nr; i++) {
+     +		int rc;
+     +
+    @@ lustre/utils/lfs.c: static int calculate_default_thread_count(const char *path)
+     +		     (param->fp_mdt_uuid != NULL &&
+     +		      !lfs_find_label_is(tgts[i].lt_name, "MDT"))))
+     +			continue;
+    ++		if (skip_ost && lfs_find_label_is(tgts[i].lt_name, "OST"))
+    ++			continue;
+     +		scanned++;
+     +
+     +		if (nr > 1)
+2:  395f238177 = 2:  f7384fedf4 LU-20606 llapi: limit a scan's rate
+1:  a3b2e9dbac ! 1:  a087d7acdc LU-20611 lfs: find over a target, with --device
+    @@ Commit message
+         the targets of the other type, which those options cannot name.
+         ENOTSUP does not end a sweep either: an OST cannot answer everything an
+         MDT can, and a node may serve a kind of target this build cannot read.
+    +    Only an MDT answers the layout options, so a sweep that reads an MDT
+    +    skips the OSTs: a node that serves an MDT and an OST answers --pool in
+    +    full and exits 0. With no MDT to read, or with --ost, each OST still
+    +    fails.
+     
+         Without the scan backend from the server package, llapi_find_device()
+         fails with ENOTSUP and says why. This is what a client gets.
+    @@ Commit message
+         --internal only adds objects. test_300c runs --local with --ost
+         on ost1's node and with --mdt on mds1's while the targets are mounted,
+         and checks that each finds objects. Where mds1 and ost1 are one
+    -    ldiskfs node it also checks that each reads only targets of its type.
+    +    ldiskfs node it also checks that each reads only targets of its type,
+    +    that --local --stripe-count skips the OST and succeeds, and that
+    +    --target on the OST refuses it.
+         --local, --target and --fsname run again after everything is stopped,
+         and each must report what it could not find; an invalid --fsname is
+         refused. The plain-argument form is checked only when the MDT is a
+    @@ Documentation/man1/lfs-find.1: The regular expressions must match the complete a
+     +.BR --fsname ,
+     +a sweep skips the targets of the other kind rather than failing on them,
+     +and refuses the two options together, since no target would be left.
+    ++Only an MDT answers the layout options, such as
+    ++.B --pool
+    ++and
+    ++.BR --stripe-count ,
+    ++so a sweep that reads an MDT skips the OSTs.
+    ++With no MDT to read, or with
+    ++.BR --ost ,
+    ++each OST fails as one that cannot answer them.
+     +.TP
+     +.B --internal
+     +Also report the objects a target keeps for itself,
+    @@ lustre/tests/conf-sanity.sh: test_250() {
+     +		cat $scan_err
+     +		error "lfs find --local --mdt $mdtsvc read an OST"
+     +	fi
+    ++
+    ++	# only an MDT answers a layout option, so the sweep skips the OST
+    ++	do_facet mds1 "$LFS find --local --stripe-count 1 --type f" \
+    ++		> $scan_out 2> $scan_err || {
+    ++		cat $scan_err
+    ++		error "lfs find --local --stripe-count 1 failed"
+    ++	}
+    ++	[[ -s $scan_out ]] ||
+    ++		error "lfs find --local --stripe-count 1 found nothing"
+    ++	if grep -q -- "-OST" $scan_err; then
+    ++		cat $scan_err
+    ++		error "lfs find --local --stripe-count 1 read an OST"
+    ++	fi
+    ++	# but an OST named alone still refuses it
+    ++	do_facet mds1 "$LFS find --target $ostsvc --stripe-count 1" \
+    ++		> /dev/null 2>&1 &&
+    ++		error "lfs find --target $ostsvc --stripe-count 1 succeeded"
+    ++	return 0
+     +}
+     +run_test 300c "lfs find --local --ost or --mdt reads only that type"
+     +
+    @@ lustre/utils/lfs.c: static int calculate_default_thread_count(const char *path)
+     +	return false;
+     +}
+     +
+    ++/* the options only a layout answers, as find_asks_layout() in the library */
+    ++static bool lfs_find_asks_layout(const struct find_param *param)
+    ++{
+    ++	return param->fp_check_pool || param->fp_check_stripe_count ||
+    ++	       param->fp_check_stripe_size || param->fp_check_layout ||
+    ++	       param->fp_check_comp_count || param->fp_check_comp_end ||
+    ++	       param->fp_check_comp_start || param->fp_check_comp_flags ||
+    ++	       param->fp_check_mirror_count || param->fp_check_foreign ||
+    ++	       param->fp_check_mirror_state || param->fp_check_ext_size;
+    ++}
+    ++
+     +/*
+     + * lfs find over a target's own objects, read off its device by
+     + * llapi_find_device(3).  One target per invocation, except for the sweeps
+    @@ lustre/utils/lfs.c: static int calculate_default_thread_count(const char *path)
+     + * fails and say so in the return value, so that a partial sweep is not taken
+     + * for a whole one.
+     + *
+    -+ * A sweep skips the targets --ost or --mdt cannot name.  ENOTSUP does not
+    -+ * end it: an OST cannot answer everything an MDT can, and a node may serve
+    -+ * a kind of target this build has no backend for.
+    ++ * A sweep skips the targets --ost or --mdt cannot name, and the OSTs when
+    ++ * an MDT is there to answer the layout options.  ENOTSUP does not end it:
+    ++ * an OST cannot answer everything an MDT can, and a node may serve a kind
+    ++ * of target this build has no backend for.
+     + */
+     +static int lfs_find_device(char **argv, struct find_param *param,
+     +			   int pathstart, int pathend)
+    @@ lustre/utils/lfs.c: static int calculate_default_thread_count(const char *path)
+     +	struct lfs_find_target *tgts = NULL;
+     +	struct lfs_find_target one = { 0 };
+     +	const char *device = param->fp_device;
+    ++	bool skip_ost = false;
+     +	int scanned = 0;
+     +	int ret = 0;
+     +	int named;
+    @@ lustre/utils/lfs.c: static int calculate_default_thread_count(const char *path)
+     +		}
+     +	}
+     +
+    ++	/* with no MDT, or with --ost, each OST says why it cannot answer */
+    ++	if (tgts != &one && param->fp_target == NULL &&
+    ++	    param->fp_obd_uuid == NULL && lfs_find_asks_layout(param)) {
+    ++		for (i = 0; i < nr; i++)
+    ++			skip_ost |= lfs_find_label_is(tgts[i].lt_name, "MDT");
+    ++	}
+    ++
+     +	for (i = 0; i < nr; i++) {
+     +		int rc;
+     +
+    @@ lustre/utils/lfs.c: static int calculate_default_thread_count(const char *path)
+     +		     (param->fp_mdt_uuid != NULL &&
+     +		      !lfs_find_label_is(tgts[i].lt_name, "MDT"))))
+     +			continue;
+    ++		if (skip_ost && lfs_find_label_is(tgts[i].lt_name, "OST"))
+    ++			continue;
+     +		scanned++;
+     +
+     +		if (nr > 1)
+2:  395f238177 = 2:  f7384fedf4 LU-20606 llapi: limit a scan's rate
+3:  e55448a62e = 3:  05667eb4c6 LU-20606 lfs: find --device --max-rate
+1:  a3b2e9dbac ! 1:  a087d7acdc LU-20611 lfs: find over a target, with --device
+    @@ Commit message
+         the targets of the other type, which those options cannot name.
+         ENOTSUP does not end a sweep either: an OST cannot answer everything an
+         MDT can, and a node may serve a kind of target this build cannot read.
+    +    Only an MDT answers the layout options, so a sweep that reads an MDT
+    +    skips the OSTs: a node that serves an MDT and an OST answers --pool in
+    +    full and exits 0. With no MDT to read, or with --ost, each OST still
+    +    fails.
+     
+         Without the scan backend from the server package, llapi_find_device()
+         fails with ENOTSUP and says why. This is what a client gets.
+    @@ Commit message
+         --internal only adds objects. test_300c runs --local with --ost
+         on ost1's node and with --mdt on mds1's while the targets are mounted,
+         and checks that each finds objects. Where mds1 and ost1 are one
+    -    ldiskfs node it also checks that each reads only targets of its type.
+    +    ldiskfs node it also checks that each reads only targets of its type,
+    +    that --local --stripe-count skips the OST and succeeds, and that
+    +    --target on the OST refuses it.
+         --local, --target and --fsname run again after everything is stopped,
+         and each must report what it could not find; an invalid --fsname is
+         refused. The plain-argument form is checked only when the MDT is a
+    @@ Documentation/man1/lfs-find.1: The regular expressions must match the complete a
+     +.BR --fsname ,
+     +a sweep skips the targets of the other kind rather than failing on them,
+     +and refuses the two options together, since no target would be left.
+    ++Only an MDT answers the layout options, such as
+    ++.B --pool
+    ++and
+    ++.BR --stripe-count ,
+    ++so a sweep that reads an MDT skips the OSTs.
+    ++With no MDT to read, or with
+    ++.BR --ost ,
+    ++each OST fails as one that cannot answer them.
+     +.TP
+     +.B --internal
+     +Also report the objects a target keeps for itself,
+    @@ lustre/tests/conf-sanity.sh: test_250() {
+     +		cat $scan_err
+     +		error "lfs find --local --mdt $mdtsvc read an OST"
+     +	fi
+    ++
+    ++	# only an MDT answers a layout option, so the sweep skips the OST
+    ++	do_facet mds1 "$LFS find --local --stripe-count 1 --type f" \
+    ++		> $scan_out 2> $scan_err || {
+    ++		cat $scan_err
+    ++		error "lfs find --local --stripe-count 1 failed"
+    ++	}
+    ++	[[ -s $scan_out ]] ||
+    ++		error "lfs find --local --stripe-count 1 found nothing"
+    ++	if grep -q -- "-OST" $scan_err; then
+    ++		cat $scan_err
+    ++		error "lfs find --local --stripe-count 1 read an OST"
+    ++	fi
+    ++	# but an OST named alone still refuses it
+    ++	do_facet mds1 "$LFS find --target $ostsvc --stripe-count 1" \
+    ++		> /dev/null 2>&1 &&
+    ++		error "lfs find --target $ostsvc --stripe-count 1 succeeded"
+    ++	return 0
+     +}
+     +run_test 300c "lfs find --local --ost or --mdt reads only that type"
+     +
+    @@ lustre/utils/lfs.c: static int calculate_default_thread_count(const char *path)
+     +	return false;
+     +}
+     +
+    ++/* the options only a layout answers, as find_asks_layout() in the library */
+    ++static bool lfs_find_asks_layout(const struct find_param *param)
+    ++{
+    ++	return param->fp_check_pool || param->fp_check_stripe_count ||
+    ++	       param->fp_check_stripe_size || param->fp_check_layout ||
+    ++	       param->fp_check_comp_count || param->fp_check_comp_end ||
+    ++	       param->fp_check_comp_start || param->fp_check_comp_flags ||
+    ++	       param->fp_check_mirror_count || param->fp_check_foreign ||
+    ++	       param->fp_check_mirror_state || param->fp_check_ext_size;
+    ++}
+    ++
+     +/*
+     + * lfs find over a target's own objects, read off its device by
+     + * llapi_find_device(3).  One target per invocation, except for the sweeps
+    @@ lustre/utils/lfs.c: static int calculate_default_thread_count(const char *path)
+     + * fails and say so in the return value, so that a partial sweep is not taken
+     + * for a whole one.
+     + *
+    -+ * A sweep skips the targets --ost or --mdt cannot name.  ENOTSUP does not
+    -+ * end it: an OST cannot answer everything an MDT can, and a node may serve
+    -+ * a kind of target this build has no backend for.
+    ++ * A sweep skips the targets --ost or --mdt cannot name, and the OSTs when
+    ++ * an MDT is there to answer the layout options.  ENOTSUP does not end it:
+    ++ * an OST cannot answer everything an MDT can, and a node may serve a kind
+    ++ * of target this build has no backend for.
+     + */
+     +static int lfs_find_device(char **argv, struct find_param *param,
+     +			   int pathstart, int pathend)
+    @@ lustre/utils/lfs.c: static int calculate_default_thread_count(const char *path)
+     +	struct lfs_find_target *tgts = NULL;
+     +	struct lfs_find_target one = { 0 };
+     +	const char *device = param->fp_device;
+    ++	bool skip_ost = false;
+     +	int scanned = 0;
+     +	int ret = 0;
+     +	int named;
+    @@ lustre/utils/lfs.c: static int calculate_default_thread_count(const char *path)
+     +		}
+     +	}
+     +
+    ++	/* with no MDT, or with --ost, each OST says why it cannot answer */
+    ++	if (tgts != &one && param->fp_target == NULL &&
+    ++	    param->fp_obd_uuid == NULL && lfs_find_asks_layout(param)) {
+    ++		for (i = 0; i < nr; i++)
+    ++			skip_ost |= lfs_find_label_is(tgts[i].lt_name, "MDT");
+    ++	}
+    ++
+     +	for (i = 0; i < nr; i++) {
+     +		int rc;
+     +
+    @@ lustre/utils/lfs.c: static int calculate_default_thread_count(const char *path)
+     +		     (param->fp_mdt_uuid != NULL &&
+     +		      !lfs_find_label_is(tgts[i].lt_name, "MDT"))))
+     +			continue;
+    ++		if (skip_ost && lfs_find_label_is(tgts[i].lt_name, "OST"))
+    ++			continue;
+     +		scanned++;
+     +
+     +		if (nr > 1)
+2:  4637f31c47 = 2:  36978be1c4 LU-20613 llapi: add a ZFS backend to llapi_scan_device()
+3:  a775233eef ! 3:  023630cf66 LU-20637 llapi: name a device scan's objects
+    @@ lustre/utils/lfs.c: static int lfs_find_device(char **argv, struct find_param *p
+      	struct lfs_find_target one = { 0 };
+     +	char mnt_fs[MAX_OBD_NAME + 1] = "";
+      	const char *device = param->fp_device;
+    + 	bool skip_ost = false;
+      	int scanned = 0;
+    - 	int ret = 0;
+     @@ lustre/utils/lfs.c: static int lfs_find_device(char **argv, struct find_param *param,
+      			argv[0], named);
+      		return CMD_HELP;
+    @@ lustre/utils/lfs.c: static int lfs_find_device(char **argv, struct find_param *p
+     +		     ((param->fp_mdt_uuid != NULL || param->fp_paths) &&
+      		      !lfs_find_label_is(tgts[i].lt_name, "MDT"))))
+      			continue;
+    - 		scanned++;
+    + 		if (skip_ost && lfs_find_label_is(tgts[i].lt_name, "OST"))
+     @@ lustre/utils/lfs.c: static int lfs_find(int argc, char **argv)
+      		ret = lfs_find_device(argv, param, pathstart, pathend);
+      		goto err;
+4:  6845d93b35 = 4:  1b58085835 LU-20637 llapi: find the root of an upgraded filesystem

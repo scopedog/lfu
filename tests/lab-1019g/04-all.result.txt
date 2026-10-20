@@ -1,0 +1,120 @@
+##### R6 A/B
+== start 2026-10-19 20:47:54
+loaded version: [2.17.58_65_g8618869]
+mntdev: /dev/mapper/mds1_flakey
+mntdev: /dev/mapper/ost1_flakey
+mntdev: /dev/mapper/ost2_flakey
+Pool lfsg.flash created
+OST lfsg-OST0000_UUID added to pool lfsg.flash
+client: pool=10 c1=10 all=15
+--- arm o (14292fa6fc):  liblustreapi.so.1 => /tmp/arm1019go/lib/liblustreapi.so.1 (0x00007f4e35c7e000)
+  [o] pool: rc=95 out=10 ost-errs=2 err-lines=7
+      err: # lfsg-MDT0000 (/dev/mapper/mds1_flakey)
+      err: # lfsg-OST0000 (/dev/mapper/ost1_flakey)
+      err: lfs find: the layout options need an MDT; 'lfsg-OST0000' is an OST, whose objects carry no layout
+      err: lfs: failed for '/dev/mapper/ost1_flakey': Operation not supported
+      err: # lfsg-OST0001 (/dev/mapper/ost2_flakey)
+      err: lfs find: the layout options need an MDT; 'lfsg-OST0001' is an OST, whose objects carry no layout
+  [o] c1: rc=95 out=10 ost-errs=2 err-lines=7
+      err: # lfsg-MDT0000 (/dev/mapper/mds1_flakey)
+      err: # lfsg-OST0000 (/dev/mapper/ost1_flakey)
+      err: lfs find: the layout options need an MDT; 'lfsg-OST0000' is an OST, whose objects carry no layout
+      err: lfs: failed for '/dev/mapper/ost1_flakey': Operation not supported
+      err: # lfsg-OST0001 (/dev/mapper/ost2_flakey)
+      err: lfs find: the layout options need an MDT; 'lfsg-OST0001' is an OST, whose objects carry no layout
+  [o] fspool: rc=95 out=10 ost-errs=2 err-lines=7
+      err: # lfsg-MDT0000 (/dev/mapper/mds1_flakey)
+      err: # lfsg-OST0000 (/dev/mapper/ost1_flakey)
+      err: lfs find: the layout options need an MDT; 'lfsg-OST0000' is an OST, whose objects carry no layout
+      err: lfs: failed for '/dev/mapper/ost1_flakey': Operation not supported
+      err: # lfsg-OST0001 (/dev/mapper/ost2_flakey)
+      err: lfs find: the layout options need an MDT; 'lfsg-OST0001' is an OST, whose objects carry no layout
+  [o] tgtpool: rc=95 out=0 ost-errs=1 err-lines=2
+      err: lfs find: the layout options need an MDT; 'lfsg-OST0000' is an OST, whose objects carry no layout
+      err: lfs: failed for '/dev/mapper/ost1_flakey': Operation not supported
+  [o] ostpool: rc=95 out=0 ost-errs=2 err-lines=6
+      err: # lfsg-OST0000 (/dev/mapper/ost1_flakey)
+      err: lfs find: the layout options need an MDT; 'lfsg-OST0000' is an OST, whose objects carry no layout
+      err: lfs: failed for '/dev/mapper/ost1_flakey': Operation not supported
+      err: # lfsg-OST0001 (/dev/mapper/ost2_flakey)
+      err: lfs find: the layout options need an MDT; 'lfsg-OST0001' is an OST, whose objects carry no layout
+      err: lfs: failed for '/dev/mapper/ost2_flakey': Operation not supported
+  [o] mdtpool: rc=0 out=10 ost-errs=0 err-lines=1
+      err: # lfsg-MDT0000 (/dev/mapper/mds1_flakey)
+  [o] plain: rc=0 out=81 ost-errs=0 err-lines=3
+      err: # lfsg-MDT0000 (/dev/mapper/mds1_flakey)
+      err: # lfsg-OST0000 (/dev/mapper/ost1_flakey)
+      err: # lfsg-OST0001 (/dev/mapper/ost2_flakey)
+--- arm t (7a246f3eff):  liblustreapi.so.1 => /tmp/arm1019gt/lib/liblustreapi.so.1 (0x00007fef6e404000)
+  [t] pool: rc=0 out=10 ost-errs=0 err-lines=1
+      err: # lfsg-MDT0000 (/dev/mapper/mds1_flakey)
+  [t] c1: rc=0 out=10 ost-errs=0 err-lines=1
+      err: # lfsg-MDT0000 (/dev/mapper/mds1_flakey)
+  [t] fspool: rc=0 out=10 ost-errs=0 err-lines=1
+      err: # lfsg-MDT0000 (/dev/mapper/mds1_flakey)
+  [t] tgtpool: rc=95 out=0 ost-errs=1 err-lines=2
+      err: lfs find: the layout options need an MDT; 'lfsg-OST0000' is an OST, whose objects carry no layout
+      err: lfs: failed for '/dev/mapper/ost1_flakey': Operation not supported
+  [t] ostpool: rc=95 out=0 ost-errs=2 err-lines=6
+      err: # lfsg-OST0000 (/dev/mapper/ost1_flakey)
+      err: lfs find: the layout options need an MDT; 'lfsg-OST0000' is an OST, whose objects carry no layout
+      err: lfs: failed for '/dev/mapper/ost1_flakey': Operation not supported
+      err: # lfsg-OST0001 (/dev/mapper/ost2_flakey)
+      err: lfs find: the layout options need an MDT; 'lfsg-OST0001' is an OST, whose objects carry no layout
+      err: lfs: failed for '/dev/mapper/ost2_flakey': Operation not supported
+  [t] mdtpool: rc=0 out=10 ost-errs=0 err-lines=1
+      err: # lfsg-MDT0000 (/dev/mapper/mds1_flakey)
+  [t] plain: rc=0 out=81 ost-errs=0 err-lines=3
+      err: # lfsg-MDT0000 (/dev/mapper/mds1_flakey)
+      err: # lfsg-OST0000 (/dev/mapper/ost1_flakey)
+      err: # lfsg-OST0001 (/dev/mapper/ost2_flakey)
+same stdout o/t: pool
+same stdout o/t: c1
+same stdout o/t: fspool
+same stdout o/t: plain
+still mounted: /mnt/lfsg-ost1
+still mounted: /mnt/lfsg-ost2
+  [o] nomdt-pool: rc=95 out=0 ost-errs=2 err-lines=6
+      err: # lfsg-OST0000 (/dev/mapper/ost1_flakey)
+      err: lfs find: the layout options need an MDT; 'lfsg-OST0000' is an OST, whose objects carry no layout
+      err: lfs: failed for '/dev/mapper/ost1_flakey': Operation not supported
+      err: # lfsg-OST0001 (/dev/mapper/ost2_flakey)
+      err: lfs find: the layout options need an MDT; 'lfsg-OST0001' is an OST, whose objects carry no layout
+      err: lfs: failed for '/dev/mapper/ost2_flakey': Operation not supported
+  [t] nomdt-pool: rc=95 out=0 ost-errs=2 err-lines=6
+      err: # lfsg-OST0000 (/dev/mapper/ost1_flakey)
+      err: lfs find: the layout options need an MDT; 'lfsg-OST0000' is an OST, whose objects carry no layout
+      err: lfs: failed for '/dev/mapper/ost1_flakey': Operation not supported
+      err: # lfsg-OST0001 (/dev/mapper/ost2_flakey)
+      err: lfs find: the layout options need an MDT; 'lfsg-OST0001' is an OST, whose objects carry no layout
+      err: lfs: failed for '/dev/mapper/ost2_flakey': Operation not supported
+cleanup rc=0
+== end 2026-10-19 20:48:50
+AB DONE
+##### conf lib=t script=t tag=t-300 ONLY=300a 300b 300c
+== start 2026-10-19 20:48:50 lib=t (7a246f3eff) script=t ONLY=300a 300b 300c
+lfs loads:  liblustreapi.so.1 => /tmp/arm1019gt/lib/liblustreapi.so.1 (0x00007f7668da1000)
+lib md5: 0b5171585895  plugin: scan_osd_ldiskfs.so
+CS_RC=0
+Writer error: failed to resolve Netlink family id
+Writer error: failed to resolve Netlink family id
+error: find: name one target, not 2
+error: find: --device given twice
+PASS 300a (40s)
+PASS 300b (23s)
+PASS 300c (1s)
+scanned 107 objects; found all 103 visible FIDs
+lfs find --type f found all 101 files
+== end 2026-10-19 20:50:43
+CONF RUN DONE
+##### conf lib=o script=t tag=o-300c ONLY=300c
+== start 2026-10-19 20:50:43 lib=o (14292fa6fc) script=t ONLY=300c
+lfs loads:  liblustreapi.so.1 => /tmp/arm1019go/lib/liblustreapi.so.1 (0x00007fec38f31000)
+lib md5: c76359cc334a  plugin: scan_osd_ldiskfs.so
+CS_RC=1
+Writer error: failed to resolve Netlink family id
+Writer error: failed to resolve Netlink family id
+FAIL 300c (15s)
+== end 2026-10-19 20:51:53
+CONF RUN DONE
+LAB 1019g DONE

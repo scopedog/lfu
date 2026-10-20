@@ -219,3 +219,79 @@ moved under it by update-ref (this round and the 68415 r2 one); its index
 shows the l1019 state staged as a revert. Content only, nothing lost --
 `git -C ~/lfs-fork-1014 reset --hard` syncs it. Not done: lreview (by
 instruction), push.
+
+## R6 (68160): a sweep with layout options on an MDT+OST node (10-20)
+
+User 10-20: take it (DDN and others run an MDT and an OST on one host).
+`lfs find --local --pool X` (or `--fsname`, or any layout option) printed
+"the layout options need an MDT" for each OST and exited 95, though the MDT
+had answered in full.
+
+**Fix (tx_1019g.py, no new export):** lfs.c gets an lfs-only copy of the
+library's find_asks_layout(), called lfs_find_asks_layout(). A sweep (no
+--target, no --device) now skips the OSTs when it asks about a layout, has
+no --ost, and holds at least one MDT. With no MDT, or with --ost, each OST
+fails as before. A named OST target is not a sweep, so it still fails. If
+the library list grows and this copy is not updated, the result is the old
+error, not a wrong answer. Also changed: the lfs_find_device() comment, two
+sentences in lfs-find.1 --local, conf-sanity test_300c (on a one-node
+setup, `--local --stripe-count 1` must pass without reading an OST, and
+`--target $ostsvc --stripe-count 1` must fail), and the 68160 commit
+message (two places).
+
+**Apply:** worktree ~/lfs-sweep-1020 (off fork-1014 14292fa6fc) proved the
+change first. The script ran 3 times on it with an identical diff. The
+dry-run fork-1014 tree has 0 diff lines against that worktree. The first
+dry run caught a `decl` anchor that only exists from d2f392f33f (`what`),
+which would have broken 68163..8544c1d6ba; that anchor was fixed before
+anything moved. The branches were moved by update-ref to the validated dry
+commits, each checked against its old value. Backups are n1019-*.
+
+| branch | old | new |
+|---|---|---|
+| fork-1014 | 14292fa6fc | 7a246f3eff (68160 a087d7acdc) |
+| fork-69501 | 4322f54548 | fa286b2a07 |
+| fork-69502 | cfc0ed9365 | 74af233406 |
+| fork-69503 | 362886bf33 | 7d4a616c9d |
+| rate-1017 | 395f238177 | f7384fedf4 |
+| maxrate-1017 | e55448a62e | 05667eb4c6 |
+| igif-1017 | 6845d93b35 | 1b58085835 |
+
+- Commit counts are unchanged and every Change-Id is preserved.
+- Build sweep: all 16 rewritten commits build=0, hdr=0, tests=0, sh=0
+  (sweep_g.log).
+- checkpatch on 68160: the same 3 warnings before and after, all known
+  noise (checkpatch_g.txt).
+- groff -ww: only the existing `register '"'` warning.
+- range-diff: content changes in 68160 only. 68288 and d2f392f33f differ
+  in hunk context only (read). Everything else is `=`.
+
+**Lab** (tests/lab-1019g/, clone VM, modules 2.17.58_65_g8618869; arms
+userspace-only: o = n1019-fork-1014 14292fa6fc, t = fork-1014 7a246f3eff;
+each with its own prefix lib + plugin, ld.so line logged; VM shut down
+after). One node serving MDT0000 + OST0000 + OST0001 (dm-flakey), pool
+`flash` = OST0000, 10 files in it with -c 1, 5 files with -c 2.
+
+| search | o | t |
+|---|---|---|
+| `--local --pool flash --type f` | 10 out, 2 OST errors, rc 95 | 10 out, no OST errors, rc 0 |
+| `--local --stripe-count 1 --type f` | 10, 2 errors, rc 95 | 10, rc 0 |
+| `--fsname lfsg --pool flash --type f` | 10, 2 errors, rc 95 | 10, rc 0 |
+| `--target lfsg-OST0000 --pool flash` | error, rc 95 | same |
+| `--local --ost lfsg-OST0000 --pool flash` | error per OST, rc 95 | same |
+| `--local --mdt ... --pool flash` | 10, rc 0 | same |
+| `--local --type f` (no layout option) | 81, 3 targets, rc 0 | same |
+| no-MDT sweep (MDT unmounted), `--pool` | error per OST, rc 95 | same |
+
+stdout of o and t is identical for every search that both answered.
+Client walk: pool=10, c1=10.
+
+- conf-sanity 300a 300b 300c with t: PASS all 3. Old lib (o) with the new
+  300c: FAIL at "lfs find --local --stripe-count 1 failed".
+
+Housekeeping: ~/lfs-fork-1014 (igif-1017 checked out) had index lag from
+the earlier ref moves. Its index tree equalled d34b11ba53 and nothing was
+unstaged. `reset --hard` was refused by the permission classifier, so the
+lag (including this round's) was put in a stash instead, so nothing is
+lost: stash@{0} "n1019: ref-move lag of igif-1017". The tree is clean at
+1b58085835. Not done: lreview (by instruction), push.
