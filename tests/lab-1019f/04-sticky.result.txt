@@ -1,0 +1,183 @@
+== start 2026-10-19 20:09:58
+loaded version: [2.17.58_65_g8618869]
+changelog user cl1
+crw-------. 1 root root 240, 0 Oct 19 20:10 /dev/changelog-lfst-MDT0000
+arm o (0a114635ae) lfs ld.so:  /tmp/arm1019fo/lib/liblustreapi.so.1 (0x00007f8bdb55b000)
+arm t (14292fa6fc) lfs ld.so:  /tmp/arm1019ft/lib/liblustreapi.so.1 (0x00007fc930b66000)
+##### N: nishida, default permissions (expected: ENODEV on both arms)
+  o    nishida run                rc=19  printed=0  cookie same (root 644)
+        err: lfs find: 'lfst' has no MDT this client can see
+        err: lfs: failed for '/mnt/lfst/d': No such device
+  t    nishida run                rc=19  printed=0  cookie same (root 644)
+        err: lfs find: 'lfst' has no MDT this client can see
+        err: lfs: failed for '/mnt/lfst/d': No such device
+##### B: root on its own cookie in /tmp
+  o    root run 1                 rc=0   printed=3  cookie CHANGED (root 644)
+        out: /mnt/lfst/d/Bo-1
+        out: /mnt/lfst/d/Bo-2
+        out: /mnt/lfst/d/Bo-3
+  o    root run 2                 rc=0   printed=0  cookie same (root 644)
+  t    root run 1                 rc=0   printed=3  cookie CHANGED (root 644)
+        out: /mnt/lfst/d/Bt-1
+        out: /mnt/lfst/d/Bt-2
+        out: /mnt/lfst/d/Bt-3
+  t    root run 2                 rc=0   printed=0  cookie same (root 644)
+##### D: root over nishida's cookie in /tmp (root owns /tmp)
+  o    root run                   rc=0   printed=3  cookie CHANGED (root 644)
+        out: /mnt/lfst/d/Do-1
+        out: /mnt/lfst/d/Do-2
+        out: /mnt/lfst/d/Do-3
+  t    root run                   rc=0   printed=3  cookie CHANGED (root 644)
+        out: /mnt/lfst/d/Dt-1
+        out: /mnt/lfst/d/Dt-2
+        out: /mnt/lfst/d/Dt-3
+drwxrwxrwt. 2 nobody root 6 Oct 19 20:10 /tmp/stk
+##### E: root over nishida's cookie in nobody's 1777 dir (CAP_FOWNER)
+  o    root run                   rc=0   printed=3  cookie CHANGED (root 644)
+        out: /mnt/lfst/d/Eo-1
+        out: /mnt/lfst/d/Eo-2
+        out: /mnt/lfst/d/Eo-3
+  t    root run                   rc=0   printed=3  cookie CHANGED (root 644)
+        out: /mnt/lfst/d/Et-1
+        out: /mnt/lfst/d/Et-2
+        out: /mnt/lfst/d/Et-3
+##### F: same, root WITHOUT CAP_FOWNER (the kernel refuses the rename)
+  o    root -cap_fowner run 1     rc=1   printed=3  cookie same (nishida 644)
+        out: /mnt/lfst/d/Fo24577-1
+        out: /mnt/lfst/d/Fo24577-2
+        out: /mnt/lfst/d/Fo24577-3
+        err: lfs find: cannot rewrite '/tmp/stk/c.ck'; the next run would repeat this one: Operation not permitted (1)
+        err: lfs: failed for '/mnt/lfst/d': Operation not permitted
+  o    root -cap_fowner run 2     rc=1   printed=3  cookie same (nishida 644)
+        out: /mnt/lfst/d/Fo24577-1
+        out: /mnt/lfst/d/Fo24577-2
+        out: /mnt/lfst/d/Fo24577-3
+        err: lfs find: cannot rewrite '/tmp/stk/c.ck'; the next run would repeat this one: Operation not permitted (1)
+        err: lfs: failed for '/mnt/lfst/d': Operation not permitted
+  t    root -cap_fowner run 1     rc=1   printed=0  cookie same (nishida 644)
+        err: lfs find: cannot write the cookie '/tmp/stk/c.ck': Operation not permitted (1)
+        err: lfs: failed for '/mnt/lfst/d': Operation not permitted
+  t    root -cap_fowner run 2     rc=1   printed=0  cookie same (nishida 644)
+        err: lfs find: cannot write the cookie '/tmp/stk/c.ck': Operation not permitted (1)
+        err: lfs: failed for '/mnt/lfst/d': Operation not permitted
+  o    root -cap_fowner run 1     rc=1   printed=3  cookie same (nishida 644)
+        out: /mnt/lfst/d/Fo14869-1
+        out: /mnt/lfst/d/Fo14869-2
+        out: /mnt/lfst/d/Fo14869-3
+        err: lfs find: cannot rewrite '/tmp/stk/c.ck'; the next run would repeat this one: Operation not permitted (1)
+        err: lfs: failed for '/mnt/lfst/d': Operation not permitted
+  o    root -cap_fowner run 2     rc=1   printed=3  cookie same (nishida 644)
+        out: /mnt/lfst/d/Fo14869-1
+        out: /mnt/lfst/d/Fo14869-2
+        out: /mnt/lfst/d/Fo14869-3
+        err: lfs find: cannot rewrite '/tmp/stk/c.ck'; the next run would repeat this one: Operation not permitted (1)
+        err: lfs: failed for '/mnt/lfst/d': Operation not permitted
+  t    root -cap_fowner run 1     rc=1   printed=0  cookie same (nishida 644)
+        err: lfs find: cannot write the cookie '/tmp/stk/c.ck': Operation not permitted (1)
+        err: lfs: failed for '/mnt/lfst/d': Operation not permitted
+  t    root -cap_fowner run 2     rc=1   printed=0  cookie same (nishida 644)
+        err: lfs find: cannot write the cookie '/tmp/stk/c.ck': Operation not permitted (1)
+        err: lfs: failed for '/mnt/lfst/d': Operation not permitted
+##### G: root WITHOUT CAP_FOWNER, its own cookie there (owner passes)
+  o    root -cap_fowner run       rc=0   printed=3  cookie CHANGED (root 644)
+        out: /mnt/lfst/d/Go-1
+        out: /mnt/lfst/d/Go-2
+        out: /mnt/lfst/d/Go-3
+  t    root -cap_fowner run       rc=0   printed=3  cookie CHANGED (root 644)
+        out: /mnt/lfst/d/Gt-1
+        out: /mnt/lfst/d/Gt-2
+        out: /mnt/lfst/d/Gt-3
+##### open debugfs and the changelog device to nishida
+0: lfst-MDT0000_UUID ACTIVE
+##### A: root-seeded /tmp/job.ck 0644, nishida runs twice (the lreview case)
+  o    nishida run 1              rc=1   printed=0  cookie same (root 644)
+        err: lfs find: 3 of 3 changed objects could not be read and are not in the answer
+        err: lfs: failed for '/mnt/lfst/d': Operation not permitted
+  o    nishida run 2              rc=1   printed=0  cookie same (root 644)
+        err: lfs find: 3 of 3 changed objects could not be read and are not in the answer
+        err: lfs: failed for '/mnt/lfst/d': Operation not permitted
+  t    nishida run 1              rc=1   printed=0  cookie same (root 644)
+        err: lfs find: cannot write the cookie '/tmp/job.ck': Operation not permitted (1)
+        err: lfs: failed for '/mnt/lfst/d': Operation not permitted
+  t    nishida run 2              rc=1   printed=0  cookie same (root 644)
+        err: lfs find: cannot write the cookie '/tmp/job.ck': Operation not permitted (1)
+        err: lfs: failed for '/mnt/lfst/d': Operation not permitted
+  o    nishida run 1              rc=1   printed=0  cookie same (root 644)
+        err: lfs find: 3 of 3 changed objects could not be read and are not in the answer
+        err: lfs: failed for '/mnt/lfst/d': Operation not permitted
+  o    nishida run 2              rc=1   printed=0  cookie same (root 644)
+        err: lfs find: 3 of 3 changed objects could not be read and are not in the answer
+        err: lfs: failed for '/mnt/lfst/d': Operation not permitted
+  t    nishida run 1              rc=1   printed=0  cookie same (root 644)
+        err: lfs find: cannot write the cookie '/tmp/job.ck': Operation not permitted (1)
+        err: lfs: failed for '/mnt/lfst/d': Operation not permitted
+  t    nishida run 2              rc=1   printed=0  cookie same (root 644)
+        err: lfs find: cannot write the cookie '/tmp/job.ck': Operation not permitted (1)
+        err: lfs: failed for '/mnt/lfst/d': Operation not permitted
+##### C: nishida on its own cookie in /tmp
+  o    nishida run 1              rc=1   printed=0  cookie same (nishida 644)
+        err: lfs find: 3 of 3 changed objects could not be read and are not in the answer
+        err: lfs: failed for '/mnt/lfst/d': Operation not permitted
+  o    nishida run 2              rc=1   printed=0  cookie same (nishida 644)
+        err: lfs find: 3 of 3 changed objects could not be read and are not in the answer
+        err: lfs: failed for '/mnt/lfst/d': Operation not permitted
+  t    nishida run 1              rc=1   printed=0  cookie same (nishida 644)
+        err: lfs find: 3 of 3 changed objects could not be read and are not in the answer
+        err: lfs: failed for '/mnt/lfst/d': Operation not permitted
+  t    nishida run 2              rc=1   printed=0  cookie same (nishida 644)
+        err: lfs find: 3 of 3 changed objects could not be read and are not in the answer
+        err: lfs: failed for '/mnt/lfst/d': Operation not permitted
+##### remount the client with -o user_fid2path
+192.168.122.10@tcp:/lfst on /mnt/lfst type lustre (rw,seclabel,flock,checksum,encrypt,lazystatfs,lruresize,nolock,statfs_project,nosync_on_close,user_fid2path,nouser_xattr,verbose)
+##### A2: as A, with user_fid2path
+  o    nishida run 1              rc=1   printed=3  cookie same (root 644)
+        out: /mnt/lfst/d/A2o87-1
+        out: /mnt/lfst/d/A2o87-2
+        out: /mnt/lfst/d/A2o87-3
+        err: lfs find: cannot rewrite '/tmp/job.ck'; the next run would repeat this one: Operation not permitted (1)
+        err: lfs: failed for '/mnt/lfst/d': Operation not permitted
+  o    nishida run 2              rc=1   printed=3  cookie same (root 644)
+        out: /mnt/lfst/d/A2o87-1
+        out: /mnt/lfst/d/A2o87-2
+        out: /mnt/lfst/d/A2o87-3
+        err: lfs find: cannot rewrite '/tmp/job.ck'; the next run would repeat this one: Operation not permitted (1)
+        err: lfs: failed for '/mnt/lfst/d': Operation not permitted
+  t    nishida run 1              rc=1   printed=0  cookie same (root 644)
+        err: lfs find: cannot write the cookie '/tmp/job.ck': Operation not permitted (1)
+        err: lfs: failed for '/mnt/lfst/d': Operation not permitted
+  t    nishida run 2              rc=1   printed=0  cookie same (root 644)
+        err: lfs find: cannot write the cookie '/tmp/job.ck': Operation not permitted (1)
+        err: lfs: failed for '/mnt/lfst/d': Operation not permitted
+  o    nishida run 1              rc=1   printed=3  cookie same (root 644)
+        out: /mnt/lfst/d/A2o21464-1
+        out: /mnt/lfst/d/A2o21464-2
+        out: /mnt/lfst/d/A2o21464-3
+        err: lfs find: cannot rewrite '/tmp/job.ck'; the next run would repeat this one: Operation not permitted (1)
+        err: lfs: failed for '/mnt/lfst/d': Operation not permitted
+  o    nishida run 2              rc=1   printed=3  cookie same (root 644)
+        out: /mnt/lfst/d/A2o21464-1
+        out: /mnt/lfst/d/A2o21464-2
+        out: /mnt/lfst/d/A2o21464-3
+        err: lfs find: cannot rewrite '/tmp/job.ck'; the next run would repeat this one: Operation not permitted (1)
+        err: lfs: failed for '/mnt/lfst/d': Operation not permitted
+  t    nishida run 1              rc=1   printed=0  cookie same (root 644)
+        err: lfs find: cannot write the cookie '/tmp/job.ck': Operation not permitted (1)
+        err: lfs: failed for '/mnt/lfst/d': Operation not permitted
+  t    nishida run 2              rc=1   printed=0  cookie same (root 644)
+        err: lfs find: cannot write the cookie '/tmp/job.ck': Operation not permitted (1)
+        err: lfs: failed for '/mnt/lfst/d': Operation not permitted
+##### C2: as C, with user_fid2path
+  o    nishida run 1              rc=0   printed=3  cookie CHANGED (nishida 644)
+        out: /mnt/lfst/d/C2o-1
+        out: /mnt/lfst/d/C2o-2
+        out: /mnt/lfst/d/C2o-3
+  o    nishida run 2              rc=0   printed=0  cookie same (nishida 644)
+  t    nishida run 1              rc=0   printed=3  cookie CHANGED (nishida 644)
+        out: /mnt/lfst/d/C2t-1
+        out: /mnt/lfst/d/C2t-2
+        out: /mnt/lfst/d/C2t-3
+  t    nishida run 2              rc=0   printed=0  cookie same (nishida 644)
+restored: 700 600
+lfst-MDT0000: Deregistered changelog user #1
+cleanup rc=0
+== end 2026-10-19 20:11:58

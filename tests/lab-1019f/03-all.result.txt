@@ -1,0 +1,39 @@
+##### sanity arm=t tag=t-160A1 MDSCOUNT=1 ONLY=160Aa 160Ab 160Ac 160Ad 160Ae 160Af
+== start 2026-10-19 20:12:06 arm=t (14292fa6fc) ONLY=160Aa 160Ab 160Ac 160Ad 160Ae 160Af MDSCOUNT=1
+loaded version: [2.17.58_65_g8618869]
+bound /tmp/lab1019f-t/lustre/tests/.libs/llapi_scan_test over /usr/lib64/lustre/tests/llapi_scan_test
+  llapi_scan_test ld.so:  liblustreapi.so.1 => /tmp/arm1019ft/lib/liblustreapi.so.1 (0x00007fcaf49c1000)
+bound /tmp/lab1019f-t/lustre/tests/.libs/llapi_scan_changelog_test over /usr/lib64/lustre/tests/llapi_scan_changelog_test
+  llapi_scan_changelog_test ld.so:  liblustreapi.so.1 => /tmp/arm1019ft/lib/liblustreapi.so.1 (0x00007f64266bc000)
+lfs ld.so:  liblustreapi.so.1 => /tmp/arm1019ft/lib/liblustreapi.so.1 (0x00007fd98bad8000)
+arm lib md5: 9a0f9b7eb30e
+SANITY_RC=0
+PASS 6  FAIL 0  SKIP 0
+PASS 160Aa (17s)
+PASS 160Ab (8s)
+PASS 160Ac (15s)
+PASS 160Ad (2s)
+PASS 160Ae (3s)
+PASS 160Af (2s)
+cleanup rc=0
+== end 2026-10-19 20:13:56
+##### sanity arm=t tag=t-160A2 MDSCOUNT=2 ONLY=160Aa 160Ab 160Ac 160Ad 160Ae 160Af
+== start 2026-10-19 20:13:56 arm=t (14292fa6fc) ONLY=160Aa 160Ab 160Ac 160Ad 160Ae 160Af MDSCOUNT=2
+loaded version: [2.17.58_65_g8618869]
+bound /tmp/lab1019f-t/lustre/tests/.libs/llapi_scan_test over /usr/lib64/lustre/tests/llapi_scan_test
+  llapi_scan_test ld.so:  liblustreapi.so.1 => /tmp/arm1019ft/lib/liblustreapi.so.1 (0x00007f3dd2625000)
+bound /tmp/lab1019f-t/lustre/tests/.libs/llapi_scan_changelog_test over /usr/lib64/lustre/tests/llapi_scan_changelog_test
+  llapi_scan_changelog_test ld.so:  liblustreapi.so.1 => /tmp/arm1019ft/lib/liblustreapi.so.1 (0x00007f2e9cd97000)
+lfs ld.so:  liblustreapi.so.1 => /tmp/arm1019ft/lib/liblustreapi.so.1 (0x00007f2dc1e68000)
+arm lib md5: 9a0f9b7eb30e
+SANITY_RC=0
+PASS 6  FAIL 0  SKIP 0
+PASS 160Aa (18s)
+PASS 160Ab (8s)
+PASS 160Ac (19s)
+PASS 160Ad (3s)
+PASS 160Ae (2s)
+PASS 160Af (3s)
+cleanup rc=0
+== end 2026-10-19 20:15:59
+LAB 1019f DONE

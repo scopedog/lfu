@@ -1,0 +1,16 @@
+SWEEP 4637f31c47..14292fa6fc, 6 commits in /home/nishida/lfs-adl-1019
+a775233eef build=0 hdr=0 tests=0 sh=0  LU-20637 llapi: name a device scan's objects
+8544c1d6ba build=0 hdr=0 tests=0 sh=0  LU-20650 lfs: add find --since, from the chan
+d2f392f33f build=0 hdr=0 tests=0 sh=0  LU-20650 lfs: add find --changelog, the log a
+3fa29803eb build=0 hdr=0 tests=0 sh=0  LU-20650 lfs: add find --since-cookie, a per-
+12c3903cd7 build=0 hdr=0 tests=0 sh=0  LU-20650 lfs: find --since-cookie, check each
+14292fa6fc build=0 hdr=0 tests=0 sh=0  LU-20650 lfs: find --since, warn when the log
+SWEEP-DONE
+SWEEP 8544c1d6ba..cfc0ed9365, 2 commits in /home/nishida/lfs-adl-1019
+4322f54548 build=0 hdr=0 tests=0 sh=0  LU-20650 llapi: pass FID and nlink to llapi_s
+cfc0ed9365 build=0 hdr=0 tests=0 sh=0  LU-20650 lfs: filter find --since candidates 
+SWEEP-DONE
+SWEEP a775233eef..6845d93b35, 1 commits in /home/nishida/lfs-adl-1019
+6845d93b35 build=0 hdr=0 tests=0 sh=0  LU-20637 llapi: find the root of an upgraded 
+SWEEP-DONE
+ALL-DONE

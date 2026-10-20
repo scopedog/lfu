@@ -129,3 +129,93 @@ before the rewrite); the fix is carried to all 19 commits from 68415 up.
 - Range-diff (range-diff-e.txt): on all seven branches only 68415 is `!`
   (the two message lines and the sanity hunk); every other commit `=`.
 - Not lab-run (no MDS < 2.17.0 to hand); not re-lreviewed (user cancelled).
+
+## R9 (68288) + R11 (68419) lreview r2, applied 10-20
+
+Both verified first, both taken, LOCAL ONLY. Script `tx_1019f.py` through
+`forktx5.py` from 68288 (ab1e0ea424) up; backups `m1019-<branch>`.
+
+**R9 verified.** `llapi_scan_rec_path()` tests `LLAPI_SCAN_OWNER` before the
+class, so an OST object (CLS_OST_OBJ) with an owner has a path; the
+kernel-doc said every non-VISIBLE record has none. Now "Any other record
+whose class is not LLAPI_SCAN_CLS_VISIBLE has no pathname: ...", as
+llapi_scan_rec_path.3 words it. Comment only; carried to 68288 and every
+commit above it (9 commits).
+
+**R11 verified, with one correction to the scenario.** Kernel rule
+(`may_delete()` -> `check_sticky()`): rename over an existing name in an
+S_ISVTX directory fails EPERM unless fsuid owns the file or the directory,
+or the caller has CAP_FOWNER (`capable_wrt_inode_uidgid`). Root passes on
+ownership of /tmp or on CAP_FOWNER. The pre-pass probe (create + unlink our
+own temp) passes there. **Correction:** on a default client a non-root
+`lfs find --since-cookie` never reaches the cookie code: it fails ENODEV
+first ("has no MDT this client can see": lmv target_obd is in debugfs,
+0700), and even past that /dev/changelog-* is 0600 and the objects need
+`-o user_fid2path`. So the lreview "cron job as another user" needs a
+site that opened those up; the default-config way to hit the same EPERM
+is root without CAP_FOWNER (container, systemd CapabilityBoundingSet).
+
+Fix in `find_cookie_check()`: after the probe, if the cookie exists and
+`find_cookie_may_replace()` says no, refuse with -EPERM and the same text
+as the probe failure ("cannot write the cookie '%s'"). The helper: owner
+== geteuid() -> yes; the cookie's directory not sticky or owned by
+geteuid() -> yes; else CAP_FOWNER in the effective set (capget(2), no
+libcap). Includes `<sys/syscall.h>`, `<linux/capability.h>`. Man pages:
+lfs-find.1 (after "refused before the search prints anything": "So is
+another user's FILE in a sticky directory such as /tmp, which the run
+could not replace.") and llapi_find_since.3 -EPERM entry. Commit message
+of 68419: one sentence added to the pre-pass paragraph. Gated on 68419's
+Change-Id (the -EPERM man entry and the include block exist below it).
+
+| branch | before (m1019-*) | after |
+|---|---|---|
+| fork-1014 | 0a114635ae | 14292fa6fc |
+| fork-69501 | 5b5bcd9986 | 4322f54548 |
+| fork-69502 | 51907c9108 | cfc0ed9365 |
+| fork-69503 | 362886bf33 | unchanged (below 68288) |
+| rate-1017 | 395f238177 | unchanged |
+| maxrate-1017 | e55448a62e | unchanged |
+| igif-1017 | 6c43ee2168 | 6845d93b35 |
+
+68288 is now a775233eef, 68419 3fa29803eb.
+
+- Dry run (tx_1019f-dry.log) = real run (tx_1019f.log), same shas; a
+  second pass changes nothing. Commit counts and Change-Ids unchanged;
+  no new message line over 75.
+- Build sweep (sweep_f.sh, sweep_f.log): `SWEEP 4637f31c47..14292fa6fc,
+  6 commits` + 69501/69502 (2) + 69729 (1): 9/9 build=0 hdr=0 tests=0 sh=0.
+- checkpatch (checkpatch_f.txt): 68288 and 68419 same findings before and
+  after (known noise only; 68419 none of its own).
+- groff -ww: llapi_find_since.3 0; lfs-find.1 1, the upstream `-printf
+  "%u %M %i \n"` example (present on master-1014 too).
+- Range-diff (range-diff-f.txt): 68288 and 68419 `!`; bca3b301fc `!`
+  for hunk context only; every other commit `=`.
+
+**Lab** (tests/lab-1019f/, clone VM, modules 2.17.58_65_g8618869, arms
+userspace-only: o = m1019-fork-1014 0a114635ae, t = fork-1014 14292fa6fc,
+each lfs run with LD_PRELOAD of its arm lib, ld.so line logged; VM shut
+down after). One fixture, cookies seeded by root then chowned
+(04-sticky.result.txt):
+
+| case | o (old) | t (new) |
+|---|---|---|
+| N: nishida, default perms | ENODEV before cookie code | same |
+| A2: root-seeded /tmp/job.ck 0644, nishida (debugfs + changelog dev opened, -o user_fid2path), x2 alternated, 2 runs each | prints 3, "cannot rewrite ... the next run would repeat this one", rc 1; run 2 prints the same 3 | nothing printed, "cannot write the cookie '/tmp/job.ck': Operation not permitted", rc 1, both runs |
+| F: root -cap_fowner, nishida's cookie in nobody's 1777 dir, x2 alternated | prints 3 then "cannot rewrite", same 3 again | refused, nothing printed |
+| B: root, own cookie in /tmp | rc 0, 3 then 0 | same |
+| C2: nishida, own cookie in /tmp | rc 0, 3 then 0 | same |
+| D: root over nishida's cookie in /tmp | rc 0 | same |
+| E: root over nishida's cookie in nobody's 1777 dir (CAP_FOWNER path) | rc 0 | same |
+| G: root -cap_fowner, own cookie there | rc 0 | same |
+
+(A, without user_fid2path: o "3 of 3 changed objects could not be read",
+nothing printed; t the up-front EPERM.)
+
+- sanity 160Aa-Af on t: 6/6 on MDSCOUNT=1 and 6/6 on MDSCOUNT=2
+  (03-all.result.txt).
+
+Notes: `~/lfs-fork-1014` has igif-1017 checked out, and the branch was
+moved under it by update-ref (this round and the 68415 r2 one); its index
+shows the l1019 state staged as a revert. Content only, nothing lost --
+`git -C ~/lfs-fork-1014 reset --hard` syncs it. Not done: lreview (by
+instruction), push.

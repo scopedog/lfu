@@ -1,0 +1,44 @@
+=== ab1e0ea424 LU-20637 llapi: name a device scan's objects
+WARNING: Option header for short opt only should be of the following format: .B[IR]? -SHORT_OPT [ARGS]
+WARNING: Non-standard section: BASH COMPLETION
+total: 0 errors, 2 warnings, 0 checks, 1291 lines checked, spelling check not done
+CHECK: Line length of 82 exceeds 80 columns
+CHECK: Line length of 89 exceeds 80 columns
+total: 0 errors, 0 warnings, 2 checks, 660 lines checked, spelling check not done
+CHECK: Line length of 100 exceeds 80 columns
+total: 0 errors, 0 warnings, 1 checks, 339 lines checked, spelling check not done
+CHECK: Line length of 82 exceeds 80 columns
+total: 0 errors, 0 warnings, 1 checks, 564 lines checked, spelling check not done
+CHECK: Line length of 81 exceeds 80 columns
+total: 0 errors, 0 warnings, 1 checks, 190 lines checked, spelling check not done
+CHECK: Non-standard manual section "The Lustre API library", suggested to use "Lustre Miscellaneous Information"
+total: 0 errors, 0 warnings, 1 checks, 212 lines checked, spelling check not done
+WARNING: added, moved or deleted file(s), does MAINTAINERS need updating?
+total: 0 errors, 1 warnings, 3063 lines checked
+=== a775233eef LU-20637 llapi: name a device scan's objects
+WARNING: Option header for short opt only should be of the following format: .B[IR]? -SHORT_OPT [ARGS]
+WARNING: Non-standard section: BASH COMPLETION
+total: 0 errors, 2 warnings, 0 checks, 1291 lines checked, spelling check not done
+CHECK: Line length of 82 exceeds 80 columns
+CHECK: Line length of 89 exceeds 80 columns
+total: 0 errors, 0 warnings, 2 checks, 660 lines checked, spelling check not done
+CHECK: Line length of 100 exceeds 80 columns
+total: 0 errors, 0 warnings, 1 checks, 339 lines checked, spelling check not done
+CHECK: Line length of 82 exceeds 80 columns
+total: 0 errors, 0 warnings, 1 checks, 564 lines checked, spelling check not done
+CHECK: Line length of 81 exceeds 80 columns
+total: 0 errors, 0 warnings, 1 checks, 190 lines checked, spelling check not done
+CHECK: Non-standard manual section "The Lustre API library", suggested to use "Lustre Miscellaneous Information"
+total: 0 errors, 0 warnings, 1 checks, 212 lines checked, spelling check not done
+WARNING: added, moved or deleted file(s), does MAINTAINERS need updating?
+total: 0 errors, 1 warnings, 3064 lines checked
+=== ec639d5c23 LU-20650 lfs: add find --since-cookie, a per-MDT anchor
+WARNING: Option header for short opt only should be of the following format: .B[IR]? -SHORT_OPT [ARGS]
+WARNING: Non-standard section: BASH COMPLETION
+total: 0 errors, 2 warnings, 0 checks, 1291 lines checked, spelling check not done
+total: 0 errors, 0 warnings, 1607 lines checked
+=== 3fa29803eb LU-20650 lfs: add find --since-cookie, a per-MDT anchor
+WARNING: Option header for short opt only should be of the following format: .B[IR]? -SHORT_OPT [ARGS]
+WARNING: Non-standard section: BASH COMPLETION
+total: 0 errors, 2 warnings, 0 checks, 1291 lines checked, spelling check not done
+total: 0 errors, 0 warnings, 1675 lines checked
