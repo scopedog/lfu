@@ -34,3 +34,16 @@ Cost: 68415 $3.95, 68416 $2.86, 68419 $3.96.
 | R4 | 68415 | cf05bc2f92 | COMMIT_MSG: test11 also needs -u | take |
 
 68415 run $3.42. Not re-reviewed (user cancel): 68159 68160 68163 68288 68419 69729.
+
+## Round 2 resumed 10-20 11:05 JST ($22.0)
+
+| # | change | sha | finding | verdict |
+|---|---|---|---|---|
+| R5 | 68159 | 47d5221ea5 | no findings; suggests splitting the namespace-walk fixes/%LO out | SKIP (land ASAP) |
+| R6 | 68160 | a3b2e9dbac | --local sweep with layout options on a node with MDT+OST: ENOTSUP per OST, nonzero exit though the answer is complete | ASK user (needs an exported helper/flag) |
+| R7 | 68160 | a3b2e9dbac | lfs-only fields in public struct find_param | SKIP (land ASAP) |
+| R8 | 68163 | 4637f31c47 | clean | - |
+| R9 | 68288 | ab1e0ea424 | liblustreapi_scan.c:1128 comment contradicts code (OST obj with OWNER has a path) | take (comment) |
+| R10 | 68288 | ab1e0ea424 | --fid2path on an OST refused with a fileset mount though it would work | SKIP (over-restrictive, not wrong) |
+| R11 | 68419 | ec639d5c23 | cookie in sticky dir owned by another uid: probe passes, rename EPERM after printing, every run repeats | REAL, take: refuse in the pre-pass |
+| R12 | 69729 | 6c43ee2168 | clean | - |
