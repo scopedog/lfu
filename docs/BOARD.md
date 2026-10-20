@@ -6,6 +6,11 @@ the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
 
 ## 2026-10-10 day: CI triage + AI round on the 10-10 PS -- START HERE
 
+- **10-20 ~17:30 JST: polling STOPPED (host shutdown, lustre-kmec session).**
+  All 19 a1019 PS are Jenkins Verified+1 (smatch clean; checkpatch only the
+  known warnings).  Maloo and AI review on them still to come -- restart
+  gpoll first next session.  69744 is in gpoll CHANGES (watch: if it lands
+  before 69796, 69796 needs the fwq_done_cond wake).
 - **10-20 ~13:55 JST: round a-1019 PUSHED** (tags a1019-pushed-*): trunk
   3e11664c8c (68156 PS39 ... 69500), 69501 fa286b2a07, 69502 74af233406,
   69503 7d4a616c9d, 69700 f7384fedf4, 69729 1b58085835.  69728 held
