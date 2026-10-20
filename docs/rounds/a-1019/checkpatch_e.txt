@@ -1,0 +1,18 @@
+== cf05bc2f92
+CHECK: Line length of 82 exceeds 80 columns
+CHECK: Line length of 89 exceeds 80 columns
+total: 0 errors, 0 warnings, 2 checks, 660 lines checked, spelling check not done
+CHECK: Non-standard manual section "The Lustre API library", suggested to use "Lustre Miscellaneous Information"
+total: 0 errors, 0 warnings, 1 checks, 212 lines checked, spelling check not done
+WARNING: added, moved or deleted file(s), does MAINTAINERS need updating?
+WARNING: Prefer ARRAY_SIZE(ends)
+total: 0 errors, 2 warnings, 3430 lines checked
+== 103058b1ff
+CHECK: Line length of 82 exceeds 80 columns
+CHECK: Line length of 89 exceeds 80 columns
+total: 0 errors, 0 warnings, 2 checks, 660 lines checked, spelling check not done
+CHECK: Non-standard manual section "The Lustre API library", suggested to use "Lustre Miscellaneous Information"
+total: 0 errors, 0 warnings, 1 checks, 212 lines checked, spelling check not done
+WARNING: added, moved or deleted file(s), does MAINTAINERS need updating?
+WARNING: Prefer ARRAY_SIZE(ends)
+total: 0 errors, 2 warnings, 3430 lines checked

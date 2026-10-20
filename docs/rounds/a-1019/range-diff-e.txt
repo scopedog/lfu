@@ -1,0 +1,311 @@
+=== fork-1014
+ 1:  e1bb15d00b =  1:  e1bb15d00b LU-20606 llapi: scan an ldiskfs target directly
+ 2:  cf05bc2f92 !  2:  103058b1ff LU-20649 llapi: add llapi_scan_changelog()
+    @@ Commit message
+         delivered indexes are not a checkpoint: only a run that reaches the
+         end of the log may save its highest index. The man page explains this.
+     
+    -    llapi_scan_changelog_test has eleven cases and sanity 56Eea runs it.
+    +    llapi_scan_changelog_test has twelve cases and sanity 56Eea runs it.
+         It takes -m for the MDT, -u for a registered changelog user and -d for
+    -    a client mount. test6 and test9 need -u and skip without it.
+    +    a client mount. test6, test9 and test11 need -u and skip without it.
+     
+         Signed-off-by: Hiroshi Nishida <hnishida@thelustrecollective.com>
+         Assisted-by: ClaudeCode:Opus-5 llm_code_and_review_tools
+    @@ lustre/tests/sanity.sh: test_56El() {
+     +	cl_user=${CL_USERS[mds1]%% *}
+     +	[[ -n "$cl_user" ]] || error "no changelog user registered"
+     +
+    -+	# test9 asks the MDS for the user's mask, with a key the MDS has
+    -+	# only from 2.17.0 (LU-19296); a clear in test6 purges the log only
+    -+	# when no other changelog user holds it back.  Either skips that
+    -+	# case alone.
+    ++	# test9 and test11 ask the MDS for the user's mask, with a key the
+    ++	# MDS has only from 2.17.0 (LU-19296); a clear in test6 purges the
+    ++	# log only when no other changelog user holds it back.  Each check
+    ++	# skips only its own cases.
+     +	local users=$(do_facet mds1 $LCTL get_param -n \
+     +		mdd.$(facet_svc mds1).changelog_users | grep -c "^cl")
+     +	local skip_cases=""
+     +
+    -+	(( MDS1_VERSION >= $(version_code 2.17.0) )) || skip_cases="9"
+    ++	(( MDS1_VERSION >= $(version_code 2.17.0) )) || skip_cases="9,11"
+     +	(( users <= 1 )) || skip_cases="${skip_cases:+$skip_cases,}6"
+     +
+     +	# -u puts the read on llapi_changelog_start_user(), which is the
+ 3:  97e9c05426 =  3:  99ba87f34f LU-20650 llapi: fill a scan record for one FID
+ 4:  8647d144f9 =  4:  07ff755382 LU-20611 llapi: split cb_find_init's decider out
+ 5:  a56c0078cf =  5:  5db3e52b80 LU-20611 lfs: share find's predicate parsing
+ 6:  0c8e6792be =  6:  47d5221ea5 LU-20611 llapi: run find over a device scan
+ 7:  03dd154c6c =  7:  a3b2e9dbac LU-20611 lfs: find over a target, with --device
+ 8:  5cfcf11173 =  8:  4637f31c47 LU-20613 llapi: add a ZFS backend to llapi_scan_device()
+ 9:  349e577e02 =  9:  ab1e0ea424 LU-20637 llapi: name a device scan's objects
+10:  085109cd90 = 10:  ae487d4782 LU-20650 lfs: add find --since, from the changelog
+11:  3e7553d2ce = 11:  8a2e65c8a9 LU-20650 lfs: add find --changelog, the log as source
+12:  d9ad0e9e1b = 12:  ec639d5c23 LU-20650 lfs: add find --since-cookie, a per-MDT anchor
+13:  4207f10947 = 13:  bca3b301fc LU-20650 lfs: find --since-cookie, check each MDT when read
+14:  9d3b9c8d7e = 14:  0a114635ae LU-20650 lfs: find --since, warn when the log was cleared
+=== fork-69501
+ 1:  e1bb15d00b =  1:  e1bb15d00b LU-20606 llapi: scan an ldiskfs target directly
+ 2:  cf05bc2f92 !  2:  103058b1ff LU-20649 llapi: add llapi_scan_changelog()
+    @@ Commit message
+         delivered indexes are not a checkpoint: only a run that reaches the
+         end of the log may save its highest index. The man page explains this.
+     
+    -    llapi_scan_changelog_test has eleven cases and sanity 56Eea runs it.
+    +    llapi_scan_changelog_test has twelve cases and sanity 56Eea runs it.
+         It takes -m for the MDT, -u for a registered changelog user and -d for
+    -    a client mount. test6 and test9 need -u and skip without it.
+    +    a client mount. test6, test9 and test11 need -u and skip without it.
+     
+         Signed-off-by: Hiroshi Nishida <hnishida@thelustrecollective.com>
+         Assisted-by: ClaudeCode:Opus-5 llm_code_and_review_tools
+    @@ lustre/tests/sanity.sh: test_56El() {
+     +	cl_user=${CL_USERS[mds1]%% *}
+     +	[[ -n "$cl_user" ]] || error "no changelog user registered"
+     +
+    -+	# test9 asks the MDS for the user's mask, with a key the MDS has
+    -+	# only from 2.17.0 (LU-19296); a clear in test6 purges the log only
+    -+	# when no other changelog user holds it back.  Either skips that
+    -+	# case alone.
+    ++	# test9 and test11 ask the MDS for the user's mask, with a key the
+    ++	# MDS has only from 2.17.0 (LU-19296); a clear in test6 purges the
+    ++	# log only when no other changelog user holds it back.  Each check
+    ++	# skips only its own cases.
+     +	local users=$(do_facet mds1 $LCTL get_param -n \
+     +		mdd.$(facet_svc mds1).changelog_users | grep -c "^cl")
+     +	local skip_cases=""
+     +
+    -+	(( MDS1_VERSION >= $(version_code 2.17.0) )) || skip_cases="9"
+    ++	(( MDS1_VERSION >= $(version_code 2.17.0) )) || skip_cases="9,11"
+     +	(( users <= 1 )) || skip_cases="${skip_cases:+$skip_cases,}6"
+     +
+     +	# -u puts the read on llapi_changelog_start_user(), which is the
+ 3:  97e9c05426 =  3:  99ba87f34f LU-20650 llapi: fill a scan record for one FID
+ 4:  8647d144f9 =  4:  07ff755382 LU-20611 llapi: split cb_find_init's decider out
+ 5:  a56c0078cf =  5:  5db3e52b80 LU-20611 lfs: share find's predicate parsing
+ 6:  0c8e6792be =  6:  47d5221ea5 LU-20611 llapi: run find over a device scan
+ 7:  03dd154c6c =  7:  a3b2e9dbac LU-20611 lfs: find over a target, with --device
+ 8:  5cfcf11173 =  8:  4637f31c47 LU-20613 llapi: add a ZFS backend to llapi_scan_device()
+ 9:  349e577e02 =  9:  ab1e0ea424 LU-20637 llapi: name a device scan's objects
+10:  085109cd90 = 10:  ae487d4782 LU-20650 lfs: add find --since, from the changelog
+11:  7934cb6d70 = 11:  5b5bcd9986 LU-20650 llapi: pass FID and nlink to llapi_scan_fid() filter
+=== fork-69502
+ 1:  e1bb15d00b =  1:  e1bb15d00b LU-20606 llapi: scan an ldiskfs target directly
+ 2:  cf05bc2f92 !  2:  103058b1ff LU-20649 llapi: add llapi_scan_changelog()
+    @@ Commit message
+         delivered indexes are not a checkpoint: only a run that reaches the
+         end of the log may save its highest index. The man page explains this.
+     
+    -    llapi_scan_changelog_test has eleven cases and sanity 56Eea runs it.
+    +    llapi_scan_changelog_test has twelve cases and sanity 56Eea runs it.
+         It takes -m for the MDT, -u for a registered changelog user and -d for
+    -    a client mount. test6 and test9 need -u and skip without it.
+    +    a client mount. test6, test9 and test11 need -u and skip without it.
+     
+         Signed-off-by: Hiroshi Nishida <hnishida@thelustrecollective.com>
+         Assisted-by: ClaudeCode:Opus-5 llm_code_and_review_tools
+    @@ lustre/tests/sanity.sh: test_56El() {
+     +	cl_user=${CL_USERS[mds1]%% *}
+     +	[[ -n "$cl_user" ]] || error "no changelog user registered"
+     +
+    -+	# test9 asks the MDS for the user's mask, with a key the MDS has
+    -+	# only from 2.17.0 (LU-19296); a clear in test6 purges the log only
+    -+	# when no other changelog user holds it back.  Either skips that
+    -+	# case alone.
+    ++	# test9 and test11 ask the MDS for the user's mask, with a key the
+    ++	# MDS has only from 2.17.0 (LU-19296); a clear in test6 purges the
+    ++	# log only when no other changelog user holds it back.  Each check
+    ++	# skips only its own cases.
+     +	local users=$(do_facet mds1 $LCTL get_param -n \
+     +		mdd.$(facet_svc mds1).changelog_users | grep -c "^cl")
+     +	local skip_cases=""
+     +
+    -+	(( MDS1_VERSION >= $(version_code 2.17.0) )) || skip_cases="9"
+    ++	(( MDS1_VERSION >= $(version_code 2.17.0) )) || skip_cases="9,11"
+     +	(( users <= 1 )) || skip_cases="${skip_cases:+$skip_cases,}6"
+     +
+     +	# -u puts the read on llapi_changelog_start_user(), which is the
+ 3:  97e9c05426 =  3:  99ba87f34f LU-20650 llapi: fill a scan record for one FID
+ 4:  8647d144f9 =  4:  07ff755382 LU-20611 llapi: split cb_find_init's decider out
+ 5:  a56c0078cf =  5:  5db3e52b80 LU-20611 lfs: share find's predicate parsing
+ 6:  0c8e6792be =  6:  47d5221ea5 LU-20611 llapi: run find over a device scan
+ 7:  03dd154c6c =  7:  a3b2e9dbac LU-20611 lfs: find over a target, with --device
+ 8:  5cfcf11173 =  8:  4637f31c47 LU-20613 llapi: add a ZFS backend to llapi_scan_device()
+ 9:  349e577e02 =  9:  ab1e0ea424 LU-20637 llapi: name a device scan's objects
+10:  085109cd90 = 10:  ae487d4782 LU-20650 lfs: add find --since, from the changelog
+11:  7934cb6d70 = 11:  5b5bcd9986 LU-20650 llapi: pass FID and nlink to llapi_scan_fid() filter
+12:  35866766af = 12:  51907c9108 LU-20650 lfs: filter find --since candidates before the gather
+=== fork-69503
+ 1:  e1bb15d00b =  1:  e1bb15d00b LU-20606 llapi: scan an ldiskfs target directly
+ 2:  cf05bc2f92 !  2:  103058b1ff LU-20649 llapi: add llapi_scan_changelog()
+    @@ Commit message
+         delivered indexes are not a checkpoint: only a run that reaches the
+         end of the log may save its highest index. The man page explains this.
+     
+    -    llapi_scan_changelog_test has eleven cases and sanity 56Eea runs it.
+    +    llapi_scan_changelog_test has twelve cases and sanity 56Eea runs it.
+         It takes -m for the MDT, -u for a registered changelog user and -d for
+    -    a client mount. test6 and test9 need -u and skip without it.
+    +    a client mount. test6, test9 and test11 need -u and skip without it.
+     
+         Signed-off-by: Hiroshi Nishida <hnishida@thelustrecollective.com>
+         Assisted-by: ClaudeCode:Opus-5 llm_code_and_review_tools
+    @@ lustre/tests/sanity.sh: test_56El() {
+     +	cl_user=${CL_USERS[mds1]%% *}
+     +	[[ -n "$cl_user" ]] || error "no changelog user registered"
+     +
+    -+	# test9 asks the MDS for the user's mask, with a key the MDS has
+    -+	# only from 2.17.0 (LU-19296); a clear in test6 purges the log only
+    -+	# when no other changelog user holds it back.  Either skips that
+    -+	# case alone.
+    ++	# test9 and test11 ask the MDS for the user's mask, with a key the
+    ++	# MDS has only from 2.17.0 (LU-19296); a clear in test6 purges the
+    ++	# log only when no other changelog user holds it back.  Each check
+    ++	# skips only its own cases.
+     +	local users=$(do_facet mds1 $LCTL get_param -n \
+     +		mdd.$(facet_svc mds1).changelog_users | grep -c "^cl")
+     +	local skip_cases=""
+     +
+    -+	(( MDS1_VERSION >= $(version_code 2.17.0) )) || skip_cases="9"
+    ++	(( MDS1_VERSION >= $(version_code 2.17.0) )) || skip_cases="9,11"
+     +	(( users <= 1 )) || skip_cases="${skip_cases:+$skip_cases,}6"
+     +
+     +	# -u puts the read on llapi_changelog_start_user(), which is the
+ 3:  97e9c05426 =  3:  99ba87f34f LU-20650 llapi: fill a scan record for one FID
+ 4:  8647d144f9 =  4:  07ff755382 LU-20611 llapi: split cb_find_init's decider out
+ 5:  a56c0078cf =  5:  5db3e52b80 LU-20611 lfs: share find's predicate parsing
+ 6:  0c8e6792be =  6:  47d5221ea5 LU-20611 llapi: run find over a device scan
+ 7:  03dd154c6c =  7:  a3b2e9dbac LU-20611 lfs: find over a target, with --device
+ 8:  5cfcf11173 =  8:  4637f31c47 LU-20613 llapi: add a ZFS backend to llapi_scan_device()
+ 9:  25f6ef456e =  9:  362886bf33 LU-20613 build: compile libscan_zfs.c as libzpool is built
+=== rate-1017
+1:  e1bb15d00b = 1:  e1bb15d00b LU-20606 llapi: scan an ldiskfs target directly
+2:  cf05bc2f92 ! 2:  103058b1ff LU-20649 llapi: add llapi_scan_changelog()
+    @@ Commit message
+         delivered indexes are not a checkpoint: only a run that reaches the
+         end of the log may save its highest index. The man page explains this.
+     
+    -    llapi_scan_changelog_test has eleven cases and sanity 56Eea runs it.
+    +    llapi_scan_changelog_test has twelve cases and sanity 56Eea runs it.
+         It takes -m for the MDT, -u for a registered changelog user and -d for
+    -    a client mount. test6 and test9 need -u and skip without it.
+    +    a client mount. test6, test9 and test11 need -u and skip without it.
+     
+         Signed-off-by: Hiroshi Nishida <hnishida@thelustrecollective.com>
+         Assisted-by: ClaudeCode:Opus-5 llm_code_and_review_tools
+    @@ lustre/tests/sanity.sh: test_56El() {
+     +	cl_user=${CL_USERS[mds1]%% *}
+     +	[[ -n "$cl_user" ]] || error "no changelog user registered"
+     +
+    -+	# test9 asks the MDS for the user's mask, with a key the MDS has
+    -+	# only from 2.17.0 (LU-19296); a clear in test6 purges the log only
+    -+	# when no other changelog user holds it back.  Either skips that
+    -+	# case alone.
+    ++	# test9 and test11 ask the MDS for the user's mask, with a key the
+    ++	# MDS has only from 2.17.0 (LU-19296); a clear in test6 purges the
+    ++	# log only when no other changelog user holds it back.  Each check
+    ++	# skips only its own cases.
+     +	local users=$(do_facet mds1 $LCTL get_param -n \
+     +		mdd.$(facet_svc mds1).changelog_users | grep -c "^cl")
+     +	local skip_cases=""
+     +
+    -+	(( MDS1_VERSION >= $(version_code 2.17.0) )) || skip_cases="9"
+    ++	(( MDS1_VERSION >= $(version_code 2.17.0) )) || skip_cases="9,11"
+     +	(( users <= 1 )) || skip_cases="${skip_cases:+$skip_cases,}6"
+     +
+     +	# -u puts the read on llapi_changelog_start_user(), which is the
+3:  97e9c05426 = 3:  99ba87f34f LU-20650 llapi: fill a scan record for one FID
+4:  8647d144f9 = 4:  07ff755382 LU-20611 llapi: split cb_find_init's decider out
+5:  a56c0078cf = 5:  5db3e52b80 LU-20611 lfs: share find's predicate parsing
+6:  0c8e6792be = 6:  47d5221ea5 LU-20611 llapi: run find over a device scan
+7:  03dd154c6c = 7:  a3b2e9dbac LU-20611 lfs: find over a target, with --device
+8:  5b00f2b723 = 8:  395f238177 LU-20606 llapi: limit a scan's rate
+=== maxrate-1017
+ 1:  e1bb15d00b =  1:  e1bb15d00b LU-20606 llapi: scan an ldiskfs target directly
+ 2:  cf05bc2f92 !  2:  103058b1ff LU-20649 llapi: add llapi_scan_changelog()
+    @@ Commit message
+         delivered indexes are not a checkpoint: only a run that reaches the
+         end of the log may save its highest index. The man page explains this.
+     
+    -    llapi_scan_changelog_test has eleven cases and sanity 56Eea runs it.
+    +    llapi_scan_changelog_test has twelve cases and sanity 56Eea runs it.
+         It takes -m for the MDT, -u for a registered changelog user and -d for
+    -    a client mount. test6 and test9 need -u and skip without it.
+    +    a client mount. test6, test9 and test11 need -u and skip without it.
+     
+         Signed-off-by: Hiroshi Nishida <hnishida@thelustrecollective.com>
+         Assisted-by: ClaudeCode:Opus-5 llm_code_and_review_tools
+    @@ lustre/tests/sanity.sh: test_56El() {
+     +	cl_user=${CL_USERS[mds1]%% *}
+     +	[[ -n "$cl_user" ]] || error "no changelog user registered"
+     +
+    -+	# test9 asks the MDS for the user's mask, with a key the MDS has
+    -+	# only from 2.17.0 (LU-19296); a clear in test6 purges the log only
+    -+	# when no other changelog user holds it back.  Either skips that
+    -+	# case alone.
+    ++	# test9 and test11 ask the MDS for the user's mask, with a key the
+    ++	# MDS has only from 2.17.0 (LU-19296); a clear in test6 purges the
+    ++	# log only when no other changelog user holds it back.  Each check
+    ++	# skips only its own cases.
+     +	local users=$(do_facet mds1 $LCTL get_param -n \
+     +		mdd.$(facet_svc mds1).changelog_users | grep -c "^cl")
+     +	local skip_cases=""
+     +
+    -+	(( MDS1_VERSION >= $(version_code 2.17.0) )) || skip_cases="9"
+    ++	(( MDS1_VERSION >= $(version_code 2.17.0) )) || skip_cases="9,11"
+     +	(( users <= 1 )) || skip_cases="${skip_cases:+$skip_cases,}6"
+     +
+     +	# -u puts the read on llapi_changelog_start_user(), which is the
+ 3:  97e9c05426 =  3:  99ba87f34f LU-20650 llapi: fill a scan record for one FID
+ 4:  8647d144f9 =  4:  07ff755382 LU-20611 llapi: split cb_find_init's decider out
+ 5:  a56c0078cf =  5:  5db3e52b80 LU-20611 lfs: share find's predicate parsing
+ 6:  0c8e6792be =  6:  47d5221ea5 LU-20611 llapi: run find over a device scan
+ 7:  03dd154c6c =  7:  a3b2e9dbac LU-20611 lfs: find over a target, with --device
+ 8:  5b00f2b723 =  8:  395f238177 LU-20606 llapi: limit a scan's rate
+ 9:  f6e216d6f8 =  9:  e55448a62e LU-20606 lfs: find --device --max-rate
+=== igif-1017
+ 1:  e1bb15d00b =  1:  e1bb15d00b LU-20606 llapi: scan an ldiskfs target directly
+ 2:  cf05bc2f92 !  2:  103058b1ff LU-20649 llapi: add llapi_scan_changelog()
+    @@ Commit message
+         delivered indexes are not a checkpoint: only a run that reaches the
+         end of the log may save its highest index. The man page explains this.
+     
+    -    llapi_scan_changelog_test has eleven cases and sanity 56Eea runs it.
+    +    llapi_scan_changelog_test has twelve cases and sanity 56Eea runs it.
+         It takes -m for the MDT, -u for a registered changelog user and -d for
+    -    a client mount. test6 and test9 need -u and skip without it.
+    +    a client mount. test6, test9 and test11 need -u and skip without it.
+     
+         Signed-off-by: Hiroshi Nishida <hnishida@thelustrecollective.com>
+         Assisted-by: ClaudeCode:Opus-5 llm_code_and_review_tools
+    @@ lustre/tests/sanity.sh: test_56El() {
+     +	cl_user=${CL_USERS[mds1]%% *}
+     +	[[ -n "$cl_user" ]] || error "no changelog user registered"
+     +
+    -+	# test9 asks the MDS for the user's mask, with a key the MDS has
+    -+	# only from 2.17.0 (LU-19296); a clear in test6 purges the log only
+    -+	# when no other changelog user holds it back.  Either skips that
+    -+	# case alone.
+    ++	# test9 and test11 ask the MDS for the user's mask, with a key the
+    ++	# MDS has only from 2.17.0 (LU-19296); a clear in test6 purges the
+    ++	# log only when no other changelog user holds it back.  Each check
+    ++	# skips only its own cases.
+     +	local users=$(do_facet mds1 $LCTL get_param -n \
+     +		mdd.$(facet_svc mds1).changelog_users | grep -c "^cl")
+     +	local skip_cases=""
+     +
+    -+	(( MDS1_VERSION >= $(version_code 2.17.0) )) || skip_cases="9"
+    ++	(( MDS1_VERSION >= $(version_code 2.17.0) )) || skip_cases="9,11"
+     +	(( users <= 1 )) || skip_cases="${skip_cases:+$skip_cases,}6"
+     +
+     +	# -u puts the read on llapi_changelog_start_user(), which is the
+ 3:  97e9c05426 =  3:  99ba87f34f LU-20650 llapi: fill a scan record for one FID
+ 4:  8647d144f9 =  4:  07ff755382 LU-20611 llapi: split cb_find_init's decider out
+ 5:  a56c0078cf =  5:  5db3e52b80 LU-20611 lfs: share find's predicate parsing
+ 6:  0c8e6792be =  6:  47d5221ea5 LU-20611 llapi: run find over a device scan
+ 7:  03dd154c6c =  7:  a3b2e9dbac LU-20611 lfs: find over a target, with --device
+ 8:  5cfcf11173 =  8:  4637f31c47 LU-20613 llapi: add a ZFS backend to llapi_scan_device()
+ 9:  349e577e02 =  9:  ab1e0ea424 LU-20637 llapi: name a device scan's objects
+10:  d34b11ba53 = 10:  6c43ee2168 LU-20637 llapi: find the root of an upgraded filesystem

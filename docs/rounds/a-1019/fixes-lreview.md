@@ -88,3 +88,44 @@ Controls (same image as lfst-OST0000 and lfst-MDT0003): old == new.
 - test11 needs UNLINK records in the log; in 56Eea the `-m ALL` user keeps them. The sanity block skips the second run below MDS 2.17.0 (as test9 does).
 - .TH dates were not bumped (consistent with the previous rounds).
 - Owed before a push: lreview of the changed commits (68156, 68415, 68159, 68160, 68163, 68288, 68419, 69729).
+
+## 68415 lreview r2 (lreview/68415-r2.md), applied 10-20
+
+Three findings, all taken, LOCAL ONLY. Script `tx_1019e.py` through
+`forktx5.py` from 68415 (cf05bc2f92) up; backups `l1019-<branch>`.
+
+1. sanity 56Eea: below MDS 2.17.0 skip test11 too (`skip_cases="9,11"`);
+   test11 sets lfsc_type_mask, which takes the same MDS_GET_INFO
+   (KEY_CHANGELOG_USER, LU-19296) path as test9. Comment above says so.
+   The -e list already takes commas (`9,6` before).
+2. Commit message: "has eleven cases" -> "has twelve cases".
+3. Commit message: "test6, test9 and test11 need -u".
+
+No later commit edits the 56Eea block (identical text at every tip
+before the rewrite); the fix is carried to all 19 commits from 68415 up.
+
+| branch | before | after |
+|---|---|---|
+| fork-1014 | 9d3b9c8d7e | 0a114635ae |
+| fork-69501 | 7934cb6d70 | 5b5bcd9986 |
+| fork-69502 | 35866766af | 51907c9108 |
+| fork-69503 | 25f6ef456e | 362886bf33 |
+| rate-1017 | 5b00f2b723 | 395f238177 |
+| maxrate-1017 | f6e216d6f8 | e55448a62e |
+| igif-1017 | d34b11ba53 | 6c43ee2168 |
+
+68415 is now 103058b1ff.
+
+- Dry run (tx_1019e-dry.log) = real run (tx_1019e.log), same shas; a
+  second pass changes nothing (idempotent). Each rewritten commit differs
+  from its original by the same 5/5 lines in sanity.sh only.
+- Commit counts unchanged per branch; Change-Ids identical; message lines <= 75.
+- `bash -n lustre/tests/sanity.sh` on every commit of every branch: clean.
+- Build sweep (sweep_e.sh, sweep_e.log): `SWEEP ee61b3f6dd..0a114635ae,
+  14 commits` + 69501/69502, 69503, 69700/69728, 69729 -- 20/20 build=0
+  hdr=0 tests=0 sh=0.
+- checkpatch 68415 (checkpatch_e.txt): same findings before and after
+  (2 line-length CHECKs, lustreapi.7 section CHECK, MAINTAINERS, ARRAY_SIZE).
+- Range-diff (range-diff-e.txt): on all seven branches only 68415 is `!`
+  (the two message lines and the sanity hunk); every other commit `=`.
+- Not lab-run (no MDS < 2.17.0 to hand); not re-lreviewed (user cancelled).

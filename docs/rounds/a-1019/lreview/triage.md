@@ -23,3 +23,14 @@ Cost: 68415 $3.95, 68416 $2.86, 68419 $3.96.
 | E1 | 68163 | 48a6b6d5c9 | COMMIT_MSG 121-133 answers a review discussion | Take (adilger's 68156 rule: no patch history in messages); rest of the long msg stays |
 | F1 | 68288 | 4e053e7953 | lfs-find.1: encrypted-dir limit applies to --fid2path too | Take if verified |
 | F2 | 68288 | 4e053e7953 | -printf + --paths/--fid2path refused per target, not once in lfs | Take |
+
+## Round 2 re-lreview (10-20 09:45 JST), CANCELLED by user after 2 of 8
+
+| # | change | sha | finding | verdict |
+|---|---|---|---|---|
+| R1 | 68156 | e1bb15d00b | clean ($5.83) | - |
+| R2 | 68415 | cf05bc2f92 | sanity 56Eea: test11 not skipped on MDS < 2.17.0 (needs KEY_CHANGELOG_USER like test9) | REAL, take: skip_cases="9,11" |
+| R3 | 68415 | cf05bc2f92 | COMMIT_MSG: "eleven cases" -> twelve | take |
+| R4 | 68415 | cf05bc2f92 | COMMIT_MSG: test11 also needs -u | take |
+
+68415 run $3.42. Not re-reviewed (user cancel): 68159 68160 68163 68288 68419 69729.

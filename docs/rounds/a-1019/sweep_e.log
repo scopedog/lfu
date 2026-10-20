@@ -1,0 +1,31 @@
+SWEEP ee61b3f6dd..0a114635ae, 14 commits in /home/nishida/lfs-adl-1019
+e1bb15d00b build=0 hdr=0 tests=0 sh=0  LU-20606 llapi: scan an ldiskfs target direct
+103058b1ff build=0 hdr=0 tests=0 sh=0  LU-20649 llapi: add llapi_scan_changelog()
+99ba87f34f build=0 hdr=0 tests=0 sh=0  LU-20650 llapi: fill a scan record for one FI
+07ff755382 build=0 hdr=0 tests=0 sh=0  LU-20611 llapi: split cb_find_init's decider 
+5db3e52b80 build=0 hdr=0 tests=0 sh=0  LU-20611 lfs: share find's predicate parsing
+47d5221ea5 build=0 hdr=0 tests=0 sh=0  LU-20611 llapi: run find over a device scan
+a3b2e9dbac build=0 hdr=0 tests=0 sh=0  LU-20611 lfs: find over a target, with --devi
+4637f31c47 build=0 hdr=0 tests=0 sh=0  LU-20613 llapi: add a ZFS backend to llapi_sc
+ab1e0ea424 build=0 hdr=0 tests=0 sh=0  LU-20637 llapi: name a device scan's objects
+ae487d4782 build=0 hdr=0 tests=0 sh=0  LU-20650 lfs: add find --since, from the chan
+8a2e65c8a9 build=0 hdr=0 tests=0 sh=0  LU-20650 lfs: add find --changelog, the log a
+ec639d5c23 build=0 hdr=0 tests=0 sh=0  LU-20650 lfs: add find --since-cookie, a per-
+bca3b301fc build=0 hdr=0 tests=0 sh=0  LU-20650 lfs: find --since-cookie, check each
+0a114635ae build=0 hdr=0 tests=0 sh=0  LU-20650 lfs: find --since, warn when the log
+SWEEP-DONE
+SWEEP ae487d4782..51907c9108, 2 commits in /home/nishida/lfs-adl-1019
+5b5bcd9986 build=0 hdr=0 tests=0 sh=0  LU-20650 llapi: pass FID and nlink to llapi_s
+51907c9108 build=0 hdr=0 tests=0 sh=0  LU-20650 lfs: filter find --since candidates 
+SWEEP-DONE
+SWEEP 4637f31c47..362886bf33, 1 commits in /home/nishida/lfs-adl-1019
+362886bf33 build=0 hdr=0 tests=0 sh=0  LU-20613 build: compile libscan_zfs.c as libz
+SWEEP-DONE
+SWEEP a3b2e9dbac..e55448a62e, 2 commits in /home/nishida/lfs-adl-1019
+395f238177 build=0 hdr=0 tests=0 sh=0  LU-20606 llapi: limit a scan's rate
+e55448a62e build=0 hdr=0 tests=0 sh=0  LU-20606 lfs: find --device --max-rate
+SWEEP-DONE
+SWEEP ab1e0ea424..6c43ee2168, 1 commits in /home/nishida/lfs-adl-1019
+6c43ee2168 build=0 hdr=0 tests=0 sh=0  LU-20637 llapi: find the root of an upgraded 
+SWEEP-DONE
+ALL-DONE
