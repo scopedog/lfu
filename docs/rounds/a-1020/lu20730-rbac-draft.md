@@ -1,4 +1,4 @@
-# LU-20730: draft Jira comment on the nodemap role (item 2), NOT POSTED
+# LU-20730: Jira comment on the nodemap role (item 2), POSTED 10-20 as comment 503877
 
 Andreas asked (LU-20730, 2026-09-10) whether "byfid" RBAC is enough for a
 scan or it needs its own role, and asked Sebastien. Draft for the user,
