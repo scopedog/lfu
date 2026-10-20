@@ -1,0 +1,133 @@
+##### probe arm=o tag=o1
+== start 2026-10-19 21:31:41 arm=o (0f9b013492) tag=o1
+lfs ld.so:  liblustreapi.so.1 => /tmp/arm1019ho/lib/liblustreapi.so.1 (0x00007f648d270000)
+arm lib md5 c2e167479cf2
+other changelog user: cl1
+run1 rc=0 lines=2 err=[]
+cookie after run1: lfst-MDT0000 4;  log: 4 recs, first 1, last 4
+   STOP llapi_scan_changelog startrec=0 find_cl_first<-find_cookie_check<-llapi_find_since<-lfs_find (check read 1)
+   [w2] cleared the whole log: 0 recs
+   STOP llapi_scan_changelog startrec=4 find_cl_first<-find_cookie_check<-llapi_find_since<-lfs_find (check read 2)
+   [w3] made lost1..3 (to record 10) and kept1..2, cleared through 10: first now 11
+   STOP llapi_scan_changelog startrec=0 find_cl_first<-find_cookie_check<-llapi_find_since<-lfs_find (check read 3)
+   STOP llapi_scan_changelog startrec=5 llapi_find_since<-lfs_find<-cfs_parser_execarg<-cfs_parser 
+[Inferior 1 (process 40293) exited normally]
+run2 lines=2 lost=0 kept=2 before=0
+cookie after run2: lfst-MDT0000 14;  log: 4 recs, first 11, last 14
+run3 rc=0 lines=0 lost=0 kept=0
+cookie after run3: lfst-MDT0000 14;
+lfst-MDT0000: Deregistered changelog user #1
+cleanup rc=0
+== end 2026-10-19 21:32:41
+PROBE DONE
+##### probe arm=n tag=n1
+== start 2026-10-19 21:32:41 arm=n (88ee77c068) tag=n1
+lfs ld.so:  liblustreapi.so.1 => /tmp/arm1019hn/lib/liblustreapi.so.1 (0x00007f35f1dde000)
+arm lib md5 f0fba09edae7
+other changelog user: cl1
+run1 rc=0 lines=2 err=[]
+cookie after run1: lfst-MDT0000 4;  log: 4 recs, first 1, last 4
+   STOP llapi_scan_changelog startrec=0 find_cl_first<-find_cookie_check<-llapi_find_since<-lfs_find (check read 1)
+   [w2] cleared the whole log: 0 recs
+   STOP llapi_scan_changelog startrec=4 find_cl_first<-find_cookie_check<-llapi_find_since<-lfs_find (check read 2)
+   [w3] made lost1..3 (to record 10) and kept1..2, cleared through 10: first now 11
+   STOP llapi_scan_changelog startrec=0 find_cl_first<-find_cookie_check<-llapi_find_since<-lfs_find (check read 3)
+[Inferior 1 (process 44717) exited with code 0164]
+run2 lines=0 lost=0 kept=0 before=0
+   stderr: lfs find: 'lfst-MDT0000' has purged past the cookie: it starts at 11 and '/tmp/lab1019h-probe-n1/ck' records 4, so the run would resume at 5 and the records in between are gone
+   stderr: lfs: failed for '/mnt/lfst/r': Stale file handle
+cookie after run2: lfst-MDT0000 4;  log: 4 recs, first 11, last 14
+run3 rc=116 lines=0 lost=0 kept=0
+   stderr: lfs find: 'lfst-MDT0000' has purged past the cookie: it starts at 11 and '/tmp/lab1019h-probe-n1/ck' records 4, so the run would resume at 5 and the records in between are gone
+   stderr: lfs: failed for '/mnt/lfst/r': Stale file handle
+cookie after run3: lfst-MDT0000 4;
+lfst-MDT0000: Deregistered changelog user #1
+cleanup rc=0
+== end 2026-10-19 21:33:35
+PROBE DONE
+##### probe arm=n tag=n2
+== start 2026-10-19 21:33:35 arm=n (88ee77c068) tag=n2
+lfs ld.so:  liblustreapi.so.1 => /tmp/arm1019hn/lib/liblustreapi.so.1 (0x00007f7bf71a4000)
+arm lib md5 f0fba09edae7
+other changelog user: cl1
+run1 rc=0 lines=2 err=[]
+cookie after run1: lfst-MDT0000 4;  log: 4 recs, first 1, last 4
+   STOP llapi_scan_changelog startrec=0 find_cl_first<-find_cookie_check<-llapi_find_since<-lfs_find (check read 1)
+   [w2] cleared the whole log: 0 recs
+   STOP llapi_scan_changelog startrec=4 find_cl_first<-find_cookie_check<-llapi_find_since<-lfs_find (check read 2)
+   [w3] made lost1..3 (to record 10) and kept1..2, cleared through 10: first now 11
+   STOP llapi_scan_changelog startrec=0 find_cl_first<-find_cookie_check<-llapi_find_since<-lfs_find (check read 3)
+[Inferior 1 (process 49155) exited with code 0164]
+run2 lines=0 lost=0 kept=0 before=0
+   stderr: lfs find: 'lfst-MDT0000' has purged past the cookie: it starts at 11 and '/tmp/lab1019h-probe-n2/ck' records 4, so the run would resume at 5 and the records in between are gone
+   stderr: lfs: failed for '/mnt/lfst/r': Stale file handle
+cookie after run2: lfst-MDT0000 4;  log: 4 recs, first 11, last 14
+run3 rc=116 lines=0 lost=0 kept=0
+   stderr: lfs find: 'lfst-MDT0000' has purged past the cookie: it starts at 11 and '/tmp/lab1019h-probe-n2/ck' records 4, so the run would resume at 5 and the records in between are gone
+   stderr: lfs: failed for '/mnt/lfst/r': Stale file handle
+cookie after run3: lfst-MDT0000 4;
+lfst-MDT0000: Deregistered changelog user #1
+cleanup rc=0
+== end 2026-10-19 21:34:26
+PROBE DONE
+##### probe arm=o tag=o2
+== start 2026-10-19 21:34:26 arm=o (0f9b013492) tag=o2
+lfs ld.so:  liblustreapi.so.1 => /tmp/arm1019ho/lib/liblustreapi.so.1 (0x00007f1a6d236000)
+arm lib md5 c2e167479cf2
+other changelog user: cl1
+run1 rc=0 lines=2 err=[]
+cookie after run1: lfst-MDT0000 4;  log: 4 recs, first 1, last 4
+   STOP llapi_scan_changelog startrec=0 find_cl_first<-find_cookie_check<-llapi_find_since<-lfs_find (check read 1)
+   [w2] cleared the whole log: 0 recs
+   STOP llapi_scan_changelog startrec=4 find_cl_first<-find_cookie_check<-llapi_find_since<-lfs_find (check read 2)
+   [w3] made lost1..3 (to record 10) and kept1..2, cleared through 10: first now 11
+   STOP llapi_scan_changelog startrec=0 find_cl_first<-find_cookie_check<-llapi_find_since<-lfs_find (check read 3)
+   STOP llapi_scan_changelog startrec=5 llapi_find_since<-lfs_find<-cfs_parser_execarg<-cfs_parser 
+[Inferior 1 (process 53572) exited normally]
+run2 lines=2 lost=0 kept=2 before=0
+cookie after run2: lfst-MDT0000 14;  log: 4 recs, first 11, last 14
+run3 rc=0 lines=0 lost=0 kept=0
+cookie after run3: lfst-MDT0000 14;
+lfst-MDT0000: Deregistered changelog user #1
+cleanup rc=0
+== end 2026-10-19 21:35:20
+PROBE DONE
+##### sanity arm=t tag=t-160A1 MDSCOUNT=1 ONLY=160Aa 160Ab 160Ac 160Ad 160Ae 160Af
+== start 2026-10-19 21:35:20 arm=t (3e11664c8c) ONLY=160Aa 160Ab 160Ac 160Ad 160Ae 160Af MDSCOUNT=1
+loaded version: [2.17.58_65_g8618869]
+bound /tmp/lab1019h-t/lustre/tests/.libs/llapi_scan_test over /usr/lib64/lustre/tests/llapi_scan_test
+  llapi_scan_test ld.so:  liblustreapi.so.1 => /tmp/arm1019ht/lib/liblustreapi.so.1 (0x00007f792c04d000)
+bound /tmp/lab1019h-t/lustre/tests/.libs/llapi_scan_changelog_test over /usr/lib64/lustre/tests/llapi_scan_changelog_test
+  llapi_scan_changelog_test ld.so:  liblustreapi.so.1 => /tmp/arm1019ht/lib/liblustreapi.so.1 (0x00007fa6d18fa000)
+lfs ld.so:  liblustreapi.so.1 => /tmp/arm1019ht/lib/liblustreapi.so.1 (0x00007fdd78f81000)
+arm lib md5: daf4fa581ef6
+SANITY_RC=0
+PASS 6  FAIL 0  SKIP 0
+PASS 160Aa (17s)
+PASS 160Ab (9s)
+PASS 160Ac (14s)
+PASS 160Ad (3s)
+PASS 160Ae (2s)
+PASS 160Af (2s)
+cleanup rc=0
+== end 2026-10-19 21:37:12
+##### sanity arm=t tag=t-160A2 MDSCOUNT=2 ONLY=160Aa 160Ab 160Ac 160Ad 160Ae 160Af
+== start 2026-10-19 21:37:12 arm=t (3e11664c8c) ONLY=160Aa 160Ab 160Ac 160Ad 160Ae 160Af MDSCOUNT=2
+loaded version: [2.17.58_65_g8618869]
+bound /tmp/lab1019h-t/lustre/tests/.libs/llapi_scan_test over /usr/lib64/lustre/tests/llapi_scan_test
+  llapi_scan_test ld.so:  liblustreapi.so.1 => /tmp/arm1019ht/lib/liblustreapi.so.1 (0x00007f38f5d5f000)
+bound /tmp/lab1019h-t/lustre/tests/.libs/llapi_scan_changelog_test over /usr/lib64/lustre/tests/llapi_scan_changelog_test
+  llapi_scan_changelog_test ld.so:  liblustreapi.so.1 => /tmp/arm1019ht/lib/liblustreapi.so.1 (0x00007f63272a8000)
+lfs ld.so:  liblustreapi.so.1 => /tmp/arm1019ht/lib/liblustreapi.so.1 (0x00007f7a3a6eb000)
+arm lib md5: daf4fa581ef6
+SANITY_RC=0
+PASS 6  FAIL 0  SKIP 0
+PASS 160Aa (18s)
+PASS 160Ab (8s)
+PASS 160Ac (19s)
+PASS 160Ad (3s)
+PASS 160Ae (2s)
+PASS 160Af (2s)
+cleanup rc=0
+== end 2026-10-19 21:39:10
+LAB 1019h DONE

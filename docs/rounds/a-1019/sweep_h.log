@@ -1,0 +1,6 @@
+SWEEP 15d2fce776..3e11664c8c, 3 commits in /home/nishida/lfs-sweep-1020
+88ee77c068 build=0 hdr=0 tests=0 sh=0  LU-20650 lfs: add find --since-cookie, a per-
+5f66950185 build=0 hdr=0 tests=0 sh=0  LU-20650 lfs: find --since-cookie, check each
+3e11664c8c build=0 hdr=0 tests=0 sh=0  LU-20650 lfs: find --since, warn when the log
+SWEEP-DONE
+ALL-DONE

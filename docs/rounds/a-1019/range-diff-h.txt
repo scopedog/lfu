@@ -1,0 +1,93 @@
+1:  0f9b013492 ! 1:  88ee77c068 LU-20650 lfs: add find --since-cookie, a per-MDT anchor
+    @@ lustre/utils/liblustreapi_pfind.c: struct find_since_obj {
+     +		 * counted in the return value.
+     +		 */
+     +		pos = 0;
+    -+		if (sscanf(line, "# lfs find --since-cookie for %255s%n",
+    ++		if (sscanf(line, "# lfs find --since-cookie for %"
+    ++			   FIND_COOKIE_WIDTH(NAME_MAX) "s%n",
+     +			   name, &pos) == 1) {
+     +			const char *oldroot = NULL;
+     +			size_t oldlen = 0;
+    @@ lustre/utils/liblustreapi_pfind.c: struct find_since_obj {
+     +		if (from == 0) {
+     +			/*
+     +			 * A clear between the two reads leaves the log empty,
+    -+			 * or holding only newer records.  Nothing was lost.
+    ++			 * or starting at anchor + 1.  Past that is a purge.
+     +			 */
+     +			rc = find_cl_first(mdtname, 0, &oldest);
+     +			if (rc < 0) {
+    @@ lustre/utils/liblustreapi_pfind.c: struct find_since_obj {
+     +					    mdtname);
+     +				return rc;
+     +			}
+    -+			if (oldest == 0 || oldest >= anchor)
+    ++			if (oldest == 0 || oldest == anchor + 1)
+     +				continue;
+    ++			if (oldest > anchor + 1) {
+    ++				llapi_error(LLAPI_MSG_ERROR |
+    ++					    LLAPI_MSG_NO_ERRNO, -ESTALE,
+    ++					    "'%s' has purged past the cookie: it starts at %llu and '%s' records %llu, so the run would resume at %llu and the records in between are gone",
+    ++					    mdtname, (unsigned long long)oldest,
+    ++					    cookie, (unsigned long long)anchor,
+    ++					    (unsigned long long)(anchor + 1));
+    ++				return -ESTALE;
+    ++			}
+     +			llapi_error(LLAPI_MSG_ERROR | LLAPI_MSG_NO_ERRNO,
+     +				    -ESTALE,
+     +				    "'%s' holds records but none at or after %llu, which '%s' records: its changelog was restarted, and a run from there would skip them",
+2:  aa9680ddcb ! 2:  5f66950185 LU-20650 lfs: find --since-cookie, check each MDT when read
+    @@ lustre/utils/liblustreapi_pfind.c: static int find_cookie_check(const char *fsna
+      		if (oldest == 0)
+      			continue;
+      
+    +@@ lustre/utils/liblustreapi_pfind.c: static int find_cookie_check(const char *fsname, const char *cookie,
+    + 			 * A clear between the two reads leaves the log empty,
+    + 			 * or starting at anchor + 1.  Past that is a purge.
+    + 			 */
+    +-			rc = find_cl_first(mdtname, 0, &oldest);
+    +-			if (rc < 0) {
+    ++			rc = find_cookie_purged(mdtname, anchor, cookie,
+    ++						&oldest);
+    ++			if (rc < 0 && rc != -ESTALE)
+    + 				llapi_error(LLAPI_MSG_ERROR, rc,
+    + 					    "cannot read the changelog of '%s'",
+    + 					    mdtname);
+    ++			if (rc < 0)
+    + 				return rc;
+    +-			}
+    + 			if (oldest == 0 || oldest == anchor + 1)
+    + 				continue;
+    +-			if (oldest > anchor + 1) {
+    +-				llapi_error(LLAPI_MSG_ERROR |
+    +-					    LLAPI_MSG_NO_ERRNO, -ESTALE,
+    +-					    "'%s' has purged past the cookie: it starts at %llu and '%s' records %llu, so the run would resume at %llu and the records in between are gone",
+    +-					    mdtname, (unsigned long long)oldest,
+    +-					    cookie, (unsigned long long)anchor,
+    +-					    (unsigned long long)(anchor + 1));
+    +-				return -ESTALE;
+    +-			}
+    + 			llapi_error(LLAPI_MSG_ERROR | LLAPI_MSG_NO_ERRNO,
+    + 				    -ESTALE,
+    + 				    "'%s' holds records but none at or after %llu, which '%s' records: its changelog was restarted, and a run from there would skip them",
+     @@ lustre/utils/liblustreapi_pfind.c: int llapi_find_since(const char *path, struct find_param *param)
+      	int *mdts = NULL;
+      	__u64 *starts = NULL;
+3:  7a246f3eff ! 3:  3e11664c8c LU-20650 lfs: find --since, warn when the log was cleared
+    @@ lustre/utils/liblustreapi_pfind.c: static int find_cookie_check(const char *fsna
+      		if (rc < 0) {
+      			llapi_error(LLAPI_MSG_ERROR, rc,
+      				    "cannot read the changelog of '%s'",
+    -@@ lustre/utils/liblustreapi_pfind.c: static int find_cookie_check(const char *fsname, const char *cookie,
+    - 			 * A clear between the two reads leaves the log empty,
+    - 			 * or holding only newer records.  Nothing was lost.
+    - 			 */
+    --			rc = find_cl_first(mdtname, 0, &oldest);
+    -+			rc = find_cl_first(mdtname, 0, &oldest, NULL);
+    - 			if (rc < 0) {
+    - 				llapi_error(LLAPI_MSG_ERROR, rc,
+    - 					    "cannot read the changelog of '%s'",
+     @@ lustre/utils/liblustreapi_pfind.c: int llapi_find_since(const char *path, struct find_param *param)
+      		if (rc == -ESTALE)
+      			break;

@@ -1,0 +1,72 @@
+===== old (0f9b013492)
+[1] RACE: 101..105 written+cleared between reads 2 and 3, anchor 100
+    read 1 from 0 -> 95
+    read 2 from 100 -> 0
+    read 3 from 0 -> 106
+  => rc 0 (continues)
+[2] control: cleared to empty between reads, anchor 100
+    read 1 from 0 -> 95
+    read 2 from 100 -> 0
+    read 3 from 0 -> 0
+  => rc 0 (continues)
+[3] control: cleared, oldest is anchor+1, anchor 100
+    read 1 from 0 -> 95
+    read 2 from 100 -> 0
+    read 3 from 0 -> 101
+  => rc 0 (continues)
+[4] control: restarted log (oldest 5), anchor 100
+    read 1 from 0 -> 5
+    read 2 from 100 -> 0
+    read 3 from 0 -> 5
+    ERROR(-116): 'lfsh-MDT0000' holds records but none at or after 100, which '/tmp/claude-1004/-home-nishida-projects-lustre-lfu/12347b89-7a08-40b7-aea7-71d67cc5a5d6/scratchpad/h1019h/old/cookie' records: its changelog was restarted, and a run from there would skip them
+  => rc -116 (Stale file handle)
+[5] edge: restarted log grew to the anchor, anchor 100
+    read 1 from 0 -> 5
+    read 2 from 100 -> 0
+    read 3 from 0 -> 100
+  => rc 0 (continues)
+[6] control: purged before read 1, anchor 100
+    read 1 from 0 -> 150
+    ERROR(-116): 'lfsh-MDT0000' has purged past the cookie: it starts at 150 and '/tmp/claude-1004/-home-nishida-projects-lustre-lfu/12347b89-7a08-40b7-aea7-71d67cc5a5d6/scratchpad/h1019h/old/cookie' records 100, so the run would resume at 101 and the records in between are gone
+  => rc -116 (Stale file handle)
+[7] control: anchor 0, log now starts at 7 (WARN), anchor 0
+    read 1 from 0 -> 7
+    WARN(0): 'lfsh-MDT0000' starts at 7 and was empty when '/tmp/claude-1004/-home-nishida-projects-lustre-lfu/12347b89-7a08-40b7-aea7-71d67cc5a5d6/scratchpad/h1019h/old/cookie' was written: any records purged since then are not in the answer
+  => rc 0 (continues)
+===== new (88ee77c068)
+[1] RACE: 101..105 written+cleared between reads 2 and 3, anchor 100
+    read 1 from 0 -> 95
+    read 2 from 100 -> 0
+    read 3 from 0 -> 106
+    ERROR(-116): 'lfsh-MDT0000' has purged past the cookie: it starts at 106 and '/tmp/claude-1004/-home-nishida-projects-lustre-lfu/12347b89-7a08-40b7-aea7-71d67cc5a5d6/scratchpad/h1019h/new/cookie' records 100, so the run would resume at 101 and the records in between are gone
+  => rc -116 (Stale file handle)
+[2] control: cleared to empty between reads, anchor 100
+    read 1 from 0 -> 95
+    read 2 from 100 -> 0
+    read 3 from 0 -> 0
+  => rc 0 (continues)
+[3] control: cleared, oldest is anchor+1, anchor 100
+    read 1 from 0 -> 95
+    read 2 from 100 -> 0
+    read 3 from 0 -> 101
+  => rc 0 (continues)
+[4] control: restarted log (oldest 5), anchor 100
+    read 1 from 0 -> 5
+    read 2 from 100 -> 0
+    read 3 from 0 -> 5
+    ERROR(-116): 'lfsh-MDT0000' holds records but none at or after 100, which '/tmp/claude-1004/-home-nishida-projects-lustre-lfu/12347b89-7a08-40b7-aea7-71d67cc5a5d6/scratchpad/h1019h/new/cookie' records: its changelog was restarted, and a run from there would skip them
+  => rc -116 (Stale file handle)
+[5] edge: restarted log grew to the anchor, anchor 100
+    read 1 from 0 -> 5
+    read 2 from 100 -> 0
+    read 3 from 0 -> 100
+    ERROR(-116): 'lfsh-MDT0000' holds records but none at or after 100, which '/tmp/claude-1004/-home-nishida-projects-lustre-lfu/12347b89-7a08-40b7-aea7-71d67cc5a5d6/scratchpad/h1019h/new/cookie' records: its changelog was restarted, and a run from there would skip them
+  => rc -116 (Stale file handle)
+[6] control: purged before read 1, anchor 100
+    read 1 from 0 -> 150
+    ERROR(-116): 'lfsh-MDT0000' has purged past the cookie: it starts at 150 and '/tmp/claude-1004/-home-nishida-projects-lustre-lfu/12347b89-7a08-40b7-aea7-71d67cc5a5d6/scratchpad/h1019h/new/cookie' records 100, so the run would resume at 101 and the records in between are gone
+  => rc -116 (Stale file handle)
+[7] control: anchor 0, log now starts at 7 (WARN), anchor 0
+    read 1 from 0 -> 7
+    WARN(0): 'lfsh-MDT0000' starts at 7 and was empty when '/tmp/claude-1004/-home-nishida-projects-lustre-lfu/12347b89-7a08-40b7-aea7-71d67cc5a5d6/scratchpad/h1019h/new/cookie' was written: any records purged since then are not in the answer
+  => rc 0 (continues)

@@ -1,0 +1,19 @@
+  o (0f9b013492) PLUGIN_DIR in lib: /tmp/arm1019ho/lib/lustre/scan_osd_%s.so
+-rwxr-xr-x. 1 nishida nishida   96416 21:29:49 /tmp/lab1019h-o/lustre/tests/.libs/llapi_scan_changelog_test
+-rwxr-xr-x. 1 nishida nishida  752168 21:29:47 /tmp/lab1019h-o/lustre/utils/.libs/lfs
+-rwxr-xr-x. 1 nishida nishida 1419000 21:29:47 /tmp/lab1019h-o/lustre/utils/.libs/liblustreapi.so.1.0.0
+c2e167479cf2
+c2e167479cf2
+  n (88ee77c068) PLUGIN_DIR in lib: /tmp/arm1019hn/lib/lustre/scan_osd_%s.so
+-rwxr-xr-x. 1 nishida nishida   96416 21:30:10 /tmp/lab1019h-n/lustre/tests/.libs/llapi_scan_changelog_test
+-rwxr-xr-x. 1 nishida nishida  752168 21:30:08 /tmp/lab1019h-n/lustre/utils/.libs/lfs
+-rwxr-xr-x. 1 nishida nishida 1419192 21:30:08 /tmp/lab1019h-n/lustre/utils/.libs/liblustreapi.so.1.0.0
+f0fba09edae7
+f0fba09edae7
+  t (3e11664c8c) PLUGIN_DIR in lib: /tmp/arm1019ht/lib/lustre/scan_osd_%s.so
+-rwxr-xr-x. 1 nishida nishida   96416 21:30:32 /tmp/lab1019h-t/lustre/tests/.libs/llapi_scan_changelog_test
+-rwxr-xr-x. 1 nishida nishida  752168 21:30:30 /tmp/lab1019h-t/lustre/utils/.libs/lfs
+-rwxr-xr-x. 1 nishida nishida 1422336 21:30:30 /tmp/lab1019h-t/lustre/utils/.libs/liblustreapi.so.1.0.0
+daf4fa581ef6
+daf4fa581ef6
+BUILD-OK

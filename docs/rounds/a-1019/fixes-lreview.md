@@ -295,3 +295,90 @@ unstaged. `reset --hard` was refused by the permission classifier, so the
 lag (including this round's) was put in a stash instead, so nothing is
 lost: stash@{0} "n1019: ref-move lag of igif-1017". The tree is clean at
 1b58085835. Not done: lreview (by instruction), push.
+
+---
+
+# lreview r3 on 68419: S4 restart probe, S5 header width (2026-10-20)
+
+Report: `lreview/68419-r3.md`. Findings 1 (S4) and 2 (S5) taken. Finding 3
+(long commit message) is DECLINED and was not touched.
+
+**S4 verified REAL.** In `find_cookie_check()`, the branch after the second
+read (`from == 0`, nothing at or after the anchor) did a third read and
+continued on `oldest >= anchor`. Say records anchor+1..K are written and
+then cleared by another changelog user between the second and third reads.
+The third read then sees oldest = K+1 and the run resumes at anchor + 1, so
+anchor+1..K are lost with nothing said. That is the purge the first check
+refuses as -ESTALE. Anchor 0 is a different case: it returns earlier through
+`find_cookie_was_empty()` (WARN and continue, the 10-18 user decision), so
+the fix does not touch it. The harness's anchor-0 row shows that.
+
+**Fix (tx_1019h.py):** the third read continues only on `oldest == 0` or
+`oldest == anchor + 1`. Past anchor + 1 it is the same -ESTALE purge
+refusal as the first check. At or below the anchor it is the restart
+refusal, as before. One case changes on purpose: oldest == anchor. The
+original log cannot show the anchor again once nothing at or after it is
+left, so that is a restarted log that has grown to the anchor, and it is
+now refused too. In 68419 the purge refusal is written out in place. From
+69443 on, the third read calls `find_cookie_purged()`. S5: the header sscanf
+uses `"%" FIND_COOKIE_WIDTH(NAME_MAX) "s%n"`, like the anchor parse.
+
+**Rewrite:** `forktx5.py 0f9b013492 tx_1019h.py` in ~/lfs-fork-1014. Log
+`tx_1019h.log`, dry run `tx_1019h-dry.log`. A second dry pass from the new
+68419 has no HITS, so the script is idempotent. Backup tags `o1019-<branch>`.
+Only the trunk moved. No other branch holds 68419: fork-69501/2/3, rate,
+maxrate and igif all fork below it. The checked-out igif-1017 did not move,
+so there is no worktree lag.
+
+| commit | old | new |
+|---|---|---|
+| 68419 | 0f9b013492 | 88ee77c068 |
+| 69443 | aa9680ddcb | 5f66950185 |
+| 69500 (fork-1014) | 7a246f3eff | 3e11664c8c |
+
+- Build sweep: all 3 commits build=0 hdr=0 tests=0 sh=0 (`sweep_h.log`).
+- checkpatch on 68419: the same output before and after, only the known
+  man-page noise (`checkpatch_h.txt`).
+- range-diff (`range-diff-h.txt`): 68419 has S4 + S5. 69443 now has the
+  `find_cookie_purged()` form of the third read. 69500 changes only by the
+  same hunk. No commit message changed.
+
+**Harness** (`tests/lab-1019h/run.sh`, `lift.py`, `harness.c`, output in
+`harness.result.txt`): `find_cookie_check()` and `find_cookie_was_empty()`
+are lifted verbatim from 0f9b013492 and 88ee77c068. `find_cl_first()` is
+scripted. Anchor 100:
+
+| reads (1, 2, 3) | old | new |
+|---|---|---|
+| 95, 0, 106: the race | **rc 0, nothing said** | **-ESTALE "purged past the cookie ... resume at 101"** |
+| 95, 0, 0: cleared empty | rc 0 | rc 0 |
+| 95, 0, 101: anchor+1 | rc 0 | rc 0 |
+| 5, 0, 5: restarted | -ESTALE restart | same |
+| 5, 0, 100: restarted, grew to the anchor | rc 0 | -ESTALE restart (intended) |
+| 150: purged before read 1 | -ESTALE purge | same |
+| anchor 0, oldest 7 | WARN, rc 0 | same |
+
+**Lab** (`tests/lab-1019h/`, clone VM, modules 2.17.58_65_g8618869;
+userspace-only arms built by 01-build.sh: o = 0f9b013492 (lib md5
+c2e167479cf2), n = 88ee77c068 (f0fba09edae7), t = 3e11664c8c
+(daf4fa581ef6); VM started 21:28 and shut down after; the EC rig was not
+touched). The timing is held, not raced. `02-probe.sh` runs lfs under gdb
+with a Python breakpoint on `llapi_scan_changelog()`. Only stops whose
+stack holds `find_cookie_check()` count. Every run logged
+`find_cl_first<-find_cookie_check<-llapi_find_since<-lfs_find` for check
+reads 1-3. The breakpoint fires at the entry of each read. Before read 2,
+the other user (cl1) clears the whole log. Before read 3, lost1..3 are made
+(records 5-10), then kept1..2, and the log is cleared through 10, so it
+starts at 11. The anchor from run1 is 4. MDSCOUNT=1. Order o n n o, with a
+REFORMAT per run. All four runs gave the same result per arm:
+
+| | o (old 68419) | n (new 68419) |
+|---|---|---|
+| run2 (held) | **exited 0, kept1..2 printed, lost1..3 missing, no message; cookie 4 -> 14** | exit 116: "'lfst-MDT0000' has purged past the cookie: it starts at 11 and ... records 4, so the run would resume at 5 and the records in between are gone"; cookie left at 4 |
+| run3 | rc 0, nothing: the loss is now permanent and was never reported | rc 116, the same refusal (the loss stays reported) |
+
+- 160Aa-Af on t: MDSCOUNT=1 PASS 6/6 and MDSCOUNT=2 PASS 6/6 (0 FAIL,
+  0 SKIP; the loaded version was asserted non-empty). Raw output is in
+  `04-all.result.txt`.
+
+Not done, as instructed: lreview, push.
