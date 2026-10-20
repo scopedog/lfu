@@ -2,12 +2,11 @@ import json, re, subprocess, sys, os, datetime
 STATE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'seen.json')
 # Every change of ours in review.  A change pushed and not added here is
 # INVISIBLE to this watch -- which is how 68340 stayed out of the 2026-08-27
-# morning check.  68616 and 68617 are the two preparatory changes round 19
-# added at the bottom of the stack.
-CHANGES = [68094,68095,68156,68157,68158,68159,68160,68163,68231,68288,68340,
-           68413,69206,68414,68415,68416,68417,68418,68419,68420,68616,68617,
-           # round 22 created these two: the batch API and the slash trim
-           68726,68727, 69700,  # 69700: rate limit, 10-15 (PS2 on 68160)
+# morning check.  Merged and abandoned changes dropped 10-20.
+CHANGES = [68156,68157,68158,68159,68160,68163,68288,
+           69206,68414,68415,68416,68417,68418,68419,
+           68727,  # round 22's slash trim
+           69700,  # rate limit, 10-15 (PS2 on 68160)
            69728, 69729,  # --max-rate on 69700; IGIF root on 68288, 10-15
            69339, 69417,  # uuid_match const cleanup, 09-30
            69443,  # 68419 stale-window follow-up, 10-05
@@ -15,8 +14,8 @@ CHANGES = [68094,68095,68156,68157,68158,68159,68160,68163,68231,68288,68340,
            69500, 69501, 69502, 69503,  # the 10-06 follow-ups, pushed 10-07
            # LU-20546 import ref fix and its "if (rc)" follow-on; in
            # review since 09, unwatched until 10-12
-           68582, 69438,
-           64945, 65026,  # LU-20050 sepol pair; 64945 landed 10-12
+           69438,  # "if (rc)" follow-on to LU-20546 (68582 landed)
+           65026,  # LU-20050 sepol, second half (64945 landed 10-12)
            # not ours: laisiyao's OI scrub refactor, reviewed 10-11 for
            # adilger; watched for the owner's reply
            65449,
