@@ -1,0 +1,9 @@
+old: x is 0x200001b71:0x2:0x0 ino 5335
+old: ino 5335 now holds: 0x200001b71:0x3:0x0 y1.1
+old: in the delayed scan, records with ino 5335: 0x200001b71:0x2:0x0 y1.1 
+old: records with x's FID: 1 | STATS records=5807 seen=5807 emitted=5807 raw=5807 fallback=0 xa_inline=22923 xa_ext=0 xa_iget=0 stale_slot=0 err=0
+new: x is 0x200002341:0x2:0x0 ino 5859
+new: ino 5859 now holds: 0x200002341:0x3:0x0 y1.1
+new: in the delayed scan, records with ino 5859: 
+new: records with x's FID: 0 | STATS records=6107 seen=6108 emitted=6107 raw=6108 fallback=0 xa_inline=24121 xa_ext=0 xa_iget=0 stale_slot=1 err=0
+== end
