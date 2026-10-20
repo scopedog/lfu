@@ -40,10 +40,29 @@ Cost: 68415 $3.95, 68416 $2.86, 68419 $3.96.
 | # | change | sha | finding | verdict |
 |---|---|---|---|---|
 | R5 | 68159 | 47d5221ea5 | no findings; suggests splitting the namespace-walk fixes/%LO out | SKIP (land ASAP) |
-| R6 | 68160 | a3b2e9dbac | --local sweep with layout options on a node with MDT+OST: ENOTSUP per OST, nonzero exit though the answer is complete | ASK user (needs an exported helper/flag) |
+| R6 | 68160 | a3b2e9dbac | --local sweep with layout options on a node with MDT+OST: ENOTSUP per OST, nonzero exit though the answer is complete | TAKE (user 10-20: DDN etc run MDT+OST on one host) |
 | R7 | 68160 | a3b2e9dbac | lfs-only fields in public struct find_param | SKIP (land ASAP) |
 | R8 | 68163 | 4637f31c47 | clean | - |
 | R9 | 68288 | ab1e0ea424 | liblustreapi_scan.c:1128 comment contradicts code (OST obj with OWNER has a path) | take (comment) |
 | R10 | 68288 | ab1e0ea424 | --fid2path on an OST refused with a fileset mount though it would work | SKIP (over-restrictive, not wrong) |
 | R11 | 68419 | ec639d5c23 | cookie in sticky dir owned by another uid: probe passes, rename EPERM after printing, every run repeats | REAL, take: refuse in the pre-pass |
 | R12 | 69729 | 6c43ee2168 | clean | - |
+
+## Round 3 (10-20 ~12:55-13:24 JST, $14.2)
+
+| # | change | sha | finding | verdict |
+|---|---|---|---|---|
+| S1 | 68415 | 103058b1ff | clean | - |
+| S2 | 68160 | a087d7acdc | lfs_find_asks_layout() duplicates the library list; drift -> old error back | SKIP (failure mode is the old error, never a wrong answer; land ASAP) |
+| S3 | 68288 | 023630cf66 | clean | - |
+| S4 | 68419 | 0f9b013492 | restart probe: purge of anchor+1..K between 2nd and 3rd read -> silent loss | REAL if verified: take |
+| S5 | 68419 | 0f9b013492 | header parse literal 255 width | take (trivial) |
+| S6 | 68419 | 0f9b013492 | long commit message | DECLINE (as L3) |
+
+## Round 4 (10-20 13:40-13:49 JST, $4.4)
+
+| # | change | sha | finding | verdict |
+|---|---|---|---|---|
+| T1 | 68419 | 88ee77c068 | long commit message | DECLINE (as L3/S6) |
+| T2 | 68419 | 88ee77c068 | lfs-find.1: --since-cookie also anchors --changelog, text names only --since | SKIP this round (incomplete, not wrong); candidate for next PS |
+| T3 | 69443 | 5f66950185 | clean; suggests a DNE test of the mid-run recheck | SKIP (land ASAP) |

@@ -6,6 +6,19 @@ the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
 
 ## 2026-10-10 day: CI triage + AI round on the 10-10 PS -- START HERE
 
+- **10-20 ~13:55 JST: round a-1019 PUSHED** (tags a1019-pushed-*): trunk
+  3e11664c8c (68156 PS39 ... 69500), 69501 fa286b2a07, 69502 74af233406,
+  69503 7d4a616c9d, 69700 f7384fedf4, 69729 1b58085835.  69728 held
+  (--speed).  12 replies posted + resolved (7 AI, 5 adilger); 69795 and
+  69796 AI declines posted.  Round notes: docs/rounds/a-1019/ (triage,
+  maloo, lreview/, fixes*.md, foreign-negate.md, adilger-68156.md).
+  - adilger 68156 done: %LF = owning MDT FID on device scans, new %LO;
+    conf-sanity 300a-c in 68160 via lfs find --device.
+  - Real bugs fixed: 68416 reopened-file FID check; 68415 type mask with
+    no overlap; 68156 pre-2.6 OST IDIF index; 68419 sticky-dir cookie and
+    restart-probe purge race; 68160 --local layout exit code on MDT+OST
+    nodes.
+  - Next PS candidate: 68419 lfs-find.1 --since-cookie with --changelog.
 - **69744 REVIEWED 10-19, CR+1 posted** (sbuisson, LU-20971 pfind work unit
   path buffer overflow -- likely our owed --thread-count heap bug; same
   code as 69796).  If it lands before 69796, 69796 must broadcast

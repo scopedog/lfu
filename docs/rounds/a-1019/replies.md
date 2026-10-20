@@ -1,4 +1,4 @@
-# Replies to the 2026-10-19 AI round (drafts, NOT posted)
+# Replies to the 2026-10-19 AI round -- POSTED 10-20 after the a1019 push (12, verified resolved)
 
 Keyed by change and full comment id, as in triage.md. Only the items taken
 in this round (#1 #2 #5 #6 #7 #8 #9). #3 #4 #10 #11 #12 wait for the user.
