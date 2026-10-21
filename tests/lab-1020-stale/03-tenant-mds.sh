@@ -5,7 +5,7 @@
 # tenant's UID range (t*), 50 out of it by UID but in by GID (g*), 100
 # owned outside every range (u*).  Offsets: 100000, limit 100000, all three.
 set -u
-T=/tmp/stale-ten; L=$T/lustre/utils/lctl; CLI=192.168.122.101@tcp
+T=${T:-/tmp/stale-ten2}; L=$T/lustre/utils/lctl; CLI=192.168.122.101@tcp
 export LUSTRE=$T/lustre FSTYPE=ldiskfs MDSCOUNT=1 OSTCOUNT=1 TMP=/tmp/tenfs \
 	MDSSIZE=400000 OSTSIZE=800000
 sync_nm() { sleep 12; $L get_param -n nodemap.active; }
@@ -46,6 +46,19 @@ nm-tenant)
 	$L nodemap_add_offset --name tenant --offset 100000 --limit 100000
 	sync_nm
 	$L get_param nodemap.tenant.offset nodemap.tenant.ranges 2>&1 | head -6 ;;
+nm-squash)	# round 2: a tenant whose root is squashed is refused
+	$L nodemap_modify --name tenant --property admin --value 0; sync_nm ;;
+nm-unsquash)
+	$L nodemap_modify --name tenant --property admin --value 1; sync_nm ;;
+nm-nobyfid)	# round 2: every role but byfid_ops
+	$L nodemap_modify --name tenant --property rbac \
+		--value file_perms,dne_ops,quota_ops,chlg_ops,fscrypt_admin,server_upcall,ignore_root_prjquota,hsm_ops,local_admin,pool_quota_ops,lqa_quota_ops,projid_set,foreign_ops
+	sync_nm; $L get_param -n nodemap.tenant.rbac ;;
+nm-allrbac)
+	$L nodemap_modify --name tenant --property rbac --value all; sync_nm ;;
+nm-fileset)	# round 2: a tenant confined to a fileset is refused
+	$L nodemap_set_fileset --name tenant --fileset /ten; sync_nm
+	$L get_param -n nodemap.tenant.fileset ;;
 down)
 	$L nodemap_activate 0 2>/dev/null
 	$L nodemap_del tenant 2>/dev/null

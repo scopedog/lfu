@@ -5,8 +5,8 @@
 # created until one takes x's inode.  old should emit x's FID with the new
 # file's name; new should drop it and count ls_stale.
 set -u
-OUT=/tmp/stale-lab/tgt; mkdir -p $OUT; exec > $OUT/run.txt 2>&1
-for n in old new; do
+OUT=/tmp/stale-lab/tgt; mkdir -p $OUT; exec >> $OUT/run.txt 2>&1
+for n in ${@:-old new}; do
 	T=/tmp/stale-$n
 	export LUSTRE=$T/lustre FSTYPE=ldiskfs MDSCOUNT=1 OSTCOUNT=1 TMP=/tmp/stalefs
 	(cd $T/lustre/tests && NOFORMAT=1 bash llmount.sh) > $OUT/llmount.$n.txt 2>&1

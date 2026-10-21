@@ -2,14 +2,14 @@
 # 10-20 tenant lab, client side (as root on rhel9.7-client-clone).
 # Usage: 03-tenant-cli.sh up|scan <label>|caps|down
 set -u
-T=/tmp/stale-ten; OUT=/tmp/ten-out; mkdir -p $OUT
+T=${T:-/tmp/stale-ten2}; OUT=/tmp/ten-out; mkdir -p $OUT
 case $1 in
 up)
 	(cd $T/lustre/tests && LUSTRE=$T/lustre bash -c '. ./test-framework.sh; init_test_env >/dev/null 2>&1; load_modules') > $OUT/load.txt 2>&1
 	k=$(find $T/lustre -name mdc.ko | head -1)
 	[ "$(cat /sys/module/mdc/srcversion)" = "$(modinfo -F srcversion $k)" ] || { echo "ABORT: mdc not ten's"; exit 4; }
 	mkdir -p /mnt/lustre
-	mount -t lustre 192.168.122.10@tcp:/lustre /mnt/lustre || exit 4
+	env LD_LIBRARY_PATH=$T/lustre/utils/.libs $T/lustre/utils/.libs/mount.lustre 192.168.122.10@tcp:/lustre /mnt/lustre || exit 4
 	echo "client up: $(ls /mnt/lustre/ten | wc -l) files visible" ;;
 scan)
 	$T/mountdump /mnt/lustre > $OUT/$2.txt 2> $OUT/$2.err

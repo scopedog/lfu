@@ -48,3 +48,26 @@ Fixture: t* (100) uid/gid 100500, g* (50) uid 600 gid 100700, u* (100)
   no u, no dirs/ROOT.  IDs mapped: t0 500 500 900, t1 500 500 65534
   (projid 0 out of range), g0 65534 700 65534 -- the same IDs `stat`
   shows through that client.
+
+## Round 2: after the lreview fixes (tip 33baf7f1c6 code = f057ebada1)
+Build sweep: full tip + modules at all seven kernel commits, rc=0.
+- **Unmount, first attempt CRASHED the VM** (class_incref + OBDF_STOPPING on
+  the OSD obd): osd_shutdown() runs from mdt_stack_fini() inside the MDT's
+  class_cleanup(), before the OSD obd stops or is released, so the LASSERT
+  in osd_scrub_cleanup() fired (vmcore /var/crash/127.0.0.1-2026-10-20-16:23:48).
+- Fix: osd_scrub_cleanup() sets od_otable_stopping and waits for private
+  iterators; private next() -> -ESHUTDOWN; DORA_STATS dos_stopping; lfu
+  polls it every 1 s while stalled.  06-umount-link.sh, ring 64 KiB,
+  reader not reading: MDT umount rc=0 in 1.09 s, reader ESHUTDOWN, 0 LBUG.
+- Big link (151 names, ~4 KB trusted.link): old arm llapi_scan_mount
+  rc=-7 (E2BIG) at 4547 records; new: rc=0, 6027 records, the file carried
+  as LFU_REC_LINK_BIG (no name).
+- Targeted reuse (05-targeted.sh ten3): stale=1, no record for the inode.
+- Tenant gate (03-tenant-*.sh, T=/tmp/stale-ten3): off 257; default
+  nodemap -EPERM; admin+trusted 257; tenant 150 mapped; tenant admin=0
+  (squashed root) -EPERM; rbac without byfid_ops -EPERM; fileset /ten
+  -EPERM; restoring each gives 150 back.  ioctl: nobody EPERM,
+  +CAP_DAC_READ_SEARCH ok, +CAP_SYS_ADMIN only EPERM.
+- Not lab-tested: the crafted-request rejection in dt_index_read() (needs
+  a modified client), the read() mutex (needs two racing readers), zeroed
+  reply pages (no reader of the stale bytes).
