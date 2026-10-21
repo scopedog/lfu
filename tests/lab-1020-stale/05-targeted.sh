@@ -10,10 +10,12 @@ for n in ${@:-old new}; do
 	T=/tmp/stale-$n
 	export LUSTRE=$T/lustre FSTYPE=ldiskfs MDSCOUNT=1 OSTCOUNT=1 TMP=/tmp/stalefs
 	(cd $T/lustre/tests && NOFORMAT=1 bash llmount.sh) > $OUT/llmount.$n.txt 2>&1
+	k=$T/lustre/obdclass/obdclass.ko
+	[ -f $k ] && [ "$(cat /sys/module/obdclass/srcversion 2>/dev/null)" = "$(modinfo -F srcversion $k)" ] || { echo "ABORT: loaded obdclass is not $n's"; exit 4; }
 	insmod $T/lustre/lfu/lfu.ko
-	[ "$(cat /sys/module/lfu/srcversion)" = "$(modinfo -F srcversion $T/lustre/lfu/lfu.ko)" ] || { echo "ABORT lfu"; exit 4; }
+	[ -f $T/lustre/lfu/lfu.ko ] && [ "$(cat /sys/module/lfu/srcversion 2>/dev/null)" = "$(modinfo -F srcversion $T/lustre/lfu/lfu.ko)" ] || { echo "ABORT lfu"; exit 4; }
 	gcc -O2 -I$T/include/uapi -o $T/ringdump /tmp/ringdump.c
-	d=/mnt/lustre/tgt.$n; mkdir $d; touch $d/x; sync; sleep 2
+	d=/mnt/lustre/tgt.$n.$(date +%s); mkdir $d; touch $d/x; sync; sleep 2
 	read xfid xino <<< $($T/ringdump lustre-MDT0000 2>/dev/null | awk '$3 == "x" {print $1, $5}' | tail -1)
 	echo "$n: x is $xfid ino $xino"
 	echo $xino > /sys/module/lfu/parameters/lab_delay_ino

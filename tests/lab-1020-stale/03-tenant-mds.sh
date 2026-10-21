@@ -59,6 +59,11 @@ nm-allrbac)
 nm-fileset)	# round 2: a tenant confined to a fileset is refused
 	$L nodemap_set_fileset --name tenant --fileset /ten; sync_nm
 	$L get_param -n nodemap.tenant.fileset ;;
+nm-deloffset)	# round 3: no offset, fileset kept -> refused
+	$L nodemap_del_offset --name tenant; sync_nm ;;
+nm-clearfileset)	# round 3: no offset, no fileset -> everything
+	$L nodemap_set_fileset --name tenant --fileset clear; sync_nm
+	$L get_param -n nodemap.tenant.fileset ;;
 down)
 	$L nodemap_activate 0 2>/dev/null
 	$L nodemap_del tenant 2>/dev/null

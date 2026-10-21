@@ -14,7 +14,7 @@ for n in "$@"; do
 	rm -rf $T; mkdir -p $T
 	tar -C $T --strip-components=1 -xzf /tmp/stale-$n.tgz || exit 1
 	echo "LUSTRE_VERSION = 2.17.58" > $T/LUSTRE-VERSION-FILE
-	[ $FULL = 1 ] && /tmp/lab-delay.sh $T
+	if [ $FULL = 1 ]; then /tmp/lab-delay.sh $T && /tmp/lab-delay-ino.sh $T || { echo "$n: lab patch FAILED"; continue; }; fi
 	(cd $T && sh autogen.sh && ./configure --enable-server \
 		--with-linux=/usr/src/kernels/$K --enable-ldiskfs \
 		--with-zfs=/usr/src/zfs-2.2.11 \
@@ -22,9 +22,9 @@ for n in "$@"; do
 		--disable-iokit) > /tmp/stale-$n-conf.log 2>&1 ||
 		{ echo "configure $n failed"; tail -5 /tmp/stale-$n-conf.log; continue; }
 	if [ $FULL = 1 ]; then
-		(cd $T && make -j4) > /tmp/stale-$n-make.log 2>&1
+		(cd $T && make -j4 KCFLAGS=-Wno-error=unused-label) > /tmp/stale-$n-make.log 2>&1
 	else
-		(cd $T && make -j4 modules) > /tmp/stale-$n-make.log 2>&1
+		(cd $T && make -j4 KCFLAGS=-Wno-error=unused-label modules) > /tmp/stale-$n-make.log 2>&1
 	fi
 	rc=$?
 	echo "$n ($(cat /tmp/stale-$n.sha)) make rc=$rc errors=$(grep -c ' error: ' /tmp/stale-$n-make.log) warnings=$(grep -c ' warning: ' /tmp/stale-$n-make.log)"

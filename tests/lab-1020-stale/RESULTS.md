@@ -71,3 +71,23 @@ Build sweep: full tip + modules at all seven kernel commits, rc=0.
 - Not lab-tested: the crafted-request rejection in dt_index_read() (needs
   a modified client), the read() mutex (needs two racing readers), zeroed
   reply pages (no reader of the stale bytes).
+
+## Round 3: second lreview fixes (tip d39f75a12c)
+Fixed: lfu.ko EOF race (done read with acquire, head re-read), singleton
+mode removed (private param gone: DOIF_RESET drove OI scrub and LASSERTed at
+unmount), otable object put before fini(), record pad zeroed (ring and RPC
+builders: a kept record's pad could carry a dropped record's name), ioctl
+'f' 234 (221 is lustre_ioctl.h's), LINK_BIG docs, fileset read under
+nm_fileset_alt_lock, tenants allowed WITH a fileset (the ID ranges stand
+in for it), a non-offset nodemap refused if it or its parent has one.
+Builds: modules at 68814/68816/68817, full tip, rc=0.
+- Lab trap: lab-delay.sh anchored on the removed private_it line, the lfu
+  module never built, llmount.sh then loaded the VM's INSTALLED Lustre and
+  the srcversion check compared two empty strings.  Scripts now check the
+  .ko exists and check obdclass too, and the lab patch fails loudly.
+- 06: big link carried, 6631 records rc 0; unmount 1.12 s, reader
+  ESHUTDOWN, 0 LBUG.  05 (fresh dir): stale=1, record dropped.
+- Tenant (T=/tmp/stale-ten4, client mdc srcversion checked): off 257;
+  ioctl nobody EPERM / +DAC_READ_SEARCH ok / +SYS_ADMIN EPERM; default
+  -EPERM; admin 257; tenant 150; squashed -EPERM; no byfid -EPERM;
+  tenant + fileset 150; fileset without offset -EPERM; neither 257.

@@ -5,9 +5,9 @@
 set -e
 F=$1/lustre/lfu/lfu_ring.c
 grep -q lab_delay_us $F && exit 0
-sed -i '/^static bool private_it = true;/a\
+sed -i '/^MODULE_PARM_DESC(batch,/a\
 static unsigned int lab_delay_us;\
 module_param(lab_delay_us, uint, 0644);\
 MODULE_PARM_DESC(lab_delay_us, "LAB ONLY: sleep between next() and the xattr reads");' $F
 sed -i 's|^\t\tr->st.ls_seen++;$|\t\tr->st.ls_seen++;\n\t\tif (lab_delay_us)\n\t\t\tusleep_range(lab_delay_us, lab_delay_us + 10);|' $F
-grep -c lab_delay_us $F
+[ $(grep -c lab_delay_us $F) -eq 5 ] || { echo "lab-delay.sh: patch did not apply"; exit 1; }

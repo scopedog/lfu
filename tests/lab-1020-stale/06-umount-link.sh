@@ -14,8 +14,10 @@ for n in "$@"; do
 	export LUSTRE=$T/lustre FSTYPE=ldiskfs MDSCOUNT=1 OSTCOUNT=1 TMP=/tmp/stalefs
 	(cd $T/lustre/tests && NOFORMAT=1 bash llmount.sh) > $OUT/llmount.$n.txt 2>&1
 	mount -t lustre | grep -q MDT0000 || { echo "ABORT $n mount"; exit 4; }
+	k=$T/lustre/obdclass/obdclass.ko
+	[ -f $k ] && [ "$(cat /sys/module/obdclass/srcversion 2>/dev/null)" = "$(modinfo -F srcversion $k)" ] || { echo "ABORT: loaded obdclass is not $n's"; exit 4; }
 	insmod $T/lustre/lfu/lfu.ko ring_size=65536 batch=8192
-	[ "$(cat /sys/module/lfu/srcversion)" = "$(modinfo -F srcversion $T/lustre/lfu/lfu.ko)" ] || { echo "ABORT lfu"; exit 4; }
+	[ -f $T/lustre/lfu/lfu.ko ] && [ "$(cat /sys/module/lfu/srcversion 2>/dev/null)" = "$(modinfo -F srcversion $T/lustre/lfu/lfu.ko)" ] || { echo "ABORT lfu"; exit 4; }
 	gcc -O2 -I$T/include/uapi -o $T/ringdump /tmp/ringdump.c
 	gcc -O2 -I$T/lustre/include -I$T/include -I$T/include/uapi -include $T/config.h \
 		-o $T/mountdump /tmp/mountdump.c -L$T/lustre/utils/.libs -llustreapi \
