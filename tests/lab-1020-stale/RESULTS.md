@@ -91,3 +91,11 @@ Builds: modules at 68814/68816/68817, full tip, rc=0.
   ioctl nobody EPERM / +DAC_READ_SEARCH ok / +SYS_ADMIN EPERM; default
   -EPERM; admin 257; tenant 150; squashed -EPERM; no byfid -EPERM;
   tenant + fileset 150; fileset without offset -EPERM; neither 257.
+
+## Round 4/5 (pushed as a1020-osd-pushed, tenant = 69851)
+Tenant rule now uid AND gid in range (admin-staged files with only the
+tenant's gid no longer leak): tenant 100 (t*), g* dropped; tenant+fileset
+100; default -EPERM.  osd-wbcfs refused for the otable (not lab-tested, no
+wbcfs rig).  Dynamic sub-nodemaps refused (not lab-tested).  Final
+lreview of 69851: the ID-range premise (no other nodemap writes IDs in the
+tenant's range) documented in the man page and commit message.

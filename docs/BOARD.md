@@ -6,6 +6,28 @@ the top table with `tests/gerrit-poll/gpoll.py`'s query; last refreshed
 
 ## 2026-10-10 day: CI triage + AI round on the 10-10 PS -- START HERE
 
+- **10-20 evening: OSD series (2.19) PUSHED** (tag a1020-osd-pushed in
+  ~/lfs-osd-1007, branch lu-20720-stale, Test-Parameters: ignore, user OK):
+  68810-68818 new PS + **69851** LU-20730 target: limit an object table
+  scan by nodemap (new).  Not in gpoll (2.19, as before).
+  - Inode reuse guard (i_generation, ls_stale) + "records are hints"
+    contract in lustre_lfu.h / dt_object.h / man3.
+  - LU-20730 (Andreas' Jira 09-10): CAP_DAC_READ_SEARCH on the client;
+    server gate admin + byfid_ops; tenants (offset) get uid AND gid in
+    range, mapped; no-offset needs trusted + no fileset; dynamic
+    sub-nodemaps refused.  RBAC "scan_ops" proposal posted to LU-20730
+    (comment 503877), waiting on Sebastien.
+  - lreview fixes: OSD cleanup waits for private iterators (was LASSERT),
+    otable request shape enforced server-side, zeroed reply pages and
+    record pads, link capped for the RPC path (was -E2BIG forever),
+    lfu.ko EOF race / reader mutex / singleton mode removed, ioctl 'f'
+    234, osd-wbcfs refused for the otable.
+  - Deferred: 68814 first-read() vs unmount race (lookup to init
+    unpinned); 68815 spec %files + layout predicates via the kernel
+    backend; endianness/wirecheck of lfu_rec; minors.
+  - Lab: tests/lab-1020-stale/RESULTS.md (rounds 1-3 + round 4 tenant).
+- **10-20 Maloo:** 68416/68157 sanity 160h -> LU-20813 retest; 68157
+  replay-dual 26 umount LBUG (osp ld_ref) -> LU-12571 retest.
 - **10-20 ~17:30 JST: polling STOPPED (host shutdown, lustre-kmec session).**
   All 19 a1019 PS are Jenkins Verified+1 (smatch clean; checkpatch only the
   known warnings).  Maloo and AI review on them still to come -- restart
